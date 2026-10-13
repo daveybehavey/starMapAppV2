@@ -41,3 +41,49 @@ test("layout boots the session flag and links the manifest", () => {
   assert.match(src, /ANDROID_APP_MODE_BOOTSTRAP/);
   assert.match(src, /manifest: "\/site\.webmanifest"/);
 });
+
+test("checkout POST enforces app mode before the idempotency cache lookup", () => {
+  const src = read("src/app/api/checkout/route.ts");
+  const post = src.slice(src.indexOf("export async function POST"));
+  const check = post.indexOf("isAndroidAppModeRequest(req)");
+  const keyBuild = post.indexOf("checkoutIdempotencyKey({");
+  const cacheGet = post.indexOf("kv.get<string>(idempotencyKey)");
+  assert.ok(check > 0 && keyBuild > 0 && cacheGet > 0);
+  assert.ok(check < keyBuild && check < cacheGet, "app-mode refusal must precede cache key + lookup");
+  assert.ok(post.indexOf("ANDROID_APP_DIGITAL_BLOCKED") < cacheGet);
+});
+
+test("app-mode checkouts use their own idempotency cache key", () => {
+  const src = read("src/app/api/checkout/route.ts");
+  assert.match(src, /androidAppMode\?: boolean;/);
+  assert.match(src, /\$\{input\.androidAppMode \? ":app-android" : ""\}`/);
+  const post = src.slice(src.indexOf("export async function POST"));
+  const keyCall = post.slice(post.indexOf("checkoutIdempotencyKey({"), post.indexOf("kv.get<string>(idempotencyKey)"));
+  assert.match(keyCall, /androidAppMode,/);
+});
+
+test("app mode hides every digital offer surface", () => {
+  const css = read("src/app/globals.css");
+  assert.match(css, /html\[data-app-mode="android"\] \[data-digital-offer\]/);
+  const mobile = read("src/app/MobileCreate.tsx");
+  assert.match(mobile, /data-testid="mobile-unlock-hd"\s+data-digital-offer/);
+  assert.match(mobile, /data-testid="mobile-sticky-unlock-hd"\s+data-digital-offer/);
+  // render-mode, intensity and font "Unlock HD" upsell chips
+  assert.equal((mobile.match(/data-digital-offer\s+className="rounded-full border border-white\/25/g) || []).length, 3);
+  assert.match(mobile, /appMode \? rows\.filter\(\(row\) => !row\.includeDigitalAddOn\) : rows/);
+  assert.match(mobile, /appMode \? "Framed print recommended" : "Framed \+ HD recommended"/);
+  const desktop = read("src/components/EditorExperience.tsx");
+  assert.match(desktop, /data-testid="desktop-unlock-hd"\s+data-digital-offer/);
+  assert.match(desktop, /data-testid="desktop-free-export-hd-upsell"\s+data-digital-offer/);
+  assert.match(desktop, /androidAppMode \? rows\.filter\(\(row\) => !row\.includeDigitalAddOn\) : rows/);
+  assert.match(read("src/components/SimplifiedEditor/SimplifiedEditor.tsx"), /onClick=\{handleHdDownload\}\s+data-digital-offer/);
+  const home = read("src/components/HomeOfferStack.tsx");
+  assert.match(home, /<div data-digital-offer className="brand-dark-card rounded-2xl p-4">\s*<div[^>]*>\s*<p[^>]*>\s*Digital HD options/);
+  assert.match(read("src/components/PaywallModal.tsx"), /appMode \? rows\.filter\(\(row\) => !row\.includeDigitalAddOn\) : rows/);
+});
+
+test("support phone is never published", () => {
+  const src = read("src/lib/businessProfile.ts");
+  assert.match(src, /const supportPhone = "";/);
+  assert.doesNotMatch(src, /NEXT_PUBLIC_SUPPORT_PHONE \|\|/);
+});

@@ -278,7 +278,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
           </div>
         </div>
 
-        <div className="brand-dark-card rounded-2xl p-4">
+        <div data-digital-offer className="brand-dark-card rounded-2xl p-4">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-xs font-semibold tracking-[0.2em] text-amber-300 uppercase">
               Digital HD options

@@ -625,6 +625,7 @@ function checkoutIdempotencyKey(input: {
   promoCode?: string | null;
   referralCode?: string | null;
   qaContext?: QaRequestContext | null;
+  androidAppMode?: boolean;
 }) {
   const mapId = typeof input.mapId === "string" ? input.mapId.trim() : "";
   if (!mapId) return null;
@@ -639,7 +640,7 @@ function checkoutIdempotencyKey(input: {
   const shipping = normalizeIdempotencyToken(input.shippingCountry, 8);
   const promo = normalizeIdempotencyToken(input.promoCode, 48);
   const referral = normalizeIdempotencyToken(input.referralCode, 48);
-  const baseWithoutMapId = `${CHECKOUT_IDEMPOTENCY_PREFIX}${orderType}:${plan}:${printVariant}:${includeDigitalAddOn}:${includeCardAddOn}:${merchFamily}:${merchSize}:${merchColor}:${shipping}:${promo}:${referral}`;
+  const baseWithoutMapId = `${CHECKOUT_IDEMPOTENCY_PREFIX}${orderType}:${plan}:${printVariant}:${includeDigitalAddOn}:${includeCardAddOn}:${merchFamily}:${merchSize}:${merchColor}:${shipping}:${promo}:${referral}${input.androidAppMode ? ":app-android" : ""}`;
   return appendCheckoutIdempotencyQaSegment(baseWithoutMapId, input.qaContext, mapId);
 }
 
@@ -1539,6 +1540,17 @@ export async function POST(req: NextRequest) {
       // ignore missing/invalid body
     }
 
+    // Google Play app mode: enforce the prints-only policy BEFORE any checkout-cache lookup,
+    // so a cached web (digital / add-on) session can never be returned to the app.
+    const androidAppMode = isAndroidAppModeRequest(req);
+    if (androidAppMode) {
+      const decision = androidAppCheckoutDecision({ orderType, hasMerch: Boolean(merchFamily), includeDigitalAddOn });
+      if (!decision.allowed) {
+        return NextResponse.json(ANDROID_APP_DIGITAL_BLOCKED, { status: 403 });
+      }
+      includeDigitalAddOn = decision.includeDigitalAddOn;
+    }
+
     // Presence-only browser handoff required for digital session creation (stops direct/bot POSTs).
     // Authenticated QA (`qaContext.enabled`) remains exempt for live probes.
     if (orderType === "digital" && checkoutHandoff === "missing" && !qaContext.enabled) {
@@ -1643,6 +1655,7 @@ export async function POST(req: NextRequest) {
       promoCode: promoCode ?? null,
       referralCode: referral.code ?? null,
       qaContext,
+      androidAppMode,
     });
     if (idempotencyKey) {
       const existingUrl = await kv.get<string>(idempotencyKey);
@@ -1676,13 +1689,6 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (isAndroidAppModeRequest(req)) {
-      const decision = androidAppCheckoutDecision({ orderType, hasMerch: Boolean(merchFamily), includeDigitalAddOn });
-      if (!decision.allowed) {
-        return NextResponse.json(ANDROID_APP_DIGITAL_BLOCKED, { status: 403 });
-      }
-      includeDigitalAddOn = decision.includeDigitalAddOn;
-    }
     const session = await createCheckoutSession({
       plan,
       mapId,

@@ -48,7 +48,7 @@ export default function RevenueTrustModule({
             Stripe Checkout with card security, plus Apple Pay, Google Pay, or Link on supported devices and browsers.
           </p>
         </div>
-        <div className="brand-light-card-accent rounded-2xl p-4">
+        <div data-digital-offer className="brand-light-card-accent rounded-2xl p-4">
           <p className="text-sm font-semibold text-midnight">
             {printCheckoutEnabled ? "Digital + physical options" : "Instant digital delivery"}
           </p>

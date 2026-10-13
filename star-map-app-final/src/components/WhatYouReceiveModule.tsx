@@ -98,7 +98,7 @@ export default function WhatYouReceiveModule({
         <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-xs text-neutral-700 sm:text-sm">
           <li>Design and preview your map for free.</li>
           <li>Complete secure checkout in Stripe.</li>
-          <li>Unlock HD and download immediately.</li>
+          <li data-digital-offer>Unlock HD and download immediately.</li>
           {printCheckoutEnabled ? (
             <>
               <li>{printAddOnTimelinePoint}</li>
