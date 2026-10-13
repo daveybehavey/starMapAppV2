@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { formatPrintPriceWithShipping, getPrintAddOnTimelinePoint, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import { isDigitalClaim } from "@/components/PurchaseTrustPanel";
 import { formatPrice, getPrintDigitalAddOnPrice, getPrintPricingTiers } from "@/lib/pricing";
 
 type ReceiveItem = {
@@ -63,7 +64,11 @@ export default function WhatYouReceiveModule({
 
       <div className="grid gap-3 sm:grid-cols-2">
         {items.map((item) => (
-          <div key={item.title} className="brand-light-card-accent rounded-2xl p-4">
+          <div
+            key={item.title}
+            data-digital-offer={isDigitalClaim(`${item.title} ${item.detail}`) ? true : undefined}
+            className="brand-light-card-accent rounded-2xl p-4"
+          >
             <h3 className="text-sm font-semibold text-midnight sm:text-base">{item.title}</h3>
             <p className="mt-1 text-xs text-neutral-700 sm:text-sm">{item.detail}</p>
           </div>

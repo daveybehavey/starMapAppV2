@@ -191,3 +191,14 @@ test("homepage delivery + FAQ digital copy hidden; owned pack credits keep navig
   assert.doesNotMatch(css, /a\[href\*="subscription"\]/);
   assert.ok(!"/editor?mode=quick&source=my-downloads-pack3-create-next".includes("plan=pack3"));
 });
+
+test("shared price/receive/preview fragments are marked and app mode is read synchronously", () => {
+  const glance = read("src/components/MoneyPagePriceAtGlance.tsx");
+  assert.match(glance, /<span data-digital-offer>\s*HD from/);
+  assert.match(glance, /<span data-digital-offer>\s*\{" · "\}\s*HD only/);
+  assert.match(glance, /<span data-digital-offer>HD unlocks instantly after checkout\. <\/span>/);
+  assert.match(read("src/components/WhatYouReceiveModule.tsx"), /data-digital-offer=\{isDigitalClaim\(`\$\{item\.title\} \$\{item\.detail\}`\) \? true : undefined\}/);
+  assert.match(read("src/components/PreviewStartForm.tsx"), /Framed print<span data-digital-offer> \+ HD digital<\/span>/);
+  const hook = read("src/hooks/useAndroidAppMode.ts");
+  assert.match(hook, /useSyncExternalStore\(subscribe, isAndroidAppModeClient, \(\) => false\)/);
+});
