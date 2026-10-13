@@ -161,3 +161,10 @@ test("residual homepage add-on claims, shop HD quick start, and gift-format tele
   const tel = read("src/components/GiftFormatsTelemetry.tsx");
   assert.match(tel, /\.\.\.\(appMode \? \[\] : \[\{ plan: "single" as const, orderType: "digital" as const, index: 0 \}\]\)/);
 });
+
+test("app-mode paywall heading and sticky digital bar", () => {
+  assert.match(read("src/components/PaywallModal.tsx"), /: appMode\s*\? "Order this map as a print"\s*: copy\.title;/);
+  const bar = read("src/components/StickyCtaBar.tsx");
+  assert.match(bar, /data-digital-offer=\{digitalPrimary \? true : undefined\}/);
+  assert.match(bar, /data-digital-offer\s+className="[^"]*"\s*>\s*HD export in seconds/);
+});

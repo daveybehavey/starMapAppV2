@@ -36,15 +36,21 @@ export default function StickyCtaBar({
   const href =
     primaryHref?.trim() ||
     (source ? `${baseHref}&source=${encodeURIComponent(source)}` : baseHref);
+  // A sticky bar whose primary action is a digital purchase is a digital offer as a whole
+  // (hidden in Google Play app mode, see globals.css).
+  const digitalPrimary = /checkout=(digital|hd)\b/.test(href) || ["single", "pack3", "subscription"].includes(primaryPlan);
 
   return (
-    <div className={`sticky top-3 z-20 mt-6 ${className}`}>
+    <div data-digital-offer={digitalPrimary ? true : undefined} className={`sticky top-3 z-20 mt-6 ${className}`}>
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200/70 bg-[rgba(247,241,227,0.96)] px-4 py-3 text-midnight shadow-lg shadow-black/10 backdrop-blur">
         <div>
           <p className="text-sm font-semibold">{title}</p>
           <p className="text-xs text-neutral-600">{description}</p>
           <div className="mt-1 flex flex-wrap gap-1.5">
-            <span className="rounded-full border border-amber-200/70 bg-white/70 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-midnight">
+            <span
+              data-digital-offer
+              className="rounded-full border border-amber-200/70 bg-white/70 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-midnight"
+            >
               HD export in seconds
             </span>
             {printCheckoutEnabled && (

@@ -140,7 +140,11 @@ export function PaywallModal({
   const isWeddingGift = giftPaywallContext === "wedding";
   const freeShippingOfferLine = getPrintFreeShippingOfferLine();
   const dialogTitle =
-    isWeddingGift && activeIntent === "print" && hasPrintOptions ? "Complete your wedding gift" : copy.title;
+    isWeddingGift && activeIntent === "print" && hasPrintOptions
+      ? "Complete your wedding gift"
+      : appMode
+        ? "Order this map as a print"
+        : copy.title;
   const dialogSubtitle =
     isWeddingGift && activeIntent === "print" && hasPrintOptions && appMode
       ? `Recommended presentation: a framed, wall-ready print from the same approved design. ${
