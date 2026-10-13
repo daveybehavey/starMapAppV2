@@ -72,7 +72,10 @@ export default function FramedProofSection({
               Unframed poster mockup
             </div>
           </div>
-          <div className="relative min-h-[180px] overflow-hidden rounded-2xl border border-black/10 bg-[#0a1228] shadow-sm">
+          <div
+            data-digital-offer
+            className="relative min-h-[180px] overflow-hidden rounded-2xl border border-black/10 bg-[#0a1228] shadow-sm"
+          >
             <ResilientImage
               src={digitalProofImage}
               fallbackSrc={HOME_MOCKUPS.digitalHd}

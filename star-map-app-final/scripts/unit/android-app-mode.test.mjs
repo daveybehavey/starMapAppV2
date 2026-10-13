@@ -168,3 +168,14 @@ test("app-mode paywall heading and sticky digital bar", () => {
   assert.match(bar, /data-digital-offer=\{digitalPrimary \? true : undefined\}/);
   assert.match(bar, /data-digital-offer\s+className="[^"]*"\s*>\s*HD export in seconds/);
 });
+
+test("framed+HD sticky bars and remaining homepage digital promotions are marked", () => {
+  const bar = read("src/components/StickyCtaBar.tsx");
+  assert.match(bar, /include_digital_addon=\(1\|true\)/);
+  assert.match(bar, /\/_hd\$\/\.test\(primaryPlan\)/);
+  const panel = read("src/components/PurchaseTrustPanel.tsx");
+  assert.match(panel, /return \/\\bHD\\b\|digital\/i\.test\(text\);/);
+  assert.equal((panel.match(/data-digital-offer=\{isDigitalClaim\(item\) \? true : undefined\}/g) || []).length, 2);
+  assert.match(read("src/app/HomeStaticSections.tsx"), /<span data-digital-offer>Recommended presentation is framed \+ HD/);
+  assert.match(read("src/components/FramedProofSection.tsx"), /data-digital-offer\s+className="relative min-h-\[180px\][^"]*"\s*>\s*<ResilientImage\s+src=\{digitalProofImage\}/);
+});

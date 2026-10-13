@@ -71,7 +71,8 @@ export default function HomeStaticSections({ priceLabels, promoStatus, promoCode
           className="shadow-2xl shadow-black/20"
         />
         <p className="mt-3 text-center text-xs text-neutral-300 sm:text-sm">
-          Recommended presentation is framed + HD ({bundlePriceLine}). Browse by occasion:{" "}
+          <span data-digital-offer>Recommended presentation is framed + HD ({bundlePriceLine}). </span>Browse by
+          occasion:{" "}
           <Link
             href="/wedding"
             className="font-semibold text-amber-300 underline decoration-amber-400/60 underline-offset-2 hover:text-amber-200"

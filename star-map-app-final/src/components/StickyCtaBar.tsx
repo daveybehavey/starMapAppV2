@@ -38,7 +38,10 @@ export default function StickyCtaBar({
     (source ? `${baseHref}&source=${encodeURIComponent(source)}` : baseHref);
   // A sticky bar whose primary action is a digital purchase is a digital offer as a whole
   // (hidden in Google Play app mode, see globals.css).
-  const digitalPrimary = /checkout=(digital|hd)\b/.test(href) || ["single", "pack3", "subscription"].includes(primaryPlan);
+  const digitalPrimary =
+    /checkout=(digital|hd)\b|include_digital_addon=(1|true)/.test(href) ||
+    /_hd$/.test(primaryPlan) ||
+    ["single", "pack3", "subscription"].includes(primaryPlan);
 
   return (
     <div data-digital-offer={digitalPrimary ? true : undefined} className={`sticky top-3 z-20 mt-6 ${className}`}>
