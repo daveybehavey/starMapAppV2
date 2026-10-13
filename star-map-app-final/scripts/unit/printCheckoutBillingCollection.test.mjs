@@ -58,8 +58,32 @@ test("print Checkout still collects shipping address, phone, and ToS", () => {
   );
   assert.match(
     block,
-    /consent_collection:\s*\{\s*terms_of_service:\s*"required"\s*,?\s*\}/,
+    /consent_collection:\s*buildCheckoutConsentCollection\(/,
+    "consent collection must use buildCheckoutConsentCollection (ToS required; promotions guarded)"
+  );
+  const consentHelper = fs.readFileSync(
+    path.join(ROOT, "src/lib/stripeConsentCollection.ts"),
+    "utf8"
+  );
+  assert.match(
+    consentHelper,
+    /terms_of_service:\s*"required"/,
     "ToS consent collection must remain required"
+  );
+  assert.match(
+    route,
+    /expires_at:\s*getCheckoutSessionExpiresAt\(\)/,
+    "checkout sessions must set a 2h expires_at"
+  );
+  assert.match(
+    route,
+    /after_expiration:\s*\{\s*recovery:\s*\{\s*enabled:\s*true/,
+    "after_expiration.recovery must remain enabled"
+  );
+  assert.match(
+    route,
+    /customerEmail \? \{ customer_email: customerEmail \}/,
+    "optional pre-checkout email must map to Stripe customer_email"
   );
   assert.match(
     block,

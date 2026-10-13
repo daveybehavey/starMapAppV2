@@ -1,4 +1,6 @@
 import Link from "next/link";
+import CustomerPhotoStrip from "@/components/CustomerPhotoStrip";
+import { LOVE_IT_GUARANTEE_LINE } from "@/lib/loveItGuarantee";
 import { getPrintProductionReviewDisclosure, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 
 type PurchaseTrustPanelProps = {
@@ -61,10 +63,11 @@ export default function PurchaseTrustPanel({
             <li>{shippingDisclosure}</li>
             <li>Framed print is the premium gift route; unframed and HD stay available if a different path fits better.</li>
             <li>{productionReviewPoint}</li>
-            <li>If a print arrives damaged, contact support@starmapco.com and we will help resolve it.</li>
+            <li>{LOVE_IT_GUARANTEE_LINE}</li>
           </ul>
         </div>
       )}
+      <CustomerPhotoStrip />
       <div className="flex flex-wrap gap-3 text-sm">
         <Link href="/how-to-print-star-map" className="text-amber-700 underline hover:text-amber-800">
           {guideLabel}
