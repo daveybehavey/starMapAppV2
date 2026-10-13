@@ -124,7 +124,7 @@ export default function FramedProofSection({
                 Use this if you already know how you want to frame it yourself.
               </p>
             </div>
-            <div className="brand-light-card rounded-2xl px-4 py-4">
+            <div data-digital-offer className="brand-light-card rounded-2xl px-4 py-4">
               <p className="text-[11px] font-semibold tracking-[0.18em] text-amber-700 uppercase">
                 Instant backup
               </p>

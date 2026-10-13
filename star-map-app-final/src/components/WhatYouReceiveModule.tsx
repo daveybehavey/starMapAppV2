@@ -84,7 +84,7 @@ export default function WhatYouReceiveModule({
               <p className="mt-1 text-sm font-semibold text-midnight">{printTiers.poster_unframed.label}</p>
               <p className="mt-1 text-sm text-neutral-700">{unframedPrice}</p>
             </div>
-            <div className="brand-light-card rounded-2xl px-4 py-3">
+            <div data-digital-offer className="brand-light-card rounded-2xl px-4 py-3">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">Optional backup</p>
               <p className="mt-1 text-sm font-semibold text-midnight">HD digital add-on</p>
               <p className="mt-1 text-sm text-neutral-700">{digitalAddOnPrice}</p>

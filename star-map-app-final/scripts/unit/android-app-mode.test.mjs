@@ -39,7 +39,10 @@ test("app-mode policy: only physical orders, never a digital add-on", () => {
   const boot = src.slice(src.indexOf("ANDROID_APP_MODE_BOOTSTRAP"));
   assert.doesNotMatch(boot.slice(0, boot.indexOf("if(on)")), /document\.cookie/);
   // non-app tabs clear a stale app-mode cookie (shared TWA/Chrome cookie jar)
-  assert.match(src, /else if\(document\.cookie\.indexOf\("\$\{ANDROID_APP_COOKIE\}="\)!==-1\)\{document\.cookie="\$\{ANDROID_APP_COOKIE\}=; Path=\/; Max-Age=0/);
+  assert.match(src, /else\{var clr=function\(\)\{if\(document\.cookie\.indexOf\("\$\{ANDROID_APP_COOKIE\}="\)!==-1\)\{document\.cookie="\$\{ANDROID_APP_COOKIE\}=; Path=\/; Max-Age=0/);
+  // ...and re-clears whenever the normal tab becomes active again or calls checkout
+  for (const ev of ['addEventListener("pageshow",clr)', 'addEventListener("focus",clr)', 'addEventListener("visibilitychange",clr)', 'addEventListener("click",clr,true)']) assert.ok(src.includes(ev), ev);
+  assert.match(src, /u\.indexOf\("\/api\/checkout"\)!==-1\)\{clr\(\);\}/);
 });
 
 test("layout boots the session flag and links the manifest", () => {
@@ -109,4 +112,9 @@ test("app-mode tab signals checkout server-side even if another tab cleared the 
 
 test("success page HD upsell is hidden in app mode when there is no entitlement", () => {
   assert.match(read("src/app/success/SuccessClient.tsx"), /data-digital-offer=\{hasDigitalEntitlement \? undefined : true\}/);
+});
+
+test("priced HD add-on cards are marked as digital offers", () => {
+  assert.match(read("src/components/WhatYouReceiveModule.tsx"), /<div data-digital-offer className="brand-light-card rounded-2xl px-4 py-3">\s*<p[^>]*>Optional backup/);
+  assert.match(read("src/components/FramedProofSection.tsx"), /<div data-digital-offer className="brand-light-card rounded-2xl px-4 py-4">\s*<p[^>]*>\s*Instant backup/);
 });
