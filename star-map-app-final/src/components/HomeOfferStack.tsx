@@ -78,7 +78,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
         </div>
 
         <div className="grid gap-3 md:grid-cols-3">
-          <article className="brand-dark-card flex h-full flex-col rounded-2xl p-4">
+          <article data-digital-offer className="brand-dark-card flex h-full flex-col rounded-2xl p-4">
             <div className="relative mb-3 aspect-[4/3] overflow-hidden rounded-xl border border-white/15 bg-[#0a1228]">
               <ResilientImage
                 src={OFFER_MOCKUPS.digital}
@@ -203,7 +203,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
         </div>
 
         <div className="grid gap-3 rounded-2xl border border-white/10 bg-black/15 p-4 md:grid-cols-3">
-          <div className="space-y-1 text-sm text-neutral-200">
+          <div data-digital-offer className="space-y-1 text-sm text-neutral-200">
             <p className="text-[11px] font-semibold tracking-[0.18em] text-amber-200 uppercase">
               Fastest path
             </p>

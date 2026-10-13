@@ -1,5 +1,6 @@
 "use client";
 
+import { isAndroidAppModeClient } from "@/lib/androidAppMode";
 import dynamic from "next/dynamic";
 import { TextBox, useStore } from "@/lib/store";
 import { aspectRatioToNumber, buildRecipeFromState, renderStarMap } from "@/lib/renderSky";
@@ -939,6 +940,8 @@ export function EditorExperience({
     const checkoutParam = searchParams.get("checkout");
     const sourceParam = searchParams.get("source");
     if (!shouldAutoOpenEditorDigitalPaywall(sourceParam, checkoutParam)) return;
+    // Google Play app mode: never auto-open a digital purchase.
+    if (isAndroidAppModeClient()) return;
 
     digitalIntentHandledRef.current = true;
     setPaywallIntent("digital");

@@ -1,3 +1,4 @@
+import { androidAppCheckoutDecision, isAndroidAppModeRequest } from "@/lib/androidAppMode";
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import {
@@ -558,6 +559,12 @@ async function estimatePromotionDiscountCents(input: {
 type CheckoutSessionResult = {
   url: string | null;
   discountRejected: boolean;
+};
+
+
+const ANDROID_APP_DIGITAL_BLOCKED = {
+  error: "Digital downloads aren't available in the StarMapCo Android app. Printed maps are available.",
+  code: "android_app_digital_unavailable",
 };
 
 class CheckoutError extends Error {
@@ -1174,12 +1181,19 @@ export async function GET(req: NextRequest) {
       : "single";
   const orderType = parseOrderType(orderTypeParam);
   const printVariant = parsePrintVariant(printVariantParam);
-  const includeDigitalAddOn = parseBoolean(includeDigitalAddOnParam, false);
+  let includeDigitalAddOn = parseBoolean(includeDigitalAddOnParam, false);
   const includeCardAddOn = parseBoolean(includeCardAddOnParam, false);
   const merchFamily =
     merchFamilyParam && isMerchFamilyId(merchFamilyParam.trim())
       ? (merchFamilyParam.trim() as MerchFamilyId)
       : undefined;
+  if (isAndroidAppModeRequest(req)) {
+    const decision = androidAppCheckoutDecision({ orderType, hasMerch: Boolean(merchFamily), includeDigitalAddOn });
+    if (!decision.allowed) {
+      return NextResponse.json(ANDROID_APP_DIGITAL_BLOCKED, { status: 403 });
+    }
+    includeDigitalAddOn = decision.includeDigitalAddOn;
+  }
   const merchSize = merchSizeParam?.trim() || undefined;
   const merchColor = merchColorParam?.trim() || undefined;
   const shippingCountry = shippingCountryParam ? shippingCountryParam.trim().toUpperCase() : undefined;
@@ -1662,6 +1676,13 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    if (isAndroidAppModeRequest(req)) {
+      const decision = androidAppCheckoutDecision({ orderType, hasMerch: Boolean(merchFamily), includeDigitalAddOn });
+      if (!decision.allowed) {
+        return NextResponse.json(ANDROID_APP_DIGITAL_BLOCKED, { status: 403 });
+      }
+      includeDigitalAddOn = decision.includeDigitalAddOn;
+    }
     const session = await createCheckoutSession({
       plan,
       mapId,

@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.starmapco.com",
+      "sha256_cert_fingerprints": [
+        "37:55:A1:E0:B1:84:15:67:9A:21:6D:72:F5:B8:50:C2:80:96:38:9E:F1:6B:59:00:CF:13:5E:F1:89:F7:D4:3E"
+      ]
+    }
+  }
+]

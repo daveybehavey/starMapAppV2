@@ -5,6 +5,7 @@ import type { CheckoutPlan } from "@/lib/pricing";
 import type { PrintVariant } from "@/lib/pricing";
 import type { PaywallCopyVariant } from "@/lib/experiments";
 import { trackSelectItem, trackViewItemList } from "@/lib/analytics";
+import { useAndroidAppMode } from "@/hooks/useAndroidAppMode";
 import {
   getPrintDeliveryEstimateLine,
   getPrintProductionTimelineLine,
@@ -133,6 +134,8 @@ export function PaywallModal({
   const [activeIntent, setActiveIntent] = useState<"digital" | "print">(
     hasPrintOptions && purchaseIntent === "print" ? "print" : "digital"
   );
+  // Google Play app mode: physical prints only (no digital purchases or links to them).
+  const appMode = useAndroidAppMode();
   const isWeddingGift = giftPaywallContext === "wedding";
   const freeShippingOfferLine = getPrintFreeShippingOfferLine();
   const dialogTitle =
@@ -153,8 +156,11 @@ export function PaywallModal({
     [printShippingCountries]
   );
   const printRows = useMemo(
-    () => getPaywallPrintCheckoutPresentation(printShippingCountry),
-    [printShippingCountry]
+    () => {
+      const rows = getPaywallPrintCheckoutPresentation(printShippingCountry);
+      return appMode ? rows.filter((row) => !row.includeDigitalAddOn) : rows;
+    },
+    [printShippingCountry, appMode]
   );
 
   const posterShippingFootnote = useMemo(
@@ -226,8 +232,8 @@ export function PaywallModal({
       setActiveIntent("digital");
       return;
     }
-    setActiveIntent(purchaseIntent === "print" ? "print" : "digital");
-  }, [hasPrintOptions, purchaseIntent]);
+    setActiveIntent(appMode || purchaseIntent === "print" ? "print" : "digital");
+  }, [hasPrintOptions, purchaseIntent, appMode]);
 
   useEffect(() => {
     if (printShippingCountry) {
@@ -377,14 +383,14 @@ export function PaywallModal({
             <li key={b}>• {b}</li>
           ))}
         </ul>
-        {activeIntent === "digital" && (
+        {activeIntent === "digital" && !appMode && (
           <p className="mt-3 rounded-xl border border-amber-200/70 bg-white/70 px-3 py-2 text-[11px] font-medium text-neutral-700">
             Just need this one map? The one-time HD option is enough. Packs and unlimited only make sense for
             repeat exports.
           </p>
         )}
 
-        {hasPrintOptions && (
+        {hasPrintOptions && !appMode && (
           <div
             role="tablist"
             aria-label="Purchase type"
@@ -492,9 +498,11 @@ export function PaywallModal({
                         })}
                       </p>
                       <p>{getPrintStandardShippingOnlyLine()}</p>
-                      <p className="font-medium text-amber-50">
-                        {getPrintUrgentHdUpsellLine(instantHdPriceLine)}
-                      </p>
+                      {!appMode && (
+                        <p className="font-medium text-amber-50">
+                          {getPrintUrgentHdUpsellLine(instantHdPriceLine)}
+                        </p>
+                      )}
                     </div>
                     <PrintGiftDecisionPanel
                       printShippingCountry={printShippingCountry}
@@ -544,7 +552,7 @@ export function PaywallModal({
           id="paywall-tab-panel-digital"
           role={hasPrintOptions ? "tabpanel" : undefined}
           aria-labelledby={hasPrintOptions ? "paywall-tab-digital" : undefined}
-          hidden={hasPrintOptions ? activeIntent !== "digital" : undefined}
+          hidden={appMode || (hasPrintOptions ? activeIntent !== "digital" : undefined)}
           className="mt-4 grid gap-3 text-sm"
         >
           <div className="rounded-xl border border-amber-200/70 bg-white/70 p-3">
@@ -676,8 +684,8 @@ export function PaywallModal({
         </div>
 
         <p className="mt-4 text-[11px] text-neutral-600">
-          Secure checkout — card, Apple Pay, Google Pay, and Link on supported devices. Subscription can be
-          canceled anytime. Need help?{" "}
+          Secure checkout — card, Apple Pay, Google Pay, and Link on supported devices.
+          {appMode ? "" : " Subscription can be canceled anytime."} Need help?{" "}
           <a href="mailto:support@starmapco.com" className="underline hover:text-neutral-900">
             support@starmapco.com
           </a>
