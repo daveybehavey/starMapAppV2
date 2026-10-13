@@ -135,3 +135,16 @@ test("paywall does not record digital impressions in app mode", () => {
   assert.match(src, /if \(!inAppMode && !viewedListsRef\.current\.has\("paywall_digital_options"\)\)/);
   assert.match(src, /PAYWALL_PRINT_CHECKOUT_ROWS\.filter\(\(row\) => !inAppMode \|\| !row\.includeDigitalAddOn\)/);
 });
+
+test("app-mode print paywall copy and ladders never advertise the digital add-on", () => {
+  const facts = read("src/lib/commerceFacts.ts");
+  assert.match(facts, /return options\?\.appMode \? bullets : \[\.\.\.bullets, "HD digital file available to add at checkout"\]/);
+  const pw = read("src/components/PaywallModal.tsx");
+  assert.match(pw, /getPaywallPrintBullets\(\{ appMode \}\)/);
+  assert.match(pw, /isWeddingGift && activeIntent === "print" && hasPrintOptions && appMode\s*\?\s*`Recommended presentation: a framed, wall-ready print/);
+  const tierRe = /data-digital-offer=\{(tier|step)\.id === "digital" \|\| \1\.id === "framed_hd" \? true : undefined\}/;
+  assert.match(read("src/components/GiftFormatLadder.tsx"), tierRe);
+  assert.match(read("src/components/PrintGiftDecisionPanel.tsx"), tierRe);
+  assert.match(read("src/components/MapCommerceHubPanel.tsx"), /data-digital-offer=\{offer\.kind === "digital_hd" \? true : undefined\}/);
+  assert.match(read("src/app/globals.css"), /article:has\(a\[href\*="include_digital_addon=1"\]\)/);
+});

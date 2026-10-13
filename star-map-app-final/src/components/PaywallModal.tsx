@@ -142,7 +142,11 @@ export function PaywallModal({
   const dialogTitle =
     isWeddingGift && activeIntent === "print" && hasPrintOptions ? "Complete your wedding gift" : copy.title;
   const dialogSubtitle =
-    isWeddingGift && activeIntent === "print" && hasPrintOptions
+    isWeddingGift && activeIntent === "print" && hasPrintOptions && appMode
+      ? `Recommended presentation: a framed, wall-ready print from the same approved design. ${
+          freeShippingOfferLine ? `${freeShippingOfferLine} ` : ""
+        }Shipping total is shown before you pay.`
+      : isWeddingGift && activeIntent === "print" && hasPrintOptions
       ? freeShippingOfferLine
         ? `Recommended presentation: framed + HD — wall-ready print plus instant digital from the same design. ${freeShippingOfferLine} Shipping total is shown before you pay.`
         : "Recommended presentation: framed + HD — a wall-ready print plus instant digital from the same approved design. Shipping is shown before you pay."
@@ -338,7 +342,7 @@ export function PaywallModal({
         ];
 
   // ── Per-tab bullet list ──────────────────────────────────────────────────────
-  const bullets = activeIntent === "print" ? getPaywallPrintBullets() : getPaywallDigitalBullets();
+  const bullets = activeIntent === "print" ? getPaywallPrintBullets({ appMode }) : getPaywallDigitalBullets();
   const instantHdPriceLine = getInstantHdPriceLine();
 
   return (

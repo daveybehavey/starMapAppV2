@@ -1715,6 +1715,7 @@ html[data-app-mode="android"] [formaction*="checkout=digital"],
 html[data-app-mode="android"] [formaction*="include_digital_addon=1"],
 html[data-app-mode="android"] [data-checkout="digital"],
 html[data-app-mode="android"] article:has(> a[href*="-digital"]),
-html[data-app-mode="android"] article:has(> a[href*="checkout=digital"]) {
+html[data-app-mode="android"] article:has(> a[href*="checkout=digital"]),
+html[data-app-mode="android"] article:has(a[href*="include_digital_addon=1"]) {
   display: none !important;
 }

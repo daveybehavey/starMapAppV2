@@ -42,7 +42,10 @@ export function PrintGiftDecisionPanel({
           <p className="font-semibold text-inherit">Gift format ladder</p>
           <ol className="mt-1 list-decimal space-y-1 pl-4">
             {PRINT_GIFT_TIER_STEPS.map((step) => (
-              <li key={step.id}>
+              <li
+                key={step.id}
+                data-digital-offer={step.id === "digital" || step.id === "framed_hd" ? true : undefined}
+              >
                 <span className="font-semibold">{step.label}</span> — {step.detail}
               </li>
             ))}
