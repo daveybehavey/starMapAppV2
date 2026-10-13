@@ -30,10 +30,13 @@ test("checkout API enforces app mode on GET and POST", () => {
 
 test("app-mode policy: only physical orders, never a digital add-on", () => {
   const src = read("src/lib/androidAppMode.ts");
-  assert.match(src, /const physical = input\.orderType === "print" \|\| input\.hasMerch;/);
+  assert.match(src, /const physical = input\.orderType === "print";/);
+  assert.doesNotMatch(src, /\|\| input\.hasMerch/);
   assert.match(src, /includeDigitalAddOn: false/);
   const cookieLine = src.match(/document\.cookie="[^"]*"/)[0];
   assert.doesNotMatch(cookieLine, /max-age|expires/i);
+  // non-app tabs clear a stale app-mode cookie (shared TWA/Chrome cookie jar)
+  assert.match(src, /else if\(document\.cookie\.indexOf\("\$\{ANDROID_APP_COOKIE\}="\)!==-1\)\{document\.cookie="\$\{ANDROID_APP_COOKIE\}=; Path=\/; Max-Age=0/);
 });
 
 test("layout boots the session flag and links the manifest", () => {
