@@ -31,7 +31,7 @@ export default function InstantHdHeroExtras({
         </Link>
       ) : null}
       {showFunnelLink ? (
-        <p className="w-full text-xs text-neutral-300 sm:text-sm">
+        <p data-digital-offer className="w-full text-xs text-neutral-300 sm:text-sm">
           Last-minute?{" "}
           <Link
             href="/hd-star-map"

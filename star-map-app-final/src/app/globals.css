@@ -1713,6 +1713,8 @@ html[data-app-mode="android"] a[href*="include_digital_addon=1"],
 html[data-app-mode="android"] a[href*="include_digital_addon=true"],
 html[data-app-mode="android"] [formaction*="checkout=digital"],
 html[data-app-mode="android"] [formaction*="include_digital_addon=1"],
-html[data-app-mode="android"] [data-checkout="digital"] {
+html[data-app-mode="android"] [data-checkout="digital"],
+html[data-app-mode="android"] article:has(> a[href*="-digital"]),
+html[data-app-mode="android"] article:has(> a[href*="checkout=digital"]) {
   display: none !important;
 }

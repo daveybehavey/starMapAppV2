@@ -6,6 +6,7 @@ import type { PrintVariant } from "@/lib/pricing";
 import type { PaywallCopyVariant } from "@/lib/experiments";
 import { trackSelectItem, trackViewItemList } from "@/lib/analytics";
 import { useAndroidAppMode } from "@/hooks/useAndroidAppMode";
+import { isAndroidAppModeClient } from "@/lib/androidAppMode";
 import {
   getPrintDeliveryEstimateLine,
   getPrintProductionTimelineLine,
@@ -242,7 +243,10 @@ export function PaywallModal({
   }, [printShippingCountry]);
 
   useEffect(() => {
-    if (!viewedListsRef.current.has("paywall_digital_options")) {
+    // App mode: never record impressions for digital offers the user cannot see.
+    // Read the pre-paint DOM flag directly so the first effect run is already correct.
+    const inAppMode = appMode || isAndroidAppModeClient();
+    if (!inAppMode && !viewedListsRef.current.has("paywall_digital_options")) {
       trackViewItemList({
         itemListId: "paywall_digital_options",
         itemListName: "Paywall digital options",
@@ -263,7 +267,7 @@ export function PaywallModal({
     trackViewItemList({
       itemListId: listId,
       itemListName: activeIntent === "print" ? "Paywall print options" : "Paywall print upsell",
-      items: PAYWALL_PRINT_CHECKOUT_ROWS.map((row, index) => ({
+      items: PAYWALL_PRINT_CHECKOUT_ROWS.filter((row) => !inAppMode || !row.includeDigitalAddOn).map((row, index) => ({
         plan: "single",
         orderType: "print" as const,
         printVariant: row.variant,
@@ -273,7 +277,7 @@ export function PaywallModal({
       })),
     });
     viewedListsRef.current.add(listId);
-  }, [activeIntent, hasPrintOptions]);
+  }, [activeIntent, hasPrintOptions, appMode]);
 
   const handleDigitalCheckoutClick = (plan: CheckoutPlan) => {
     trackSelectItem({

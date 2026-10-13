@@ -118,3 +118,20 @@ test("priced HD add-on cards are marked as digital offers", () => {
   assert.match(read("src/components/WhatYouReceiveModule.tsx"), /<div data-digital-offer className="brand-light-card rounded-2xl px-4 py-3">\s*<p[^>]*>Optional backup/);
   assert.match(read("src/components/FramedProofSection.tsx"), /<div data-digital-offer className="brand-light-card rounded-2xl px-4 py-4">\s*<p[^>]*>\s*Instant backup/);
 });
+
+test("whole digital product cards (shop, delivery formats, gift formats) are marked", () => {
+  assert.match(read("src/app/shop/page.tsx"), /data-digital-offer=\{card\.key === "digital" \? true : undefined\}/);
+  const dfm = read("src/components/DeliveryFormatModule.tsx");
+  assert.match(dfm, /<article data-digital-offer[^>]*>\s*<p[^>]*>HD digital delivery/);
+  assert.match(dfm, /data-digital-offer\s+className="[^"]*"\s*>\s*<div[^>]*>\s*<p[^>]*>Framed print \+ HD digital/);
+  assert.match(read("src/app/star-map-gift-formats/page.tsx"), /data-digital-offer=\{item\.orderType === "digital" \? true : undefined\}/);
+  assert.match(read("src/components/GiftFormatRoadmapModule.tsx"), /<li data-digital-offer>HD digital/);
+  assert.match(read("src/components/InstantHdHeroExtras.tsx"), /<p data-digital-offer[^>]*>\s*Last-minute/);
+});
+
+test("paywall does not record digital impressions in app mode", () => {
+  const src = read("src/components/PaywallModal.tsx");
+  assert.match(src, /const inAppMode = appMode \|\| isAndroidAppModeClient\(\);/);
+  assert.match(src, /if \(!inAppMode && !viewedListsRef\.current\.has\("paywall_digital_options"\)\)/);
+  assert.match(src, /PAYWALL_PRINT_CHECKOUT_ROWS\.filter\(\(row\) => !inAppMode \|\| !row\.includeDigitalAddOn\)/);
+});
