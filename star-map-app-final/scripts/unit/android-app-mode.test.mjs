@@ -97,3 +97,16 @@ test("support phone is never published", () => {
   assert.match(src, /const supportPhone = "";/);
   assert.doesNotMatch(src, /NEXT_PUBLIC_SUPPORT_PHONE \|\|/);
 });
+
+test("app-mode tab signals checkout server-side even if another tab cleared the cookie", () => {
+  const src = read("src/lib/androidAppMode.ts");
+  assert.match(src, /export const ANDROID_APP_HEADER = "x-smc-app-mode";/);
+  assert.match(src, /u\.indexOf\("\/api\/checkout"\)!==-1\)\{setC\(\);/);
+  assert.match(src, /h\.set\("\$\{ANDROID_APP_HEADER\}"/);
+  assert.match(src, /req\.headers\?\.get\(ANDROID_APP_HEADER\) === ANDROID_APP_COOKIE_VALUE/);
+  assert.match(src, /addEventListener\("click",setC,true\)/);
+});
+
+test("success page HD upsell is hidden in app mode when there is no entitlement", () => {
+  assert.match(read("src/app/success/SuccessClient.tsx"), /data-digital-offer=\{hasDigitalEntitlement \? undefined : true\}/);
+});
