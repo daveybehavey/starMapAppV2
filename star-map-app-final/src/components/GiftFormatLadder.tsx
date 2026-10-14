@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { buildGiftFormatTiers } from "@/lib/giftFormatLadder";
 import { FRAMED_HD_RECOMMENDED_BADGE, getGiftLadderIntro } from "@/lib/moneyPageGiftCheckout";
+import { isDigitalClaim } from "@/components/PurchaseTrustPanel";
+import { GIFT_LADDER_APP_INTRO } from "@/lib/moneyPageGiftCheckout";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 
 type GiftFormatLadderProps = {
@@ -32,7 +34,16 @@ export default function GiftFormatLadder({
       <div className="space-y-2">
         <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-800">Gift formats</p>
         <h2 className="text-xl font-semibold text-midnight sm:text-2xl">{heading}</h2>
-        <p className="max-w-2xl text-sm text-neutral-800 sm:text-base">{intro}</p>
+        <p className="max-w-2xl text-sm text-neutral-800 sm:text-base">
+          {isDigitalClaim(intro) ? (
+            <>
+              <span data-digital-offer>{intro}</span>
+              <span data-app-only>{GIFT_LADDER_APP_INTRO}</span>
+            </>
+          ) : (
+            intro
+          )}
+        </p>
       </div>
 
       <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">

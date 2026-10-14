@@ -209,3 +209,13 @@ test("paywall intent derives from app mode on first render; overview add-on clai
   assert.ok(pw.indexOf("const appMode = useAndroidAppMode()") < pw.indexOf("useState<\"digital\" | \"print\">"));
   assert.match(read("src/components/RevenueTrustModule.tsx"), /<span data-digital-offer>, and the HD add-on stays available for \{digitalAddOnLabel\}<\/span>/);
 });
+
+test("homepage ladder/proof intros, HD promo and digital prose have print-only app variants", () => {
+  assert.match(read("src/components/PromotionSignup.tsx"), /<div data-digital-offer className="cosmic-panel-enhanced/);
+  const ladder = read("src/components/GiftFormatLadder.tsx");
+  assert.match(ladder, /<span data-digital-offer>\{intro\}<\/span>\s*<span data-app-only>\{GIFT_LADDER_APP_INTRO\}<\/span>/);
+  assert.doesNotMatch(read("src/lib/moneyPageGiftCheckout.ts").match(/GIFT_LADDER_APP_INTRO =\s*"[^"]*"/)[0], /HD|digital/i);
+  const proof = read("src/components/FramedProofSection.tsx");
+  assert.match(proof, /<span data-digital-offer>\{intro\}<\/span>/);
+  assert.match(proof, /<li data-digital-offer className="brand-light-card rounded-2xl px-4 py-3">\s*The same approved map can stay digital/);
+});

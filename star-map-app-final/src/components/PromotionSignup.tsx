@@ -15,7 +15,7 @@ export default function PromotionSignup({ promoStatus, promoCode }: PromotionSig
     : `You're on the list. Watch your inbox for your 50% off ${promotionOfferName}.`;
 
   return (
-    <div className="cosmic-panel-enhanced cosmic-panel w-full rounded-[28px] border border-amber-200/65 bg-gradient-to-br from-white/90 to-amber-50/95 p-6 shadow-2xl shadow-black/30 sm:p-10">
+    <div data-digital-offer className="cosmic-panel-enhanced cosmic-panel w-full rounded-[28px] border border-amber-200/65 bg-gradient-to-br from-white/90 to-amber-50/95 p-6 shadow-2xl shadow-black/30 sm:p-10">
       <div className="space-y-3 text-midnight">
         <p className="text-xs font-semibold uppercase tracking-[0.35em] text-amber-500">Lower-cost first order</p>
         <h2 className="max-[374px]:text-[1.65rem] text-3xl font-semibold leading-tight text-midnight sm:text-4xl">
