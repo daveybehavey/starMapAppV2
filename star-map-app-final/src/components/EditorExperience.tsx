@@ -1360,6 +1360,7 @@ export function EditorExperience({
         merchOptions?: { size?: string; color?: string };
         includeDigitalAddOn?: boolean;
         includeCardAddOn?: boolean;
+        customerEmail?: string;
       }
     ) => {
       if (checkoutInFlightRef.current) return;
@@ -1466,11 +1467,13 @@ export function EditorExperience({
           recipeFingerprint?: string;
           shippingCountry?: string;
           referralCode?: string;
+          customerEmail?: string;
           checkoutHandoff?: string;
         } = { plan, checkoutHandoff: createCheckoutHandoffToken() };
         if (mapId) checkoutPayload.mapId = mapId;
         if (promoCode) checkoutPayload.promoCode = promoCode;
         if (referralCode) checkoutPayload.referralCode = referralCode;
+        if (options?.customerEmail) checkoutPayload.customerEmail = options.customerEmail;
         if (orderType === "print") {
           if (!printShippingCountry) {
             throw new Error("missing_shipping_country");
@@ -1921,6 +1924,7 @@ export function EditorExperience({
       variant: PrintVariant;
       includeDigitalAddOn: boolean;
       includeCardAddOn?: boolean;
+      customerEmail?: string;
       source: "editor_print_panel" | "paywall_modal" | "mobile_preview" | "preview_primary_print_cta";
     }) => {
       setPreferredPrintVariant(options.variant);
@@ -1935,6 +1939,7 @@ export function EditorExperience({
         printVariant: options.variant,
         includeDigitalAddOn: options.includeDigitalAddOn,
         includeCardAddOn: options.includeCardAddOn,
+        customerEmail: options.customerEmail,
       });
     },
     [startCheckout]
@@ -3785,9 +3790,9 @@ export function EditorExperience({
                 isWeddingCommerceContext(searchParams.get("source")) ? "wedding" : undefined
               }
               showReferralHint={Boolean(getCheckoutReferralCode())}
-              onStartCheckout={(plan) => {
+              onStartCheckout={(plan, options) => {
                 setPaywallIntent("digital");
-                void startCheckout(plan);
+                void startCheckout(plan, { customerEmail: options?.customerEmail });
               }}
               onCheckoutFallback={
                 checkoutFallbackOffer === "digital_single"
@@ -3810,6 +3815,7 @@ export function EditorExperience({
                         variant: options.variant,
                         includeDigitalAddOn: options.includeDigitalAddOn,
                         includeCardAddOn: options.includeCardAddOn,
+                        customerEmail: options.customerEmail,
                       });
                     }
                   : undefined

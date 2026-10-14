@@ -8,6 +8,7 @@ import ReferralAttributionClient from "@/components/ReferralAttributionClient";
 import UtmAttributionClient from "@/components/UtmAttributionClient";
 import AnalyticsConsentManager from "@/components/AnalyticsConsentManager";
 import SiteTopNav from "@/components/SiteTopNav";
+import ChristmasBanner from "@/components/ChristmasBanner";
 import { getBusinessPhoneHref, getBusinessProfile } from "@/lib/businessProfile";
 import { isBulkOrdersEnabled } from "@/lib/bulkQuotes";
 import { isShopTabEnabled } from "@/lib/shopTab";
@@ -237,6 +238,9 @@ export default function RootLayout({
         </Suspense>
         <AnalyticsConsentManager />
         <div className="cosmic-backdrop">
+          <Suspense fallback={null}>
+            <ChristmasBanner />
+          </Suspense>
           <SiteTopNav />
           {children}
         </div>

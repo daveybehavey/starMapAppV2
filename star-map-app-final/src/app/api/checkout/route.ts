@@ -60,6 +60,13 @@ import {
   resolveCheckoutCorrelationId,
   resolveCheckoutFailureReason,
 } from "@/lib/checkoutResilience";
+import { normalizeCheckoutCustomerEmail } from "@/lib/checkoutCustomerEmail";
+import { getCheckoutSessionExpiresAt } from "@/lib/checkoutSessionExpiry";
+import {
+  buildCheckoutConsentCollection,
+  isPromotionsConsentUnsupportedError,
+  shouldAttemptPromotionsConsent,
+} from "@/lib/stripeConsentCollection";
 
 export const runtime = "nodejs";
 
@@ -611,6 +618,26 @@ function resolveCheckoutHandoff(raw: unknown): "browser" | "missing" {
   return CHECKOUT_HANDOFF_TOKEN_RE.test(token) ? "browser" : "missing";
 }
 
+/** Short non-reversible tag so a changed recovery email yields a new checkout cache identity (no PII in keys). */
+function checkoutEmailIdempotencyTag(email: string): string {
+  let hash = 2166136261;
+  const value = email.trim().toLowerCase();
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+/**
+ * Stripe caps idempotency keys at 255 chars; fallback suffixes (:no-discount, :no-promo-consent)
+ * add up to ~30 more. Collapse long keys to a stable hash-tagged form.
+ */
+function boundStripeIdempotencyKey(key: string, maxLength = 200): string {
+  if (key.length <= maxLength) return key;
+  return `${key.slice(0, maxLength - 24)}:h${checkoutEmailIdempotencyTag(key)}${key.length.toString(36)}`;
+}
+
 function checkoutIdempotencyKey(input: {
   mapId?: string;
   plan: CheckoutPlan;
@@ -626,6 +653,7 @@ function checkoutIdempotencyKey(input: {
   referralCode?: string | null;
   qaContext?: QaRequestContext | null;
   androidAppMode?: boolean;
+  customerEmail?: string | null;
 }) {
   const mapId = typeof input.mapId === "string" ? input.mapId.trim() : "";
   if (!mapId) return null;
@@ -640,7 +668,8 @@ function checkoutIdempotencyKey(input: {
   const shipping = normalizeIdempotencyToken(input.shippingCountry, 8);
   const promo = normalizeIdempotencyToken(input.promoCode, 48);
   const referral = normalizeIdempotencyToken(input.referralCode, 48);
-  const baseWithoutMapId = `${CHECKOUT_IDEMPOTENCY_PREFIX}${orderType}:${plan}:${printVariant}:${includeDigitalAddOn}:${includeCardAddOn}:${merchFamily}:${merchSize}:${merchColor}:${shipping}:${promo}:${referral}${input.androidAppMode ? ":app-android" : ""}`;
+  const emailSegment = input.customerEmail ? `:em${checkoutEmailIdempotencyTag(input.customerEmail)}` : "";
+  const baseWithoutMapId = `${CHECKOUT_IDEMPOTENCY_PREFIX}${orderType}:${plan}:${printVariant}:${includeDigitalAddOn}:${includeCardAddOn}:${merchFamily}:${merchSize}:${merchColor}:${shipping}:${promo}:${referral}${emailSegment}${input.androidAppMode ? ":app-android" : ""}`;
   return appendCheckoutIdempotencyQaSegment(baseWithoutMapId, input.qaContext, mapId);
 }
 
@@ -658,6 +687,8 @@ async function createCheckoutSession(input: {
   includeCardAddOn?: boolean;
   shippingCountry?: string;
   clientCountry?: string | null;
+  /** Optional pre-checkout email for Stripe recovery emails (`customer_email`). */
+  customerEmail?: string;
   referralCode?: string;
   referrerSessionId?: string;
   referralAttribution?: ReferralAttribution | null;
@@ -685,6 +716,7 @@ async function createCheckoutSession(input: {
     includeCardAddOn = false,
     shippingCountry,
     clientCountry,
+    customerEmail: customerEmailInput,
     referralCode,
     referrerSessionId,
     referralAttribution,
@@ -697,6 +729,7 @@ async function createCheckoutSession(input: {
     merchOptions,
     qaContext = { enabled: false, source: null, status: "absent" },
   } = input;
+  const customerEmail = normalizeCheckoutCustomerEmail(customerEmailInput);
   if (!stripe) {
     throw new Error("Stripe not configured");
   }
@@ -1007,10 +1040,13 @@ async function createCheckoutSession(input: {
     }
   }
 
+  const attemptPromotionsConsent = shouldAttemptPromotionsConsent();
   const sessionParams: Stripe.Checkout.SessionCreateParams = {
     mode: !isPrintOrder && effectivePlan === "subscription" ? "subscription" : "payment",
     success_url: successUrl,
     cancel_url: cancelUrl,
+    // 2h TTL so abandoned sessions expire promptly and recovery emails can fire.
+    expires_at: getCheckoutSessionExpiresAt(),
     after_expiration: {
       recovery: {
         enabled: true,
@@ -1027,13 +1063,12 @@ async function createCheckoutSession(input: {
     // fulfills from the shipping recipient address, not the billing address
     // (#224 / audit #222). Do not reintroduce print `required` billing.
     billing_address_collection: "auto",
-    customer_email: undefined,
+    // Optional recovery email collected before Stripe Checkout when provided.
+    ...(customerEmail ? { customer_email: customerEmail } : {}),
     phone_number_collection: {
       enabled: isPrintOrder,
     },
-    consent_collection: {
-      terms_of_service: "required",
-    },
+    consent_collection: buildCheckoutConsentCollection(attemptPromotionsConsent),
     custom_text: {
       submit: {
         message: isPrintOrder
@@ -1061,13 +1096,51 @@ async function createCheckoutSession(input: {
     shipping_options: printShippingOptions,
   };
 
+  async function createStripeSession(
+    params: Stripe.Checkout.SessionCreateParams,
+    key?: string
+  ): Promise<Stripe.Checkout.Session> {
+    if (!stripe) {
+      throw new Error("Stripe not configured");
+    }
+    return stripe.checkout.sessions.create(params, key ? { idempotencyKey: key } : undefined);
+  }
+
+  async function createSessionWithConsentFallback(
+    params: Stripe.Checkout.SessionCreateParams,
+    key: string | undefined
+  ): Promise<Stripe.Checkout.Session> {
+    try {
+      return await createStripeSession(params, key);
+    } catch (error) {
+      // Canadian / non-US Stripe accounts may reject consent_collection.promotions.
+      if (!attemptPromotionsConsent || !isPromotionsConsentUnsupportedError(error)) {
+        throw error;
+      }
+      console.warn("stripe_consent_promotions_unsupported; retrying without promotions consent", {
+        plan,
+        orderType: normalizedOrderType,
+      });
+      const withoutPromotions: Stripe.Checkout.SessionCreateParams = {
+        ...params,
+        consent_collection: buildCheckoutConsentCollection(false),
+      };
+      // Keep sessionParams in sync so discount fallback inherits ToS-only consent.
+      sessionParams.consent_collection = withoutPromotions.consent_collection;
+      const promotionsFallbackKey = key ? `${key}:no-promo-consent` : undefined;
+      return createStripeSession(withoutPromotions, promotionsFallbackKey);
+    }
+  }
+
+  // expires_at is time-based, so the Stripe idempotency key must include it: reusing a key with a
+  // different expires_at (after the KV URL cache lapses) makes Stripe reject the request.
+  const stripeIdempotencyKey = idempotencyKey
+    ? boundStripeIdempotencyKey(`${idempotencyKey}:exp${sessionParams.expires_at ?? ""}`)
+    : undefined;
   let session: Stripe.Checkout.Session;
   let discountRejected = false;
   try {
-    session = await stripe.checkout.sessions.create(
-      sessionParams,
-      idempotencyKey ? { idempotencyKey } : undefined
-    );
+    session = await createSessionWithConsentFallback(sessionParams, stripeIdempotencyKey);
   } catch (error) {
     if (!promotionCodeId || !shouldRetryCheckoutWithoutDiscount(error) || !fallbackOnDiscountError) {
       throw error;
@@ -1094,11 +1167,8 @@ async function createCheckoutSession(input: {
     };
     discountRejected = true;
     // Stripe idempotency keys must match request params — use a distinct key for the no-discount retry.
-    const fallbackIdempotencyKey = idempotencyKey ? `${idempotencyKey}:no-discount` : undefined;
-    session = await stripe.checkout.sessions.create(
-      fallbackParams,
-      fallbackIdempotencyKey ? { idempotencyKey: fallbackIdempotencyKey } : undefined
-    );
+    const fallbackIdempotencyKey = stripeIdempotencyKey ? `${stripeIdempotencyKey}:no-discount` : undefined;
+    session = await createSessionWithConsentFallback(fallbackParams, fallbackIdempotencyKey);
   }
 
   // Once Stripe has created a session, never strand the buyer on unknown_error.
@@ -1210,6 +1280,9 @@ export async function GET(req: NextRequest) {
   const clientCountry = getRequestCountry(req);
   const mapId = parseCheckoutMapId(mapParam);
   const promoCodeParam = req.nextUrl.searchParams.get("promo_code") ?? undefined;
+  const customerEmail = normalizeCheckoutCustomerEmail(
+    req.nextUrl.searchParams.get("customer_email") ?? req.nextUrl.searchParams.get("email")
+  );
   const currentSessionId = req.cookies.get(PREMIUM_COOKIE_NAME)?.value?.trim();
   const fallbackReferralCode = readReferralCodeFromCookie(req);
   const referralAttribution = readReferralAttributionFromCookie(req);
@@ -1321,6 +1394,7 @@ export async function GET(req: NextRequest) {
       includeCardAddOn,
       shippingCountry,
       clientCountry,
+      customerEmail,
       referralCode: referral.code,
       referrerSessionId: referral.referrerSessionId,
       referralAttribution,
@@ -1465,6 +1539,7 @@ export async function POST(req: NextRequest) {
     let promoCode: string | undefined;
     let referralCode: string | undefined;
     let shippingCountry: string | undefined;
+    let customerEmail: string | undefined;
     let checkoutHandoff: "browser" | "missing" = "missing";
     try {
       const body = (await req.json()) as {
@@ -1482,6 +1557,8 @@ export async function POST(req: NextRequest) {
         recipeFingerprint?: string;
         shippingCountry?: string;
         referralCode?: string;
+        customerEmail?: string;
+        email?: string;
         checkoutHandoff?: string;
       } | null;
       mapId = parseCheckoutMapId(body?.mapId);
@@ -1536,6 +1613,7 @@ export async function POST(req: NextRequest) {
           referralCode = trimmed.slice(0, 64);
         }
       }
+      customerEmail = normalizeCheckoutCustomerEmail(body?.customerEmail ?? body?.email);
     } catch {
       // ignore missing/invalid body
     }
@@ -1656,6 +1734,7 @@ export async function POST(req: NextRequest) {
       referralCode: referral.code ?? null,
       qaContext,
       androidAppMode,
+      customerEmail: customerEmail ?? null,
     });
     if (idempotencyKey) {
       const existingUrl = await kv.get<string>(idempotencyKey);
@@ -1705,6 +1784,7 @@ export async function POST(req: NextRequest) {
       includeCardAddOn,
       shippingCountry,
       clientCountry,
+      customerEmail,
       referralCode: referral.code,
       referrerSessionId: referral.referrerSessionId,
       referralAttribution,

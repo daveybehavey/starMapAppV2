@@ -31,6 +31,8 @@ import {
   type PaywallPrintCheckoutPresentationRow,
 } from "@/lib/paywallPrintCheckout";
 import { PrintGiftDecisionPanel } from "@/components/PrintGiftDecisionPanel";
+import { LOVE_IT_GUARANTEE_LINE } from "@/lib/loveItGuarantee";
+import { normalizeCheckoutCustomerEmail } from "@/lib/checkoutCustomerEmail";
 
 type PriceLabels = {
   single: string;
@@ -72,12 +74,13 @@ type Props = {
   /** Wedding gift funnel — tailored paywall copy on the print tab */
   giftPaywallContext?: "wedding";
   showReferralHint?: boolean;
-  onStartCheckout: (plan: CheckoutPlan) => void;
+  onStartCheckout: (plan: CheckoutPlan, options?: { customerEmail?: string }) => void;
   onCheckoutFallback?: () => void;
   onStartPrintCheckout?: (options: {
     variant: PrintVariant;
     includeDigitalAddOn: boolean;
     includeCardAddOn?: boolean;
+    customerEmail?: string;
   }) => void;
   onClose: () => void;
 };
@@ -160,8 +163,11 @@ export function PaywallModal({
         ? "Choose your gift format. Framed is the gift-ready path; unframed is the lower-cost option."
         : copy.subtitle;
   const [printUpsellHint, setPrintUpsellHint] = useState<string | null>(null);
+  const [recoveryEmail, setRecoveryEmail] = useState("");
   const shippingDisclosure = getPrintShippingDisclosure();
   const viewedListsRef = useRef<Set<string>>(new Set());
+  const resolvedRecoveryEmail = normalizeCheckoutCustomerEmail(recoveryEmail);
+  const instantHdPriceLine = getInstantHdPriceLine();
   const printShippingCountryOptions = useMemo(
     () => getPrintShippingCountryOptions(printShippingCountries),
     [printShippingCountries]
@@ -299,7 +305,7 @@ export function PaywallModal({
         index: plan === "single" ? 0 : plan === "pack3" ? 1 : 2,
       },
     });
-    onStartCheckout(plan);
+    onStartCheckout(plan, resolvedRecoveryEmail ? { customerEmail: resolvedRecoveryEmail } : undefined);
   };
 
   const handlePrintCheckoutClick = (
@@ -323,6 +329,7 @@ export function PaywallModal({
       variant: row.variant,
       includeDigitalAddOn: row.includeDigitalAddOn,
       includeCardAddOn: row.includeCardAddOn,
+      ...(resolvedRecoveryEmail ? { customerEmail: resolvedRecoveryEmail } : {}),
     });
   };
 
@@ -349,7 +356,6 @@ export function PaywallModal({
 
   // ── Per-tab bullet list ──────────────────────────────────────────────────────
   const bullets = activeIntent === "print" ? getPaywallPrintBullets({ appMode }) : getPaywallDigitalBullets();
-  const instantHdPriceLine = getInstantHdPriceLine();
 
   return (
     <div
@@ -403,6 +409,25 @@ export function PaywallModal({
             repeat exports.
           </p>
         )}
+
+        <div className="mt-3">
+          <label htmlFor="paywall-recovery-email" className="text-[11px] font-semibold text-neutral-700">
+            Email for checkout recovery (optional)
+          </label>
+          <input
+            id="paywall-recovery-email"
+            type="email"
+            autoComplete="email"
+            inputMode="email"
+            value={recoveryEmail}
+            onChange={(event) => setRecoveryEmail(event.target.value)}
+            placeholder="you@example.com"
+            className="text-midnight mt-1 w-full rounded-lg border border-amber-200/70 bg-white px-3 py-2 text-xs"
+          />
+          <p className="mt-1 text-[10px] text-neutral-600">
+            Helps us email a recovery link if checkout expires. You can also enter email on Stripe Checkout.
+          </p>
+        </div>
 
         {hasPrintOptions && !appMode && (
           <div
@@ -503,7 +528,11 @@ export function PaywallModal({
                         date).
                       </p>
                     ) : null}
-                    <div className="mt-2 space-y-1 rounded-lg border border-amber-200/20 bg-white/5 px-3 py-2 text-[10px] leading-relaxed text-amber-100/85">
+                    <div
+                      className="mt-2 space-y-1 rounded-lg border border-amber-200/20 bg-white/5 px-3 py-2 text-[10px] leading-relaxed text-amber-100/85"
+                      data-testid="paywall-print-delivery-info"
+                    >
+                      <p className="font-semibold text-amber-50">Delivery timing</p>
                       <p>{getPrintProductionTimelineLine()}</p>
                       <p>
                         {getPrintDeliveryEstimateLine({
@@ -532,28 +561,38 @@ export function PaywallModal({
                 ) : null}
                 <div className="mt-3 grid gap-2">
                   {printRows.map((row) => (
-                    <button
-                      key={paywallPrintCheckoutRowKey(row)}
-                      type="button"
-                      onClick={() => handlePrintCheckoutClick(row, "paywall_print_options")}
-                      disabled={checkoutInFlight || !canPrintCheckout}
-                      className={paywallPrintSkuButtonClasses(
-                        row,
-                        preferredPrintVariant,
-                        preferredIncludeDigitalAddOn
-                      )}
-                    >
-                      {checkoutInFlight ? (
-                        "Opening secure checkout..."
-                      ) : (
-                        <>
-                          <span className="block font-semibold">{row.headline}</span>
-                          <span className="mt-0.5 block text-[10px] font-normal text-amber-100/95">
-                            {row.secondaryLine}
-                          </span>
-                        </>
-                      )}
-                    </button>
+                    <div key={paywallPrintCheckoutRowKey(row)}>
+                      <button
+                        type="button"
+                        onClick={() => handlePrintCheckoutClick(row, "paywall_print_options")}
+                        disabled={checkoutInFlight || !canPrintCheckout}
+                        className={paywallPrintSkuButtonClasses(
+                          row,
+                          preferredPrintVariant,
+                          preferredIncludeDigitalAddOn
+                        )}
+                      >
+                        {checkoutInFlight ? (
+                          "Opening secure checkout..."
+                        ) : (
+                          <>
+                            <span className="block font-semibold">{row.headline}</span>
+                            <span className="mt-0.5 block text-[10px] font-normal text-amber-100/95">
+                              {row.secondaryLine}
+                            </span>
+                          </>
+                        )}
+                      </button>
+                      <p className="mt-1 px-1 text-[10px] leading-snug text-amber-100/80">
+                        {getPrintDeliveryEstimateLine({
+                          variant: row.variant,
+                          country: printShippingCountry,
+                        })}
+                      </p>
+                      <p className="mt-0.5 px-1 text-[10px] leading-snug text-amber-100/75">
+                        {LOVE_IT_GUARANTEE_LINE}
+                      </p>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -595,6 +634,10 @@ export function PaywallModal({
               {checkoutInFlight ? "Starting checkout..." : copy.singleCta}
             </button>
             <p className="mt-2 text-[11px] text-neutral-600">
+              Instant HD download after payment — no shipping wait.
+            </p>
+            <p className="mt-1 text-[10px] text-neutral-600">{LOVE_IT_GUARANTEE_LINE}</p>
+            <p className="mt-1 text-[11px] text-neutral-600">
               Use this when you only need this one finished map.
             </p>
           </div>
@@ -618,8 +661,9 @@ export function PaywallModal({
               {copy.packCta}
             </button>
             <p className="mt-2 text-[11px] text-neutral-600">
-              Each HD export uses one credit from this pack.
+              Each HD export uses one credit from this pack — unlocks instantly after payment.
             </p>
+            <p className="mt-1 text-[10px] text-neutral-600">{LOVE_IT_GUARANTEE_LINE}</p>
           </div>
 
           <div className="rounded-xl border border-amber-300 bg-amber-100/70 p-3">
@@ -648,6 +692,10 @@ export function PaywallModal({
             >
               {checkoutInFlight ? "Starting checkout..." : copy.subscriptionCta}
             </button>
+            <p className="mt-2 text-[11px] text-amber-950/80">
+              Instant HD exports while active — cancel anytime.
+            </p>
+            <p className="mt-1 text-[10px] text-amber-950/70">{LOVE_IT_GUARANTEE_LINE}</p>
           </div>
 
           {onStartPrintCheckout && (
