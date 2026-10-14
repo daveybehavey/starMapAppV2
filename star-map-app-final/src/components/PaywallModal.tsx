@@ -132,11 +132,13 @@ export function PaywallModal({
 }: Props) {
   const copy = PAYWALL_COPY[variant];
   const hasPrintOptions = Boolean(onStartPrintCheckout);
-  const [activeIntent, setActiveIntent] = useState<"digital" | "print">(
-    hasPrintOptions && purchaseIntent === "print" ? "print" : "digital"
-  );
   // Google Play app mode: physical prints only (no digital purchases or links to them).
   const appMode = useAndroidAppMode();
+  const [requestedIntent, setActiveIntent] = useState<"digital" | "print">(
+    appMode || (hasPrintOptions && purchaseIntent === "print") ? "print" : "digital"
+  );
+  // Derived (not effect-driven) so the very first app-mode frame is already print-only.
+  const activeIntent: "digital" | "print" = appMode ? "print" : requestedIntent;
   const isWeddingGift = giftPaywallContext === "wedding";
   const freeShippingOfferLine = getPrintFreeShippingOfferLine();
   const dialogTitle =

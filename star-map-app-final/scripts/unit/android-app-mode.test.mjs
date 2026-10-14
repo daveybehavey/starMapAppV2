@@ -202,3 +202,10 @@ test("shared price/receive/preview fragments are marked and app mode is read syn
   const hook = read("src/hooks/useAndroidAppMode.ts");
   assert.match(hook, /useSyncExternalStore\(subscribe, isAndroidAppModeClient, \(\) => false\)/);
 });
+
+test("paywall intent derives from app mode on first render; overview add-on claim hidden", () => {
+  const pw = read("src/components/PaywallModal.tsx");
+  assert.match(pw, /const activeIntent: "digital" \| "print" = appMode \? "print" : requestedIntent;/);
+  assert.ok(pw.indexOf("const appMode = useAndroidAppMode()") < pw.indexOf("useState<\"digital\" | \"print\">"));
+  assert.match(read("src/components/RevenueTrustModule.tsx"), /<span data-digital-offer>, and the HD add-on stays available for \{digitalAddOnLabel\}<\/span>/);
+});
