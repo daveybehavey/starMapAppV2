@@ -88,6 +88,10 @@ export function buildStandardGiftPreviewIntents(_source: string): MoneyPagePrevi
   ];
 }
 
+/** Print-only ladder intro for Google Play app mode (no HD/digital offers). */
+export const GIFT_LADDER_APP_INTRO =
+  "One free preview — framed is the ready-to-hang gift presentation; unframed is the lower-cost physical option.";
+
 export function getGiftLadderIntro(options?: { occasionLabel?: string }) {
   const bundlePriceLine = getFramedHdBundlePriceLine();
   const occasion = options?.occasionLabel?.trim();
