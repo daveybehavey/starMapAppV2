@@ -3,7 +3,7 @@ import { ANDROID_APP_MODE_BOOTSTRAP } from "@/lib/androidAppMode";
 import Link from "next/link";
 import { Suspense } from "react";
 import "./globals.css";
-import { Playfair_Display } from "next/font/google";
+import localFont from "next/font/local";
 import ReferralAttributionClient from "@/components/ReferralAttributionClient";
 import UtmAttributionClient from "@/components/UtmAttributionClient";
 import AnalyticsConsentManager from "@/components/AnalyticsConsentManager";
@@ -13,9 +13,12 @@ import { getBusinessPhoneHref, getBusinessProfile } from "@/lib/businessProfile"
 import { isBulkOrdersEnabled } from "@/lib/bulkQuotes";
 import { isShopTabEnabled } from "@/lib/shopTab";
 
-const playfair = Playfair_Display({
-  subsets: ["latin"],
-  weight: ["400", "600", "700"],
+const playfair = localFont({
+  src: [
+    { path: "../fonts/playfair-display/latin-400-normal.woff2", weight: "400", style: "normal" },
+    { path: "../fonts/playfair-display/latin-600-normal.woff2", weight: "600", style: "normal" },
+    { path: "../fonts/playfair-display/latin-700-normal.woff2", weight: "700", style: "normal" },
+  ],
   variable: "--font-playfair",
   display: "swap",
   preload: true,

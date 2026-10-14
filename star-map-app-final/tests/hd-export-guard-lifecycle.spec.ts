@@ -2,7 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { applySampleMoment, gotoEditor, mockGeocode } from "./test-helpers";
 
 const paywallHeadingPattern =
-  /Buy this map in HD or print|Buy this map in HD|Download your print-ready star map|Unlock HD exports in seconds/i;
+  /Buy this map in HD or print|Buy this map in HD|Order your printed star map|Order this map as a print|Complete your wedding gift|Download your print-ready star map|Unlock HD exports in seconds/i;
 
 const hdExportButton = (page: Page) => page.getByLabel("HD export").first();
 const paywallDialog = (page: Page) => page.getByRole("dialog");

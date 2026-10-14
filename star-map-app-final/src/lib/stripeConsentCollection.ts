@@ -4,6 +4,7 @@ import type Stripe from "stripe";
  * Stripe `consent_collection.promotions: "auto"` is only supported on some
  * account countries (commonly US). Canadian and other accounts may reject it.
  *
+ * Terms of Service are disclosed in Checkout `custom_text.submit` (no checkbox).
  * Default: attempt promotions consent unless explicitly disabled via env.
  * Callers should catch unsupported errors and retry without promotions.
  */
@@ -17,7 +18,6 @@ export function buildCheckoutConsentCollection(
   includePromotions: boolean
 ): Stripe.Checkout.SessionCreateParams.ConsentCollection {
   return {
-    terms_of_service: "required",
     ...(includePromotions ? { promotions: "auto" as const } : {}),
   };
 }

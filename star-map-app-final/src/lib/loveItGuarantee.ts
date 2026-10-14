@@ -7,6 +7,10 @@ export const LOVE_IT_GUARANTEE_LINE =
 export const LOVE_IT_GUARANTEE_SHORT =
   "Love-It Guarantee — free reprint for damage or misprints (not change-of-mind)." as const;
 
+/** Shown under digital paywall options (not Love-It reprint copy — that is print-only). */
+export const DIGITAL_CHECKOUT_SUPPORT_LINE =
+  "Instant HD download. Questions? support@starmapco.com" as const;
+
 export function getLoveItGuaranteeFaq(): { question: string; answer: string } {
   return {
     question: "What is the Love-It Guarantee?",

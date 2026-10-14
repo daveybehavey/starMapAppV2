@@ -163,7 +163,10 @@ test("residual homepage add-on claims, shop HD quick start, and gift-format tele
 });
 
 test("app-mode paywall heading and sticky digital bar", () => {
-  assert.match(read("src/components/PaywallModal.tsx"), /: appMode\s*\? "Order this map as a print"\s*: copy\.title;/);
+  const pw = read("src/components/PaywallModal.tsx");
+  assert.match(pw, /getPaywallDialogTitle/);
+  assert.match(pw, /appMode/);
+  assert.match(read("src/lib/paywallDialogCopy.ts"), /Order this map as a print/);
   const bar = read("src/components/StickyCtaBar.tsx");
   assert.match(bar, /data-digital-offer=\{digitalPrimary \? true : undefined\}/);
   assert.match(bar, /data-digital-offer\s+className="[^"]*"\s*>\s*HD export in seconds/);

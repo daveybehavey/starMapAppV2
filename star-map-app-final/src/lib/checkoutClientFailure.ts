@@ -7,6 +7,7 @@ export type CheckoutApiErrorPayload = {
   code?: string;
   reason?: string;
   diagnosticId?: string;
+  editorRecoveryUrl?: string;
 };
 
 export type CheckoutFailureDiagnostics = {
@@ -14,6 +15,7 @@ export type CheckoutFailureDiagnostics = {
   serverReason: string | null;
   diagnosticId: string | null;
   httpStatus: number;
+  editorRecoveryUrl: string | null;
 };
 
 export function parseCheckoutApiErrorPayload(
@@ -23,21 +25,26 @@ export function parseCheckoutApiErrorPayload(
   const code =
     typeof data?.code === "string" && data.code.trim()
       ? data.code.trim()
-      : typeof data?.error === "string" && data.error.trim()
-        ? data.error.trim()
-        : "checkout_failed";
+      : httpStatus === 429
+        ? "rate_limited"
+        : typeof data?.error === "string" && data.error.trim()
+          ? data.error.trim()
+          : "checkout_failed";
   const serverReason =
     typeof data?.reason === "string" && data.reason.trim() ? data.reason.trim().slice(0, 80) : null;
   const diagnosticId =
     typeof data?.diagnosticId === "string" && data.diagnosticId.trim()
       ? data.diagnosticId.trim().slice(0, 64)
       : null;
-  return { code, serverReason, diagnosticId, httpStatus };
+  const editorRecoveryUrl =
+    typeof data?.editorRecoveryUrl === "string" && data.editorRecoveryUrl.trim()
+      ? data.editorRecoveryUrl.trim()
+      : null;
+  return { code, serverReason, diagnosticId, httpStatus, editorRecoveryUrl };
 }
 
 /** Errors that should not auto-retry (user/input issues). */
 const NON_RETRYABLE_CHECKOUT_CODES = new Set([
-  "invalid_promotion_code",
   "promotion_not_applicable",
   "map_required",
   "map_not_found",
@@ -48,12 +55,16 @@ const NON_RETRYABLE_CHECKOUT_CODES = new Set([
   "print_promotion_margin_blocked",
   "missing_print_asset",
   "missing_card_print_asset",
-  "checkout_handoff_required",
   "qa_auth_required",
-  "rate_limited",
 ]);
 
-export function shouldRetryCheckoutFailure(code: string): boolean {
+/** Friendly status shown while the client auto-retries a soft failure (429, etc.). */
+export const CHECKOUT_RETRY_STATUS_MESSAGE = "One moment, retrying…";
+
+export function shouldRetryCheckoutFailure(code: string, httpStatus?: number): boolean {
+  if (httpStatus === 429 || code === "rate_limited") return true;
+  // Missing/expired handoff: retry once with a fresh browser token.
+  if (code === "checkout_handoff_required") return true;
   if (!code) return true;
   if (NON_RETRYABLE_CHECKOUT_CODES.has(code)) return false;
   // Transient / unknown server failures — retry once.
@@ -64,7 +75,8 @@ export function shouldRetryCheckoutFailure(code: string): boolean {
     code === "Checkout failed" ||
     code.startsWith("stripe_") ||
     code === "missing_stripe_checkout_url" ||
-    code === "invalid_stripe_checkout_url"
+    code === "invalid_stripe_checkout_url" ||
+    code === "Too many requests. Please try again later."
   );
 }
 
@@ -80,12 +92,12 @@ export function shouldOfferDigitalSingleFallback(input: {
       input.code === "map_required" ||
       input.code === "map_not_found" ||
       input.code === "missing_shipping_country" ||
-      input.code === "print_shipping_country_invalid" ||
-      input.code === "checkout_handoff_required"
+      input.code === "print_shipping_country_invalid"
     ) {
       return false;
     }
   }
+  if (input.code === "checkout_handoff_required") return false;
   if (input.orderType === "print") return true;
   if (input.plan && input.plan !== "single") return true;
   return false;

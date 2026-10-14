@@ -43,7 +43,7 @@ const DIGITAL_LAST_MINUTE_START = "2026-12-10";
 const DIGITAL_LAST_MINUTE_END = "2026-12-25";
 
 const ORDER_BY_BANNER_LINE =
-  "Order by for Christmas delivery — framed/canvas: US Dec 8 · Canada Dec 9 · worldwide Nov 30. Posters: US Dec 9 · Canada Dec 10 · worldwide Dec 1.";
+  "Order by these dates for Christmas delivery — framed/canvas: US Dec 8 · Canada Dec 9 · worldwide Nov 30. Posters: US Dec 9 · Canada Dec 10 · worldwide Dec 1.";
 
 function parseYmd(ymd: string): { y: number; m: number; d: number } {
   const [y, m, d] = ymd.split("-").map((part) => Number(part));

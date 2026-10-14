@@ -21,7 +21,11 @@ import {
 import { PRINT_ASSET_ID_REGEX, normalizeRecipeFingerprint } from "@/lib/printAssets";
 import { cardRecipeFingerprintSuffix } from "@/lib/printCardExport";
 import { loadReusablePrintAssetId } from "@/lib/printAssetReuse";
-import { selectCheckoutPromotion, type PromotionSource } from "@/lib/checkoutPromotions";
+import {
+  canUseManualPromotionCode,
+  selectCheckoutPromotion,
+  type PromotionSource,
+} from "@/lib/checkoutPromotions";
 import { PREMIUM_COOKIE_NAME } from "@/lib/premium";
 import { recordFunnelStep } from "@/lib/funnel";
 import { getGeoDigitalSinglePrice, getRequestCountry } from "@/lib/geoPricing";
@@ -60,6 +64,10 @@ import {
   resolveCheckoutCorrelationId,
   resolveCheckoutFailureReason,
 } from "@/lib/checkoutResilience";
+import {
+  buildCheckoutCancelUrl,
+  buildCheckoutEditorRecoveryUrl,
+} from "@/lib/checkoutEditorRecovery";
 import { normalizeCheckoutCustomerEmail } from "@/lib/checkoutCustomerEmail";
 import { getCheckoutSessionExpiresAt } from "@/lib/checkoutSessionExpiry";
 import {
@@ -301,10 +309,6 @@ function resolveReferralAutoOffer(referralCode?: string): {
   return useAlt ? { promotionCodeId: alt, variant: "alt" } : { promotionCodeId: primary, variant: "primary" };
 }
 
-function canUseManualPromotionCode(orderType: CheckoutOrderType, plan: CheckoutPlan) {
-  return orderType === "print" || (orderType === "digital" && plan === "single");
-}
-
 function resolveReferralOfferVariant(input: {
   referralCode?: string;
   promotionSource: PromotionSource;
@@ -399,13 +403,9 @@ async function resolvePromotionCodeId(promoCode?: string): Promise<PromotionReso
   const trimmed = promoCode?.trim();
   if (!trimmed) return { invalid: false, lookupFailed: false };
 
-  // Profit safety: only allow the explicitly configured promotion code to be applied.
-  // This prevents accidental/legacy QA one-time promo codes (which can be 100% off)
-  // from being auto-applied and producing $0 `no_payment_required` sessions.
-  if (configuredPromoCode && trimmed.toUpperCase() !== configuredPromoCode) {
-    return { invalid: false, lookupFailed: false };
-  }
-
+  // Print-only callers may pre-apply any active Stripe promotion code (XMAS15,
+  // BLACKFRIDAY20, configured PROMOTION_COUPON_CODE, etc.). Digital checkout never
+  // reaches this helper — coupons cannot be product-restricted for price_data SKUs.
   if (
     configuredPromoCode &&
     configuredStripePromotionCodeId &&
@@ -752,7 +752,6 @@ async function createCheckoutSession(input: {
   const orderQuery = `&order_type=${normalizedOrderType}`;
   const printQuery = isPrintOrder ? `&print_variant=${normalizedPrintVariant}` : "";
   const successUrl = `${siteOrigin()}/success?session_id={CHECKOUT_SESSION_ID}${mapQuery}${orderQuery}${printQuery}`;
-  const cancelUrl = `${siteOrigin()}`;
   const digitalTiers = getPricingTiers();
   const tier = digitalTiers[effectivePlan];
   const printTiers = getPrintPricingTiers();
@@ -781,6 +780,19 @@ async function createCheckoutSession(input: {
   if (isPrintOrder && requestedShippingCountry && !resolvedShippingCountry) {
     throw new CheckoutError("Unsupported shipping country.", "print_shipping_country_invalid", 400);
   }
+  // Cancel returns buyers to the editor with checkout (and country control) reopened.
+  // Keep Stripe shipping_address_collection locked to the priced country so dynamic
+  // Printful rates stay correct; gift shippers change country in the editor before pay.
+  const cancelUrl = buildCheckoutCancelUrl({
+    siteOrigin: siteOrigin(),
+    mapId,
+    orderType: normalizedOrderType,
+    plan: effectivePlan,
+    printVariant: isPrintOrder ? normalizedPrintVariant : null,
+    shippingCountry: resolvedShippingCountry,
+    includeDigitalAddOn: !isMerchOrder && includeDigitalAddOn,
+    includeCardAddOn: normalizedIncludeCardAddOn,
+  });
   const printShippingSelection =
     isPrintOrder && isMerchOrder && resolvedMerch
       ? await getMerchShippingOptionsForCountry(resolvedMerch.catalogVariantId, resolvedShippingCountry)
@@ -1068,22 +1080,23 @@ async function createCheckoutSession(input: {
     phone_number_collection: {
       enabled: isPrintOrder,
     },
+    // ToS checkbox removed — agreement is disclosed in submit message + editor pay CTA.
+    // Promotions consent still attempted when the Stripe account supports it (#282 fallback).
     consent_collection: buildCheckoutConsentCollection(attemptPromotionsConsent),
     custom_text: {
       submit: {
         message: isPrintOrder
-          ? "Secure payment • Print order created after checkout"
+          ? `By completing your purchase you agree to our [Terms of Service](${siteUrl}/terms) and [Privacy Policy](${siteUrl}/privacy). Secure payment • Print order created after checkout`
           : effectivePlan === "subscription"
-            ? "Secure payment • Cancel anytime • Instant access"
-            : "Secure payment • Instant access • No subscription",
-      },
-      terms_of_service_acceptance: {
-        message: `I agree to the [Terms of Service](${siteUrl}/terms) and [Privacy Policy](${siteUrl}/privacy)`,
+            ? `By completing your purchase you agree to our [Terms of Service](${siteUrl}/terms) and [Privacy Policy](${siteUrl}/privacy). Secure payment • Cancel anytime • Instant access`
+            : `By completing your purchase you agree to our [Terms of Service](${siteUrl}/terms) and [Privacy Policy](${siteUrl}/privacy). Secure payment • Instant access • No subscription`,
       },
     },
     ...(stripePaymentMethodConfigurationId
       ? { payment_method_configuration: stripePaymentMethodConfigurationId }
       : {}),
+    // Lock Stripe shipping countries to the priced route so Printful dynamic rates stay correct.
+    // Buyers change country via the editor control (cancel_url reopens checkout).
     shipping_address_collection: isPrintOrder
       ? {
           allowed_countries: resolvedShippingCountry
@@ -1125,7 +1138,7 @@ async function createCheckoutSession(input: {
         ...params,
         consent_collection: buildCheckoutConsentCollection(false),
       };
-      // Keep sessionParams in sync so discount fallback inherits ToS-only consent.
+      // Keep sessionParams in sync so discount fallback inherits consent without promotions.
       sessionParams.consent_collection = withoutPromotions.consent_collection;
       const promotionsFallbackKey = key ? `${key}:no-promo-consent` : undefined;
       return createStripeSession(withoutPromotions, promotionsFallbackKey);
@@ -1221,7 +1234,7 @@ async function createCheckoutSession(input: {
 export async function GET(req: NextRequest) {
   const correlationId = resolveCheckoutCorrelationId(req.headers.get("x-correlation-id"));
   const ip = getClientIp(req);
-  const rateLimit = await checkRateLimit(`checkout:${ip}`, 5, 60);
+  const rateLimit = await checkRateLimit(`checkout:${ip}`, 20, 60);
   if (!rateLimit.allowed) {
     return rateLimitResponse(rateLimit.resetIn);
   }
@@ -1279,7 +1292,10 @@ export async function GET(req: NextRequest) {
       : undefined;
   const clientCountry = getRequestCountry(req);
   const mapId = parseCheckoutMapId(mapParam);
-  const promoCodeParam = req.nextUrl.searchParams.get("promo_code") ?? undefined;
+  // Digital checkouts ignore promo_code — Christmas/print codes must not apply to HD/credits/subs.
+  const promoCodeParam = canUseManualPromotionCode(orderType, plan)
+    ? (req.nextUrl.searchParams.get("promo_code") ?? undefined)
+    : undefined;
   const customerEmail = normalizeCheckoutCustomerEmail(
     req.nextUrl.searchParams.get("customer_email") ?? req.nextUrl.searchParams.get("email")
   );
@@ -1288,12 +1304,9 @@ export async function GET(req: NextRequest) {
   const referralAttribution = readReferralAttributionFromCookie(req);
   const referral = await resolveReferral(referralParam ?? fallbackReferralCode, currentSessionId);
   const referralAutoOffer = resolveReferralAutoOffer(referral.code);
-  const promotion =
-    orderType === "digital" && plan === "subscription"
-      ? { promotionCodeId: undefined, invalid: false, lookupFailed: false }
-      : canUseManualPromotionCode(orderType, plan)
-        ? await resolvePromotionCodeId(promoCodeParam)
-        : { promotionCodeId: undefined, invalid: false, lookupFailed: false };
+  const promotion = canUseManualPromotionCode(orderType, plan)
+    ? await resolvePromotionCodeId(promoCodeParam)
+    : { promotionCodeId: undefined, invalid: false, lookupFailed: false };
   const selectedPromotion = selectCheckoutPromotion({
     manualPromotionCodeId: promotion.invalid ? undefined : promotion.promotionCodeId,
     referralCode: referral.code,
@@ -1311,11 +1324,29 @@ export async function GET(req: NextRequest) {
   // handoff query token so headless/direct hits stop minting unpaid $9 sessions.
   const getCheckoutHandoff = resolveCheckoutHandoff(req.nextUrl.searchParams.get("checkout_handoff"));
   if (orderType === "digital" && getCheckoutHandoff === "missing" && !qaContext.enabled) {
+    const editorRecoveryUrl = buildCheckoutEditorRecoveryUrl({
+      siteOrigin: siteOrigin(),
+      mapId,
+      orderType,
+      plan,
+      printVariant,
+      shippingCountry,
+      includeDigitalAddOn,
+      includeCardAddOn,
+      source: "checkout-handoff-recovery",
+    });
+    // Browser navigations (bookmarks / stripped query) return to the editor with checkout
+    // reopened so a fresh handoff token can be issued. API clients still get 403 JSON.
+    const accept = req.headers.get("accept") ?? "";
+    if (accept.includes("text/html")) {
+      return NextResponse.redirect(editorRecoveryUrl, 302);
+    }
     return NextResponse.json(
       {
         error: "Checkout requires a browser session. Open checkout from the editor.",
         code: "checkout_handoff_required",
         diagnosticId: correlationId,
+        editorRecoveryUrl,
       },
       { status: 403 },
     );
@@ -1505,10 +1536,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  // Rate limit: 5 requests per minute per IP (prevents checkout session spam)
+  // Rate limit: 20 requests per minute per IP (shared NAT / promo retries)
   const correlationId = resolveCheckoutCorrelationId(req.headers.get("x-correlation-id"));
   const ip = getClientIp(req);
-  const rateLimit = await checkRateLimit(`checkout:${ip}`, 5, 60);
+  const rateLimit = await checkRateLimit(`checkout:${ip}`, 20, 60);
   if (!rateLimit.allowed) {
     return rateLimitResponse(rateLimit.resetIn);
   }
@@ -1595,7 +1626,12 @@ export async function POST(req: NextRequest) {
         }
       }
       recipeFingerprint = normalizeRecipeFingerprint(body?.recipeFingerprint);
-      if (body?.promoCode && typeof body.promoCode === "string") {
+      // Print-only: digital bodies may still send promoCode from saved editor codes — ignore them.
+      if (
+        canUseManualPromotionCode(orderType, plan) &&
+        body?.promoCode &&
+        typeof body.promoCode === "string"
+      ) {
         const trimmed = body.promoCode.trim();
         if (trimmed) {
           promoCode = trimmed.slice(0, 64);
@@ -1632,11 +1668,23 @@ export async function POST(req: NextRequest) {
     // Presence-only browser handoff required for digital session creation (stops direct/bot POSTs).
     // Authenticated QA (`qaContext.enabled`) remains exempt for live probes.
     if (orderType === "digital" && checkoutHandoff === "missing" && !qaContext.enabled) {
+      const editorRecoveryUrl = buildCheckoutEditorRecoveryUrl({
+        siteOrigin: siteOrigin(),
+        mapId,
+        orderType,
+        plan,
+        printVariant,
+        shippingCountry,
+        includeDigitalAddOn,
+        includeCardAddOn,
+        source: "checkout-handoff-recovery",
+      });
       return NextResponse.json(
         {
           error: "Checkout requires a browser session. Open checkout from the editor.",
           code: "checkout_handoff_required",
           diagnosticId: correlationId,
+          editorRecoveryUrl,
         },
         { status: 403 },
       );
@@ -1693,19 +1741,15 @@ export async function POST(req: NextRequest) {
     if (orderType !== "print") {
       await assertDigitalCheckoutMap(mapId, plan);
     }
-    const promotion =
-      orderType === "digital" && plan === "subscription"
-        ? { promotionCodeId: undefined, invalid: false, lookupFailed: false }
-        : canUseManualPromotionCode(orderType, plan)
-          ? await resolvePromotionCodeId(promoCode)
-          : { promotionCodeId: undefined, invalid: false, lookupFailed: false };
-    if (promoCode && promotion.invalid) {
-      return NextResponse.json(
-        { error: "Invalid or expired promotion code.", code: "invalid_promotion_code" },
-        { status: 400 }
-      );
-    }
-    if (promoCode && promotion.lookupFailed) {
+    const promotion = canUseManualPromotionCode(orderType, plan)
+      ? await resolvePromotionCodeId(promoCode)
+      : { promotionCodeId: undefined, invalid: false, lookupFailed: false };
+    // Invalid/expired print codes must not block checkout — drop and let Stripe
+    // hosted Checkout collect a replacement via allow_promotion_codes (print only).
+    const promoInvalidDropped = Boolean(
+      canUseManualPromotionCode(orderType, plan) && promoCode && promotion.invalid
+    );
+    if (canUseManualPromotionCode(orderType, plan) && promoCode && promotion.lookupFailed) {
       return NextResponse.json(
         { error: "Could not verify promotion code. Please try again.", code: "promotion_lookup_failed" },
         { status: 503 }
@@ -1838,6 +1882,7 @@ export async function POST(req: NextRequest) {
         url: rejectedResolved.url,
         promoApplied: false,
         discountRejected: true,
+        promoInvalidDropped: promoInvalidDropped || undefined,
         referralOfferApplied: false,
         referralOfferVariant: null,
         promoLookupFailed: promotion.lookupFailed,
@@ -1911,6 +1956,7 @@ export async function POST(req: NextRequest) {
         selectedPromotion.source === "referral_auto" && !session.discountRejected
           ? (referralAutoOffer.variant ?? null)
           : null,
+      promoInvalidDropped: promoInvalidDropped || undefined,
       promoLookupFailed: promoCode ? promotion.lookupFailed : false,
       recoveredCheckoutUrl: checkoutResolved.recovered || undefined,
     });

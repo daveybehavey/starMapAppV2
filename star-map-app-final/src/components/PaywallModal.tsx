@@ -31,8 +31,16 @@ import {
   type PaywallPrintCheckoutPresentationRow,
 } from "@/lib/paywallPrintCheckout";
 import { PrintGiftDecisionPanel } from "@/components/PrintGiftDecisionPanel";
-import { LOVE_IT_GUARANTEE_LINE } from "@/lib/loveItGuarantee";
+import { CheckoutLegalNotice } from "@/components/CheckoutLegalNotice";
+import {
+  DIGITAL_CHECKOUT_SUPPORT_LINE,
+  LOVE_IT_GUARANTEE_LINE,
+} from "@/lib/loveItGuarantee";
 import { normalizeCheckoutCustomerEmail } from "@/lib/checkoutCustomerEmail";
+import {
+  getPaywallDialogTitle,
+  shouldShowPaywallSubscriptionCancelFooter,
+} from "@/lib/paywallDialogCopy";
 
 type PriceLabels = {
   single: string;
@@ -144,12 +152,19 @@ export function PaywallModal({
   const activeIntent: "digital" | "print" = appMode ? "print" : requestedIntent;
   const isWeddingGift = giftPaywallContext === "wedding";
   const freeShippingOfferLine = getPrintFreeShippingOfferLine();
-  const dialogTitle =
-    isWeddingGift && activeIntent === "print" && hasPrintOptions
-      ? "Complete your wedding gift"
-      : appMode
-        ? "Order this map as a print"
-        : copy.title;
+  const dialogTitle = getPaywallDialogTitle({
+    activeIntent,
+    hasPrintOptions,
+    isWeddingGift,
+    appMode,
+    digitalTitle: copy.title,
+  });
+  // Subscription cancel belongs on the unlimited card, not the shared footer (esp. print / one-off).
+  const showSubscriptionCancelFooter = shouldShowPaywallSubscriptionCancelFooter({
+    activeIntent,
+    appMode,
+    subscriptionSelected: false,
+  });
   const dialogSubtitle =
     isWeddingGift && activeIntent === "print" && hasPrintOptions && appMode
       ? `Recommended presentation: a framed, wall-ready print from the same approved design. ${
@@ -484,17 +499,28 @@ export function PaywallModal({
                   {getPrintProductionReviewDisclosure()} {shippingDisclosure}
                 </p>
                 {printShippingCountries.length > 0 && (
-                  <div className="mt-3">
-                    <label
-                      htmlFor="paywall-print-country"
-                      className="text-[11px] font-semibold text-amber-100/80"
-                    >
-                      Shipping country
-                    </label>
+                  <div className="mt-3" data-testid="print-shipping-country-control">
+                    <div className="flex items-center justify-between gap-2">
+                      <label
+                        htmlFor="paywall-print-country"
+                        className="text-[11px] font-semibold text-amber-100/80"
+                      >
+                        Shipping country
+                      </label>
+                      {printShippingCountry ? (
+                        <span
+                          className="text-[10px] font-semibold tracking-wide text-amber-100/90 uppercase"
+                          data-testid="change-shipping-country-hint"
+                        >
+                          Change country
+                        </span>
+                      ) : null}
+                    </div>
                     <select
                       id="paywall-print-country"
                       value={printShippingCountry ?? ""}
                       onChange={(event) => onPrintShippingCountryChange?.(event.target.value)}
+                      aria-label="Change shipping country"
                       className="print-country-select text-midnight mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-xs"
                       style={{ color: "#111827", WebkitTextFillColor: "#111827", colorScheme: "light" }}
                     >
@@ -521,11 +547,13 @@ export function PaywallModal({
                         Select a shipping country to continue.
                       </p>
                     )}
-                    {printShippingCountry && posterShippingFootnote ? (
+                    {printShippingCountry ? (
                       <p className="mt-1 text-[10px] text-amber-100/80">
-                        Standard shipping to {getPrintShippingCountryLabel(printShippingCountry)}:{" "}
-                        {posterShippingFootnote} (carrier transit after production — not the full delivery
-                        date).
+                        Shipping is priced for {getPrintShippingCountryLabel(printShippingCountry)}.
+                        {posterShippingFootnote
+                          ? ` Estimated: ${posterShippingFootnote} (carrier transit after production — not the full delivery date).`
+                          : ""}{" "}
+                        Shipping elsewhere? Change country here before checkout.
                       </p>
                     ) : null}
                     <div
@@ -559,6 +587,7 @@ export function PaywallModal({
                     {printUpsellHint}
                   </p>
                 ) : null}
+                <CheckoutLegalNotice tone="dark" className="mt-3" />
                 <div className="mt-3 grid gap-2">
                   {printRows.map((row) => (
                     <div key={paywallPrintCheckoutRowKey(row)}>
@@ -633,10 +662,11 @@ export function PaywallModal({
             >
               {checkoutInFlight ? "Starting checkout..." : copy.singleCta}
             </button>
+            <CheckoutLegalNotice className="mt-2" />
             <p className="mt-2 text-[11px] text-neutral-600">
               Instant HD download after payment — no shipping wait.
             </p>
-            <p className="mt-1 text-[10px] text-neutral-600">{LOVE_IT_GUARANTEE_LINE}</p>
+            <p className="mt-1 text-[10px] text-neutral-600">{DIGITAL_CHECKOUT_SUPPORT_LINE}</p>
             <p className="mt-1 text-[11px] text-neutral-600">
               Use this when you only need this one finished map.
             </p>
@@ -663,7 +693,7 @@ export function PaywallModal({
             <p className="mt-2 text-[11px] text-neutral-600">
               Each HD export uses one credit from this pack — unlocks instantly after payment.
             </p>
-            <p className="mt-1 text-[10px] text-neutral-600">{LOVE_IT_GUARANTEE_LINE}</p>
+            <p className="mt-1 text-[10px] text-neutral-600">{DIGITAL_CHECKOUT_SUPPORT_LINE}</p>
           </div>
 
           <div className="rounded-xl border border-amber-300 bg-amber-100/70 p-3">
@@ -695,7 +725,7 @@ export function PaywallModal({
             <p className="mt-2 text-[11px] text-amber-950/80">
               Instant HD exports while active — cancel anytime.
             </p>
-            <p className="mt-1 text-[10px] text-amber-950/70">{LOVE_IT_GUARANTEE_LINE}</p>
+            <p className="mt-1 text-[10px] text-amber-950/70">{DIGITAL_CHECKOUT_SUPPORT_LINE}</p>
           </div>
 
           {onStartPrintCheckout && (
@@ -747,14 +777,16 @@ export function PaywallModal({
 
         <p className="mt-4 text-[11px] text-neutral-600">
           Secure checkout — card, Apple Pay, Google Pay, and Link on supported devices.
-          {appMode ? "" : " Subscription can be canceled anytime."} Need help?{" "}
+          {showSubscriptionCancelFooter ? " Subscription can be canceled anytime." : ""} Need help?{" "}
           <a href="mailto:support@starmapco.com" className="underline hover:text-neutral-900">
             support@starmapco.com
           </a>
         </p>
-        <p className="mt-2 text-xs font-semibold text-neutral-700">
-          Have a promo code? It can be applied at checkout.
-        </p>
+        {activeIntent === "print" ? (
+          <p className="mt-2 text-xs font-semibold text-neutral-700">
+            Have a print promo code? It can be applied at checkout.
+          </p>
+        ) : null}
         {showReferralHint && (
           <p className="mt-1 text-[11px] text-neutral-600">
             Referral offers apply automatically at checkout when available.

@@ -42,12 +42,9 @@ test("promotions consent is optional and errors are detected", async () => {
   } = await loadTs("src/lib/stripeConsentCollection.ts");
 
   assert.deepEqual(buildCheckoutConsentCollection(true), {
-    terms_of_service: "required",
     promotions: "auto",
   });
-  assert.deepEqual(buildCheckoutConsentCollection(false), {
-    terms_of_service: "required",
-  });
+  assert.deepEqual(buildCheckoutConsentCollection(false), {});
   assert.equal(typeof shouldAttemptPromotionsConsent(), "boolean");
   assert.equal(
     isPromotionsConsentUnsupportedError({
@@ -60,10 +57,16 @@ test("promotions consent is optional and errors are detected", async () => {
 });
 
 test("Love-It Guarantee copy is damage/misprint only", async () => {
-  const { LOVE_IT_GUARANTEE_LINE, getLoveItGuaranteeFaq } = await loadTs("src/lib/loveItGuarantee.ts");
+  const {
+    LOVE_IT_GUARANTEE_LINE,
+    DIGITAL_CHECKOUT_SUPPORT_LINE,
+    getLoveItGuaranteeFaq,
+  } = await loadTs("src/lib/loveItGuarantee.ts");
   assert.match(LOVE_IT_GUARANTEE_LINE, /Love-It Guarantee/i);
   assert.match(LOVE_IT_GUARANTEE_LINE, /damaged|misprinted/i);
   assert.match(LOVE_IT_GUARANTEE_LINE, /No change-of-mind/i);
+  assert.match(DIGITAL_CHECKOUT_SUPPORT_LINE, /Instant HD download/i);
+  assert.match(DIGITAL_CHECKOUT_SUPPORT_LINE, /support@starmapco\.com/i);
   const faq = getLoveItGuaranteeFaq();
   assert.match(faq.answer, /reprint/i);
   assert.match(faq.answer, /change-of-mind/i);
@@ -122,7 +125,7 @@ test("Christmas banner discount windows (Pacific) cover each promo phase", async
     const content = getChristmasBannerContent(at(day), "$9");
     assert.match(content.message, /15% off prints/i);
     assert.match(content.message, new RegExp(CHRISTMAS_PROMO.xmas15.code));
-    assert.match(content.message, /Order by for Christmas/i);
+    assert.match(content.message, /Order by these dates for Christmas/i);
     assert.equal(content.promoCode, "XMAS15");
     const landing = getChristmasLandingPromo(at(day));
     assert.match(landing.discountLine, /15% off prints/i);
@@ -145,7 +148,7 @@ test("Christmas banner discount windows (Pacific) cover each promo phase", async
     const content = getChristmasBannerContent(at(day), "$9");
     assert.match(content.message, /Last call:\s*15% off prints/i);
     assert.match(content.message, /XMAS15/);
-    assert.match(content.message, /Order by for Christmas/i);
+    assert.match(content.message, /Order by these dates for Christmas/i);
     assert.equal(content.promoCode, "XMAS15");
   }
 

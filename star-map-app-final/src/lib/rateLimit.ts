@@ -103,7 +103,10 @@ export function getRateLimitHeaders(
  */
 export function rateLimitResponse(resetIn: number): Response {
   return new Response(
-    JSON.stringify({ error: "Too many requests. Please try again later." }),
+    JSON.stringify({
+      error: "Too many requests. Please try again later.",
+      code: "rate_limited",
+    }),
     {
       status: 429,
       headers: {

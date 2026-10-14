@@ -1,120 +1,148 @@
 "use client";
 
 import type { ReactNode } from "react";
-import {
-  Cinzel,
-  Great_Vibes,
-  Cormorant_Garamond,
-  Montserrat,
-  Libre_Baskerville,
-  EB_Garamond,
-  Crimson_Text,
-  Lora,
-  Raleway,
-  Poppins,
-  Dancing_Script,
-  Parisienne,
-  Bebas_Neue,
-  Abril_Fatface,
-} from "next/font/google";
+import localFont from "next/font/local";
 
-const cinzel = Cinzel({
-  subsets: ["latin"],
-  weight: ["600", "700"],
+/**
+ * Editor title fonts are loaded from committed OFL woff2 files under `src/fonts/`
+ * so production builds never fetch Google Fonts at compile time.
+ *
+ * Each `localFont(...)` call must stay at module scope (Next.js font-loader rule).
+ */
+
+const cinzel = localFont({
+  src: [
+    { path: "../fonts/cinzel/latin-600-normal.woff2", weight: "600", style: "normal" },
+    { path: "../fonts/cinzel/latin-700-normal.woff2", weight: "700", style: "normal" },
+  ],
   variable: "--font-cinzel",
-  preload: false,
   display: "swap",
+  preload: false,
 });
-const greatVibes = Great_Vibes({
-  subsets: ["latin"],
-  weight: ["400"],
+
+const greatVibes = localFont({
+  src: [{ path: "../fonts/great-vibes/latin-400-normal.woff2", weight: "400", style: "normal" }],
   variable: "--font-script",
-  preload: false,
   display: "swap",
+  preload: false,
 });
-const cormorant = Cormorant_Garamond({
-  subsets: ["latin"],
-  weight: ["400", "600", "700"],
+
+const cormorant = localFont({
+  src: [
+    { path: "../fonts/cormorant-garamond/latin-400-normal.woff2", weight: "400", style: "normal" },
+    { path: "../fonts/cormorant-garamond/latin-600-normal.woff2", weight: "600", style: "normal" },
+    { path: "../fonts/cormorant-garamond/latin-700-normal.woff2", weight: "700", style: "normal" },
+  ],
   variable: "--font-cormorant",
-  preload: false,
   display: "swap",
+  preload: false,
 });
-const montserrat = Montserrat({
-  subsets: ["latin"],
-  weight: ["400", "600", "700"],
+
+const montserrat = localFont({
+  src: [
+    { path: "../fonts/montserrat/latin-400-normal.woff2", weight: "400", style: "normal" },
+    { path: "../fonts/montserrat/latin-600-normal.woff2", weight: "600", style: "normal" },
+    { path: "../fonts/montserrat/latin-700-normal.woff2", weight: "700", style: "normal" },
+  ],
   variable: "--font-montserrat",
-  preload: false,
   display: "swap",
+  preload: false,
 });
-const libreBaskerville = Libre_Baskerville({
-  subsets: ["latin"],
-  weight: ["400", "700"],
+
+const libreBaskerville = localFont({
+  src: [
+    { path: "../fonts/libre-baskerville/latin-400-normal.woff2", weight: "400", style: "normal" },
+    { path: "../fonts/libre-baskerville/latin-700-normal.woff2", weight: "700", style: "normal" },
+  ],
   variable: "--font-libre-baskerville",
-  preload: false,
   display: "swap",
+  preload: false,
 });
-const ebGaramond = EB_Garamond({
-  subsets: ["latin"],
-  weight: ["400", "600", "700"],
+
+const ebGaramond = localFont({
+  src: [
+    { path: "../fonts/eb-garamond/latin-400-normal.woff2", weight: "400", style: "normal" },
+    { path: "../fonts/eb-garamond/latin-600-normal.woff2", weight: "600", style: "normal" },
+    { path: "../fonts/eb-garamond/latin-700-normal.woff2", weight: "700", style: "normal" },
+  ],
   variable: "--font-eb-garamond",
-  preload: false,
   display: "swap",
+  preload: false,
 });
-const crimsonText = Crimson_Text({
-  subsets: ["latin"],
-  weight: ["400", "600", "700"],
+
+const crimsonText = localFont({
+  src: [
+    { path: "../fonts/crimson-text/latin-400-normal.woff2", weight: "400", style: "normal" },
+    { path: "../fonts/crimson-text/latin-600-normal.woff2", weight: "600", style: "normal" },
+    { path: "../fonts/crimson-text/latin-700-normal.woff2", weight: "700", style: "normal" },
+  ],
   variable: "--font-crimson-text",
-  preload: false,
   display: "swap",
+  preload: false,
 });
-const lora = Lora({
-  subsets: ["latin"],
-  weight: ["400", "600", "700"],
+
+const lora = localFont({
+  src: [
+    { path: "../fonts/lora/latin-400-normal.woff2", weight: "400", style: "normal" },
+    { path: "../fonts/lora/latin-600-normal.woff2", weight: "600", style: "normal" },
+    { path: "../fonts/lora/latin-700-normal.woff2", weight: "700", style: "normal" },
+  ],
   variable: "--font-lora",
-  preload: false,
   display: "swap",
+  preload: false,
 });
-const raleway = Raleway({
-  subsets: ["latin"],
-  weight: ["400", "600", "700"],
+
+const raleway = localFont({
+  src: [
+    { path: "../fonts/raleway/latin-400-normal.woff2", weight: "400", style: "normal" },
+    { path: "../fonts/raleway/latin-600-normal.woff2", weight: "600", style: "normal" },
+    { path: "../fonts/raleway/latin-700-normal.woff2", weight: "700", style: "normal" },
+  ],
   variable: "--font-raleway",
-  preload: false,
   display: "swap",
+  preload: false,
 });
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "600", "700"],
+
+const poppins = localFont({
+  src: [
+    { path: "../fonts/poppins/latin-400-normal.woff2", weight: "400", style: "normal" },
+    { path: "../fonts/poppins/latin-600-normal.woff2", weight: "600", style: "normal" },
+    { path: "../fonts/poppins/latin-700-normal.woff2", weight: "700", style: "normal" },
+  ],
   variable: "--font-poppins",
-  preload: false,
   display: "swap",
+  preload: false,
 });
-const dancingScript = Dancing_Script({
-  subsets: ["latin"],
-  weight: ["400", "700"],
+
+const dancingScript = localFont({
+  src: [
+    { path: "../fonts/dancing-script/latin-400-normal.woff2", weight: "400", style: "normal" },
+    { path: "../fonts/dancing-script/latin-700-normal.woff2", weight: "700", style: "normal" },
+  ],
   variable: "--font-dancing-script",
-  preload: false,
   display: "swap",
+  preload: false,
 });
-const parisienne = Parisienne({
-  subsets: ["latin"],
-  weight: ["400"],
+
+const parisienne = localFont({
+  src: [{ path: "../fonts/parisienne/latin-400-normal.woff2", weight: "400", style: "normal" }],
   variable: "--font-parisienne",
-  preload: false,
   display: "swap",
+  preload: false,
 });
-const bebasNeue = Bebas_Neue({
-  subsets: ["latin"],
-  weight: ["400"],
+
+const bebasNeue = localFont({
+  src: [{ path: "../fonts/bebas-neue/latin-400-normal.woff2", weight: "400", style: "normal" }],
   variable: "--font-bebas-neue",
-  preload: false,
   display: "swap",
+  preload: false,
 });
-const abrilFatface = Abril_Fatface({
-  subsets: ["latin"],
-  weight: ["400"],
+
+const abrilFatface = localFont({
+  src: [{ path: "../fonts/abril-fatface/latin-400-normal.woff2", weight: "400", style: "normal" }],
   variable: "--font-abril-fatface",
-  preload: false,
   display: "swap",
+  preload: false,
 });
 
 type EditorFontShellProps = {

@@ -1,6 +1,7 @@
 /**
  * #224 — print Stripe Checkout billing_address_collection is `auto`, while
- * fulfillment/compliance-critical inputs (shipping, phone, ToS) remain.
+ * fulfillment/compliance-critical inputs (shipping, phone) remain.
+ * ToS is disclosure-only (#284); promotions consent uses guarded helper (#282).
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -47,7 +48,7 @@ test("print Checkout billing_address_collection is Stripe auto (not forced requi
   );
 });
 
-test("print Checkout still collects shipping address, phone, and ToS", () => {
+test("print Checkout still collects shipping address and phone; ToS is disclosure-only", () => {
   const route = fs.readFileSync(CHECKOUT_ROUTE, "utf8");
   const block = extractSessionParamsBlock(route);
 
@@ -56,19 +57,34 @@ test("print Checkout still collects shipping address, phone, and ToS", () => {
     /phone_number_collection:\s*\{\s*enabled:\s*isPrintOrder\s*,?\s*\}/,
     "phone collection must remain enabled for print orders"
   );
+  assert.equal(
+    /terms_of_service:\s*"required"/.test(block),
+    false,
+    "ToS checkbox must not be required in sessionParams"
+  );
+  assert.match(
+    block,
+    /By completing your purchase you agree to our \[Terms of Service\]/,
+    "submit message must disclose Terms agreement with links"
+  );
   assert.match(
     block,
     /consent_collection:\s*buildCheckoutConsentCollection\(/,
-    "consent collection must use buildCheckoutConsentCollection (ToS required; promotions guarded)"
+    "consent collection must use buildCheckoutConsentCollection (promotions guarded)"
   );
   const consentHelper = fs.readFileSync(
     path.join(ROOT, "src/lib/stripeConsentCollection.ts"),
     "utf8"
   );
+  assert.equal(
+    /terms_of_service:\s*"required"/.test(consentHelper),
+    false,
+    "consent helper must not reintroduce ToS checkbox requirement"
+  );
   assert.match(
     consentHelper,
-    /terms_of_service:\s*"required"/,
-    "ToS consent collection must remain required"
+    /promotions:\s*"auto"/,
+    "consent helper must still support promotions: auto"
   );
   assert.match(
     route,
