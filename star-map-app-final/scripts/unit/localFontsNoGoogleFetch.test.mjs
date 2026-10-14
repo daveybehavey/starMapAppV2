@@ -16,7 +16,8 @@ test("EditorFontShell and layout use next/font/local with committed OFL files", 
   assert.equal(/next\/font\/google/.test(layout), false);
   assert.match(shell, /next\/font\/local/);
   assert.match(layout, /next\/font\/local/);
-  assert.match(shell, /eb-garamond\/latin-400-normal\.woff2/);
+  assert.match(shell, /family\("eb-garamond"/);
+  assert.match(shell, /\.\.\/fonts\/\$\{dir\}\/latin-\$\{weight\}-normal\.woff2/);
   assert.match(layout, /playfair-display\/latin-400-normal\.woff2/);
 
   for (const rel of [
