@@ -248,8 +248,20 @@ export function getChristmasLandingPromo(nowMs: number = Date.now()): ChristmasL
     };
   }
 
+  if (phase === "hidden") {
+    return {
+      phase,
+      heading: "Christmas star map gifts",
+      discountLine: null,
+      showOrderBy: false,
+      showDigitalPitch: false,
+      promoCode: null,
+      digitalExcludedNote: null,
+    };
+  }
+
   return {
-    phase: phase === "hidden" ? "hidden" : "order_by",
+    phase: "order_by",
     heading: "Christmas order-by dates",
     discountLine: null,
     showOrderBy: true,

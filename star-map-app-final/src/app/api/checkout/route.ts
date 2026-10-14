@@ -618,6 +618,17 @@ function resolveCheckoutHandoff(raw: unknown): "browser" | "missing" {
   return CHECKOUT_HANDOFF_TOKEN_RE.test(token) ? "browser" : "missing";
 }
 
+/** Short non-reversible tag so a changed recovery email yields a new checkout cache identity (no PII in keys). */
+function checkoutEmailIdempotencyTag(email: string): string {
+  let hash = 2166136261;
+  const value = email.trim().toLowerCase();
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
 function checkoutIdempotencyKey(input: {
   mapId?: string;
   plan: CheckoutPlan;
@@ -633,6 +644,7 @@ function checkoutIdempotencyKey(input: {
   referralCode?: string | null;
   qaContext?: QaRequestContext | null;
   androidAppMode?: boolean;
+  customerEmail?: string | null;
 }) {
   const mapId = typeof input.mapId === "string" ? input.mapId.trim() : "";
   if (!mapId) return null;
@@ -647,7 +659,7 @@ function checkoutIdempotencyKey(input: {
   const shipping = normalizeIdempotencyToken(input.shippingCountry, 8);
   const promo = normalizeIdempotencyToken(input.promoCode, 48);
   const referral = normalizeIdempotencyToken(input.referralCode, 48);
-  const baseWithoutMapId = `${CHECKOUT_IDEMPOTENCY_PREFIX}${orderType}:${plan}:${printVariant}:${includeDigitalAddOn}:${includeCardAddOn}:${merchFamily}:${merchSize}:${merchColor}:${shipping}:${promo}:${referral}${input.androidAppMode ? ":app-android" : ""}`;
+  const baseWithoutMapId = `${CHECKOUT_IDEMPOTENCY_PREFIX}${orderType}:${plan}:${printVariant}:${includeDigitalAddOn}:${includeCardAddOn}:${merchFamily}:${merchSize}:${merchColor}:${shipping}:${promo}:${referral}${input.androidAppMode ? ":app-android" : ""}${input.customerEmail ? `:em${checkoutEmailIdempotencyTag(input.customerEmail)}` : ""}`;
   return appendCheckoutIdempotencyQaSegment(baseWithoutMapId, input.qaContext, mapId);
 }
 
@@ -1110,10 +1122,15 @@ async function createCheckoutSession(input: {
     }
   }
 
+  // expires_at is time-based, so the Stripe idempotency key must include it: reusing a key with a
+  // different expires_at (after the KV URL cache lapses) makes Stripe reject the request.
+  const stripeIdempotencyKey = idempotencyKey
+    ? `${idempotencyKey}:exp${sessionParams.expires_at ?? ""}`
+    : undefined;
   let session: Stripe.Checkout.Session;
   let discountRejected = false;
   try {
-    session = await createSessionWithConsentFallback(sessionParams, idempotencyKey);
+    session = await createSessionWithConsentFallback(sessionParams, stripeIdempotencyKey);
   } catch (error) {
     if (!promotionCodeId || !shouldRetryCheckoutWithoutDiscount(error) || !fallbackOnDiscountError) {
       throw error;
@@ -1140,7 +1157,7 @@ async function createCheckoutSession(input: {
     };
     discountRejected = true;
     // Stripe idempotency keys must match request params — use a distinct key for the no-discount retry.
-    const fallbackIdempotencyKey = idempotencyKey ? `${idempotencyKey}:no-discount` : undefined;
+    const fallbackIdempotencyKey = stripeIdempotencyKey ? `${stripeIdempotencyKey}:no-discount` : undefined;
     session = await createSessionWithConsentFallback(fallbackParams, fallbackIdempotencyKey);
   }
 
@@ -1707,6 +1724,7 @@ export async function POST(req: NextRequest) {
       referralCode: referral.code ?? null,
       qaContext,
       androidAppMode,
+      customerEmail: customerEmail ?? null,
     });
     if (idempotencyKey) {
       const existingUrl = await kv.get<string>(idempotencyKey);
