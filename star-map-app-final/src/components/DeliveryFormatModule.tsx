@@ -73,7 +73,7 @@ export default function DeliveryFormatModule({
       </div>
 
       <div className={`grid gap-3 ${printCheckoutEnabled ? "md:grid-cols-3" : "md:grid-cols-1"}`}>
-        <article className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm">
+        <article data-digital-offer className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm">
           <p className="text-midnight text-sm font-semibold">HD digital delivery</p>
           <p className="mt-1 text-xs text-neutral-700">
             Built for same-day gifting, local printing, or testing different frame shops.
@@ -113,7 +113,10 @@ export default function DeliveryFormatModule({
         ) : null}
 
         {printCheckoutEnabled ? (
-          <article className="rounded-2xl border border-amber-300/70 bg-gradient-to-br from-amber-100 to-amber-50 p-4 shadow-sm">
+          <article
+            data-digital-offer
+            className="rounded-2xl border border-amber-300/70 bg-gradient-to-br from-amber-100 to-amber-50 p-4 shadow-sm"
+          >
             <div className="flex items-center justify-between gap-3">
               <p className="text-midnight text-sm font-semibold">Framed print + HD digital</p>
               <span className="rounded-full border border-amber-300/80 bg-amber-300/20 px-2 py-0.5 text-[10px] font-bold tracking-wide text-amber-900 uppercase">

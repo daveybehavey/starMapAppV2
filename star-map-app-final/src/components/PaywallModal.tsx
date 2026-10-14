@@ -5,6 +5,8 @@ import type { CheckoutPlan } from "@/lib/pricing";
 import type { PrintVariant } from "@/lib/pricing";
 import type { PaywallCopyVariant } from "@/lib/experiments";
 import { trackSelectItem, trackViewItemList } from "@/lib/analytics";
+import { useAndroidAppMode } from "@/hooks/useAndroidAppMode";
+import { isAndroidAppModeClient } from "@/lib/androidAppMode";
 import {
   getPrintDeliveryEstimateLine,
   getPrintProductionTimelineLine,
@@ -130,15 +132,27 @@ export function PaywallModal({
 }: Props) {
   const copy = PAYWALL_COPY[variant];
   const hasPrintOptions = Boolean(onStartPrintCheckout);
-  const [activeIntent, setActiveIntent] = useState<"digital" | "print">(
-    hasPrintOptions && purchaseIntent === "print" ? "print" : "digital"
+  // Google Play app mode: physical prints only (no digital purchases or links to them).
+  const appMode = useAndroidAppMode();
+  const [requestedIntent, setActiveIntent] = useState<"digital" | "print">(
+    appMode || (hasPrintOptions && purchaseIntent === "print") ? "print" : "digital"
   );
+  // Derived (not effect-driven) so the very first app-mode frame is already print-only.
+  const activeIntent: "digital" | "print" = appMode ? "print" : requestedIntent;
   const isWeddingGift = giftPaywallContext === "wedding";
   const freeShippingOfferLine = getPrintFreeShippingOfferLine();
   const dialogTitle =
-    isWeddingGift && activeIntent === "print" && hasPrintOptions ? "Complete your wedding gift" : copy.title;
-  const dialogSubtitle =
     isWeddingGift && activeIntent === "print" && hasPrintOptions
+      ? "Complete your wedding gift"
+      : appMode
+        ? "Order this map as a print"
+        : copy.title;
+  const dialogSubtitle =
+    isWeddingGift && activeIntent === "print" && hasPrintOptions && appMode
+      ? `Recommended presentation: a framed, wall-ready print from the same approved design. ${
+          freeShippingOfferLine ? `${freeShippingOfferLine} ` : ""
+        }Shipping total is shown before you pay.`
+      : isWeddingGift && activeIntent === "print" && hasPrintOptions
       ? freeShippingOfferLine
         ? `Recommended presentation: framed + HD — wall-ready print plus instant digital from the same design. ${freeShippingOfferLine} Shipping total is shown before you pay.`
         : "Recommended presentation: framed + HD — a wall-ready print plus instant digital from the same approved design. Shipping is shown before you pay."
@@ -153,8 +167,11 @@ export function PaywallModal({
     [printShippingCountries]
   );
   const printRows = useMemo(
-    () => getPaywallPrintCheckoutPresentation(printShippingCountry),
-    [printShippingCountry]
+    () => {
+      const rows = getPaywallPrintCheckoutPresentation(printShippingCountry);
+      return appMode ? rows.filter((row) => !row.includeDigitalAddOn) : rows;
+    },
+    [printShippingCountry, appMode]
   );
 
   const posterShippingFootnote = useMemo(
@@ -226,8 +243,8 @@ export function PaywallModal({
       setActiveIntent("digital");
       return;
     }
-    setActiveIntent(purchaseIntent === "print" ? "print" : "digital");
-  }, [hasPrintOptions, purchaseIntent]);
+    setActiveIntent(appMode || purchaseIntent === "print" ? "print" : "digital");
+  }, [hasPrintOptions, purchaseIntent, appMode]);
 
   useEffect(() => {
     if (printShippingCountry) {
@@ -236,7 +253,10 @@ export function PaywallModal({
   }, [printShippingCountry]);
 
   useEffect(() => {
-    if (!viewedListsRef.current.has("paywall_digital_options")) {
+    // App mode: never record impressions for digital offers the user cannot see.
+    // Read the pre-paint DOM flag directly so the first effect run is already correct.
+    const inAppMode = appMode || isAndroidAppModeClient();
+    if (!inAppMode && !viewedListsRef.current.has("paywall_digital_options")) {
       trackViewItemList({
         itemListId: "paywall_digital_options",
         itemListName: "Paywall digital options",
@@ -257,7 +277,7 @@ export function PaywallModal({
     trackViewItemList({
       itemListId: listId,
       itemListName: activeIntent === "print" ? "Paywall print options" : "Paywall print upsell",
-      items: PAYWALL_PRINT_CHECKOUT_ROWS.map((row, index) => ({
+      items: PAYWALL_PRINT_CHECKOUT_ROWS.filter((row) => !inAppMode || !row.includeDigitalAddOn).map((row, index) => ({
         plan: "single",
         orderType: "print" as const,
         printVariant: row.variant,
@@ -267,7 +287,7 @@ export function PaywallModal({
       })),
     });
     viewedListsRef.current.add(listId);
-  }, [activeIntent, hasPrintOptions]);
+  }, [activeIntent, hasPrintOptions, appMode]);
 
   const handleDigitalCheckoutClick = (plan: CheckoutPlan) => {
     trackSelectItem({
@@ -328,7 +348,7 @@ export function PaywallModal({
         ];
 
   // ── Per-tab bullet list ──────────────────────────────────────────────────────
-  const bullets = activeIntent === "print" ? getPaywallPrintBullets() : getPaywallDigitalBullets();
+  const bullets = activeIntent === "print" ? getPaywallPrintBullets({ appMode }) : getPaywallDigitalBullets();
   const instantHdPriceLine = getInstantHdPriceLine();
 
   return (
@@ -377,14 +397,14 @@ export function PaywallModal({
             <li key={b}>• {b}</li>
           ))}
         </ul>
-        {activeIntent === "digital" && (
+        {activeIntent === "digital" && !appMode && (
           <p className="mt-3 rounded-xl border border-amber-200/70 bg-white/70 px-3 py-2 text-[11px] font-medium text-neutral-700">
             Just need this one map? The one-time HD option is enough. Packs and unlimited only make sense for
             repeat exports.
           </p>
         )}
 
-        {hasPrintOptions && (
+        {hasPrintOptions && !appMode && (
           <div
             role="tablist"
             aria-label="Purchase type"
@@ -492,9 +512,11 @@ export function PaywallModal({
                         })}
                       </p>
                       <p>{getPrintStandardShippingOnlyLine()}</p>
-                      <p className="font-medium text-amber-50">
-                        {getPrintUrgentHdUpsellLine(instantHdPriceLine)}
-                      </p>
+                      {!appMode && (
+                        <p className="font-medium text-amber-50">
+                          {getPrintUrgentHdUpsellLine(instantHdPriceLine)}
+                        </p>
+                      )}
                     </div>
                     <PrintGiftDecisionPanel
                       printShippingCountry={printShippingCountry}
@@ -544,7 +566,7 @@ export function PaywallModal({
           id="paywall-tab-panel-digital"
           role={hasPrintOptions ? "tabpanel" : undefined}
           aria-labelledby={hasPrintOptions ? "paywall-tab-digital" : undefined}
-          hidden={hasPrintOptions ? activeIntent !== "digital" : undefined}
+          hidden={appMode || (hasPrintOptions ? activeIntent !== "digital" : undefined)}
           className="mt-4 grid gap-3 text-sm"
         >
           <div className="rounded-xl border border-amber-200/70 bg-white/70 p-3">
@@ -676,8 +698,8 @@ export function PaywallModal({
         </div>
 
         <p className="mt-4 text-[11px] text-neutral-600">
-          Secure checkout — card, Apple Pay, Google Pay, and Link on supported devices. Subscription can be
-          canceled anytime. Need help?{" "}
+          Secure checkout — card, Apple Pay, Google Pay, and Link on supported devices.
+          {appMode ? "" : " Subscription can be canceled anytime."} Need help?{" "}
           <a href="mailto:support@starmapco.com" className="underline hover:text-neutral-900">
             support@starmapco.com
           </a>

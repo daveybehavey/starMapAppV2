@@ -1699,3 +1699,32 @@ input[type="range"]:hover::-moz-range-thumb {
     scroll-behavior: auto !important;
   }
 }
+
+/* Google Play app mode (?source=android-app, see src/lib/androidAppMode.ts):
+   hide digital-only offers and links to them. Prints/merch stay visible. */
+html[data-app-mode="android"] [data-digital-offer],
+html[data-app-mode="android"] a[href*="/hd-star-map"],
+html[data-app-mode="android"] a[href*="checkout=digital"],
+html[data-app-mode="android"] a[href*="checkout=hd"],
+html[data-app-mode="android"] a[href*="plan=pack3"],
+html[data-app-mode="android"] a[href*="home-plan-pack3"],
+html[data-app-mode="android"] a[href*="plan=subscription"],
+html[data-app-mode="android"] a[href*="-digital"],
+html[data-app-mode="android"] a[href*="include_digital_addon=1"],
+html[data-app-mode="android"] a[href*="include_digital_addon=true"],
+html[data-app-mode="android"] [formaction*="checkout=digital"],
+html[data-app-mode="android"] [formaction*="include_digital_addon=1"],
+html[data-app-mode="android"] [data-checkout="digital"],
+html[data-app-mode="android"] article:has(> a[href*="-digital"]),
+html[data-app-mode="android"] article:has(> a[href*="checkout=digital"]),
+html[data-app-mode="android"] article:has(a[href*="include_digital_addon=1"]) {
+  display: none !important;
+}
+
+/* Print-only replacement copy, shown only in Google Play app mode. */
+[data-app-only] {
+  display: none;
+}
+html[data-app-mode="android"] [data-app-only] {
+  display: inline;
+}

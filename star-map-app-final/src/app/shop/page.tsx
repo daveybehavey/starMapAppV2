@@ -287,6 +287,7 @@ export default function ShopPage() {
             {productCards.map((card) => (
               <article
                 key={card.key}
+                data-digital-offer={card.key === "digital" ? true : undefined}
                 className={`flex flex-col overflow-hidden rounded-2xl border shadow-sm ${
                   card.darkCard ? "border-neutral-800 bg-[#0c1738] text-white" : "border-neutral-200 bg-white"
                 }`}

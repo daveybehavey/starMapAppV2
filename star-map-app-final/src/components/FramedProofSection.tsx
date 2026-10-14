@@ -72,7 +72,10 @@ export default function FramedProofSection({
               Unframed poster mockup
             </div>
           </div>
-          <div className="relative min-h-[180px] overflow-hidden rounded-2xl border border-black/10 bg-[#0a1228] shadow-sm">
+          <div
+            data-digital-offer
+            className="relative min-h-[180px] overflow-hidden rounded-2xl border border-black/10 bg-[#0a1228] shadow-sm"
+          >
             <ResilientImage
               src={digitalProofImage}
               fallbackSrc={HOME_MOCKUPS.digitalHd}
@@ -124,7 +127,7 @@ export default function FramedProofSection({
                 Use this if you already know how you want to frame it yourself.
               </p>
             </div>
-            <div className="brand-light-card rounded-2xl px-4 py-4">
+            <div data-digital-offer className="brand-light-card rounded-2xl px-4 py-4">
               <p className="text-[11px] font-semibold tracking-[0.18em] text-amber-700 uppercase">
                 Instant backup
               </p>

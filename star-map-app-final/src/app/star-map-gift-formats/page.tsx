@@ -153,7 +153,11 @@ export default function StarMapGiftFormatsPage() {
         </p>
         <div className="grid gap-3 md:grid-cols-3">
           {liveFormats.map((item) => (
-            <article key={item.title} className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm">
+            <article
+              key={item.title}
+              data-digital-offer={item.orderType === "digital" ? true : undefined}
+              className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm"
+            >
               <div className="relative mb-3 aspect-[4/3] overflow-hidden rounded-xl border border-black/10 bg-neutral-100">
                 <ResilientImage
                   src={item.imageSrc}
