@@ -11,7 +11,7 @@ import localFont from "next/font/local";
 function family(
   dir: string,
   weights: number[],
-  variable: string,
+  variable: `--${string}`,
   options?: { preload?: boolean }
 ) {
   return localFont({
