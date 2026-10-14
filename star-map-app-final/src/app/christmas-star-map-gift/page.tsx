@@ -181,7 +181,7 @@ export default async function ChristmasStarMapGiftPage({ searchParams }: PagePro
           </ul>
         ) : null}
         {landingPromo.showDigitalPitch ? (
-          <p className="text-sm text-neutral-800">{digitalPitch}</p>
+          <p className="text-sm text-neutral-800" data-digital-offer>{digitalPitch}</p>
         ) : null}
         <p className="text-xs text-neutral-700">{LOVE_IT_GUARANTEE_LINE}</p>
       </section>
