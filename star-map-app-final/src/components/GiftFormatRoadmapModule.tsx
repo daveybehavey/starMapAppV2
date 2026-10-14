@@ -39,7 +39,7 @@ export default function GiftFormatRoadmapModule({ sourcePrefix }: GiftFormatRoad
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4">
           <p className="text-[11px] font-semibold tracking-[0.18em] text-emerald-700 uppercase">Live now</p>
           <ul className="mt-2 space-y-1 text-sm text-neutral-800">
-            <li>HD digital ({digitalPriceLabel})</li>
+            <li data-digital-offer>HD digital ({digitalPriceLabel})</li>
             <li>Unframed print ({unframedPriceLabel} + shipping)</li>
             <li>Framed print ({framedPriceLabel} + shipping)</li>
           </ul>

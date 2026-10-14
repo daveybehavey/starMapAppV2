@@ -1,5 +1,7 @@
 "use client";
 
+import { isAndroidAppModeClient } from "@/lib/androidAppMode";
+import { useAndroidAppMode } from "@/hooks/useAndroidAppMode";
 import dynamic from "next/dynamic";
 import { TextBox, useStore } from "@/lib/store";
 import { aspectRatioToNumber, buildRecipeFromState, renderStarMap } from "@/lib/renderSky";
@@ -515,10 +517,12 @@ export function EditorExperience({
     () => formatPosterShippingFootnote(printShippingCountry),
     [printShippingCountry]
   );
-  const printCheckoutRows = useMemo(
-    () => getPaywallPrintCheckoutPresentation(printShippingCountry),
-    [printShippingCountry]
-  );
+  // Google Play app mode: prints only, never a digital add-on row.
+  const androidAppMode = useAndroidAppMode();
+  const printCheckoutRows = useMemo(() => {
+    const rows = getPaywallPrintCheckoutPresentation(printShippingCountry);
+    return androidAppMode ? rows.filter((row) => !row.includeDigitalAddOn) : rows;
+  }, [printShippingCountry, androidAppMode]);
   const activeMapLookTier = useMemo(
     () => resolveMapLookTier(renderOptions, selectedStyle),
     [renderOptions, selectedStyle]
@@ -941,6 +945,8 @@ export function EditorExperience({
     const checkoutParam = searchParams.get("checkout");
     const sourceParam = searchParams.get("source");
     if (!shouldAutoOpenEditorDigitalPaywall(sourceParam, checkoutParam)) return;
+    // Google Play app mode: never auto-open a digital purchase.
+    if (isAndroidAppModeClient()) return;
 
     digitalIntentHandledRef.current = true;
     setPaywallIntent("digital");
@@ -1356,6 +1362,7 @@ export function EditorExperience({
         merchOptions?: { size?: string; color?: string };
         includeDigitalAddOn?: boolean;
         includeCardAddOn?: boolean;
+        customerEmail?: string;
       }
     ) => {
       if (checkoutInFlightRef.current) return;
@@ -1462,11 +1469,13 @@ export function EditorExperience({
           recipeFingerprint?: string;
           shippingCountry?: string;
           referralCode?: string;
+          customerEmail?: string;
           checkoutHandoff?: string;
         } = { plan, checkoutHandoff: createCheckoutHandoffToken() };
         if (mapId) checkoutPayload.mapId = mapId;
         if (promoCode) checkoutPayload.promoCode = promoCode;
         if (referralCode) checkoutPayload.referralCode = referralCode;
+        if (options?.customerEmail) checkoutPayload.customerEmail = options.customerEmail;
         if (orderType === "print") {
           if (!printShippingCountry) {
             throw new Error("missing_shipping_country");
@@ -1934,6 +1943,7 @@ export function EditorExperience({
       variant: PrintVariant;
       includeDigitalAddOn: boolean;
       includeCardAddOn?: boolean;
+      customerEmail?: string;
       source: "editor_print_panel" | "paywall_modal" | "mobile_preview" | "preview_primary_print_cta";
     }) => {
       setPreferredPrintVariant(options.variant);
@@ -1948,6 +1958,7 @@ export function EditorExperience({
         printVariant: options.variant,
         includeDigitalAddOn: options.includeDigitalAddOn,
         includeCardAddOn: options.includeCardAddOn,
+        customerEmail: options.customerEmail,
       });
     },
     [startCheckout]
@@ -3275,6 +3286,7 @@ export function EditorExperience({
                             onClick={() => void handleExport("hd")}
                             aria-label="HD export"
                             data-testid="desktop-unlock-hd"
+                            data-digital-offer={paid ? undefined : true}
                             data-cta-priority="primary"
                             disabled={hdExportInFlight}
                             className="text-midnight focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold shadow-md transition hover:-translate-y-[1px] hover:shadow-lg focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
@@ -3406,6 +3418,7 @@ export function EditorExperience({
                                 }}
                                 data-cta-priority="secondary"
                                 data-testid="desktop-free-export-hd-upsell"
+                                data-digital-offer
                                 className="rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:bg-white/15"
                               >
                                 Unlock HD &rarr;
@@ -3812,9 +3825,9 @@ export function EditorExperience({
                 isWeddingCommerceContext(searchParams.get("source")) ? "wedding" : undefined
               }
               showReferralHint={Boolean(getCheckoutReferralCode())}
-              onStartCheckout={(plan) => {
+              onStartCheckout={(plan, options) => {
                 setPaywallIntent("digital");
-                void startCheckout(plan);
+                void startCheckout(plan, { customerEmail: options?.customerEmail });
               }}
               onCheckoutFallback={
                 checkoutFallbackOffer === "digital_single"
@@ -3837,6 +3850,7 @@ export function EditorExperience({
                         variant: options.variant,
                         includeDigitalAddOn: options.includeDigitalAddOn,
                         includeCardAddOn: options.includeCardAddOn,
+                        customerEmail: options.customerEmail,
                       });
                     }
                   : undefined

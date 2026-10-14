@@ -1264,6 +1264,17 @@ async function handleExpiredCheckoutSession(
   let recoveryOutcome: CheckoutRecoveryRetryability | "skipped" | "already_delivered" = "skipped";
   let wroteSuccessSession = false;
 
+  // Aggregate-only expired-session observability (no email/PII in logs).
+  console.info("checkout_session_expired", {
+    hasCustomerEmail: Boolean(customerEmail),
+    hasRecoveryUrl: Boolean(recoveryUrl),
+    orderType,
+    plan,
+    printVariant: orderType === "print" ? printVariant : null,
+    recoveryEligible: Boolean(recoveryUrl && customerEmail),
+    eventIdPresent: Boolean(eventId),
+  });
+
   if (recoveryUrl && customerEmail) {
     const deliveredMarker = await kv.get(checkoutRecoveryEmailDeliveredKey(hydrated.id));
     const sessionAlreadySucceeded = Boolean(existing?.recoveryEmailSentAt);

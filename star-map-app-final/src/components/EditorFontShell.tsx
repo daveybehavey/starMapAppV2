@@ -1,121 +1,45 @@
 "use client";
 
 import type { ReactNode } from "react";
-import {
-  Cinzel,
-  Great_Vibes,
-  Cormorant_Garamond,
-  Montserrat,
-  Libre_Baskerville,
-  EB_Garamond,
-  Crimson_Text,
-  Lora,
-  Raleway,
-  Poppins,
-  Dancing_Script,
-  Parisienne,
-  Bebas_Neue,
-  Abril_Fatface,
-} from "next/font/google";
+import localFont from "next/font/local";
 
-const cinzel = Cinzel({
-  subsets: ["latin"],
-  weight: ["600", "700"],
-  variable: "--font-cinzel",
-  preload: false,
-  display: "swap",
-});
-const greatVibes = Great_Vibes({
-  subsets: ["latin"],
-  weight: ["400"],
-  variable: "--font-script",
-  preload: false,
-  display: "swap",
-});
-const cormorant = Cormorant_Garamond({
-  subsets: ["latin"],
-  weight: ["400", "600", "700"],
-  variable: "--font-cormorant",
-  preload: false,
-  display: "swap",
-});
-const montserrat = Montserrat({
-  subsets: ["latin"],
-  weight: ["400", "600", "700"],
-  variable: "--font-montserrat",
-  preload: false,
-  display: "swap",
-});
-const libreBaskerville = Libre_Baskerville({
-  subsets: ["latin"],
-  weight: ["400", "700"],
-  variable: "--font-libre-baskerville",
-  preload: false,
-  display: "swap",
-});
-const ebGaramond = EB_Garamond({
-  subsets: ["latin"],
-  weight: ["400", "600", "700"],
-  variable: "--font-eb-garamond",
-  preload: false,
-  display: "swap",
-});
-const crimsonText = Crimson_Text({
-  subsets: ["latin"],
-  weight: ["400", "600", "700"],
-  variable: "--font-crimson-text",
-  preload: false,
-  display: "swap",
-});
-const lora = Lora({
-  subsets: ["latin"],
-  weight: ["400", "600", "700"],
-  variable: "--font-lora",
-  preload: false,
-  display: "swap",
-});
-const raleway = Raleway({
-  subsets: ["latin"],
-  weight: ["400", "600", "700"],
-  variable: "--font-raleway",
-  preload: false,
-  display: "swap",
-});
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["400", "600", "700"],
-  variable: "--font-poppins",
-  preload: false,
-  display: "swap",
-});
-const dancingScript = Dancing_Script({
-  subsets: ["latin"],
-  weight: ["400", "700"],
-  variable: "--font-dancing-script",
-  preload: false,
-  display: "swap",
-});
-const parisienne = Parisienne({
-  subsets: ["latin"],
-  weight: ["400"],
-  variable: "--font-parisienne",
-  preload: false,
-  display: "swap",
-});
-const bebasNeue = Bebas_Neue({
-  subsets: ["latin"],
-  weight: ["400"],
-  variable: "--font-bebas-neue",
-  preload: false,
-  display: "swap",
-});
-const abrilFatface = Abril_Fatface({
-  subsets: ["latin"],
-  weight: ["400"],
-  variable: "--font-abril-fatface",
-  preload: false,
-  display: "swap",
-});
+/**
+ * Editor title fonts are loaded from committed OFL woff2 files under `src/fonts/`
+ * so production builds never fetch Google Fonts at compile time.
+ */
+
+function family(
+  dir: string,
+  weights: number[],
+  variable: string,
+  options?: { preload?: boolean }
+) {
+  return localFont({
+    src: weights.map((weight) => ({
+      path: `../fonts/${dir}/latin-${weight}-normal.woff2`,
+      weight: String(weight),
+      style: "normal" as const,
+    })),
+    variable,
+    display: "swap",
+    preload: options?.preload ?? false,
+  });
+}
+
+const cinzel = family("cinzel", [600, 700], "--font-cinzel");
+const greatVibes = family("great-vibes", [400], "--font-script");
+const cormorant = family("cormorant-garamond", [400, 600, 700], "--font-cormorant");
+const montserrat = family("montserrat", [400, 600, 700], "--font-montserrat");
+const libreBaskerville = family("libre-baskerville", [400, 700], "--font-libre-baskerville");
+const ebGaramond = family("eb-garamond", [400, 600, 700], "--font-eb-garamond");
+const crimsonText = family("crimson-text", [400, 600, 700], "--font-crimson-text");
+const lora = family("lora", [400, 600, 700], "--font-lora");
+const raleway = family("raleway", [400, 600, 700], "--font-raleway");
+const poppins = family("poppins", [400, 600, 700], "--font-poppins");
+const dancingScript = family("dancing-script", [400, 700], "--font-dancing-script");
+const parisienne = family("parisienne", [400], "--font-parisienne");
+const bebasNeue = family("bebas-neue", [400], "--font-bebas-neue");
+const abrilFatface = family("abril-fatface", [400], "--font-abril-fatface");
 
 type EditorFontShellProps = {
   children: ReactNode;

@@ -1,0 +1,18 @@
+{
+  "name": "StarMapCo: Custom Star Maps",
+  "short_name": "StarMapCo",
+  "description": "Create a custom star map for any date and location, with a free live preview and framed or unframed prints.",
+  "id": "/",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#050915",
+  "theme_color": "#050915",
+  "categories": ["lifestyle", "shopping"],
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

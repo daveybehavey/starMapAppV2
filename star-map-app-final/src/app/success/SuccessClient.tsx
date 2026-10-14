@@ -903,7 +903,10 @@ export default function SuccessClient() {
               </div>
             )}
             {status === "success" && (
-              <div className="relative mt-4 rounded-2xl border border-amber-200/40 bg-white/10 p-4 text-left">
+              <div
+                data-digital-offer={hasDigitalEntitlement ? undefined : true}
+                className="relative mt-4 rounded-2xl border border-amber-200/40 bg-white/10 p-4 text-left"
+              >
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-white">

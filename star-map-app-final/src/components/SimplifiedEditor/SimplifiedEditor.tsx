@@ -1108,6 +1108,7 @@ export function SimplifiedEditor() {
           <button
             type="button"
             onClick={handleHdDownload}
+            data-digital-offer={paid ? undefined : true}
             disabled={!canExport || hdExporting}
             aria-busy={hdExporting}
             aria-describedby={`${formId}-hd-hint`}

@@ -41,16 +41,26 @@ export default function MoneyPagePriceAtGlance({
       <p className="text-xs text-amber-100/90 sm:text-sm">
         {weddingTone ? (
           <>
-            <span className="font-semibold text-amber-50">{framedHdBundle}</span>
-            {" · "}
+            <span data-digital-offer>
+              <span className="font-semibold text-amber-50">{framedHdBundle}</span>
+              {" · "}
+            </span>
+            <span data-app-only>
+              framed from <span className="font-semibold text-amber-50">{framedPrice}</span>
+              {" · "}
+            </span>
             unframed from <span className="font-semibold text-amber-50">{unframedPrice}</span>
-            {" · "}
-            HD only <span className="font-semibold text-amber-50">{digitalPrice}</span>
+            <span data-digital-offer>
+              {" · "}
+              HD only <span className="font-semibold text-amber-50">{digitalPrice}</span>
+            </span>
           </>
         ) : (
           <>
-            HD from <span className="font-semibold text-amber-50">{digitalPrice}</span>
-            {" · "}
+            <span data-digital-offer>
+              HD from <span className="font-semibold text-amber-50">{digitalPrice}</span>
+              {" · "}
+            </span>
             unframed from <span className="font-semibold text-amber-50">{unframedPrice}</span>
             {" · "}
             framed from <span className="font-semibold text-amber-50">{framedPrice}</span>
@@ -59,7 +69,8 @@ export default function MoneyPagePriceAtGlance({
       </p>
       {!compact ? (
         <p className="text-[11px] leading-relaxed text-white/75 sm:text-xs">
-          Free preview first. HD unlocks instantly after checkout. {productionDisclosure} {framedDelivery}.{" "}
+          Free preview first. <span data-digital-offer>HD unlocks instantly after checkout. </span>
+          {productionDisclosure} {framedDelivery}.{" "}
           {shippingDisclosure}
         </p>
       ) : null}

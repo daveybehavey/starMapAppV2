@@ -1,6 +1,7 @@
 /**
  * #224 — print Stripe Checkout billing_address_collection is `auto`, while
- * fulfillment/compliance-critical inputs (shipping, phone, ToS) remain.
+ * fulfillment/compliance-critical inputs (shipping, phone) remain.
+ * ToS is disclosure-only (#284); promotions consent uses guarded helper (#282).
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -57,14 +58,48 @@ test("print Checkout still collects shipping address and phone; ToS is disclosur
     "phone collection must remain enabled for print orders"
   );
   assert.equal(
-    /consent_collection:\s*\{\s*terms_of_service:\s*"required"/.test(block),
+    /terms_of_service:\s*"required"/.test(block),
     false,
-    "ToS checkbox consent_collection must be removed"
+    "ToS checkbox must not be required in sessionParams"
   );
   assert.match(
     block,
     /By completing your purchase you agree to our \[Terms of Service\]/,
     "submit message must disclose Terms agreement with links"
+  );
+  assert.match(
+    block,
+    /consent_collection:\s*buildCheckoutConsentCollection\(/,
+    "consent collection must use buildCheckoutConsentCollection (promotions guarded)"
+  );
+  const consentHelper = fs.readFileSync(
+    path.join(ROOT, "src/lib/stripeConsentCollection.ts"),
+    "utf8"
+  );
+  assert.equal(
+    /terms_of_service:\s*"required"/.test(consentHelper),
+    false,
+    "consent helper must not reintroduce ToS checkbox requirement"
+  );
+  assert.match(
+    consentHelper,
+    /promotions:\s*"auto"/,
+    "consent helper must still support promotions: auto"
+  );
+  assert.match(
+    route,
+    /expires_at:\s*getCheckoutSessionExpiresAt\(\)/,
+    "checkout sessions must set a 2h expires_at"
+  );
+  assert.match(
+    route,
+    /after_expiration:\s*\{\s*recovery:\s*\{\s*enabled:\s*true/,
+    "after_expiration.recovery must remain enabled"
+  );
+  assert.match(
+    route,
+    /customerEmail \? \{ customer_email: customerEmail \}/,
+    "optional pre-checkout email must map to Stripe customer_email"
   );
   assert.match(
     block,

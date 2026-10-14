@@ -58,11 +58,11 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
             Preview first, then pick how you want it delivered
           </h2>
           <p className="max-w-3xl text-sm leading-relaxed text-neutral-200 sm:text-base">
-            Build the exact sky map first. Then choose instant HD digital, gift-ready framed print, or a
+            Build the exact sky map first. Then choose <span data-digital-offer>instant HD digital, </span>gift-ready framed print, or a
             lower-cost unframed poster.
           </p>
           <div className="grid gap-2 pt-2 sm:grid-cols-3">
-            <div className="rounded-xl border border-white/12 bg-white/6 px-3 py-2 text-xs text-neutral-100">
+            <div data-digital-offer className="rounded-xl border border-white/12 bg-white/6 px-3 py-2 text-xs text-neutral-100">
               <p className="font-semibold text-amber-200">Fastest route</p>
               <p className="mt-1">HD file unlocks right after payment.</p>
             </div>
@@ -78,7 +78,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
         </div>
 
         <div className="grid gap-3 md:grid-cols-3">
-          <article className="brand-dark-card flex h-full flex-col rounded-2xl p-4">
+          <article data-digital-offer className="brand-dark-card flex h-full flex-col rounded-2xl p-4">
             <div className="relative mb-3 aspect-[4/3] overflow-hidden rounded-xl border border-white/15 bg-[#0a1228]">
               <ResilientImage
                 src={OFFER_MOCKUPS.digital}
@@ -143,7 +143,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
             </p>
             <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-neutral-200">
               <li>Delivered framed and gift-ready</li>
-              <li>Pair with the HD add-on for instant digital from the same design</li>
+              <li data-digital-offer>Pair with the HD add-on for instant digital from the same design</li>
               {freeShippingOffer ? <li>{freeShippingOffer}</li> : null}
               <li>Ready-to-hang premium option for special occasions</li>
               <li>
@@ -203,7 +203,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
         </div>
 
         <div className="grid gap-3 rounded-2xl border border-white/10 bg-black/15 p-4 md:grid-cols-3">
-          <div className="space-y-1 text-sm text-neutral-200">
+          <div data-digital-offer className="space-y-1 text-sm text-neutral-200">
             <p className="text-[11px] font-semibold tracking-[0.18em] text-amber-200 uppercase">
               Fastest path
             </p>
@@ -248,7 +248,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
             <li>✓ {getPrintPhysicalOrderSummaryLine()}</li>
             <li>✓ {shippingDisclosure}</li>
             <li>✓ Damage support: support@starmapco.com.</li>
-            <li>✓ HD digital add-on available for {printLabels.digitalAddOn}.</li>
+            <li data-digital-offer>✓ HD digital add-on available for {printLabels.digitalAddOn}.</li>
             <li>✓ {printBadgeLabel}</li>
           </ul>
         </div>
@@ -259,7 +259,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
               Need the full comparison?
             </p>
             <p className="mt-1 text-xs text-neutral-300">
-              Compare live digital, framed, and unframed routes before you enter checkout.
+              Compare live <span data-digital-offer>digital, </span>framed, and unframed routes before you enter checkout.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -278,7 +278,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
           </div>
         </div>
 
-        <div className="brand-dark-card rounded-2xl p-4">
+        <div data-digital-offer className="brand-dark-card rounded-2xl p-4">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-xs font-semibold tracking-[0.2em] text-amber-300 uppercase">
               Digital HD options
