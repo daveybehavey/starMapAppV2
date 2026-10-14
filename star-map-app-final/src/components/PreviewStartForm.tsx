@@ -41,6 +41,14 @@ type PreviewStartFormProps = {
   footerContent?: ReactNode;
 };
 
+const DIGITAL_PLANS = new Set(["single", "pack3", "subscription"]);
+
+/** Digital intents: explicit digital checkout, a digital add-on, or a digital plan with no print checkout. */
+export function isDigitalPreviewIntent(intent: Pick<PreviewStartIntent, "checkout" | "includeDigitalAddOn" | "plan">) {
+  if (intent.checkout === "digital" || intent.includeDigitalAddOn) return true;
+  return intent.checkout !== "print" && DIGITAL_PLANS.has(intent.plan);
+}
+
 function buildEditorAction(
   source: string,
   checkout?: "print" | "digital",
@@ -211,6 +219,9 @@ export default function PreviewStartForm({
                     data-plan={intent.plan}
                     data-checkout={intent.checkout}
                     data-print-variant={intent.printVariant}
+                    data-digital-offer={
+                      isDigitalPreviewIntent(intent) ? true : undefined
+                    }
                     className={`focus:ring-gold rounded-2xl border px-4 py-3 text-left transition hover:-translate-y-[1px] hover:shadow-md focus:ring-2 focus:ring-offset-2 focus:ring-offset-amber-50 focus:outline-none ${toneClass}`}
                   >
                     <span className="block text-sm font-semibold">{intent.label}</span>
@@ -239,7 +250,7 @@ export default function PreviewStartForm({
         )}
         <p className="mt-2 text-xs text-neutral-600">Free preview · No account required</p>
         <p className="mt-1 text-xs font-semibold text-amber-700">
-          Framed print + HD digital — free standard shipping on $100+ orders. Shipping shown before payment.
+          Framed print<span data-digital-offer> + HD digital</span> — free standard shipping on $100+ orders. Shipping shown before payment.
         </p>
         {footerContent ? <div className="mt-5 border-t border-amber-200/60 pt-4">{footerContent}</div> : null}
       </form>

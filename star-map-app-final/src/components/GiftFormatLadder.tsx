@@ -39,6 +39,7 @@ export default function GiftFormatLadder({
         {tiers.map((tier) => (
           <article
             key={tier.id}
+            data-digital-offer={tier.id === "digital" || tier.id === "framed_hd" ? true : undefined}
             className={`flex flex-col rounded-2xl border p-4 shadow-sm ${
               tier.recommended
                 ? "border-amber-300/80 bg-gradient-to-br from-amber-100/90 to-amber-50/80 ring-1 ring-amber-200/60"

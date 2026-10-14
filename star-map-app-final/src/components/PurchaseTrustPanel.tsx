@@ -3,6 +3,11 @@ import CustomerPhotoStrip from "@/components/CustomerPhotoStrip";
 import { LOVE_IT_GUARANTEE_LINE } from "@/lib/loveItGuarantee";
 import { getPrintProductionReviewDisclosure, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 
+/** Trust points that advertise HD/digital delivery are digital offers (hidden in Google Play app mode). */
+export function isDigitalClaim(text: string): boolean {
+  return /\bHD\b|digital/i.test(text);
+}
+
 type PurchaseTrustPanelProps = {
   heading: string;
   intro: string;
@@ -43,7 +48,9 @@ export default function PurchaseTrustPanel({
           <h3 className="text-sm font-semibold text-midnight sm:text-base">{leftTitle}</h3>
           <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm text-neutral-800">
             {leftPoints.map((item) => (
-              <li key={item}>{item}</li>
+              <li key={item} data-digital-offer={isDigitalClaim(item) ? true : undefined}>
+                {item}
+              </li>
             ))}
           </ul>
         </div>
@@ -51,7 +58,9 @@ export default function PurchaseTrustPanel({
           <h3 className="text-sm font-semibold text-midnight sm:text-base">{rightTitle}</h3>
           <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm text-neutral-800">
             {rightPoints.map((item) => (
-              <li key={item}>{item}</li>
+              <li key={item} data-digital-offer={isDigitalClaim(item) ? true : undefined}>
+                {item}
+              </li>
             ))}
           </ul>
         </div>
@@ -61,7 +70,10 @@ export default function PurchaseTrustPanel({
           <h3 className="text-sm font-semibold text-midnight sm:text-base">Physical order confidence</h3>
           <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm text-neutral-800">
             <li>{shippingDisclosure}</li>
-            <li>Framed print is the premium gift route; unframed and HD stay available if a different path fits better.</li>
+            <li>
+              Framed print is the premium gift route; unframed<span data-digital-offer> and HD</span> stay available if a
+              different path fits better.
+            </li>
             <li>{productionReviewPoint}</li>
             <li>{LOVE_IT_GUARANTEE_LINE}</li>
           </ul>

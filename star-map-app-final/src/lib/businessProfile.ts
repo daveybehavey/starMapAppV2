@@ -1,6 +1,8 @@
 const businessName = (process.env.NEXT_PUBLIC_BUSINESS_NAME || "StarMapCo").trim();
 const supportEmail = (process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "support@starmapco.com").trim();
-const supportPhone = (process.env.NEXT_PUBLIC_SUPPORT_PHONE || "7786786242").trim();
+// The support phone is intentionally never published (page data, JSON-LD `telephone`, tel: links),
+// even if NEXT_PUBLIC_SUPPORT_PHONE is set in the environment.
+const supportPhone = "";
 const businessAddress = (process.env.NEXT_PUBLIC_BUSINESS_ADDRESS || "").trim();
 const supportHours = (process.env.NEXT_PUBLIC_SUPPORT_HOURS || "Mon-Sat 9:00 AM-5:00 PM").trim();
 

@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { ANDROID_APP_MODE_BOOTSTRAP } from "@/lib/androidAppMode";
 import Link from "next/link";
 import { Suspense } from "react";
 import "./globals.css";
@@ -160,9 +161,13 @@ export const metadata: Metadata = {
     ],
     type: "website",
   },
+  manifest: "/site.webmanifest",
   icons: {
-    icon: [{ url: "/favicon.ico", type: "image/x-icon" }],
-    apple: "/favicon.ico",
+    icon: [
+      { url: "/favicon.ico", type: "image/x-icon" },
+      { url: "/icon-192.png", type: "image/png", sizes: "192x192" },
+    ],
+    apple: "/apple-touch-icon.png",
     shortcut: "/favicon.ico",
   },
   twitter: {
@@ -221,7 +226,11 @@ export default function RootLayout({
 }>) {
   const footerLinks = buildFooterLinks();
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Google Play app mode flag: must run before paint (see src/lib/androidAppMode.ts). */}
+        <script dangerouslySetInnerHTML={{ __html: ANDROID_APP_MODE_BOOTSTRAP }} />
+      </head>
       <body className={`text-midnight min-h-screen antialiased ${playfair.variable}`}>
         <Suspense fallback={null}>
           <ReferralAttributionClient />

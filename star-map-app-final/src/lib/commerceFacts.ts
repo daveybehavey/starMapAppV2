@@ -51,13 +51,14 @@ export function getPrintUrgentHdUpsellLine(instantPriceLabel?: string): string {
   return "Need it sooner? HD digital unlocks right after payment — no production or shipping wait.";
 }
 
-export function getPaywallPrintBullets(): string[] {
-  return [
+export function getPaywallPrintBullets(options?: { appMode?: boolean }): string[] {
+  const bullets = [
     "Printed and shipped to your door — framed or unframed",
     `Made to order — ${PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS} production, then standard shipping`,
     "Secure checkout — card, Apple Pay, Google Pay",
-    "HD digital file available to add at checkout",
   ];
+  // Google Play app mode: physical goods only, never advertise the digital add-on.
+  return options?.appMode ? bullets : [...bullets, "HD digital file available to add at checkout"];
 }
 
 export function getPaywallDigitalBullets(): string[] {

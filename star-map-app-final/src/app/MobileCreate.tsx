@@ -29,6 +29,7 @@ import { PrintAspectMismatchNotice } from "@/components/PrintAspectMismatchNotic
 import { PrintGiftDecisionPanel } from "@/components/PrintGiftDecisionPanel";
 import { getRevealProgressPercent, REVEAL_STAGES } from "@/lib/revealExperience";
 import { useEditorLogic } from "@/hooks/useEditorLogic";
+import { useAndroidAppMode } from "@/hooks/useAndroidAppMode";
 
 const REVEAL_ANIMATION_MS = 900;
 const DEFAULT_TITLE_TEXT = "our night sky";
@@ -126,10 +127,12 @@ export function MobileCreate({
     () => formatPosterShippingFootnote(printShippingCountry),
     [printShippingCountry],
   );
-  const printCheckoutRows = useMemo(
-    () => getPaywallPrintCheckoutPresentation(printShippingCountry),
-    [printShippingCountry],
-  );
+  // Google Play app mode: prints only, never a digital add-on row.
+  const appMode = useAndroidAppMode();
+  const printCheckoutRows = useMemo(() => {
+    const rows = getPaywallPrintCheckoutPresentation(printShippingCountry);
+    return appMode ? rows.filter((row) => !row.includeDigitalAddOn) : rows;
+  }, [printShippingCountry, appMode]);
   const primaryPrintRow = useMemo(
     () => printCheckoutRows.find((row) => row.recommended) ?? printCheckoutRows[0] ?? null,
     [printCheckoutRows],
@@ -759,6 +762,7 @@ export function MobileCreate({
                     onIntensityPaywall?.();
                   }}
                   data-cta-priority="secondary"
+                  data-digital-offer
                   className="rounded-full border border-white/25 bg-white/10 px-2.5 py-1 text-[10px] font-semibold text-white transition hover:bg-white/15 active:scale-95"
                 >
                   Unlock HD →
@@ -803,6 +807,7 @@ export function MobileCreate({
                       onIntensityPaywall?.();
                     }}
                     data-cta-priority="secondary"
+                    data-digital-offer
                     className="rounded-full border border-white/25 bg-white/10 px-2.5 py-1 text-[10px] font-semibold text-white transition hover:bg-white/15 active:scale-95"
                   >
                     Unlock HD
@@ -900,6 +905,7 @@ export function MobileCreate({
                 onClick={() => void onExport("hd")}
                 aria-label={paid ? "HD download" : "Unlock HD"}
                 data-testid="mobile-sticky-unlock-hd"
+                data-digital-offer={paid ? undefined : true}
                 data-cta-priority="primary"
                 className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-3 py-2.5 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70"
               >
@@ -1090,6 +1096,7 @@ export function MobileCreate({
                           onIntensityPaywall?.();
                         }}
                         data-cta-priority="secondary"
+                        data-digital-offer
                         className="rounded-full border border-white/25 bg-white/10 px-2.5 py-1 text-[10px] font-semibold text-white transition hover:bg-white/15 active:scale-95"
                       >
                         Unlock HD →
@@ -1571,6 +1578,7 @@ export function MobileCreate({
               onClick={() => void onExport("hd")}
               aria-label="HD export"
               data-testid="mobile-unlock-hd"
+              data-digital-offer={paid ? undefined : true}
               data-cta-priority="primary"
               className="flex-1 inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-3 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] hover:shadow-lg active:scale-95"
             >
@@ -1589,7 +1597,7 @@ export function MobileCreate({
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-[11px] font-semibold text-amber-100">Buy a physical gift from this exact preview</p>
                   <span className="rounded-full border border-amber-300/40 bg-amber-300/15 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-100">
-                    Framed + HD recommended
+                    {appMode ? "Framed print recommended" : "Framed + HD recommended"}
                   </span>
                 </div>
                 <p className="mt-1 text-[10px] text-amber-100/80">

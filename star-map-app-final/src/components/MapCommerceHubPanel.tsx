@@ -47,7 +47,7 @@ export default function MapCommerceHubPanel({ mapId, className = "" }: Props) {
 
       <ul className="mt-4 space-y-2">
         {purchasable.map((offer) => (
-          <li key={offer.id}>
+          <li key={offer.id} data-digital-offer={offer.kind === "digital_hd" ? true : undefined}>
             <Link href={offer.href} className={offerButtonClasses(offer)}>
               <span className="flex w-full items-center justify-between gap-2">
                 <span className="text-sm font-semibold text-white">{offer.label}</span>

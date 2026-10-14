@@ -887,7 +887,7 @@ test("PreviewStartForm and offer surfaces no longer claim best wedding gift or g
   const preview = readSrc("components/PreviewStartForm.tsx");
   assert.equal(matchesProductSuperiority(preview), false);
   assert.doesNotMatch(preview, /Best wedding gift/i);
-  assert.match(preview, /Framed print \+ HD digital/);
+  assert.match(preview, /Framed print(<span data-digital-offer>)? \+ HD digital/);
 
   const wedding = readSrc("app/wedding/page.tsx");
   assert.doesNotMatch(wedding, /best wedding gift/i);
