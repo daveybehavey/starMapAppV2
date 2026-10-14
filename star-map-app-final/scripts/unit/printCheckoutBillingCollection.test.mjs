@@ -47,7 +47,7 @@ test("print Checkout billing_address_collection is Stripe auto (not forced requi
   );
 });
 
-test("print Checkout still collects shipping address, phone, and ToS", () => {
+test("print Checkout still collects shipping address and phone; ToS is disclosure-only", () => {
   const route = fs.readFileSync(CHECKOUT_ROUTE, "utf8");
   const block = extractSessionParamsBlock(route);
 
@@ -56,10 +56,15 @@ test("print Checkout still collects shipping address, phone, and ToS", () => {
     /phone_number_collection:\s*\{\s*enabled:\s*isPrintOrder\s*,?\s*\}/,
     "phone collection must remain enabled for print orders"
   );
+  assert.equal(
+    /consent_collection:\s*\{\s*terms_of_service:\s*"required"/.test(block),
+    false,
+    "ToS checkbox consent_collection must be removed"
+  );
   assert.match(
     block,
-    /consent_collection:\s*\{\s*terms_of_service:\s*"required"\s*,?\s*\}/,
-    "ToS consent collection must remain required"
+    /By completing your purchase you agree to our \[Terms of Service\]/,
+    "submit message must disclose Terms agreement with links"
   );
   assert.match(
     block,

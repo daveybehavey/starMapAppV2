@@ -36,7 +36,11 @@ import {
   trackCheckoutClientDiagnostic,
   trackFunnelStep,
 } from "@/lib/analytics";
-import { parseCheckoutApiErrorPayload, shouldRetryCheckoutFailure } from "@/lib/checkoutClientFailure";
+import {
+  CHECKOUT_RETRY_STATUS_MESSAGE,
+  parseCheckoutApiErrorPayload,
+  shouldRetryCheckoutFailure,
+} from "@/lib/checkoutClientFailure";
 import { checkoutUrlErrorMessage, redirectToStripeCheckout } from "@/lib/stripeCheckoutNavigation";
 
 // Lazy load the canvas for better initial load
@@ -654,9 +658,19 @@ export function SimplifiedEditor() {
         lastDiagnostics = parseCheckoutApiErrorPayload(payload, res.status);
         if (payload?.code === "map_required") throw new Error("map_required");
         if (payload?.code === "map_not_found") throw new Error("map_not_found");
-        if (attempt < 2 && shouldRetryCheckoutFailure(lastDiagnostics.code)) {
-          await new Promise((resolve) => setTimeout(resolve, 400));
+        if (attempt < 2 && shouldRetryCheckoutFailure(lastDiagnostics.code, res.status)) {
+          setExportError(CHECKOUT_RETRY_STATUS_MESSAGE);
+          const retryDelayMs =
+            lastDiagnostics.code === "rate_limited" || res.status === 429 ? 1200 : 400;
+          await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
           continue;
+        }
+        if (
+          lastDiagnostics.code === "checkout_handoff_required" &&
+          lastDiagnostics.editorRecoveryUrl
+        ) {
+          window.location.href = lastDiagnostics.editorRecoveryUrl;
+          return;
         }
         throw new Error(lastDiagnostics.code || "checkout_failed");
       }

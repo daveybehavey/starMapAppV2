@@ -17,8 +17,10 @@ import {
   DIGITAL_SINGLE_FALLBACK_LABEL,
   parseCheckoutApiErrorPayload,
   shouldOfferDigitalSingleFallback,
+  CHECKOUT_RETRY_STATUS_MESSAGE,
   shouldRetryCheckoutFailure,
 } from "@/lib/checkoutClientFailure";
+import { CheckoutLegalNotice } from "@/components/CheckoutLegalNotice";
 import {
   formatPrice,
   getPricingTiers,
@@ -1724,9 +1726,11 @@ export function EditorExperience({
           code?: string;
           reason?: string;
           diagnosticId?: string;
+          editorRecoveryUrl?: string;
           promoApplied?: boolean;
           referralOfferApplied?: boolean;
           discountRejected?: boolean;
+          promoInvalidDropped?: boolean;
         };
 
         let data: CheckoutResponse | null = null;
@@ -1753,7 +1757,6 @@ export function EditorExperience({
 
           lastCheckoutDiagnostics = parseCheckoutApiErrorPayload(data, res.status);
           const failureCode = lastCheckoutDiagnostics.code;
-          if (failureCode === "invalid_promotion_code") throw new Error("invalid_promotion_code");
           if (failureCode === "promotion_not_applicable") throw new Error("promotion_not_applicable");
           if (failureCode === "promotion_lookup_failed") throw new Error("promotion_lookup_failed");
           if (failureCode === "print_checkout_disabled") throw new Error("print_checkout_disabled");
@@ -1769,8 +1772,9 @@ export function EditorExperience({
           if (failureCode === "map_not_found") throw new Error("map_not_found");
 
           const canRetry =
-            attempt < maxAttempts && shouldRetryCheckoutFailure(failureCode);
+            attempt < maxAttempts && shouldRetryCheckoutFailure(failureCode, res.status);
           if (canRetry) {
+            setCheckoutError(CHECKOUT_RETRY_STATUS_MESSAGE);
             track("checkout_retry", {
               source: previewSource,
               attempt,
@@ -1780,8 +1784,17 @@ export function EditorExperience({
               plan,
               orderType,
             });
-            await new Promise((resolve) => setTimeout(resolve, 400));
+            const retryDelayMs = failureCode === "rate_limited" || res.status === 429 ? 1200 : 400;
+            await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
             continue;
+          }
+          // Exhausted handoff retries: reopen editor checkout so a fresh token can be minted.
+          if (
+            failureCode === "checkout_handoff_required" &&
+            lastCheckoutDiagnostics.editorRecoveryUrl
+          ) {
+            window.location.href = lastCheckoutDiagnostics.editorRecoveryUrl;
+            return;
           }
           throw new Error(failureCode || "checkout_failed");
         }
@@ -1795,6 +1808,7 @@ export function EditorExperience({
             promoApplied,
             referralOfferApplied,
             discountRejected: Boolean(data.discountRejected),
+            promoInvalidDropped: Boolean(data.promoInvalidDropped),
             promotionSource: referralOfferApplied
               ? "referral_auto"
               : promoApplied
@@ -1806,7 +1820,12 @@ export function EditorExperience({
             experiment: PAYWALL_COPY_EXPERIMENT,
             variant: paywallVariant,
           });
-          if (data.discountRejected) {
+          if (data.promoInvalidDropped) {
+            setCheckoutError(
+              "That promo code wasn’t valid — continuing to checkout so you can enter another."
+            );
+            await new Promise((resolve) => setTimeout(resolve, 2200));
+          } else if (data.discountRejected) {
             setCheckoutError(
               "We couldn't apply your discount automatically. You can still enter a promo code on the payment page."
             );
@@ -1830,8 +1849,8 @@ export function EditorExperience({
           });
         }
         const checkoutErrorMessage =
-          reason === "invalid_promotion_code"
-            ? "That promo code is invalid or expired. Try another code."
+          reason === "rate_limited" || reason === "Too many requests. Please try again later."
+            ? "One moment — too many checkout attempts. Please try again in a few seconds."
             : reason === "promotion_not_applicable"
               ? "That promo code does not apply to this order."
               : reason === "promotion_lookup_failed"
@@ -3451,16 +3470,27 @@ export function EditorExperience({
                                 <p className="mt-1">Unframed poster if you already have a frame plan.</p>
                               </div>
                             </div>
-                            <div className="mt-3">
-                              <label className="text-[11px] font-semibold text-amber-100/80">
-                                Shipping country
-                              </label>
+                            <div className="mt-3" data-testid="print-shipping-country-control">
+                              <div className="flex items-center justify-between gap-2">
+                                <label className="text-[11px] font-semibold text-amber-100/80">
+                                  Shipping country
+                                </label>
+                                {printShippingCountry ? (
+                                  <span
+                                    className="text-[10px] font-semibold tracking-wide text-amber-100/90 uppercase"
+                                    data-testid="change-shipping-country-hint"
+                                  >
+                                    Change country
+                                  </span>
+                                ) : null}
+                              </div>
                               <select
                                 value={printShippingCountry ?? ""}
                                 onChange={(event) => {
                                   const next = event.target.value;
                                   setPrintShippingCountryValue(next, "editor-panel");
                                 }}
+                                aria-label="Change shipping country"
                                 className="print-country-select text-midnight mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-xs"
                                 style={{
                                   color: "#111827",
@@ -3486,10 +3516,14 @@ export function EditorExperience({
                                   </option>
                                 ))}
                               </select>
-                              {printShippingCountry && posterShippingFootnote ? (
+                              {printShippingCountry ? (
                                 <p className="mt-1 text-[10px] text-amber-100/80">
-                                  Estimated shipping to {getPrintShippingCountryLabel(printShippingCountry)}:{" "}
-                                  {posterShippingFootnote}
+                                  Shipping is priced for{" "}
+                                  {getPrintShippingCountryLabel(printShippingCountry)}.
+                                  {posterShippingFootnote
+                                    ? ` Estimated: ${posterShippingFootnote}.`
+                                    : ""}{" "}
+                                  Shipping elsewhere? Change country here before checkout.
                                 </p>
                               ) : null}
                               <PrintGiftDecisionPanel
@@ -3531,6 +3565,7 @@ export function EditorExperience({
                                 </button>
                               ))}
                             </div>
+                            <CheckoutLegalNotice tone="dark" className="mt-2" />
                             {!printShippingCountry && (
                               <p className="mt-2 text-[11px] font-semibold text-amber-100/80">
                                 Choose a shipping country to unlock print checkout.

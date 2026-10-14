@@ -168,6 +168,9 @@ test.describe("API route regressions", () => {
       code: "checkout_handoff_required",
     });
     expect(typeof body.diagnosticId).toBe("string");
+    expect(typeof body.editorRecoveryUrl).toBe("string");
+    expect(String(body.editorRecoveryUrl)).toContain("/editor?");
+    expect(String(body.editorRecoveryUrl)).toContain("checkout=digital");
   });
 
   test("checkout rejects a missing map handoff with the stable error shape", async ({

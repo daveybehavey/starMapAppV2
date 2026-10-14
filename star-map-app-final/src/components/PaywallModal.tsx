@@ -29,6 +29,7 @@ import {
   type PaywallPrintCheckoutPresentationRow,
 } from "@/lib/paywallPrintCheckout";
 import { PrintGiftDecisionPanel } from "@/components/PrintGiftDecisionPanel";
+import { CheckoutLegalNotice } from "@/components/CheckoutLegalNotice";
 
 type PriceLabels = {
   single: string;
@@ -439,17 +440,28 @@ export function PaywallModal({
                   {getPrintProductionReviewDisclosure()} {shippingDisclosure}
                 </p>
                 {printShippingCountries.length > 0 && (
-                  <div className="mt-3">
-                    <label
-                      htmlFor="paywall-print-country"
-                      className="text-[11px] font-semibold text-amber-100/80"
-                    >
-                      Shipping country
-                    </label>
+                  <div className="mt-3" data-testid="print-shipping-country-control">
+                    <div className="flex items-center justify-between gap-2">
+                      <label
+                        htmlFor="paywall-print-country"
+                        className="text-[11px] font-semibold text-amber-100/80"
+                      >
+                        Shipping country
+                      </label>
+                      {printShippingCountry ? (
+                        <span
+                          className="text-[10px] font-semibold tracking-wide text-amber-100/90 uppercase"
+                          data-testid="change-shipping-country-hint"
+                        >
+                          Change country
+                        </span>
+                      ) : null}
+                    </div>
                     <select
                       id="paywall-print-country"
                       value={printShippingCountry ?? ""}
                       onChange={(event) => onPrintShippingCountryChange?.(event.target.value)}
+                      aria-label="Change shipping country"
                       className="print-country-select text-midnight mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-xs"
                       style={{ color: "#111827", WebkitTextFillColor: "#111827", colorScheme: "light" }}
                     >
@@ -476,11 +488,13 @@ export function PaywallModal({
                         Select a shipping country to continue.
                       </p>
                     )}
-                    {printShippingCountry && posterShippingFootnote ? (
+                    {printShippingCountry ? (
                       <p className="mt-1 text-[10px] text-amber-100/80">
-                        Standard shipping to {getPrintShippingCountryLabel(printShippingCountry)}:{" "}
-                        {posterShippingFootnote} (carrier transit after production — not the full delivery
-                        date).
+                        Shipping is priced for {getPrintShippingCountryLabel(printShippingCountry)}.
+                        {posterShippingFootnote
+                          ? ` Estimated: ${posterShippingFootnote} (carrier transit after production — not the full delivery date).`
+                          : ""}{" "}
+                        Shipping elsewhere? Change country here before checkout.
                       </p>
                     ) : null}
                     <div className="mt-2 space-y-1 rounded-lg border border-amber-200/20 bg-white/5 px-3 py-2 text-[10px] leading-relaxed text-amber-100/85">
@@ -508,6 +522,7 @@ export function PaywallModal({
                     {printUpsellHint}
                   </p>
                 ) : null}
+                <CheckoutLegalNotice tone="dark" className="mt-3" />
                 <div className="mt-3 grid gap-2">
                   {printRows.map((row) => (
                     <button
@@ -572,6 +587,7 @@ export function PaywallModal({
             >
               {checkoutInFlight ? "Starting checkout..." : copy.singleCta}
             </button>
+            <CheckoutLegalNotice className="mt-2" />
             <p className="mt-2 text-[11px] text-neutral-600">
               Use this when you only need this one finished map.
             </p>
