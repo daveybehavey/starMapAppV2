@@ -2,6 +2,15 @@ import type { CheckoutOrderType, CheckoutPlan } from "@/lib/pricing";
 
 export type PromotionSource = "none" | "manual" | "referral_auto";
 
+/**
+ * Manual promo codes (XMAS15, BLACKFRIDAY20, etc.) are print-only.
+ * Digital SKUs use one-off price_data / shared prices that cannot be product-restricted
+ * in Stripe, so hosted `allow_promotion_codes` and promo_code params must stay off.
+ */
+export function canUseManualPromotionCode(orderType: CheckoutOrderType, _plan?: CheckoutPlan) {
+  return orderType === "print";
+}
+
 export function selectCheckoutPromotion(input: {
   manualPromotionCodeId?: string;
   referralCode?: string;
@@ -10,9 +19,7 @@ export function selectCheckoutPromotion(input: {
   plan: CheckoutPlan;
 }): { promotionCodeId?: string; source: PromotionSource } {
   const manualPromotionCodeId = input.manualPromotionCodeId?.trim();
-  const canApplyManualPromotion =
-    input.orderType === "print" || (input.orderType === "digital" && input.plan === "single");
-  if (manualPromotionCodeId && canApplyManualPromotion) {
+  if (manualPromotionCodeId && canUseManualPromotionCode(input.orderType, input.plan)) {
     return { promotionCodeId: manualPromotionCodeId, source: "manual" };
   }
 

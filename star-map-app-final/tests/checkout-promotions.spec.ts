@@ -1,19 +1,41 @@
 import { expect, test } from "@playwright/test";
-import { selectCheckoutPromotion } from "../src/lib/checkoutPromotions";
+import {
+  canUseManualPromotionCode,
+  selectCheckoutPromotion,
+} from "../src/lib/checkoutPromotions";
 
 test.describe("checkout promotion selection", () => {
-  test("prioritizes manual promotion code over referral auto promotion", () => {
-    const selected = selectCheckoutPromotion({
-      manualPromotionCodeId: "promo_manual_123",
+  test("manual promotion codes are print-only", () => {
+    expect(canUseManualPromotionCode("print", "single")).toBe(true);
+    expect(canUseManualPromotionCode("digital", "single")).toBe(false);
+    expect(canUseManualPromotionCode("digital", "pack3")).toBe(false);
+    expect(canUseManualPromotionCode("digital", "subscription")).toBe(false);
+  });
+
+  test("applies manual promotion code only for print checkout", () => {
+    const printSelected = selectCheckoutPromotion({
+      manualPromotionCodeId: "promo_xmas15",
+      referralCode: "REF12345",
+      referralPromotionCodeId: "promo_referral_123",
+      orderType: "print",
+      plan: "single",
+    });
+    expect(printSelected).toEqual({
+      promotionCodeId: "promo_xmas15",
+      source: "manual",
+    });
+
+    const digitalSelected = selectCheckoutPromotion({
+      manualPromotionCodeId: "promo_xmas15",
       referralCode: "REF12345",
       referralPromotionCodeId: "promo_referral_123",
       orderType: "digital",
       plan: "single",
     });
-
-    expect(selected).toEqual({
-      promotionCodeId: "promo_manual_123",
-      source: "manual",
+    // Digital ignores manual Christmas/print codes; referral auto may still apply.
+    expect(digitalSelected).toEqual({
+      promotionCodeId: "promo_referral_123",
+      source: "referral_auto",
     });
   });
 

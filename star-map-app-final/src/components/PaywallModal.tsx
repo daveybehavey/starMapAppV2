@@ -698,9 +698,11 @@ export function PaywallModal({
             support@starmapco.com
           </a>
         </p>
-        <p className="mt-2 text-xs font-semibold text-neutral-700">
-          Have a promo code? It can be applied at checkout.
-        </p>
+        {activeIntent === "print" ? (
+          <p className="mt-2 text-xs font-semibold text-neutral-700">
+            Have a print promo code? It can be applied at checkout.
+          </p>
+        ) : null}
         {showReferralHint && (
           <p className="mt-1 text-[11px] text-neutral-600">
             Referral offers apply automatically at checkout when available.

@@ -38,6 +38,28 @@ test("invalid promo codes are dropped instead of hard-blocking checkout", () => 
   );
 });
 
+test("manual promo codes are print-only; digital ignores promo_code params", () => {
+  const route = fs.readFileSync(CHECKOUT_ROUTE, "utf8");
+  // Local helper removed — print-only gate lives in checkoutPromotions.
+  assert.equal(
+    /function canUseManualPromotionCode\(orderType/.test(route),
+    false,
+    "route must import canUseManualPromotionCode (print-only) instead of a local digital-single helper"
+  );
+  assert.match(route, /canUseManualPromotionCode/);
+  // Configured-code-only profit gate removed so XMAS15/BLACKFRIDAY20 can pre-apply on print.
+  assert.equal(
+    /only allow the explicitly configured promotion code/.test(route),
+    false,
+    "must not restrict pre-apply to PROMOTION_COUPON_CODE alone"
+  );
+  assert.match(
+    route,
+    /Digital checkouts ignore promo_code/,
+    "GET path must document ignoring digital promo_code"
+  );
+});
+
 test("ToS checkbox consent_collection is removed from session params", () => {
   const route = fs.readFileSync(CHECKOUT_ROUTE, "utf8");
   assert.equal(/consent_collection:\s*\{\s*terms_of_service:\s*"required"/.test(route), false);

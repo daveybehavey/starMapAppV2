@@ -20,7 +20,11 @@ import {
 import { PRINT_ASSET_ID_REGEX, normalizeRecipeFingerprint } from "@/lib/printAssets";
 import { cardRecipeFingerprintSuffix } from "@/lib/printCardExport";
 import { loadReusablePrintAssetId } from "@/lib/printAssetReuse";
-import { selectCheckoutPromotion, type PromotionSource } from "@/lib/checkoutPromotions";
+import {
+  canUseManualPromotionCode,
+  selectCheckoutPromotion,
+  type PromotionSource,
+} from "@/lib/checkoutPromotions";
 import { PREMIUM_COOKIE_NAME } from "@/lib/premium";
 import { recordFunnelStep } from "@/lib/funnel";
 import { getGeoDigitalSinglePrice, getRequestCountry } from "@/lib/geoPricing";
@@ -297,10 +301,6 @@ function resolveReferralAutoOffer(referralCode?: string): {
   return useAlt ? { promotionCodeId: alt, variant: "alt" } : { promotionCodeId: primary, variant: "primary" };
 }
 
-function canUseManualPromotionCode(orderType: CheckoutOrderType, plan: CheckoutPlan) {
-  return orderType === "print" || (orderType === "digital" && plan === "single");
-}
-
 function resolveReferralOfferVariant(input: {
   referralCode?: string;
   promotionSource: PromotionSource;
@@ -395,13 +395,9 @@ async function resolvePromotionCodeId(promoCode?: string): Promise<PromotionReso
   const trimmed = promoCode?.trim();
   if (!trimmed) return { invalid: false, lookupFailed: false };
 
-  // Profit safety: only allow the explicitly configured promotion code to be applied.
-  // This prevents accidental/legacy QA one-time promo codes (which can be 100% off)
-  // from being auto-applied and producing $0 `no_payment_required` sessions.
-  if (configuredPromoCode && trimmed.toUpperCase() !== configuredPromoCode) {
-    return { invalid: false, lookupFailed: false };
-  }
-
+  // Print-only callers may pre-apply any active Stripe promotion code (XMAS15,
+  // BLACKFRIDAY20, configured PROMOTION_COUPON_CODE, etc.). Digital checkout never
+  // reaches this helper — coupons cannot be product-restricted for price_data SKUs.
   if (
     configuredPromoCode &&
     configuredStripePromotionCodeId &&
@@ -1207,18 +1203,18 @@ export async function GET(req: NextRequest) {
       : undefined;
   const clientCountry = getRequestCountry(req);
   const mapId = parseCheckoutMapId(mapParam);
-  const promoCodeParam = req.nextUrl.searchParams.get("promo_code") ?? undefined;
+  // Digital checkouts ignore promo_code — Christmas/print codes must not apply to HD/credits/subs.
+  const promoCodeParam = canUseManualPromotionCode(orderType, plan)
+    ? (req.nextUrl.searchParams.get("promo_code") ?? undefined)
+    : undefined;
   const currentSessionId = req.cookies.get(PREMIUM_COOKIE_NAME)?.value?.trim();
   const fallbackReferralCode = readReferralCodeFromCookie(req);
   const referralAttribution = readReferralAttributionFromCookie(req);
   const referral = await resolveReferral(referralParam ?? fallbackReferralCode, currentSessionId);
   const referralAutoOffer = resolveReferralAutoOffer(referral.code);
-  const promotion =
-    orderType === "digital" && plan === "subscription"
-      ? { promotionCodeId: undefined, invalid: false, lookupFailed: false }
-      : canUseManualPromotionCode(orderType, plan)
-        ? await resolvePromotionCodeId(promoCodeParam)
-        : { promotionCodeId: undefined, invalid: false, lookupFailed: false };
+  const promotion = canUseManualPromotionCode(orderType, plan)
+    ? await resolvePromotionCodeId(promoCodeParam)
+    : { promotionCodeId: undefined, invalid: false, lookupFailed: false };
   const selectedPromotion = selectCheckoutPromotion({
     manualPromotionCodeId: promotion.invalid ? undefined : promotion.promotionCodeId,
     referralCode: referral.code,
@@ -1534,7 +1530,12 @@ export async function POST(req: NextRequest) {
         }
       }
       recipeFingerprint = normalizeRecipeFingerprint(body?.recipeFingerprint);
-      if (body?.promoCode && typeof body.promoCode === "string") {
+      // Print-only: digital bodies may still send promoCode from saved editor codes — ignore them.
+      if (
+        canUseManualPromotionCode(orderType, plan) &&
+        body?.promoCode &&
+        typeof body.promoCode === "string"
+      ) {
         const trimmed = body.promoCode.trim();
         if (trimmed) {
           promoCode = trimmed.slice(0, 64);
@@ -1632,16 +1633,15 @@ export async function POST(req: NextRequest) {
     if (orderType !== "print") {
       await assertDigitalCheckoutMap(mapId, plan);
     }
-    const promotion =
-      orderType === "digital" && plan === "subscription"
-        ? { promotionCodeId: undefined, invalid: false, lookupFailed: false }
-        : canUseManualPromotionCode(orderType, plan)
-          ? await resolvePromotionCodeId(promoCode)
-          : { promotionCodeId: undefined, invalid: false, lookupFailed: false };
-    // Invalid/expired manual codes must not block checkout — drop and let Stripe
-    // hosted Checkout collect a replacement via allow_promotion_codes.
-    const promoInvalidDropped = Boolean(promoCode && promotion.invalid);
-    if (promoCode && promotion.lookupFailed) {
+    const promotion = canUseManualPromotionCode(orderType, plan)
+      ? await resolvePromotionCodeId(promoCode)
+      : { promotionCodeId: undefined, invalid: false, lookupFailed: false };
+    // Invalid/expired print codes must not block checkout — drop and let Stripe
+    // hosted Checkout collect a replacement via allow_promotion_codes (print only).
+    const promoInvalidDropped = Boolean(
+      canUseManualPromotionCode(orderType, plan) && promoCode && promotion.invalid
+    );
+    if (canUseManualPromotionCode(orderType, plan) && promoCode && promotion.lookupFailed) {
       return NextResponse.json(
         { error: "Could not verify promotion code. Please try again.", code: "promotion_lookup_failed" },
         { status: 503 }
