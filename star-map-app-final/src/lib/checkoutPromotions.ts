@@ -7,7 +7,8 @@ export type PromotionSource = "none" | "manual" | "referral_auto";
  * Digital SKUs use one-off price_data / shared prices that cannot be product-restricted
  * in Stripe, so hosted `allow_promotion_codes` and promo_code params must stay off.
  */
-export function canUseManualPromotionCode(orderType: CheckoutOrderType, _plan?: CheckoutPlan) {
+export function canUseManualPromotionCode(orderType: CheckoutOrderType, plan?: CheckoutPlan) {
+  void plan;
   return orderType === "print";
 }
 
