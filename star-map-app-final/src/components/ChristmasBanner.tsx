@@ -31,6 +31,7 @@ export default function ChristmasBanner({ nowMs }: Props = {}) {
       aria-label="Christmas delivery notice"
       data-christmas-banner-phase={content.phase}
       data-christmas-promo-code={content.promoCode ?? ""}
+      data-digital-offer={content.phase === "digital_last_minute" ? true : undefined}
     >
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-4 py-2.5 text-center sm:flex-row sm:text-left sm:px-6">
         <p className="text-[12px] leading-snug sm:text-[13px]">{content.message}</p>

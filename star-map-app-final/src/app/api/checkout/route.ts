@@ -629,6 +629,15 @@ function checkoutEmailIdempotencyTag(email: string): string {
   return (hash >>> 0).toString(36);
 }
 
+/**
+ * Stripe caps idempotency keys at 255 chars; fallback suffixes (:no-discount, :no-promo-consent)
+ * add up to ~30 more. Collapse long keys to a stable hash-tagged form.
+ */
+function boundStripeIdempotencyKey(key: string, maxLength = 200): string {
+  if (key.length <= maxLength) return key;
+  return `${key.slice(0, maxLength - 24)}:h${checkoutEmailIdempotencyTag(key)}${key.length.toString(36)}`;
+}
+
 function checkoutIdempotencyKey(input: {
   mapId?: string;
   plan: CheckoutPlan;
@@ -1126,7 +1135,7 @@ async function createCheckoutSession(input: {
   // expires_at is time-based, so the Stripe idempotency key must include it: reusing a key with a
   // different expires_at (after the KV URL cache lapses) makes Stripe reject the request.
   const stripeIdempotencyKey = idempotencyKey
-    ? `${idempotencyKey}:exp${sessionParams.expires_at ?? ""}`
+    ? boundStripeIdempotencyKey(`${idempotencyKey}:exp${sessionParams.expires_at ?? ""}`)
     : undefined;
   let session: Stripe.Checkout.Session;
   let discountRejected = false;
