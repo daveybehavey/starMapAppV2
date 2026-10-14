@@ -8,7 +8,7 @@ import { test, chromium } from '@playwright/test';
 const SITE_URL = 'https://starmapco.com';
 const PROMO_CODE = 'GBTRYGVB';
 const RUN_STRIPE_QA = process.env.PLAYWRIGHT_STRIPE_QA === 'true';
-const PAYWALL_HEADING_PATTERN = /Buy this map in HD or print|Buy this map in HD|Download your print-ready star map|Unlock HD exports in seconds/i;
+const PAYWALL_HEADING_PATTERN = /Buy this map in HD or print|Buy this map in HD|Order your printed star map|Order this map as a print|Complete your wedding gift|Download your print-ready star map|Unlock HD exports in seconds/i;
 const PAYWALL_SINGLE_CTA_PATTERN = /Continue with single|Get 1 HD map|Get 1 HD file|Buy this map in HD/i;
 
 test.describe('Stripe QA Tests', () => {

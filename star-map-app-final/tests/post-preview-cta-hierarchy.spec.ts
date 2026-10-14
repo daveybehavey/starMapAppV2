@@ -10,7 +10,7 @@ import { applySampleMoment, gotoEditor, mockGeocode } from "./test-helpers";
  */
 const WIDTHS = [320, 375, 430, 768, 1280, 1440] as const;
 const PAYWALL_HEADING_PATTERN =
-  /Buy this map in HD or print|Buy this map in HD|Download your print-ready star map|Unlock HD exports in seconds/i;
+  /Buy this map in HD or print|Buy this map in HD|Order your printed star map|Order this map as a print|Complete your wedding gift|Download your print-ready star map|Unlock HD exports in seconds/i;
 // Hosted `qa:smoke:ui` sets NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED=true (test harness only).
 const PRINT_ENABLED = /^(1|true|yes)$/i.test(
   String(process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim()

@@ -8,7 +8,7 @@ import {
   waitForPreview,
 } from "./test-helpers";
 
-const paywallHeadingPattern = /Buy this map in HD or print|Buy this map in HD|Download your print-ready star map|Unlock HD exports in seconds/i;
+const paywallHeadingPattern = /Buy this map in HD or print|Buy this map in HD|Order your printed star map|Order this map as a print|Complete your wedding gift|Download your print-ready star map|Unlock HD exports in seconds/i;
 
 test.describe("Manual Flow Check", () => {
   test("homepage → customize → preview → checkout", async ({ page }) => {

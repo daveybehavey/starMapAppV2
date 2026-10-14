@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { applySampleMoment, gotoEditor, mockGeocode, waitForPreview } from "./test-helpers";
 
-const paywallHeadingPattern = /Buy this map in HD or print|Buy this map in HD|Download your print-ready star map|Unlock HD exports in seconds/i;
+const paywallHeadingPattern = /Buy this map in HD or print|Buy this map in HD|Order your printed star map|Order this map as a print|Complete your wedding gift|Download your print-ready star map|Unlock HD exports in seconds/i;
 
 const setupEditor = async (page: Parameters<typeof gotoEditor>[0]) => {
   await gotoEditor(page, { path: "/editor", force: "desktop" });

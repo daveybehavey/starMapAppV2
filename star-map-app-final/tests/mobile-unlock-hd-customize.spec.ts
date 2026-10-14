@@ -8,7 +8,7 @@ import { applySampleMoment, gotoEditor, mockGeocode } from "./test-helpers";
 const WIDTHS = [320, 375, 430] as const;
 const HEIGHT = 720;
 const PAYWALL_HEADING_PATTERN =
-  /Buy this map in HD or print|Buy this map in HD|Download your print-ready star map|Unlock HD exports in seconds/i;
+  /Buy this map in HD or print|Buy this map in HD|Order your printed star map|Order this map as a print|Complete your wedding gift|Download your print-ready star map|Unlock HD exports in seconds/i;
 
 test.describe("mobile Unlock HD remains reachable after Customize more", () => {
   test.describe.configure({ mode: "serial" });
