@@ -23,12 +23,21 @@ import {
   getInstantHdPriceLine,
 } from "@/lib/digitalGiftCheckout";
 import { buildFramedHdCheckoutHref, getGiftLadderIntro } from "@/lib/moneyPageGiftCheckout";
-import { getChristmasOrderBySummaryLines } from "@/lib/christmasCampaign";
+import {
+  getChristmasDigitalPitchLine,
+  getChristmasLandingPromo,
+  getChristmasOrderBySummaryLines,
+  resolveChristmasCampaignNowMs,
+} from "@/lib/christmasCampaign";
 import { LOVE_IT_GUARANTEE_LINE, getLoveItGuaranteeFaq } from "@/lib/loveItGuarantee";
 import { getPrintDeliveryTimingFaqAnswer } from "@/lib/commerceFacts";
 import type { Metadata } from "next";
 
 export const revalidate = 86400;
+
+type PageProps = {
+  searchParams?: Promise<{ christmas_now?: string }>;
+};
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 const ogImage = `${siteUrl}/og-default.png`;
@@ -57,7 +66,9 @@ export const metadata: Metadata = {
 
 const loveItFaq = getLoveItGuaranteeFaq();
 
-export default function ChristmasStarMapGiftPage() {
+export default async function ChristmasStarMapGiftPage({ searchParams }: PageProps) {
+  const params = (await searchParams) ?? {};
+  const clockMs = resolveChristmasCampaignNowMs({ override: params.christmas_now });
   const shippingDisclosure = getPrintShippingDisclosure();
   const productionReviewTrustPoint = getPrintProductionReviewTrustPoint();
   const bundlePriceLine = getFramedHdBundlePriceLine();
@@ -66,11 +77,18 @@ export default function ChristmasStarMapGiftPage() {
   const instantPrice = getInstantHdPriceLine();
   const previewIntents = buildInstantHdPreviewIntents("christmas");
   const orderByLines = getChristmasOrderBySummaryLines();
+  const landingPromo = getChristmasLandingPromo(clockMs);
+  const digitalPitch = getChristmasDigitalPitchLine(instantPrice);
 
   const faqItems = [
     {
       question: "What are the Christmas order-by dates?",
       answer: `${orderByLines.join(" ")} Dates are buffered estimates for standard shipping; they are not guarantees.`,
+    },
+    {
+      question: "Do Christmas discount codes apply to HD digital?",
+      answer:
+        "No. Seasonal codes such as XMAS15 and BLACKFRIDAY20 apply to prints only. HD digital is excluded from those promotions.",
     },
     {
       question: "What if I miss the print cutoff?",
@@ -144,17 +162,26 @@ export default function ChristmasStarMapGiftPage() {
       <section
         className="mt-8 space-y-3 rounded-3xl border border-amber-200/40 bg-amber-50/90 p-6 shadow-xl shadow-black/10"
         data-testid="christmas-order-by-box"
+        data-christmas-landing-phase={landingPromo.phase}
+        data-christmas-promo-code={landingPromo.promoCode ?? ""}
       >
-        <h2 className="text-midnight text-lg font-semibold">Christmas order-by dates</h2>
-        <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800">
-          {orderByLines.map((line) => (
-            <li key={line}>{line}</li>
-          ))}
-        </ul>
-        <p className="text-sm text-neutral-800">
-          Missed the print window? The {instantPrice} instant HD file is a last-minute gift through December
-          25 — ready to send the same day.
-        </p>
+        <h2 className="text-midnight text-lg font-semibold">{landingPromo.heading}</h2>
+        {landingPromo.discountLine ? (
+          <p className="text-sm font-semibold text-midnight sm:text-base">{landingPromo.discountLine}</p>
+        ) : null}
+        {landingPromo.digitalExcludedNote ? (
+          <p className="text-xs text-neutral-700 sm:text-sm">{landingPromo.digitalExcludedNote}</p>
+        ) : null}
+        {landingPromo.showOrderBy ? (
+          <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800">
+            {orderByLines.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        ) : null}
+        {landingPromo.showDigitalPitch ? (
+          <p className="text-sm text-neutral-800">{digitalPitch}</p>
+        ) : null}
         <p className="text-xs text-neutral-700">{LOVE_IT_GUARANTEE_LINE}</p>
       </section>
 

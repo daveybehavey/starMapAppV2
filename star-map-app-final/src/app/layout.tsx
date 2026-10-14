@@ -229,7 +229,9 @@ export default function RootLayout({
         </Suspense>
         <AnalyticsConsentManager />
         <div className="cosmic-backdrop">
-          <ChristmasBanner />
+          <Suspense fallback={null}>
+            <ChristmasBanner />
+          </Suspense>
           <SiteTopNav />
           {children}
         </div>

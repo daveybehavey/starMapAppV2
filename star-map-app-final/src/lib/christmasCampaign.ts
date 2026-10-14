@@ -1,13 +1,25 @@
 /**
- * Date-driven Christmas 2026 campaign copy and visibility.
- * Cutoffs are buffered order-by dates (Printful-informed); digital push Dec 11–25.
+ * Date-driven Christmas 2026 campaign copy and visibility (America/Los_Angeles).
+ * Cutoffs are buffered order-by dates; discount codes apply to prints only (not HD digital).
  */
 
-export type ChristmasBannerPhase = "order_by" | "digital_last_minute" | "hidden";
+export type ChristmasBannerPhase =
+  | "order_by"
+  | "xmas15_early"
+  | "black_friday"
+  | "xmas15_last_call"
+  | "digital_last_minute"
+  | "hidden";
 
-export type ChristmasCutoffKey = "framed_us" | "framed_ca" | "framed_row" | "poster_us" | "poster_ca" | "poster_row";
+export type ChristmasCutoffKey =
+  | "framed_us"
+  | "framed_ca"
+  | "framed_row"
+  | "poster_us"
+  | "poster_ca"
+  | "poster_row";
 
-/** Local calendar dates in America/Los_Angeles (plan prepared in PT). */
+/** Local calendar dates in America/Los_Angeles. */
 export const CHRISTMAS_ORDER_BY_DATES: Record<ChristmasCutoffKey, string> = {
   framed_us: "2026-12-08",
   framed_ca: "2026-12-09",
@@ -17,9 +29,21 @@ export const CHRISTMAS_ORDER_BY_DATES: Record<ChristmasCutoffKey, string> = {
   poster_row: "2026-12-01",
 };
 
-const DIGITAL_LAST_MINUTE_START = "2026-12-11";
-const DIGITAL_LAST_MINUTE_END = "2026-12-25";
+export const CHRISTMAS_PROMO = {
+  xmas15: { code: "XMAS15", percent: 15 },
+  blackFriday: { code: "BLACKFRIDAY20", percent: 20 },
+} as const;
+
 const CAMPAIGN_YEAR_START = "2026-10-01";
+const XMAS15_EARLY_START = "2026-11-01";
+const BLACK_FRIDAY_START = "2026-11-28";
+const XMAS15_LAST_CALL_START = "2026-12-02";
+/** After Dec 9 last-call window; includes Dec 10–11 poster cutoff days. */
+const DIGITAL_LAST_MINUTE_START = "2026-12-10";
+const DIGITAL_LAST_MINUTE_END = "2026-12-25";
+
+const ORDER_BY_BANNER_LINE =
+  "Order by for Christmas delivery — framed/canvas: US Dec 8 · Canada Dec 9 · worldwide Nov 30. Posters: US Dec 9 · Canada Dec 10 · worldwide Dec 1.";
 
 function parseYmd(ymd: string): { y: number; m: number; d: number } {
   const [y, m, d] = ymd.split("-").map((part) => Number(part));
@@ -41,11 +65,56 @@ function compareYmd(a: string, b: string): number {
   return a < b ? -1 : 1;
 }
 
+/**
+ * Parse a campaign clock override.
+ * Accepts `YYYY-MM-DD` (treated as noon Pacific) or a full ISO timestamp.
+ */
+export function parseChristmasCampaignNowOverride(raw: string | null | undefined): number | null {
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    // 20:00 UTC is noon PST / 1pm PDT — same Pacific calendar day in both offsets.
+    const ms = Date.parse(`${trimmed}T20:00:00.000Z`);
+    return Number.isFinite(ms) ? ms : null;
+  }
+
+  const ms = Date.parse(trimmed);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+/**
+ * Resolve the effective campaign clock.
+ * Priority: explicit nowMs → options.override → env CHRISTMAS_CAMPAIGN_NOW /
+ * NEXT_PUBLIC_CHRISTMAS_CAMPAIGN_NOW → Date.now().
+ */
+export function resolveChristmasCampaignNowMs(options?: {
+  nowMs?: number;
+  override?: string | null;
+}): number {
+  if (typeof options?.nowMs === "number" && Number.isFinite(options.nowMs)) {
+    return options.nowMs;
+  }
+  const fromArg = parseChristmasCampaignNowOverride(options?.override ?? undefined);
+  if (fromArg != null) return fromArg;
+
+  const fromEnv = parseChristmasCampaignNowOverride(
+    process.env.CHRISTMAS_CAMPAIGN_NOW ?? process.env.NEXT_PUBLIC_CHRISTMAS_CAMPAIGN_NOW
+  );
+  if (fromEnv != null) return fromEnv;
+
+  return Date.now();
+}
+
 export function resolveChristmasBannerPhase(nowMs: number = Date.now()): ChristmasBannerPhase {
   const today = getPacificCalendarDate(nowMs);
   if (compareYmd(today, CAMPAIGN_YEAR_START) < 0) return "hidden";
   if (compareYmd(today, DIGITAL_LAST_MINUTE_END) > 0) return "hidden";
   if (compareYmd(today, DIGITAL_LAST_MINUTE_START) >= 0) return "digital_last_minute";
+  if (compareYmd(today, XMAS15_LAST_CALL_START) >= 0) return "xmas15_last_call";
+  if (compareYmd(today, BLACK_FRIDAY_START) >= 0) return "black_friday";
+  if (compareYmd(today, XMAS15_EARLY_START) >= 0) return "xmas15_early";
   return "order_by";
 }
 
@@ -54,6 +123,9 @@ export type ChristmasBannerContent = {
   message: string;
   ctaHref: string;
   ctaLabel: string;
+  /** Present when a print-only discount code is in market. */
+  promoCode?: string;
+  promoPercent?: number;
 };
 
 export function getChristmasBannerContent(
@@ -72,12 +144,118 @@ export function getChristmasBannerContent(
     };
   }
 
+  if (phase === "xmas15_early") {
+    return {
+      phase,
+      message: `15% off prints with code ${CHRISTMAS_PROMO.xmas15.code}. ${ORDER_BY_BANNER_LINE}`,
+      ctaHref: "/christmas-star-map-gift",
+      ctaLabel: "Shop Christmas prints",
+      promoCode: CHRISTMAS_PROMO.xmas15.code,
+      promoPercent: CHRISTMAS_PROMO.xmas15.percent,
+    };
+  }
+
+  if (phase === "black_friday") {
+    return {
+      phase,
+      message: `Black Friday: 20% off prints with code ${CHRISTMAS_PROMO.blackFriday.code}`,
+      ctaHref: "/christmas-star-map-gift",
+      ctaLabel: "Shop Black Friday prints",
+      promoCode: CHRISTMAS_PROMO.blackFriday.code,
+      promoPercent: CHRISTMAS_PROMO.blackFriday.percent,
+    };
+  }
+
+  if (phase === "xmas15_last_call") {
+    return {
+      phase,
+      message: `Last call: 15% off prints with ${CHRISTMAS_PROMO.xmas15.code}. ${ORDER_BY_BANNER_LINE}`,
+      ctaHref: "/christmas-star-map-gift",
+      ctaLabel: "Shop Christmas prints",
+      promoCode: CHRISTMAS_PROMO.xmas15.code,
+      promoPercent: CHRISTMAS_PROMO.xmas15.percent,
+    };
+  }
+
+  // Before Nov 1 (still in campaign season): order-by banner without discount codes.
   return {
-    phase,
-    message:
-      "Order by for Christmas delivery — framed/canvas: US Dec 8 · Canada Dec 9 · worldwide Nov 30. Posters: US Dec 9 · Canada Dec 10 · worldwide Dec 1.",
+    phase: "order_by",
+    message: ORDER_BY_BANNER_LINE,
     ctaHref: "/christmas-star-map-gift",
     ctaLabel: "Christmas star map gifts",
+  };
+}
+
+export type ChristmasLandingPromo = {
+  phase: ChristmasBannerPhase;
+  heading: string;
+  discountLine: string | null;
+  showOrderBy: boolean;
+  showDigitalPitch: boolean;
+  promoCode: string | null;
+  digitalExcludedNote: string | null;
+};
+
+/** Landing-page promo block aligned with the sitewide banner windows. */
+export function getChristmasLandingPromo(nowMs: number = Date.now()): ChristmasLandingPromo {
+  const phase = resolveChristmasBannerPhase(nowMs);
+
+  if (phase === "digital_last_minute") {
+    return {
+      phase,
+      heading: "Last-minute Christmas gift",
+      discountLine: null,
+      showOrderBy: false,
+      showDigitalPitch: true,
+      promoCode: null,
+      digitalExcludedNote: null,
+    };
+  }
+
+  if (phase === "xmas15_early") {
+    return {
+      phase,
+      heading: "Christmas print sale",
+      discountLine: `15% off prints with code ${CHRISTMAS_PROMO.xmas15.code}`,
+      showOrderBy: true,
+      showDigitalPitch: true,
+      promoCode: CHRISTMAS_PROMO.xmas15.code,
+      digitalExcludedNote: "Discount codes apply to prints only — HD digital is excluded.",
+    };
+  }
+
+  if (phase === "black_friday") {
+    return {
+      phase,
+      heading: "Black Friday print sale",
+      discountLine: `Black Friday: 20% off prints with code ${CHRISTMAS_PROMO.blackFriday.code}`,
+      showOrderBy: true,
+      showDigitalPitch: true,
+      promoCode: CHRISTMAS_PROMO.blackFriday.code,
+      digitalExcludedNote: "Discount codes apply to prints only — HD digital is excluded.",
+    };
+  }
+
+  if (phase === "xmas15_last_call") {
+    return {
+      phase,
+      heading: "Last call for Christmas prints",
+      discountLine: `Last call: 15% off prints with ${CHRISTMAS_PROMO.xmas15.code}`,
+      showOrderBy: true,
+      showDigitalPitch: true,
+      promoCode: CHRISTMAS_PROMO.xmas15.code,
+      digitalExcludedNote: "Discount codes apply to prints only — HD digital is excluded.",
+    };
+  }
+
+  return {
+    phase: phase === "hidden" ? "hidden" : "order_by",
+    heading: "Christmas order-by dates",
+    discountLine: null,
+    showOrderBy: true,
+    showDigitalPitch: true,
+    promoCode: null,
+    digitalExcludedNote: null,
   };
 }
 
@@ -97,4 +275,8 @@ export function isChristmasLandingInSeason(nowMs: number = Date.now()): boolean 
 /** Test helper — unused in production paths. */
 export function __christmasDatePartsForTests(ymd: string) {
   return parseYmd(ymd);
+}
+
+export function getChristmasDigitalPitchLine(instantHdPriceLabel = "$9"): string {
+  return `Missed the print window? The ${instantHdPriceLabel} instant HD file is a last-minute gift through December 25 — ready to send the same day.`;
 }

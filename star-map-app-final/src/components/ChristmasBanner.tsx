@@ -1,12 +1,27 @@
+"use client";
+
 import Link from "next/link";
-import { getChristmasBannerContent } from "@/lib/christmasCampaign";
+import { useSearchParams } from "next/navigation";
+import {
+  getChristmasBannerContent,
+  resolveChristmasCampaignNowMs,
+} from "@/lib/christmasCampaign";
 import { getInstantHdPriceLine } from "@/lib/digitalGiftCheckout";
 
+type Props = {
+  /** Explicit clock for tests/SSR. Prefer `christmas_now` query or env override when omitted. */
+  nowMs?: number;
+};
+
 /**
- * Sitewide Christmas campaign banner. Date-driven; hidden outside the campaign window.
+ * Sitewide Christmas campaign banner. Date-driven (Pacific); hidden outside the campaign window.
+ * Override clock with `?christmas_now=YYYY-MM-DD` or `CHRISTMAS_CAMPAIGN_NOW` / `NEXT_PUBLIC_CHRISTMAS_CAMPAIGN_NOW`.
  */
-export default function ChristmasBanner({ nowMs }: { nowMs?: number } = {}) {
-  const content = getChristmasBannerContent(nowMs ?? Date.now(), getInstantHdPriceLine());
+export default function ChristmasBanner({ nowMs }: Props = {}) {
+  const searchParams = useSearchParams();
+  const override = searchParams.get("christmas_now");
+  const clockMs = resolveChristmasCampaignNowMs({ nowMs, override });
+  const content = getChristmasBannerContent(clockMs, getInstantHdPriceLine());
   if (!content) return null;
 
   return (
@@ -15,6 +30,7 @@ export default function ChristmasBanner({ nowMs }: { nowMs?: number } = {}) {
       role="region"
       aria-label="Christmas delivery notice"
       data-christmas-banner-phase={content.phase}
+      data-christmas-promo-code={content.promoCode ?? ""}
     >
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-4 py-2.5 text-center sm:flex-row sm:text-left sm:px-6">
         <p className="text-[12px] leading-snug sm:text-[13px]">{content.message}</p>
