@@ -28,7 +28,10 @@ test("checkout session expires_at is ~2 hours from now", async () => {
   );
   assert.equal(CHECKOUT_SESSION_TTL_SECONDS, 2 * 60 * 60);
   const now = Date.UTC(2026, 9, 13, 12, 0, 0);
-  assert.equal(getCheckoutSessionExpiresAt(now), Math.floor(now / 1000) + CHECKOUT_SESSION_TTL_SECONDS);
+  const nowSec = Math.floor(now / 1000);
+  assert.equal(getCheckoutSessionExpiresAt(now), nowSec - (nowSec % 300) + CHECKOUT_SESSION_TTL_SECONDS);
+  // Stripe minimum is 30 minutes; quantized TTL must stay well above it.
+  assert.ok(getCheckoutSessionExpiresAt(now) - nowSec >= CHECKOUT_SESSION_TTL_SECONDS - 300);
 });
 
 test("promotions consent is optional and errors are detected", async () => {
