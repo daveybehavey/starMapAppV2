@@ -322,6 +322,16 @@ export default function RootLayout({
 
             <div className="mt-5 flex flex-col gap-1.5 border-t border-white/14 pt-3 text-[11px] text-[#c9d1e6] sm:mt-7 sm:gap-2 sm:pt-4 sm:text-xs sm:flex-row sm:items-center sm:justify-between">
               <span>© {new Date().getFullYear()} StarMapCo. All rights reserved.</span>
+              <span>
+                <a
+                  href="https://eurodigital.ca/projects/starmapco"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="transition hover:text-white"
+                >
+                  Website by EuroDigital
+                </a>
+              </span>
               <span className="hidden sm:inline">Fast previews. Print-ready exports. No account required.</span>
             </div>
           </div>
