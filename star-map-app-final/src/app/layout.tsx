@@ -82,6 +82,15 @@ const envSocialLinks = (process.env.NEXT_PUBLIC_SOCIAL_LINKS ?? "")
 
 const socialLinks = envSocialLinks.length ? envSocialLinks : defaultSocialLinks;
 const socialProfiles = socialLinks.map((item) => item.href);
+/** Schema-only sameAs extras — not shown in the footer Follow links. */
+const schemaOnlySameAs = [
+  "https://www.etsy.com/shop/StarMapCoShop",
+  "https://www.google.com/maps/place/StarMapCo+Star+Maps/data=!4m2!3m1!1s0x0:0x5304164e78ff2653",
+  "https://www.trustpilot.com/review/starmapco.com",
+] as const;
+const organizationSameAs = Array.from(new Set([...socialProfiles, ...schemaOnlySameAs]));
+const siteDescription =
+  "Create a custom star map or constellation map for any date and location. Start with a free live preview, then choose a gift-ready framed print, lower-cost unframed print, or HD digital delivery at StarMapCo.";
 
 function SocialIcon({ label }: { label: string }) {
   const normalized = label.toLowerCase();
@@ -125,8 +134,7 @@ export const metadata: Metadata = {
     default: "StarMapCo | Custom Star Map & Constellation Map",
     template: "%s",
   },
-  description:
-    "Create a custom star map or constellation map for any date and location. Start with a free live preview, then choose a gift-ready framed print, lower-cost unframed print, or HD digital delivery at StarMapCo.",
+  description: siteDescription,
   robots: {
     index: true,
     follow: true,
@@ -198,9 +206,11 @@ const siteSchema = {
   "@graph": [
     {
       "@type": "Organization",
+      "@id": `${siteUrl}/#organization`,
       name: businessProfile.name,
       url: siteUrl,
-      logo: `${siteUrl}/favicon.ico`,
+      description: siteDescription,
+      logo: `${siteUrl}/icon-512.png`,
       email: businessProfile.email,
       ...(businessProfile.phone ? { telephone: getBusinessPhoneHref() } : {}),
       ...(businessProfile.address ? { address: businessProfile.address } : {}),
@@ -212,7 +222,7 @@ const siteSchema = {
           ...(businessProfile.phone ? { telephone: getBusinessPhoneHref() } : {}),
         },
       ],
-      ...(socialProfiles.length ? { sameAs: socialProfiles } : {}),
+      ...(organizationSameAs.length ? { sameAs: organizationSameAs } : {}),
     },
     {
       "@type": "WebSite",
