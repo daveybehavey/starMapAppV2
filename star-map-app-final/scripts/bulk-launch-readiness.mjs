@@ -63,13 +63,15 @@ function main() {
   const bulkPage = readFile("src/app/bulk-event-orders/page.tsx");
   const bulkApiRoute = readFile("src/app/api/bulk-quotes/route.ts");
   const sitemapFile = readFile("src/app/sitemap.ts");
+  const sitemapEntriesFile = readFile("src/lib/buildSitemapEntries.ts");
+  const sitemapSources = `${sitemapFile}\n${sitemapEntriesFile}`;
   const packageJson = JSON.parse(readFile("package.json"));
 
   const robotsPublic = /robots:\s*\{\s*index:\s*true,\s*follow:\s*true\s*\}/.test(bulkPage);
   const robotsSoft = /robots:\s*\{\s*index:\s*false,\s*follow:\s*false\s*\}/.test(bulkPage);
   /** Sitemap lists bulk only when `bulkEnabled` is true (matches runtime flag). */
   const sitemapConditionalBulk =
-    sitemapFile.includes("bulkEnabled") && sitemapFile.includes("bulk-event-orders");
+    sitemapSources.includes("bulkEnabled") && sitemapSources.includes("bulk-event-orders");
 
   pushCheck(
     checks,
@@ -96,7 +98,7 @@ function main() {
   const seoPosture =
     robotsPublic && sitemapConditionalBulk
       ? { status: "pass", label: "Bulk SEO posture (public launch)", detail: "indexable + conditional sitemap entry" }
-      : robotsSoft && !sitemapFile.includes("bulk-event-orders")
+      : robotsSoft && !sitemapSources.includes("bulk-event-orders")
         ? { status: "pass", label: "Bulk SEO posture (soft launch)", detail: "noindex + bulk omitted from sitemap source" }
         : robotsSoft && sitemapConditionalBulk
           ? {

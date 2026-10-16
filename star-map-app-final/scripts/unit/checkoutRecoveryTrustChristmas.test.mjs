@@ -185,8 +185,8 @@ test("christmas landing page and sitemap entry exist", () => {
   const page = fs.readFileSync(pagePath, "utf8");
   assert.match(page, /Christmas order-by dates/);
   assert.match(page, /LOVE_IT_GUARANTEE_LINE/);
-  const sitemap = fs.readFileSync(path.join(ROOT, "src/app/sitemap.ts"), "utf8");
-  assert.match(sitemap, /christmas-star-map-gift/);
+  const sitemapEntries = fs.readFileSync(path.join(ROOT, "src/lib/buildSitemapEntries.ts"), "utf8");
+  assert.match(sitemapEntries, /christmas-star-map-gift/);
 });
 
 test("customer photo strip is feature-flagged and does not invent reviews", () => {
