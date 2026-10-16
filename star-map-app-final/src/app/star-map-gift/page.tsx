@@ -21,25 +21,32 @@ export const revalidate = 86400;
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 const ogImage = `${siteUrl}/og-default.png`;
+const pageTitle =
+  "Personalized Star Map Gift — The Exact Night Sky From Your Special Date | StarMapCo";
+const pageDescription =
+  "Create a personalized star map of the exact night sky from a wedding, anniversary, or the night you met. Free preview, HD digital from $9, framed prints from $99.";
 const breadcrumbs = [
   { href: "/", label: "Home" },
   { href: "/star-map-gift", label: "Star map gift" },
 ];
 
 export const metadata: Metadata = {
-  title: "Personalized Star Map Gift Ideas | StarMapCo",
-  description:
-    "Star map gift ideas for any occasion—wedding, anniversary, birthday, and more. Free preview, then framed print, unframed print, or HD digital delivery.",
+  title: pageTitle,
+  description: pageDescription,
   alternates: { canonical: `${siteUrl}/star-map-gift` },
   openGraph: {
-    title: "Personalized Star Map Gift Ideas | StarMapCo",
-    description:
-      "Give a personalized star map gift that recreates the exact night sky from a special date. Start with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+    title: pageTitle,
+    description: pageDescription,
     url: `${siteUrl}/star-map-gift`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
   },
-  twitter: { card: "summary_large_image", images: [ogImage] },
+  twitter: {
+    card: "summary_large_image",
+    title: pageTitle,
+    description: pageDescription,
+    images: [ogImage],
+  },
 };
 
 export default function StarMapGiftPage() {
