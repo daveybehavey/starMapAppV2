@@ -4,6 +4,7 @@
  */
 
 import {
+  EMAIL,
   escapeHtml,
   normalizeSiteUrl,
   pickFirstName,
@@ -12,6 +13,21 @@ import {
   renderStatusBadge,
   renderTransactionalEmailDocument,
 } from "@/lib/transactionalEmailLayout";
+
+/** Public review destinations used in post-purchase shipping email. */
+export const SHIPPING_REVIEW_LINKS = {
+  google: {
+    href: "https://g.page/r/CVMm_3hOFgRTEAI/review",
+    label: "Review us on Google",
+  },
+  trustpilot: {
+    href: "https://www.trustpilot.com/review/starmapco.com",
+    label: "Review us on Trustpilot",
+  },
+} as const;
+
+export const SHIPPING_REVIEW_INVITE =
+  "If your map arrived safely and you're happy with it, a short review helps other gift-givers find us.";
 
 export type ShippingNotificationData = {
   customerName?: string | null;
@@ -87,6 +103,33 @@ function formatAddressLines(addr: ShippingNotificationData["shippingAddress"]): 
   return lines;
 }
 
+/** Understated review CTA for the plain-text shipping email. */
+export function renderShippingReviewTextBlock(): string {
+  return [
+    SHIPPING_REVIEW_INVITE,
+    "",
+    `${SHIPPING_REVIEW_LINKS.google.label}: ${SHIPPING_REVIEW_LINKS.google.href}`,
+    `${SHIPPING_REVIEW_LINKS.trustpilot.label}: ${SHIPPING_REVIEW_LINKS.trustpilot.href}`,
+  ].join("\n");
+}
+
+/** Understated review CTA for the HTML shipping email (navy/gold, restrained). */
+export function renderShippingReviewHtmlBlock(): string {
+  const google = SHIPPING_REVIEW_LINKS.google;
+  const trustpilot = SHIPPING_REVIEW_LINKS.trustpilot;
+  return `
+    <div style="margin:28px 0 0;padding-top:20px;border-top:1px solid ${EMAIL.cardBorder};">
+      <p style="margin:0;font-size:13px;line-height:1.65;color:${EMAIL.muted};">
+        ${escapeHtml(SHIPPING_REVIEW_INVITE)}
+      </p>
+      <p style="margin:12px 0 0;font-size:13px;line-height:1.65;">
+        <a href="${escapeHtml(google.href)}" style="color:${EMAIL.accent};text-decoration:none;font-weight:500;">${escapeHtml(google.label)}</a>
+        <span style="color:${EMAIL.muted};"> &nbsp;·&nbsp; </span>
+        <a href="${escapeHtml(trustpilot.href)}" style="color:${EMAIL.accent};text-decoration:none;font-weight:500;">${escapeHtml(trustpilot.label)}</a>
+      </p>
+    </div>`;
+}
+
 export function renderShippingNotificationEmail(data: ShippingNotificationData): RenderedShippingEmail {
   const firstName = pickFirstName(data.customerName);
   const trackingUrl =
@@ -116,6 +159,8 @@ export function renderShippingNotificationEmail(data: ShippingNotificationData):
     ...addressLines.map((line) => `  ${line}`),
     "",
     "Tracking can take up to 48 hours to start updating after a label is created — that's normal.",
+    "",
+    renderShippingReviewTextBlock(),
     "",
     `If anything looks off, reply to this email or write to ${supportEmail}.`,
     "",
@@ -154,6 +199,7 @@ export function renderShippingNotificationEmail(data: ShippingNotificationData):
     </p>
     ${renderInfoCard("Tracking details", trackingCardBody, { marginTop: "24px" })}
     ${addressCard}
+    ${renderShippingReviewHtmlBlock()}
     <p style="margin:24px 0 0;font-size:14px;line-height:1.65;color:#ffffff;">
       Thanks for choosing StarMapCo,<br />
       <span style="color:#94a3b8;">The StarMapCo team</span>
