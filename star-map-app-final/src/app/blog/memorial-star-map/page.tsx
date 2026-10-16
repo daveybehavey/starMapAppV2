@@ -237,7 +237,11 @@ export default function MemorialStarMapPostPage() {
               <Link href="/star-map-for/memorial?source=blog-memorial-star-map" className="text-amber-300 hover:underline">
                 memorial star map gift page
               </Link>{" "}
-              for format ideas or go directly to the{" "}
+              for format ideas, see how a{" "}
+              <Link href="/star-map-gift" className="text-amber-300 hover:underline">
+                custom star map gift
+              </Link>{" "}
+              is typically ordered, or go directly to the{" "}
               <Link href="/star-map-generator?source=blog-memorial-star-map" className="text-amber-300 hover:underline">
                 star map generator
               </Link>{" "}

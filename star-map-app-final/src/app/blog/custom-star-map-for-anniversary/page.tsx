@@ -323,7 +323,11 @@ export default function AnniversaryPostPage() {
             </p>
             <p>
               If you’re searching for an anniversary gift that truly speaks from the heart, few things compare
-              to seeing your love story written among the stars.
+              to seeing your love story written among the stars. Browse our{" "}
+              <Link href="/star-map-gift" className="text-amber-300 hover:underline">
+                personalized star map gift
+              </Link>{" "}
+              hub when you are ready to compare formats and start a free preview.
             </p>
             <p>
               Planning a February surprise too? See our{" "}

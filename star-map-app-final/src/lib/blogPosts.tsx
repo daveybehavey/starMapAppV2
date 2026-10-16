@@ -285,7 +285,9 @@ export const blogPosts: BlogPost[] = [
           Start with a date and location, then choose the format that matches your timeline.
         </p>
         <p>
-          For more ideas, browse <Link href="/star-map-gift-ideas">star map gift ideas</Link> and explore
+          For more ideas, browse our{" "}
+          <Link href="/star-map-gift">star map gift</Link> hub, explore{" "}
+          <Link href="/star-map-gift-ideas">star map gift ideas</Link>, and compare
           <Link href="/star-map-gift-formats"> gift formats</Link>.
         </p>
       </article>
@@ -379,7 +381,8 @@ export const blogPosts: BlogPost[] = [
         <h2>Bottom line</h2>
         <p>
           Framed is the “premium gift” choice, unframed is the value display choice, and HD/digital is the “fast gift” choice.
-          Pick based on how you want the experience to feel for Father’s Day.
+          Pick based on how you want the experience to feel for Father’s Day. When you are ready to order, start from the{" "}
+          <Link href="/star-map-gift">custom star map gift</Link> page for format guidance.
         </p>
       </article>
     ),
@@ -726,7 +729,9 @@ export const blogPosts: BlogPost[] = [
         </p>
         <p>
           Create a custom star map that shows exactly how the stars aligned for your love, then keep that
-          moment forever.
+          moment forever. Start from our{" "}
+          <Link href="/star-map-gift">personalized star map gift</Link> hub if you want format guidance before
+          you design.
         </p>
         <p>Start your design now and create your StarMapCo gift in minutes.</p>
       </article>
@@ -897,7 +902,8 @@ export const blogPosts: BlogPost[] = [
           <Link href="/blog/most-meaningful-valentines-day-gift-custom-star-map">
             Valentine's Day star map guide
           </Link>{" "}
-          for romantic moment ideas and fast personalization tips.
+          for romantic moment ideas and fast personalization tips. For format options across occasions, start
+          with our <Link href="/star-map-gift">star map gift</Link> page.
         </p>
         <p>Create your own custom star map today and capture your special moment forever.</p>
       </article>
@@ -1132,7 +1138,8 @@ export const blogPosts: BlogPost[] = [
         <p>
           A personalized star map is an ideal <strong>New Year gift</strong> for a partner, family member,
           friend, or yourself. Unlike generic décor, a star map tells a story that belongs to one moment—and
-          one moment only.
+          one moment only. Compare delivery options on our{" "}
+          <Link href="/star-map-gift">custom star map gift</Link> page when you are ready to order.
         </p>
 
         <h2>How StarMapCo Creates Accurate New Year Star Maps</h2>
@@ -1377,7 +1384,8 @@ export const blogPosts: BlogPost[] = [
         <h2>Create Your Own Star Map</h2>
         <p>
           At StarMapCo, each map is generated from real astronomical calculations for your chosen date and
-          location, then designed to be print-ready and frame-worthy.
+          location, then designed to be print-ready and frame-worthy. Browse our{" "}
+          <Link href="/star-map-gift">personalized star map gift</Link> hub for format guidance across occasions.
         </p>
         <p>
           Need a romantic angle for February? Read our{" "}
@@ -1620,7 +1628,8 @@ export const blogPosts: BlogPost[] = [
 
         <h2>More inspiration</h2>
         <p>
-          Browse the <Link href="/star-map-gallery">star map gallery</Link> for real examples or explore more{" "}
+          Browse the <Link href="/star-map-gallery">star map gallery</Link> for real examples, start from our{" "}
+          <Link href="/star-map-gift">star map gift</Link> hub, or explore more{" "}
           <Link href="/star-map-gift-ideas">star map gift ideas</Link> for other occasions.
         </p>
       </article>
@@ -1697,7 +1706,8 @@ export const blogPosts: BlogPost[] = [
 
         <h2>More gift inspiration</h2>
         <p>
-          Need ideas for other occasions? Browse the <Link href="/star-map-gallery">gallery</Link> or explore{" "}
+          Need ideas for other occasions? Browse the <Link href="/star-map-gallery">gallery</Link>, start from
+          our <Link href="/star-map-gift">custom star map gift</Link> page, or explore{" "}
           <Link href="/star-map-gift-ideas">gift ideas</Link>.
         </p>
       </article>
@@ -1768,7 +1778,8 @@ export const blogPosts: BlogPost[] = [
 
         <h2>Explore more examples</h2>
         <p>
-          See real outputs in the <Link href="/star-map-gallery">star map gallery</Link> or explore{" "}
+          See real outputs in the <Link href="/star-map-gallery">star map gallery</Link>, compare options on our{" "}
+          <Link href="/star-map-gift">personalized star map gift</Link> page, or explore{" "}
           <Link href="/star-map-gift-ideas">gift ideas</Link> for other milestones.
         </p>
       </article>
