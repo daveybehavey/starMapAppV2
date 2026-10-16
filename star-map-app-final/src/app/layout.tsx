@@ -209,6 +209,7 @@ const siteSchema = {
       "@id": `${siteUrl}/#organization`,
       name: businessProfile.name,
       url: siteUrl,
+      foundingDate: "2025-12",
       description: siteDescription,
       logo: `${siteUrl}/icon-512.png`,
       email: businessProfile.email,
