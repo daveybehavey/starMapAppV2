@@ -74,7 +74,11 @@ export default function WeddingsPostPage() {
           <p>
             Your wedding night sky is a one-of-a-kind snapshot in time. A custom star map preserves the exact positions
             of constellations, stars, and even planets for your ceremony or reception—creating a keepsake that is both
-            scientific and sentimental.
+            scientific and sentimental. Couples who want a ready-to-give option can start from our{" "}
+            <Link href="/star-map-gift" className="text-amber-300 hover:underline">
+              custom star map gift
+            </Link>{" "}
+            page before locking in a ceremony date and style.
           </p>
           <p>
             In this guide, you&apos;ll learn how to pick the perfect moment and location, choose styles that match your

@@ -220,7 +220,11 @@ export default function PersonalizedBirthdayPost() {
               <Link href="/birthday?source=blog-birthday" className="text-amber-300 hover:underline">
                 birthday star map gift page
               </Link>{" "}
-              for a preview-first path, or{" "}
+              for a preview-first path, compare options on our{" "}
+              <Link href="/star-map-gift" className="text-amber-300 hover:underline">
+                star map gift
+              </Link>{" "}
+              hub, or{" "}
               <Link href="/editor?mode=quick&source=blog-birthday-framed&checkout=print&print_variant=poster_framed" className="text-amber-300 hover:underline">
                 jump straight to a framed print preview
               </Link>

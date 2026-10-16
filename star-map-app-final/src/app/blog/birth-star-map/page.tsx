@@ -117,7 +117,12 @@ export default function BirthStarMapPostPage() {
             Unlike a monogrammed blanket or another outfit they will outgrow, a{" "}
             <strong>new baby star map</strong> is tied to one unrepeatable instant. The sky that night was unique to
             that date, that place, and that hour. That is what makes it a strong{" "}
-            <strong>personalized baby gift</strong> for parents, grandparents, aunts, uncles, and close friends.
+            <strong>personalized baby gift</strong> for parents, grandparents, aunts, uncles, and close friends — and
+            why many shoppers browse our{" "}
+            <Link href="/star-map-gift" className="text-amber-300 hover:underline">
+              personalized star map gift
+            </Link>{" "}
+            hub before choosing nursery print or digital delivery.
           </p>
 
           <section>
