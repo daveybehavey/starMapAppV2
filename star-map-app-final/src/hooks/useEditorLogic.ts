@@ -9,6 +9,8 @@ import { renderModes, type RenderModeId } from "@/lib/renderModes";
 import { applyStyleDefaults } from "@/lib/styleDefaults";
 import { track } from "@/lib/analytics";
 import { hasConfirmedEditorLocation } from "@/lib/editorLocationPrefill";
+import { formatDateTimeForLocation } from "@/lib/dateTime";
+import { resolvePresetTextBoxesOnApply } from "@/lib/sampleDesignTextSync";
 
 export interface UseEditorLogicOptions {
   /** Editor variant affects default intensity value */
@@ -232,9 +234,23 @@ export function useEditorLogic(options: UseEditorLogicOptions = {}): UseEditorLo
       setCustomOccasion(shouldAutofill ? false : true);
       track("occasion_selected", { preset: id, autofill: shouldAutofill });
 
-      // Always apply style, shape, textBoxes, and render options from preset
-      setTextBoxes(preset.textBoxes);
+      // Always apply style, shape, textBoxes, and render options from preset.
+      // When custom sky inputs are preserved, sync eligible sample subtitle/
+      // dedication to that sky immediately (same rules as picker sync).
+      // Touch flags are reset by EditorExperience / MobileCreate wrappers (PR #293).
+      const preserveCustomSky = !shouldAutofill;
+      const dateParts = formatDateTimeForLocation(dateTime, location.timezone || "UTC");
+      const resolvedText = resolvePresetTextBoxesOnApply({
+        presetTextBoxes: preset.textBoxes,
+        preserveCustomSky,
+        locationDisplayName: location.name,
+        dateValue: dateParts?.date || undefined,
+      });
+      setTextBoxes(resolvedText.textBoxes);
       useStore.getState().clearSampleDesignLastAutoSynced();
+      if (resolvedText.changed) {
+        useStore.getState().setSampleDesignLastAutoSynced(resolvedText.lastAutoSynced);
+      }
       setStyle(preset.style);
       const styleDefaults = applyStyleDefaults(preset.style, preset.textBoxes);
       if (Object.keys(styleDefaults.renderOptions).length) {
@@ -275,7 +291,9 @@ export function useEditorLogic(options: UseEditorLogicOptions = {}): UseEditorLo
     [
       applyVisualOptions,
       customOccasion,
+      dateTime,
       hasDate,
+      location,
       locationName,
       setDateTime,
       setLocation,
