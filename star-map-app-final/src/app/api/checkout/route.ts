@@ -1502,8 +1502,8 @@ export async function GET(req: NextRequest) {
       promotionCodeId: selectedPromotion.promotionCodeId,
       resolvedPromotionCode: selectedPromotion.source === "manual" ? promotion.promotionCode : undefined,
       promotionSource: selectedPromotion.source,
-      // Manual codes: no full-price fallback session. Referral-auto / no-code keep retry-without-discount.
-      fallbackOnDiscountError: selectedPromotion.source !== "manual",
+      // Manual DIGITAL codes: no full-price fallback session. Print manual codes keep the historic drop-and-continue (retry without discount; the hosted page allows re-entry). Referral-auto / no-code keep retry-without-discount.
+      fallbackOnDiscountError: orderType === "print" || selectedPromotion.source !== "manual",
       orderType,
       printVariant,
       includeDigitalAddOn,
@@ -1929,8 +1929,8 @@ export async function POST(req: NextRequest) {
       promotionCodeId: selectedPromotion.promotionCodeId,
       resolvedPromotionCode: selectedPromotion.source === "manual" ? promotion.promotionCode : undefined,
       promotionSource: selectedPromotion.source,
-      // Manual codes: no full-price fallback session. Referral-auto / no-code keep retry-without-discount.
-      fallbackOnDiscountError: selectedPromotion.source !== "manual",
+      // Manual DIGITAL codes: no full-price fallback session. Print manual codes keep the historic drop-and-continue (retry without discount; the hosted page allows re-entry). Referral-auto / no-code keep retry-without-discount.
+      fallbackOnDiscountError: orderType === "print" || selectedPromotion.source !== "manual",
       orderType,
       printVariant,
       includeDigitalAddOn,
@@ -1952,7 +1952,7 @@ export async function POST(req: NextRequest) {
     });
     // Referral-auto discount rejection may still produce a no-discount session (discountRejected).
     // Manual codes never reach here — createCheckoutSession throws promotion_not_applicable instead.
-    if (promoCode && session.discountRejected && selectedPromotion.source === "manual") {
+    if (orderType === "digital" && promoCode && session.discountRejected && selectedPromotion.source === "manual") {
       return NextResponse.json(
         {
           error: "This code isn't valid for this item.",

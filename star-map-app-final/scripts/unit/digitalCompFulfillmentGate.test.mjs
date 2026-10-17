@@ -415,17 +415,22 @@ test("webhook and verify routes wire the shared fulfillment discount gate", () =
   );
 });
 
-test("checkout: rejected manual code does not create full-price fallback session", () => {
+test("checkout: rejected manual DIGITAL code does not create full-price fallback session; print keeps drop-and-continue", () => {
   const route = fs.readFileSync(CHECKOUT, "utf8");
   assert.match(
     route,
-    /fallbackOnDiscountError:\s*selectedPromotion\.source !== "manual"/,
-    "manual promo must disable discount fallback at both GET and POST",
+    /fallbackOnDiscountError:\s*orderType === "print" \|\| selectedPromotion\.source !== "manual"/,
+    "print orders always keep discount fallback; digital disables it for manual codes (GET and POST)",
   );
   assert.equal(
-    (route.match(/fallbackOnDiscountError:\s*selectedPromotion\.source !== "manual"/g) || []).length,
+    (route.match(/fallbackOnDiscountError:\s*orderType === "print" \|\| selectedPromotion\.source !== "manual"/g) || []).length,
     2,
-    "GET and POST must both disable fallback for manual codes",
+    "GET and POST must both scope the no-fallback rule to digital manual codes",
+  );
+  assert.match(
+    route,
+    /if \(orderType === "digital" && promoCode && session\.discountRejected && selectedPromotion\.source === "manual"\)/,
+    "the discountRejected hard-fail in POST must be digital-only; print falls through to returning the checkout",
   );
   assert.match(
     route,
