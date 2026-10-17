@@ -1,3 +1,6 @@
+/** Blank exact-time default: 9:00 PM (kept in sync with dateInput.DEFAULT_TIME). */
+export const EVENING_DEFAULT_TIME = "21:00:00";
+
 export function formatDateTimeForLocation(dateTime: string, timeZone?: string) {
   const date = new Date(dateTime);
   if (!Number.isFinite(date.getTime())) return null;
@@ -29,6 +32,75 @@ export function formatDateTimeForLocation(dateTime: string, timeZone?: string) {
     // Invalid IANA timezone must not crash render paths that call Intl.
     return null;
   }
+}
+
+/**
+ * Convert YYYY-MM-DD + HH:MM[:SS] wall time in `timeZone` to a UTC Date.
+ * Same contract as astronomy.toUTCDateFromLocal (offset-at-target-time approach).
+ * Kept private here so unit tests can import this module without pulling astronomy.
+ */
+function toUTCDateFromLocalWall(
+  dateStr: string,
+  timeStr: string,
+  timeZone: string
+): Date | null {
+  const ymd = parseYmdParam(dateStr);
+  if (!ymd) return null;
+  const timeParts = timeStr.trim().split(":");
+  const hour = Number(timeParts[0]);
+  const minute = Number(timeParts[1] ?? "0");
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+  const zone = typeof timeZone === "string" && timeZone.trim() ? timeZone.trim() : "UTC";
+  return zonedWallTimeToUtcDate(ymd.year, ymd.month, ymd.day, hour, minute, zone);
+}
+
+/**
+ * Rebase an untouched evening default so wall-clock time is 21:00 in `nextTimezone`.
+ * Derives the calendar date from the stored instant in `previousTimezone` via
+ * {@link formatDateTimeForLocation}, then builds 21:00 of that date in the new zone
+ * via the local toUTCDateFromLocal-equivalent wall converter.
+ */
+export function rebaseUntouchedDefaultDateTime(
+  dateTimeIso: string,
+  nextTimezone: string,
+  previousTimezone: string,
+  fallback = EVENING_DEFAULT_TIME
+): string | null {
+  const instant = new Date(dateTimeIso);
+  if (!Number.isFinite(instant.getTime())) return null;
+  const prevZone =
+    typeof previousTimezone === "string" && previousTimezone.trim()
+      ? previousTimezone.trim()
+      : "UTC";
+  const formatted = formatDateTimeForLocation(dateTimeIso, prevZone);
+  const dateStr = formatted?.date;
+  if (!dateStr) return null;
+  const zone =
+    typeof nextTimezone === "string" && nextTimezone.trim() ? nextTimezone.trim() : "UTC";
+  const normalizedTime =
+    !fallback ? EVENING_DEFAULT_TIME : fallback.length === 5 ? `${fallback}:00` : fallback;
+  const utc = toUTCDateFromLocalWall(dateStr, normalizedTime, zone);
+  if (!utc || !Number.isFinite(utc.getTime())) return null;
+  return utc.toISOString();
+}
+
+/**
+ * When the location timezone changes and the date/time is still the untouched
+ * evening default, return a rebased ISO instant. User-set date/times are returned
+ * unchanged (same absolute instant / chosen wall time).
+ */
+export function maybeRebaseUntouchedDefaultOnTimezoneChange(input: {
+  dateTimeIso: string;
+  previousTimezone: string;
+  nextTimezone: string;
+  dateTimeIsUntouchedDefault: boolean;
+}): string {
+  const prev = (input.previousTimezone || "UTC").trim() || "UTC";
+  const next = (input.nextTimezone || "UTC").trim() || "UTC";
+  if (!input.dateTimeIsUntouchedDefault || prev === next) {
+    return input.dateTimeIso;
+  }
+  return rebaseUntouchedDefaultDateTime(input.dateTimeIso, next, prev) ?? input.dateTimeIso;
 }
 
 function isValidCalendarYmd(year: number, month: number, day: number): boolean {

@@ -7,13 +7,12 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { DEFAULT_TIME, combineDateTime } from "../../src/lib/dateInput.ts";
 import {
-  DEFAULT_TIME,
-  combineDateTime,
+  formatDateTimeForLocation,
   maybeRebaseUntouchedDefaultOnTimezoneChange,
   rebaseUntouchedDefaultDateTime,
-} from "../../src/lib/dateInput.ts";
-import { formatDateTimeForLocation } from "../../src/lib/dateTime.ts";
+} from "../../src/lib/dateTime.ts";
 import {
   parseEditorDraft,
   readEditorDraft,
@@ -40,19 +39,52 @@ function freshLoadDefaultIso(ymd = "2024-06-15") {
 
 test("rebaseUntouchedDefaultDateTime yields 21:00 wall time in the target timezone", () => {
   const defaultIso = freshLoadDefaultIso("2024-06-15");
-  const athensIso = rebaseUntouchedDefaultDateTime(defaultIso, "Europe/Athens");
+  const athensIso = rebaseUntouchedDefaultDateTime(defaultIso, "Europe/Athens", "UTC");
   assert.ok(athensIso);
   const athens = formatDateTimeForLocation(athensIso, "Europe/Athens");
   assert.ok(athens);
   assert.equal(athens.time, "21:00");
   assert.equal(athens.date, "2024-06-15");
 
-  const tokyoIso = rebaseUntouchedDefaultDateTime(defaultIso, "Asia/Tokyo");
+  const tokyoIso = rebaseUntouchedDefaultDateTime(defaultIso, "Asia/Tokyo", "UTC");
   assert.ok(tokyoIso);
   const tokyo = formatDateTimeForLocation(tokyoIso, "Asia/Tokyo");
   assert.ok(tokyo);
   assert.equal(tokyo.time, "21:00");
 });
+
+test("multi-hop rebase preserves prior-location calendar date (Honolulu → Tokyo)", () => {
+  // Simulate UTC-browser fresh load: June 15 at 21:00 local → that UTC instant.
+  const defaultIso = "2024-06-15T21:00:00.000Z";
+
+  const honoluluIso = maybeRebaseUntouchedDefaultOnTimezoneChange({
+    dateTimeIso: defaultIso,
+    previousTimezone: "UTC",
+    nextTimezone: "Pacific/Honolulu",
+    dateTimeIsUntouchedDefault: true,
+  });
+  // June 15 21:00 Honolulu is June 16 07:00 UTC.
+  assert.equal(honoluluIso, "2024-06-16T07:00:00.000Z");
+  const honoluluWall = formatDateTimeForLocation(honoluluIso, "Pacific/Honolulu");
+  assert.ok(honoluluWall);
+  assert.equal(honoluluWall.date, "2024-06-15");
+  assert.equal(honoluluWall.time, "21:00");
+
+  // Bug used browser-local date of the stored instant (June 16 in a UTC browser) and
+  // would rebase to June 16 21:00 Tokyo. Correct path keeps Honolulu's June 15.
+  const tokyoIso = maybeRebaseUntouchedDefaultOnTimezoneChange({
+    dateTimeIso: honoluluIso,
+    previousTimezone: "Pacific/Honolulu",
+    nextTimezone: "Asia/Tokyo",
+    dateTimeIsUntouchedDefault: true,
+  });
+  const tokyo = formatDateTimeForLocation(tokyoIso, "Asia/Tokyo");
+  assert.ok(tokyo);
+  assert.equal(tokyo.date, "2024-06-15");
+  assert.equal(tokyo.time, "21:00");
+  assert.notEqual(tokyo.date, "2024-06-16");
+});
+
 
 test("fresh-load default + location pick in another timezone → 21:00 local in picked TZ", () => {
   const defaultIso = freshLoadDefaultIso("2024-06-15");
@@ -103,12 +135,20 @@ test("user-set time + location change → wall time / instant unchanged", () => 
 test("store wires untouched-default rebase through setLocation", () => {
   const store = readSrc("src/lib/store.ts");
   assert.match(store, /dateTimeIsUntouchedDefault/);
+  assert.match(
+    store,
+    /import \{ maybeRebaseUntouchedDefaultOnTimezoneChange \} from "\.\/dateTime"/
+  );
   assert.match(store, /maybeRebaseUntouchedDefaultOnTimezoneChange/);
   assert.match(store, /setDateTime: \(dateTime\) => set\(\{ dateTime, dateTimeIsUntouchedDefault: false \}\)/);
   assert.match(store, /setLocation: \(location\) =>/);
   assert.match(store, /previousTimezone: state\.location\.timezone/);
   assert.match(store, /nextTimezone: nextLocation\.timezone/);
   assert.match(store, /dateTimeIsUntouchedDefault: state\.dateTimeIsUntouchedDefault/);
+
+  const dateTime = readSrc("src/lib/dateTime.ts");
+  assert.match(dateTime, /formatDateTimeForLocation\(dateTimeIso, prevZone\)/);
+  assert.match(dateTime, /toUTCDateFromLocalWall\(dateStr, normalizedTime, zone\)/);
 });
 
 test("draft save/restore round-trip preserves sampleDesignLastAutoSynced", () => {
