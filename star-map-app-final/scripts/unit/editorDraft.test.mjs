@@ -60,6 +60,7 @@ const makeDraft = () => ({
     showTechnicalRing: true,
   },
   selectedOccasion: "anniversary",
+  sampleDesignLastAutoSynced: { subtitle: null, dedication: null },
 });
 
 test("valid current draft writes a versioned envelope and round-trips", () => {

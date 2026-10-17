@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { maybeRebaseUntouchedDefaultOnTimezoneChange } from "./dateInput";
 import type { MapLookTier } from "./mapLookTiers";
 import type { AspectRatio, Shape } from "./types";
 
@@ -89,6 +90,11 @@ export type SampleDesignLastAutoSyncedState = {
 
 export interface EditorState {
   dateTime: string;
+  /**
+   * True while date/time is still the pre-populated evening default the user has
+   * not edited. Location timezone changes rebase that default to 21:00 local.
+   */
+  dateTimeIsUntouchedDefault: boolean;
   location: LocationState;
   textBoxes: TextBox[];
   /** Last auto-synced subtitle/dedication values for repeatable sample sync. */
@@ -131,6 +137,7 @@ const initialDate = (() => {
 
 const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) => Partial<EditorState>)) => void): EditorState => ({
   dateTime: initialDate.toISOString(),
+  dateTimeIsUntouchedDefault: true,
   location: {
     name: "",
     latitude: 0,
@@ -202,9 +209,21 @@ const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) =
   previewFidelity: "standard",
   paid: false,
   revealed: false,
-  setDateTime: (dateTime) => set({ dateTime }),
+  setDateTime: (dateTime) => set({ dateTime, dateTimeIsUntouchedDefault: false }),
   setLocation: (location) =>
-    set((state) => ({ location: { ...state.location, ...location } })),
+    set((state) => {
+      const nextLocation = { ...state.location, ...location };
+      const nextDateTime = maybeRebaseUntouchedDefaultOnTimezoneChange({
+        dateTimeIso: state.dateTime,
+        previousTimezone: state.location.timezone,
+        nextTimezone: nextLocation.timezone,
+        dateTimeIsUntouchedDefault: state.dateTimeIsUntouchedDefault,
+      });
+      return {
+        location: nextLocation,
+        dateTime: nextDateTime,
+      };
+    }),
   setTextBoxes: (boxes) => set({ textBoxes: boxes }),
   updateTextBox: (id, payload) =>
     set((state) => ({

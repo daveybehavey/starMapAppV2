@@ -220,6 +220,7 @@ export function SimplifiedEditor() {
         aspectRatio?: typeof aspectRatio;
         shape?: Shape;
         renderOptions?: typeof renderOptions;
+        sampleDesignLastAutoSynced?: { subtitle?: string | null; dedication?: string | null };
       };
       if (typeof parsed.dateTime === "string") {
         setDateTime(parsed.dateTime);
@@ -247,6 +248,11 @@ export function SimplifiedEditor() {
       if (parsed.renderOptions) {
         setRenderOptions(parsed.renderOptions);
       }
+      const synced = parsed.sampleDesignLastAutoSynced;
+      useStore.getState().setSampleDesignLastAutoSynced({
+        subtitle: typeof synced?.subtitle === "string" ? synced.subtitle : null,
+        dedication: typeof synced?.dedication === "string" ? synced.dedication : null,
+      });
       setMode("customizing");
     } catch {
       // ignore draft parse errors
@@ -263,15 +269,19 @@ export function SimplifiedEditor() {
     }
     draftSaveTimerRef.current = window.setTimeout(() => {
       try {
-        const sharedDraft = buildRecipeFromState({
-          dateTime,
-          location,
-          textBoxes,
-          selectedStyle,
-          aspectRatio,
-          shape,
-          renderOptions,
-        });
+        const sampleDesignLastAutoSynced = useStore.getState().sampleDesignLastAutoSynced;
+        const sharedDraft = {
+          ...buildRecipeFromState({
+            dateTime,
+            location,
+            textBoxes,
+            selectedStyle,
+            aspectRatio,
+            shape,
+            renderOptions,
+          }),
+          sampleDesignLastAutoSynced,
+        };
         localStorage.setItem(
           DRAFT_STORAGE_KEY,
           JSON.stringify({
@@ -282,6 +292,7 @@ export function SimplifiedEditor() {
             aspectRatio,
             shape,
             renderOptions,
+            sampleDesignLastAutoSynced,
           })
         );
         localStorage.setItem(SHARED_DRAFT_STORAGE_KEY, JSON.stringify(sharedDraft));

@@ -737,12 +737,15 @@ export function EditorExperience({
       // Validate the complete draft before atomically applying editor state.
       useStore.setState({
         dateTime: draft.datetimeISO,
+        // Restored drafts are user/session content, not the fresh evening default.
+        dateTimeIsUntouchedDefault: false,
         location: draft.location,
         textBoxes: draft.textBoxes,
         selectedStyle: draft.selectedStyle,
         aspectRatio: draft.aspectRatio,
         shape: draft.shape,
         renderOptions: { ...currentState.renderOptions, ...draft.renderOptions },
+        sampleDesignLastAutoSynced: draft.sampleDesignLastAutoSynced,
         // Same confirmed-location predicate as Generate / auto-reveal — a named
         // (0,0)/UTC draft must remount locked, not as a revealed wrong sky.
         revealed: hasConfirmedEditorLocation(draft.location),
@@ -1067,6 +1070,7 @@ export function EditorExperience({
   useEffect(() => {
     if (typeof window === "undefined" || !restored) return;
     if (draftWritesBlockedRef.current) return;
+    const state = useStore.getState();
     const recipe = buildRecipeFromState({
       dateTime,
       location,
@@ -1076,7 +1080,11 @@ export function EditorExperience({
       shape,
       renderOptions,
     });
-    const draft = { ...recipe, selectedOccasion };
+    const draft = {
+      ...recipe,
+      selectedOccasion,
+      sampleDesignLastAutoSynced: state.sampleDesignLastAutoSynced,
+    };
     const saveOutcome = writeEditorDraftToHost(window, draft);
     if (saveOutcome.status === "saved") {
       setLastDraftSavedAt(

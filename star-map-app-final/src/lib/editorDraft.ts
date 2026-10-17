@@ -1,5 +1,5 @@
 import type { MapRecipe } from "./renderSky";
-import type { RenderOptions, StyleId, TextBox } from "./store";
+import type { RenderOptions, SampleDesignLastAutoSyncedState, StyleId, TextBox } from "./store";
 import type { AspectRatio, Shape } from "./types";
 
 export const EDITOR_DRAFT_STORAGE_KEY = "star-map-draft";
@@ -8,6 +8,8 @@ export const EDITOR_DRAFT_SCHEMA_VERSION = 1 as const;
 export type EditorDraftData = Omit<MapRecipe, "renderOptions"> & {
   renderOptions: Partial<RenderOptions>;
   selectedOccasion: string | null;
+  /** Provenance for repeatable sample text sync; nulls when absent (legacy drafts). */
+  sampleDesignLastAutoSynced: SampleDesignLastAutoSyncedState;
 };
 
 /**
@@ -344,6 +346,16 @@ function normalizeLocation(value: unknown): ValidationResult<EditorDraftData["lo
   };
 }
 
+function normalizeSampleDesignLastAutoSynced(value: unknown): SampleDesignLastAutoSyncedState {
+  if (!isRecord(value)) {
+    return { subtitle: null, dedication: null };
+  }
+  return {
+    subtitle: typeof value.subtitle === "string" ? value.subtitle : null,
+    dedication: typeof value.dedication === "string" ? value.dedication : null,
+  };
+}
+
 function normalizeRenderOptions(value: unknown): ValidationResult<Partial<RenderOptions>> {
   if (typeof value === "undefined") {
     return { ok: true, value: {} };
@@ -467,6 +479,10 @@ export function normalizeEditorDraftData(value: unknown): ValidationResult<Edito
         : null;
   }
 
+  const sampleDesignLastAutoSynced = normalizeSampleDesignLastAutoSynced(
+    hasOwn(value, "sampleDesignLastAutoSynced") ? value.sampleDesignLastAutoSynced : undefined
+  );
+
   return {
     ok: true,
     value: {
@@ -483,6 +499,7 @@ export function normalizeEditorDraftData(value: unknown): ValidationResult<Edito
       shape,
       renderOptions: renderOptions.value,
       selectedOccasion,
+      sampleDesignLastAutoSynced,
     },
   };
 }

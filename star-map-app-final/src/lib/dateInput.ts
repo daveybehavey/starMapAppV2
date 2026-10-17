@@ -159,6 +159,43 @@ export function combineDateTime(date: string, time: string, timezone?: string, f
   }
 }
 
+/**
+ * Rebase an untouched evening default so wall-clock time is 21:00 in `locationTimezone`.
+ * Keeps the calendar date the user currently sees in the date control (browser-local
+ * components of the stored instant), then converts via {@link combineDateTime}.
+ */
+export function rebaseUntouchedDefaultDateTime(
+  dateTimeIso: string,
+  locationTimezone: string,
+  fallback = DEFAULT_TIME
+): string | null {
+  const instant = new Date(dateTimeIso);
+  if (!Number.isFinite(instant.getTime())) return null;
+  const dateStr = formatDateInput(instant);
+  if (!dateStr) return null;
+  const zone = typeof locationTimezone === "string" && locationTimezone.trim() ? locationTimezone.trim() : "UTC";
+  return combineDateTime(dateStr, fallback, zone, fallback);
+}
+
+/**
+ * When the location timezone changes and the date/time is still the untouched
+ * evening default, return a rebased ISO instant. User-set date/times are returned
+ * unchanged (same absolute instant / chosen wall time).
+ */
+export function maybeRebaseUntouchedDefaultOnTimezoneChange(input: {
+  dateTimeIso: string;
+  previousTimezone: string;
+  nextTimezone: string;
+  dateTimeIsUntouchedDefault: boolean;
+}): string {
+  const prev = (input.previousTimezone || "UTC").trim() || "UTC";
+  const next = (input.nextTimezone || "UTC").trim() || "UTC";
+  if (!input.dateTimeIsUntouchedDefault || prev === next) {
+    return input.dateTimeIso;
+  }
+  return rebaseUntouchedDefaultDateTime(input.dateTimeIso, next) ?? input.dateTimeIso;
+}
+
 export function toISODate(date: Date) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
