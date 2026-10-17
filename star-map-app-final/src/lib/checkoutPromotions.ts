@@ -86,7 +86,10 @@ type FulfillableSessionLike = {
   mode?: string | null;
   payment_status?: string | null;
   amount_total?: number | null;
-  total_details?: { amount_discount?: number | null } | null;
+  total_details?: {
+    amount_discount?: number | null;
+    breakdown?: { discounts?: Array<unknown> | null } | null;
+  } | null;
   discounts?: Array<unknown> | null;
 };
 
@@ -96,7 +99,9 @@ function sessionHasAppliedDiscount(session: FulfillableSessionLike): boolean {
       ? session.total_details.amount_discount
       : 0;
   if (discountCents > 0) return true;
-  return Array.isArray(session.discounts) && session.discounts.length > 0;
+  if (Array.isArray(session.discounts) && session.discounts.length > 0) return true;
+  const breakdownDiscounts = session.total_details?.breakdown?.discounts;
+  return Array.isArray(breakdownDiscounts) && breakdownDiscounts.length > 0;
 }
 
 /**
@@ -136,7 +141,32 @@ export type CheckoutSessionDiscountEntry = {
 
 export type CheckoutSessionDiscountSource = {
   discounts?: CheckoutSessionDiscountEntry[] | null;
-  total_details?: { amount_discount?: number | null } | null;
+  total_details?: {
+    amount_discount?: number | null;
+    breakdown?: {
+      discounts?: Array<{
+        amount?: number | null;
+        discount?: {
+          coupon?:
+            | string
+            | CouponMetadataLike
+            | { id?: string; deleted?: boolean; metadata?: Record<string, string> | null }
+            | null;
+          promotion_code?:
+            | string
+            | {
+                id?: string;
+                coupon?:
+                  | string
+                  | CouponMetadataLike
+                  | { id?: string; metadata?: Record<string, string> | null }
+                  | null;
+              }
+            | null;
+        } | null;
+      } | null> | null;
+    } | null;
+  } | null;
 };
 
 export type CouponLookup = {
@@ -161,15 +191,70 @@ function couponIdFromUnknown(value: unknown): string | null {
   return null;
 }
 
+function promotionCodeIdFromUnknown(value: unknown): string | null {
+  if (typeof value === "string" && value.trim()) return value.trim();
+  if (value && typeof value === "object" && "id" in value) {
+    const id = (value as { id?: unknown }).id;
+    if (typeof id === "string" && id.trim()) return id.trim();
+  }
+  return null;
+}
+
+function discountEntryDedupeKey(entry: CheckoutSessionDiscountEntry): string {
+  if (!entry) return "";
+  const couponId = couponIdFromUnknown(entry.coupon);
+  const promoId = promotionCodeIdFromUnknown(entry.promotion_code);
+  return `${couponId ?? ""}|${promoId ?? ""}`;
+}
+
+/**
+ * Union top-level `session.discounts` with pinned-API
+ * `total_details.breakdown.discounts[].discount` entries.
+ */
+export function collectCheckoutSessionDiscountEntries(
+  session: CheckoutSessionDiscountSource,
+): CheckoutSessionDiscountEntry[] {
+  const entries: CheckoutSessionDiscountEntry[] = [];
+  const seen = new Set<string>();
+
+  const push = (entry: CheckoutSessionDiscountEntry) => {
+    if (!entry) return;
+    const key = discountEntryDedupeKey(entry);
+    if (key && seen.has(key)) return;
+    if (key) seen.add(key);
+    entries.push(entry);
+  };
+
+  if (Array.isArray(session.discounts)) {
+    for (const entry of session.discounts) push(entry);
+  }
+
+  const breakdownRows = session.total_details?.breakdown?.discounts;
+  if (Array.isArray(breakdownRows)) {
+    for (const row of breakdownRows) {
+      if (!row || typeof row !== "object") continue;
+      const nested = row.discount;
+      if (!nested || typeof nested !== "object") continue;
+      push({
+        coupon: nested.coupon ?? null,
+        promotion_code: nested.promotion_code ?? null,
+      });
+    }
+  }
+
+  return entries;
+}
+
 /**
  * Resolve applied discount coupons (expand/retrieve IDs as needed).
- * Returns [] when the session has no discount entries to inspect.
+ * Reads pinned-API `total_details.breakdown.discounts` unioned with any
+ * top-level `session.discounts`. Returns [] when there are no entries.
  */
 export async function resolveCheckoutSessionDiscountCoupons(
   session: CheckoutSessionDiscountSource,
   lookup: CouponLookup,
 ): Promise<CouponMetadataLike[]> {
-  const discounts = Array.isArray(session.discounts) ? session.discounts : [];
+  const discounts = collectCheckoutSessionDiscountEntries(session);
   if (discounts.length === 0) return [];
 
   const coupons: CouponMetadataLike[] = [];
@@ -235,12 +320,19 @@ export async function resolveCheckoutSessionDiscountCoupons(
 
 export type DiscountFulfillmentDecision =
   | { ok: true }
-  | { ok: false; reason: string };
+  | { ok: false; reason: string; retryable: boolean };
+
+/** True when the denial is transient (lookup / unresolved) and must not finalize webhook dedupe. */
+export function isDiscountFulfillmentRetryable(
+  decision: DiscountFulfillmentDecision,
+): boolean {
+  return !decision.ok && decision.retryable;
+}
 
 /**
  * Fulfillment-time gate: digital_comp coupons may only entitle digital single.
  * Non-digital_comp coupons (referral, print promos) do not change today's behaviour.
- * When a discount was applied but coupons cannot be resolved, fail closed.
+ * When a discount was applied but coupons cannot be resolved, fail closed (retryable).
  */
 export function evaluateAppliedCouponsForOrderFulfillment(input: {
   orderType: CheckoutOrderType;
@@ -249,7 +341,11 @@ export function evaluateAppliedCouponsForOrderFulfillment(input: {
   sessionHasDiscount: boolean;
 }): DiscountFulfillmentDecision {
   if (input.sessionHasDiscount && input.coupons.length === 0) {
-    return { ok: false, reason: "discount_present_but_coupon_unresolved" };
+    return {
+      ok: false,
+      reason: "discount_present_but_coupon_unresolved",
+      retryable: true,
+    };
   }
 
   const plan: CheckoutPlan = input.plan ?? "single";
@@ -265,6 +361,7 @@ export function evaluateAppliedCouponsForOrderFulfillment(input: {
       return {
         ok: false,
         reason: `digital_comp_incompatible_with_${input.orderType}_${plan}`,
+        retryable: false,
       };
     }
   }
@@ -274,6 +371,7 @@ export function evaluateAppliedCouponsForOrderFulfillment(input: {
 /**
  * Resolve session discounts and apply the digital_comp fulfillment rule.
  * No-discount sessions return ok without Stripe lookups.
+ * Lookup failures / unresolved coupons are retryable denials (not terminal).
  */
 export async function evaluateCheckoutSessionDiscountFulfillment(input: {
   session: CheckoutSessionDiscountSource & FulfillableSessionLike;
@@ -288,7 +386,7 @@ export async function evaluateCheckoutSessionDiscountFulfillment(input: {
   try {
     coupons = await resolveCheckoutSessionDiscountCoupons(input.session, input.lookup);
   } catch {
-    return { ok: false, reason: "discount_coupon_lookup_failed" };
+    return { ok: false, reason: "discount_coupon_lookup_failed", retryable: true };
   }
 
   return evaluateAppliedCouponsForOrderFulfillment({

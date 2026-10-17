@@ -69,7 +69,9 @@ import {
 } from "@/lib/entitlementsStore";
 import {
   evaluateCheckoutSessionDiscountFulfillment,
+  isDiscountFulfillmentRetryable,
   isFulfillableCheckoutPayment,
+  sessionHasAppliedDiscount,
   type CouponLookup,
 } from "@/lib/checkoutPromotions";
 
@@ -1453,15 +1455,25 @@ export async function POST(req: Request) {
 
   switch (event.type) {
     case "checkout.session.completed": {
-      const session = event.data.object as Stripe.Checkout.Session;
+      let session = event.data.object as Stripe.Checkout.Session;
       try {
         // digital_comp must not entitle print/pack3/subscription (hosted-page bypass).
-        // queuePrintOrder does not read the paid KV record — it runs on completed
-        // independently; $0 comps still fail the print amount floor.
+        // Pinned Stripe API carries applied discounts in total_details.breakdown —
+        // hydrate when the event payload lacks that expansion before running the gate.
+        if (
+          stripe &&
+          sessionHasAppliedDiscount(session) &&
+          !session.total_details?.breakdown
+        ) {
+          session = await stripe.checkout.sessions.retrieve(session.id, {
+            expand: ["total_details.breakdown"],
+          });
+        }
         const orderType = getOrderType(session);
         const hasDigitalAddOn = includesDigitalAddOn(session);
         const plan = getPlan(session, orderType, hasDigitalAddOn);
         let skipEntitlementGrants = false;
+        let skipPrintOrder = false;
         if (stripe) {
           const discountGate = await evaluateCheckoutSessionDiscountFulfillment({
             session,
@@ -1470,16 +1482,28 @@ export async function POST(req: Request) {
             lookup: createStripeCouponLookup(stripe),
           });
           if (!discountGate.ok) {
+            if (isDiscountFulfillmentRetryable(discountGate)) {
+              // Transient coupon lookup / unresolved discount — do not finalize
+              // dedupe so Stripe redelivers; never grant on an unresolved gate.
+              console.warn(
+                `Discount coupon resolution retryable for session ${session.id}: ${discountGate.reason}`,
+              );
+              completedCheckoutRetryable = true;
+              break;
+            }
             skipEntitlementGrants = true;
+            skipPrintOrder = true;
             console.warn(
-              `Skipping paid entitlement grants for session ${session.id}: ${discountGate.reason}`,
+              `Skipping paid entitlement grants and print queue for session ${session.id}: ${discountGate.reason}`,
             );
           }
         }
         if (!skipEntitlementGrants) {
           await markSessionPaid(session);
         }
-        await queuePrintOrder(session);
+        if (!skipPrintOrder) {
+          await queuePrintOrder(session);
+        }
         if (!skipEntitlementGrants) {
           await applyReferralReward(session);
         }

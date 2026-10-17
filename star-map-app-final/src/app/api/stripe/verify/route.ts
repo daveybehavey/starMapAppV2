@@ -14,6 +14,7 @@ import {
 import { recordPaymentVerifiedOnce } from "@/lib/funnel";
 import {
   evaluateCheckoutSessionDiscountFulfillment,
+  isDiscountFulfillmentRetryable,
   isFulfillableCheckoutPayment,
   type CouponLookup,
 } from "@/lib/checkoutPromotions";
@@ -222,6 +223,24 @@ export async function GET(req: NextRequest) {
       lookup: createStripeCouponLookup(stripe),
     });
     if (!discountGate.ok) {
+      if (isDiscountFulfillmentRetryable(discountGate)) {
+        // Transient coupon lookup / unresolved discount — do not strand the buyer
+        // on a terminal paid:false. Clients already poll verify; 503 + pending
+        // mirrors checkout's promotion_lookup_failed transient pattern.
+        console.warn("Stripe verify discount coupon resolution pending", {
+          sessionId,
+          reason: discountGate.reason,
+          orderType,
+          plan: plan ?? null,
+        });
+        return NextResponse.json(
+          { paid: false, pending: true, reason: discountGate.reason },
+          {
+            status: 503,
+            headers: { "Cache-Control": "no-store", "Retry-After": "2" },
+          },
+        );
+      }
       console.warn("Stripe verify refused incompatible checkout discount", {
         sessionId,
         reason: discountGate.reason,

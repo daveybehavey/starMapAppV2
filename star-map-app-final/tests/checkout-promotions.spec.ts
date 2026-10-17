@@ -150,14 +150,16 @@ test.describe("checkout promotion selection", () => {
   });
 
   test("fulfillment refuses digital_comp on print; allows digital single + referral", () => {
-    expect(
-      evaluateAppliedCouponsForOrderFulfillment({
-        orderType: "print",
-        plan: "single",
-        coupons: [{ metadata: { digital_comp: "true" } }],
-        sessionHasDiscount: true,
-      }).ok
-    ).toBe(false);
+    const printRefused = evaluateAppliedCouponsForOrderFulfillment({
+      orderType: "print",
+      plan: "single",
+      coupons: [{ metadata: { digital_comp: "true" } }],
+      sessionHasDiscount: true,
+    });
+    expect(printRefused.ok).toBe(false);
+    if (!printRefused.ok) {
+      expect(printRefused.retryable).toBe(false);
+    }
     expect(
       evaluateAppliedCouponsForOrderFulfillment({
         orderType: "digital",
