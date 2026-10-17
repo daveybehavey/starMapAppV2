@@ -38,15 +38,17 @@ test("invalid promo codes are dropped instead of hard-blocking checkout", () => 
   );
 });
 
-test("manual promo codes are print-only; digital ignores promo_code params", () => {
+test("manual promo codes use shared helpers; hosted entry stays print-only", () => {
   const route = fs.readFileSync(CHECKOUT_ROUTE, "utf8");
-  // Local helper removed — print-only gate lives in checkoutPromotions.
+  // Local helper removed — gates live in checkoutPromotions.
   assert.equal(
     /function canUseManualPromotionCode\(orderType/.test(route),
     false,
-    "route must import canUseManualPromotionCode (print-only) instead of a local digital-single helper"
+    "route must import canUseManualPromotionCode instead of a local helper"
   );
   assert.match(route, /canUseManualPromotionCode/);
+  assert.match(route, /canUseHostedPromotionCodes/);
+  assert.match(route, /isManualPromotionCompatibleWithOrder/);
   // Configured-code-only profit gate removed so XMAS15/BLACKFRIDAY20 can pre-apply on print.
   assert.equal(
     /only allow the explicitly configured promotion code/.test(route),
@@ -55,8 +57,13 @@ test("manual promo codes are print-only; digital ignores promo_code params", () 
   );
   assert.match(
     route,
-    /Digital checkouts ignore promo_code/,
-    "GET path must document ignoring digital promo_code"
+    /Hosted Stripe promo entry is print-only/,
+    "createCheckoutSession must keep allow_promotion_codes print-only"
+  );
+  assert.match(
+    route,
+    /This code isn't valid for this item/,
+    "digital incompatible codes must hard-fail with a plain validity error"
   );
 });
 

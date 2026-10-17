@@ -82,6 +82,9 @@ type Props = {
   /** Wedding gift funnel — tailored paywall copy on the print tab */
   giftPaywallContext?: "wedding";
   showReferralHint?: boolean;
+  /** Saved / typed checkout promo code (print codes + digital_comp comps). */
+  promoCode?: string;
+  onPromoCodeChange?: (code: string) => void;
   onStartCheckout: (plan: CheckoutPlan, options?: { customerEmail?: string }) => void;
   onCheckoutFallback?: () => void;
   onStartPrintCheckout?: (options: {
@@ -136,6 +139,8 @@ export function PaywallModal({
   printShippingCountries = [],
   onPrintShippingCountryChange,
   showReferralHint = false,
+  promoCode = "",
+  onPromoCodeChange,
   onStartCheckout,
   onCheckoutFallback,
   onStartPrintCheckout,
@@ -443,6 +448,31 @@ export function PaywallModal({
             Helps us email a recovery link if checkout expires. You can also enter email on Stripe Checkout.
           </p>
         </div>
+
+        {onPromoCodeChange && !appMode ? (
+          <div className="mt-3">
+            <label htmlFor="paywall-promo-code" className="text-[11px] font-semibold text-neutral-700">
+              Promo code (optional)
+            </label>
+            <input
+              id="paywall-promo-code"
+              name="promotionCode"
+              data-testid="promotionCode-input"
+              type="text"
+              autoComplete="off"
+              spellCheck={false}
+              value={promoCode}
+              onChange={(event) => onPromoCodeChange(event.target.value)}
+              placeholder="Enter code"
+              className="text-midnight mt-1 w-full rounded-lg border border-amber-200/70 bg-white px-3 py-2 text-xs uppercase tracking-wide"
+            />
+            <p className="mt-1 text-[10px] text-neutral-600">
+              {activeIntent === "print"
+                ? "Print promo codes apply at checkout. You can also enter a code on the payment page."
+                : "Valid codes for one-time HD apply at checkout. Packs and subscriptions do not accept promo codes."}
+            </p>
+          </div>
+        ) : null}
 
         {hasPrintOptions && !appMode && (
           <div
@@ -782,11 +812,6 @@ export function PaywallModal({
             support@starmapco.com
           </a>
         </p>
-        {activeIntent === "print" ? (
-          <p className="mt-2 text-xs font-semibold text-neutral-700">
-            Have a print promo code? It can be applied at checkout.
-          </p>
-        ) : null}
         {showReferralHint && (
           <p className="mt-1 text-[11px] text-neutral-600">
             Referral offers apply automatically at checkout when available.

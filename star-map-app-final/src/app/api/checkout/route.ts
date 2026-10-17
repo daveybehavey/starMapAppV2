@@ -22,7 +22,9 @@ import { PRINT_ASSET_ID_REGEX, normalizeRecipeFingerprint } from "@/lib/printAss
 import { cardRecipeFingerprintSuffix } from "@/lib/printCardExport";
 import { loadReusablePrintAssetId } from "@/lib/printAssetReuse";
 import {
+  canUseHostedPromotionCodes,
   canUseManualPromotionCode,
+  isManualPromotionCompatibleWithOrder,
   selectCheckoutPromotion,
   type PromotionSource,
 } from "@/lib/checkoutPromotions";
@@ -426,9 +428,9 @@ async function resolvePromotionCodeId(promoCode?: string): Promise<PromotionReso
   const trimmed = promoCode?.trim();
   if (!trimmed) return { invalid: false, lookupFailed: false };
 
-  // Print-only callers may pre-apply any active Stripe promotion code (XMAS15,
-  // BLACKFRIDAY20, configured PROMOTION_COUPON_CODE, etc.). Digital checkout never
-  // reaches this helper — coupons cannot be product-restricted for price_data SKUs.
+  // Callers may pre-apply active Stripe promotion codes. Print accepts general
+  // codes; digital single accepts only coupons tagged digital_comp (validated
+  // after resolve). Hosted allow_promotion_codes stays print-only.
   if (
     configuredPromoCode &&
     configuredStripePromotionCodeId &&
@@ -770,7 +772,8 @@ async function createCheckoutSession(input: {
   const normalizedIncludeCardAddOn =
     !isMerchOrder && includeCardAddOn && normalizedPrintVariant === "poster_framed" && !includeDigitalAddOn;
   const effectivePlan = isPrintOrder ? "single" : plan;
-  const allowPromotionCodes = canUseManualPromotionCode(normalizedOrderType, effectivePlan);
+  // Hosted Stripe promo entry is print-only; digital comps are applied via `discounts`.
+  const allowPromotionCodes = canUseHostedPromotionCodes(normalizedOrderType, effectivePlan);
   const mapQuery = mapId ? `&map_id=${encodeURIComponent(mapId)}` : "";
   const orderQuery = `&order_type=${normalizedOrderType}`;
   const printQuery = isPrintOrder ? `&print_variant=${normalizedPrintVariant}` : "";
@@ -1178,8 +1181,19 @@ async function createCheckoutSession(input: {
   try {
     session = await createSessionWithConsentFallback(sessionParams, stripeIdempotencyKey);
   } catch (error) {
-    if (!promotionCodeId || !shouldRetryCheckoutWithoutDiscount(error) || !fallbackOnDiscountError) {
+    const isDiscountError =
+      Boolean(promotionCodeId) && shouldRetryCheckoutWithoutDiscount(error);
+    if (!isDiscountError) {
       throw error;
+    }
+    // Manual promo codes must surface the inapplicable-code error and STOP —
+    // never mint a silent full-price fallback session behind the rejection.
+    if (!fallbackOnDiscountError) {
+      throw new CheckoutError(
+        "This code isn't valid for this item.",
+        "promotion_not_applicable",
+        400,
+      );
     }
     console.warn("Checkout promo code rejected by Stripe; retrying without auto-applied discount.", {
       promotionCodeId,
@@ -1315,7 +1329,7 @@ export async function GET(req: NextRequest) {
       : undefined;
   const clientCountry = getRequestCountry(req);
   const mapId = parseCheckoutMapId(mapParam);
-  // Digital checkouts ignore promo_code — Christmas/print codes must not apply to HD/credits/subs.
+  // Manual codes: print + digital single (digital_comp only). Hosted entry stays print-only.
   const promoCodeParam = canUseManualPromotionCode(orderType, plan)
     ? (req.nextUrl.searchParams.get("promo_code") ?? undefined)
     : undefined;
@@ -1327,9 +1341,36 @@ export async function GET(req: NextRequest) {
   const referralAttribution = readReferralAttributionFromCookie(req);
   const referral = await resolveReferral(referralParam ?? fallbackReferralCode, currentSessionId);
   const referralAutoOffer = resolveReferralAutoOffer(referral.code);
-  const promotion = canUseManualPromotionCode(orderType, plan)
+  let promotion = canUseManualPromotionCode(orderType, plan)
     ? await resolvePromotionCodeId(promoCodeParam)
     : { promotionCodeId: undefined, invalid: false, lookupFailed: false };
+  if (
+    !promotion.invalid &&
+    !promotion.lookupFailed &&
+    promotion.promotionCode &&
+    !isManualPromotionCompatibleWithOrder({
+      orderType,
+      plan,
+      coupon: promotion.promotionCode.coupon,
+    })
+  ) {
+    promotion = { invalid: true, lookupFailed: false };
+  }
+  if (orderType === "digital" && promoCodeParam && promotion.invalid) {
+    return NextResponse.json(
+      {
+        error: "This code isn't valid for this item.",
+        code: "promotion_not_applicable",
+      },
+      { status: 400 }
+    );
+  }
+  if (orderType === "digital" && promoCodeParam && promotion.lookupFailed) {
+    return NextResponse.json(
+      { error: "Could not verify promotion code. Please try again.", code: "promotion_lookup_failed" },
+      { status: 503 }
+    );
+  }
   const selectedPromotion = selectCheckoutPromotion({
     manualPromotionCodeId: promotion.invalid ? undefined : promotion.promotionCodeId,
     referralCode: referral.code,
@@ -1453,7 +1494,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const { url: sessionUrl } = await createCheckoutSession({
+    const sessionResult = await createCheckoutSession({
       plan,
       mapId,
       printAssetId: resolvedPrintAssetId,
@@ -1461,6 +1502,8 @@ export async function GET(req: NextRequest) {
       promotionCodeId: selectedPromotion.promotionCodeId,
       resolvedPromotionCode: selectedPromotion.source === "manual" ? promotion.promotionCode : undefined,
       promotionSource: selectedPromotion.source,
+      // Manual DIGITAL codes: no full-price fallback session. Print manual codes keep the historic drop-and-continue (retry without discount; the hosted page allows re-entry). Referral-auto / no-code keep retry-without-discount.
+      fallbackOnDiscountError: orderType === "print" || selectedPromotion.source !== "manual",
       orderType,
       printVariant,
       includeDigitalAddOn,
@@ -1479,7 +1522,7 @@ export async function GET(req: NextRequest) {
       merchOptions: merchFamily ? { size: merchSize, color: merchColor } : undefined,
       qaContext,
     });
-    const resolvedGetUrl = resolveStripeCheckoutHandoffUrl(sessionUrl);
+    const resolvedGetUrl = resolveStripeCheckoutHandoffUrl(sessionResult.url);
     if (!resolvedGetUrl.url) {
       return NextResponse.json(
         buildUnknownCheckoutFailureResponse(correlationId, "missing_stripe_checkout_url"),
@@ -1668,7 +1711,7 @@ export async function POST(req: NextRequest) {
         }
       }
       recipeFingerprint = normalizeRecipeFingerprint(body?.recipeFingerprint);
-      // Print-only: digital bodies may still send promoCode from saved editor codes — ignore them.
+      // Print + digital single: accept editor promoCode (digital_comp validated after resolve).
       if (
         canUseManualPromotionCode(orderType, plan) &&
         body?.promoCode &&
@@ -1785,20 +1828,42 @@ export async function POST(req: NextRequest) {
     } else {
       await assertConfiguredSkyForCheckout(mapId);
     }
-    const promotion = canUseManualPromotionCode(orderType, plan)
+    let promotion = canUseManualPromotionCode(orderType, plan)
       ? await resolvePromotionCodeId(promoCode)
       : { promotionCodeId: undefined, invalid: false, lookupFailed: false };
-    // Invalid/expired print codes must not block checkout — drop and let Stripe
-    // hosted Checkout collect a replacement via allow_promotion_codes (print only).
-    const promoInvalidDropped = Boolean(
-      canUseManualPromotionCode(orderType, plan) && promoCode && promotion.invalid
-    );
+    if (
+      !promotion.invalid &&
+      !promotion.lookupFailed &&
+      promotion.promotionCode &&
+      !isManualPromotionCompatibleWithOrder({
+        orderType,
+        plan,
+        coupon: promotion.promotionCode.coupon,
+      })
+    ) {
+      promotion = { invalid: true, lookupFailed: false };
+    }
     if (canUseManualPromotionCode(orderType, plan) && promoCode && promotion.lookupFailed) {
       return NextResponse.json(
         { error: "Could not verify promotion code. Please try again.", code: "promotion_lookup_failed" },
         { status: 503 }
       );
     }
+    // Digital comps have no hosted Stripe entry — invalid codes must hard-fail with a clear error.
+    if (orderType === "digital" && promoCode && promotion.invalid) {
+      return NextResponse.json(
+        {
+          error: "This code isn't valid for this item.",
+          code: "promotion_not_applicable",
+        },
+        { status: 400 }
+      );
+    }
+    // Invalid/expired print codes must not block checkout — drop and let Stripe
+    // hosted Checkout collect a replacement via allow_promotion_codes (print only).
+    const promoInvalidDropped = Boolean(
+      orderType === "print" && canUseManualPromotionCode(orderType, plan) && promoCode && promotion.invalid
+    );
     const selectedPromotion = selectCheckoutPromotion({
       manualPromotionCodeId: promotion.invalid ? undefined : promotion.promotionCodeId,
       referralCode: referral.code,
@@ -1864,8 +1929,8 @@ export async function POST(req: NextRequest) {
       promotionCodeId: selectedPromotion.promotionCodeId,
       resolvedPromotionCode: selectedPromotion.source === "manual" ? promotion.promotionCode : undefined,
       promotionSource: selectedPromotion.source,
-      // Always allow retry without auto-applied discount so manual promos cannot hard-fail checkout.
-      fallbackOnDiscountError: true,
+      // Manual DIGITAL codes: no full-price fallback session. Print manual codes keep the historic drop-and-continue (retry without discount; the hosted page allows re-entry). Referral-auto / no-code keep retry-without-discount.
+      fallbackOnDiscountError: orderType === "print" || selectedPromotion.source !== "manual",
       orderType,
       printVariant,
       includeDigitalAddOn,
@@ -1885,9 +1950,19 @@ export async function POST(req: NextRequest) {
       merchOptions: merchFamily ? { size: merchSize, color: merchColor } : undefined,
       qaContext,
     });
-    if (promoCode && session.discountRejected) {
-      // Stripe rejected auto-apply (common on print + shipping). Still return checkout so the
-      // customer can enter the code on the hosted page when allow_promotion_codes is enabled.
+    // Referral-auto discount rejection may still produce a no-discount session (discountRejected).
+    // Manual codes never reach here — createCheckoutSession throws promotion_not_applicable instead.
+    if (orderType === "digital" && promoCode && session.discountRejected && selectedPromotion.source === "manual") {
+      return NextResponse.json(
+        {
+          error: "This code isn't valid for this item.",
+          code: "promotion_not_applicable",
+        },
+        { status: 400 }
+      );
+    }
+    if (session.discountRejected) {
+      // Stripe rejected auto-applied referral discount. Still return checkout without the discount.
       if (idempotencyKey && typeof session.url === "string" && session.url.trim()) {
         await bestEffortCheckoutSideEffect({
           correlationId,

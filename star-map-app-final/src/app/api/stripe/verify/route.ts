@@ -12,6 +12,12 @@ import {
   isQaStripeSession,
 } from "@/lib/commerceAnalytics";
 import { recordPaymentVerifiedOnce } from "@/lib/funnel";
+import {
+  evaluateCheckoutSessionDiscountFulfillment,
+  isDiscountFulfillmentRetryable,
+  isFulfillableCheckoutPayment,
+  type CouponLookup,
+} from "@/lib/checkoutPromotions";
 
 export const runtime = "nodejs";
 
@@ -23,6 +29,14 @@ const stripe =
     httpClient: Stripe.createFetchHttpClient(),
     timeout: 20_000,
   });
+
+function createStripeCouponLookup(client: Stripe): CouponLookup {
+  return {
+    retrieveCoupon: (id) => client.coupons.retrieve(id),
+    retrievePromotionCode: (id) =>
+      client.promotionCodes.retrieve(id, { expand: ["coupon"] }),
+  };
+}
 
 type SessionRecord = {
   paid?: boolean;
@@ -188,10 +202,12 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    const session = await stripe.checkout.sessions.retrieve(sessionId, {
+      expand: ["total_details.breakdown"],
+    });
     const paidViaStripe =
       (session.mode === "payment" || session.mode === "subscription") &&
-      (session.payment_status === "paid" || session.payment_status === "no_payment_required");
+      isFulfillableCheckoutPayment(session);
     if (!paidViaStripe) {
       return NextResponse.json({ paid: false }, { headers: { "Cache-Control": "no-store" } });
     }
@@ -200,6 +216,39 @@ export async function GET(req: NextRequest) {
     const printVariant = getPrintVariant(session);
     const hasDigitalAddOn = includesDigitalAddOn(session);
     const plan = getPlan(session, orderType, hasDigitalAddOn);
+    const discountGate = await evaluateCheckoutSessionDiscountFulfillment({
+      session,
+      orderType,
+      plan,
+      lookup: createStripeCouponLookup(stripe),
+    });
+    if (!discountGate.ok) {
+      if (isDiscountFulfillmentRetryable(discountGate)) {
+        // Transient coupon lookup / unresolved discount — do not strand the buyer
+        // on a terminal paid:false. Clients already poll verify; 503 + pending
+        // mirrors checkout's promotion_lookup_failed transient pattern.
+        console.warn("Stripe verify discount coupon resolution pending", {
+          sessionId,
+          reason: discountGate.reason,
+          orderType,
+          plan: plan ?? null,
+        });
+        return NextResponse.json(
+          { paid: false, pending: true, reason: discountGate.reason },
+          {
+            status: 503,
+            headers: { "Cache-Control": "no-store", "Retry-After": "2" },
+          },
+        );
+      }
+      console.warn("Stripe verify refused incompatible checkout discount", {
+        sessionId,
+        reason: discountGate.reason,
+        orderType,
+        plan: plan ?? null,
+      });
+      return NextResponse.json({ paid: false }, { headers: { "Cache-Control": "no-store" } });
+    }
     let credits = getCredits(session, plan);
     const existingSessionId = req.cookies.get(PREMIUM_COOKIE_NAME)?.value;
     if (existingSessionId && existingSessionId !== sessionId && plan !== "subscription") {

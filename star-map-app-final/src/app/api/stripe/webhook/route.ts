@@ -67,6 +67,13 @@ import {
   ENTITLEMENT_KV,
   refreshEntitledMapRecipeTtl,
 } from "@/lib/entitlementsStore";
+import {
+  evaluateCheckoutSessionDiscountFulfillment,
+  isDiscountFulfillmentRetryable,
+  isFulfillableCheckoutPayment,
+  sessionHasAppliedDiscount,
+  type CouponLookup,
+} from "@/lib/checkoutPromotions";
 
 export const runtime = "nodejs";
 
@@ -104,6 +111,14 @@ const stripe =
     httpClient: Stripe.createFetchHttpClient(),
     timeout: 20_000,
   });
+
+function createStripeCouponLookup(client: Stripe): CouponLookup {
+  return {
+    retrieveCoupon: (id) => client.coupons.retrieve(id),
+    retrievePromotionCode: (id) =>
+      client.promotionCodes.retrieve(id, { expand: ["coupon"] }),
+  };
+}
 
 type SessionRecord = {
   paid?: boolean;
@@ -316,7 +331,7 @@ function getCredits(session: Stripe.Checkout.Session, plan: CheckoutPlan | undef
 
 async function markSessionPaid(session: Stripe.Checkout.Session) {
   if (!session.id) return;
-  if (session.payment_status !== "paid" && session.payment_status !== "no_payment_required") return;
+  if (!isFulfillableCheckoutPayment(session)) return;
 
   const existing = await kv.get<SessionRecord>(sessionKey(session.id));
   if (existing?.revoked) return;
@@ -497,7 +512,7 @@ async function resolvePaymentIntentIdFromCharge(chargeId?: string | null) {
 
 async function applyReferralReward(session: Stripe.Checkout.Session) {
   if (!session.id) return;
-  if (session.payment_status !== "paid" && session.payment_status !== "no_payment_required") return;
+  if (!isFulfillableCheckoutPayment(session)) return;
 
   const referralCode = normalizeReferralCode(session.metadata?.referral_code);
   const referrerSessionId =
@@ -1440,11 +1455,58 @@ export async function POST(req: Request) {
 
   switch (event.type) {
     case "checkout.session.completed": {
-      const session = event.data.object as Stripe.Checkout.Session;
+      let session = event.data.object as Stripe.Checkout.Session;
       try {
-        await markSessionPaid(session);
-        await queuePrintOrder(session);
-        await applyReferralReward(session);
+        // digital_comp must not entitle print/pack3/subscription (hosted-page bypass).
+        // Pinned Stripe API carries applied discounts in total_details.breakdown —
+        // hydrate when the event payload lacks that expansion before running the gate.
+        if (
+          stripe &&
+          sessionHasAppliedDiscount(session) &&
+          !session.total_details?.breakdown
+        ) {
+          session = await stripe.checkout.sessions.retrieve(session.id, {
+            expand: ["total_details.breakdown"],
+          });
+        }
+        const orderType = getOrderType(session);
+        const hasDigitalAddOn = includesDigitalAddOn(session);
+        const plan = getPlan(session, orderType, hasDigitalAddOn);
+        let skipEntitlementGrants = false;
+        let skipPrintOrder = false;
+        if (stripe) {
+          const discountGate = await evaluateCheckoutSessionDiscountFulfillment({
+            session,
+            orderType,
+            plan,
+            lookup: createStripeCouponLookup(stripe),
+          });
+          if (!discountGate.ok) {
+            if (isDiscountFulfillmentRetryable(discountGate)) {
+              // Transient coupon lookup / unresolved discount — do not finalize
+              // dedupe so Stripe redelivers; never grant on an unresolved gate.
+              console.warn(
+                `Discount coupon resolution retryable for session ${session.id}: ${discountGate.reason}`,
+              );
+              completedCheckoutRetryable = true;
+              break;
+            }
+            skipEntitlementGrants = true;
+            skipPrintOrder = true;
+            console.warn(
+              `Skipping paid entitlement grants and print queue for session ${session.id}: ${discountGate.reason}`,
+            );
+          }
+        }
+        if (!skipEntitlementGrants) {
+          await markSessionPaid(session);
+        }
+        if (!skipPrintOrder) {
+          await queuePrintOrder(session);
+        }
+        if (!skipEntitlementGrants) {
+          await applyReferralReward(session);
+        }
       } catch (error) {
         // Unretainable / deleted durable print-order state must fail closed and
         // finalize the Stripe event — retrying would remint retention and risk a
