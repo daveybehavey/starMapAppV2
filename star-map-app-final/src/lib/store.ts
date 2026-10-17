@@ -1,7 +1,10 @@
 "use client";
 
 import { create } from "zustand";
-import { maybeRebaseUntouchedDefaultOnTimezoneChange } from "./dateTime";
+import {
+  maybeRebaseUntouchedDefaultOnTimezoneChange,
+  resolveBrowserTimeZone,
+} from "./dateTime";
 import type { MapLookTier } from "./mapLookTiers";
 import type { AspectRatio, Shape } from "./types";
 
@@ -135,6 +138,11 @@ const initialDate = (() => {
   return now;
 })();
 
+/** Unset DEFAULT_RECIPE coords — same sentinel as checkoutSkyGuard / editor prefill. */
+function isInitialPlaceholderLocation(location: LocationState): boolean {
+  return location.latitude === 0 && location.longitude === 0;
+}
+
 const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) => Partial<EditorState>)) => void): EditorState => ({
   dateTime: initialDate.toISOString(),
   dateTimeIsUntouchedDefault: true,
@@ -142,7 +150,9 @@ const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) =
     name: "",
     latitude: 0,
     longitude: 0,
-    timezone: "UTC",
+    // Timezone-of-record for the untouched evening default matches browser-local
+    // construction of initialDate (not a real selected sky until coords change).
+    timezone: resolveBrowserTimeZone(),
   },
   aspectRatio: "square",
   shape: "rectangle",
@@ -218,6 +228,7 @@ const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) =
         previousTimezone: state.location.timezone,
         nextTimezone: nextLocation.timezone,
         dateTimeIsUntouchedDefault: state.dateTimeIsUntouchedDefault,
+        isInitialPlaceholder: isInitialPlaceholderLocation(state.location),
       });
       return {
         location: nextLocation,

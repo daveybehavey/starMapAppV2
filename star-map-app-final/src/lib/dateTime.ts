@@ -54,6 +54,16 @@ function toUTCDateFromLocalWall(
   return zonedWallTimeToUtcDate(ymd.year, ymd.month, ymd.day, hour, minute, zone);
 }
 
+/** Browser IANA zone used to construct the store's initial evening default. */
+export function resolveBrowserTimeZone(): string {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return typeof tz === "string" && tz.trim() ? tz.trim() : "UTC";
+  } catch {
+    return "UTC";
+  }
+}
+
 /**
  * Rebase an untouched evening default so wall-clock time is 21:00 in `nextTimezone`.
  * Derives the calendar date from the stored instant in `previousTimezone` via
@@ -88,14 +98,22 @@ export function rebaseUntouchedDefaultDateTime(
  * When the location timezone changes and the date/time is still the untouched
  * evening default, return a rebased ISO instant. User-set date/times are returned
  * unchanged (same absolute instant / chosen wall time).
+ *
+ * On the first hop from the empty/initial placeholder location, the calendar date
+ * is derived in the browser's local zone (how `initialDate` was built), not the
+ * store's placeholder `UTC`. Later hops use `previousTimezone` as-is.
  */
 export function maybeRebaseUntouchedDefaultOnTimezoneChange(input: {
   dateTimeIso: string;
   previousTimezone: string;
   nextTimezone: string;
   dateTimeIsUntouchedDefault: boolean;
+  /** True when prior location is still the unset placeholder (no real coords). */
+  isInitialPlaceholder?: boolean;
 }): string {
-  const prev = (input.previousTimezone || "UTC").trim() || "UTC";
+  const prev = input.isInitialPlaceholder
+    ? resolveBrowserTimeZone()
+    : (input.previousTimezone || "UTC").trim() || "UTC";
   const next = (input.nextTimezone || "UTC").trim() || "UTC";
   if (!input.dateTimeIsUntouchedDefault || prev === next) {
     return input.dateTimeIso;
