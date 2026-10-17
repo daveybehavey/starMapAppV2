@@ -2,9 +2,11 @@ import { expect, test } from "@playwright/test";
 import {
   canUseHostedPromotionCodes,
   canUseManualPromotionCode,
+  evaluateAppliedCouponsForOrderFulfillment,
   isDigitalCompCoupon,
   isFulfillableCheckoutPayment,
   isManualPromotionCompatibleWithOrder,
+  resolveEditorCheckoutPromoCode,
   selectCheckoutPromotion,
 } from "../src/lib/checkoutPromotions";
 
@@ -145,5 +147,51 @@ test.describe("checkout promotion selection", () => {
         amount_total: 900,
       })
     ).toBe(true);
+  });
+
+  test("fulfillment refuses digital_comp on print; allows digital single + referral", () => {
+    expect(
+      evaluateAppliedCouponsForOrderFulfillment({
+        orderType: "print",
+        plan: "single",
+        coupons: [{ metadata: { digital_comp: "true" } }],
+        sessionHasDiscount: true,
+      }).ok
+    ).toBe(false);
+    expect(
+      evaluateAppliedCouponsForOrderFulfillment({
+        orderType: "digital",
+        plan: "single",
+        coupons: [{ metadata: { digital_comp: "true" } }],
+        sessionHasDiscount: true,
+      })
+    ).toEqual({ ok: true });
+    expect(
+      evaluateAppliedCouponsForOrderFulfillment({
+        orderType: "digital",
+        plan: "single",
+        coupons: [{ metadata: { referral: "true" } }],
+        sessionHasDiscount: true,
+      })
+    ).toEqual({ ok: true });
+  });
+
+  test("cleared editor promo field does not fall back to URL code", () => {
+    expect(
+      resolveEditorCheckoutPromoCode({
+        fieldValue: "",
+        fieldEdited: true,
+        queryPromoCode: "EXPIRED",
+        storedPromoCode: "EXPIRED",
+      })
+    ).toBeNull();
+    expect(
+      resolveEditorCheckoutPromoCode({
+        fieldValue: "",
+        fieldEdited: false,
+        queryPromoCode: "XMAS15",
+        storedPromoCode: null,
+      })
+    ).toBe("XMAS15");
   });
 });

@@ -115,3 +115,209 @@ export function isFulfillableCheckoutPayment(session: FulfillableSessionLike): b
   if (amountTotal !== 0) return false;
   return sessionHasAppliedDiscount(session);
 }
+
+export { sessionHasAppliedDiscount };
+
+/**
+ * Discount entries as returned on Checkout Sessions (IDs or expanded objects).
+ * Used to re-check coupon compatibility at fulfillment (webhook / verify),
+ * closing the hosted-page bypass where print allows typed promotion codes.
+ */
+export type CheckoutSessionDiscountEntry = {
+  coupon?: string | CouponMetadataLike | { id?: string; deleted?: boolean; metadata?: Record<string, string> | null } | null;
+  promotion_code?:
+    | string
+    | {
+        id?: string;
+        coupon?: string | CouponMetadataLike | { id?: string; metadata?: Record<string, string> | null } | null;
+      }
+    | null;
+} | null;
+
+export type CheckoutSessionDiscountSource = {
+  discounts?: CheckoutSessionDiscountEntry[] | null;
+  total_details?: { amount_discount?: number | null } | null;
+};
+
+export type CouponLookup = {
+  retrieveCoupon: (id: string) => Promise<CouponMetadataLike>;
+  retrievePromotionCode: (
+    id: string,
+  ) => Promise<{ coupon?: string | CouponMetadataLike | null } | null>;
+};
+
+function asCouponMetadata(value: unknown): CouponMetadataLike | null {
+  if (!value || typeof value !== "object") return null;
+  if ("deleted" in value && (value as { deleted?: boolean }).deleted) return null;
+  return value as CouponMetadataLike;
+}
+
+function couponIdFromUnknown(value: unknown): string | null {
+  if (typeof value === "string" && value.trim()) return value.trim();
+  if (value && typeof value === "object" && "id" in value) {
+    const id = (value as { id?: unknown }).id;
+    if (typeof id === "string" && id.trim()) return id.trim();
+  }
+  return null;
+}
+
+/**
+ * Resolve applied discount coupons (expand/retrieve IDs as needed).
+ * Returns [] when the session has no discount entries to inspect.
+ */
+export async function resolveCheckoutSessionDiscountCoupons(
+  session: CheckoutSessionDiscountSource,
+  lookup: CouponLookup,
+): Promise<CouponMetadataLike[]> {
+  const discounts = Array.isArray(session.discounts) ? session.discounts : [];
+  if (discounts.length === 0) return [];
+
+  const coupons: CouponMetadataLike[] = [];
+  const seen = new Set<string>();
+
+  const pushCoupon = (coupon: CouponMetadataLike, idHint?: string | null) => {
+    if (!coupon) return;
+    const id = idHint ?? couponIdFromUnknown(coupon);
+    if (id) {
+      if (seen.has(id)) return;
+      seen.add(id);
+    }
+    coupons.push(coupon);
+  };
+
+  for (const entry of discounts) {
+    if (!entry) continue;
+
+    if (typeof entry.coupon === "string" && entry.coupon.trim()) {
+      const id = entry.coupon.trim();
+      if (!seen.has(id)) {
+        pushCoupon(await lookup.retrieveCoupon(id), id);
+      }
+    } else if (entry.coupon && typeof entry.coupon !== "string") {
+      const expanded = asCouponMetadata(entry.coupon);
+      if (expanded) pushCoupon(expanded, couponIdFromUnknown(entry.coupon));
+    }
+
+    const promo = entry.promotion_code;
+    if (!promo) continue;
+
+    if (typeof promo === "string" && promo.trim()) {
+      const promoObj = await lookup.retrievePromotionCode(promo.trim());
+      const nested = promoObj?.coupon;
+      if (typeof nested === "string" && nested.trim()) {
+        const id = nested.trim();
+        if (!seen.has(id)) {
+          pushCoupon(await lookup.retrieveCoupon(id), id);
+        }
+      } else {
+        const coupon = asCouponMetadata(nested);
+        if (coupon) pushCoupon(coupon, couponIdFromUnknown(nested));
+      }
+      continue;
+    }
+
+    if (typeof promo === "object") {
+      const nested = promo.coupon;
+      if (typeof nested === "string" && nested.trim()) {
+        const id = nested.trim();
+        if (!seen.has(id)) {
+          pushCoupon(await lookup.retrieveCoupon(id), id);
+        }
+      } else if (nested && typeof nested !== "string") {
+        const coupon = asCouponMetadata(nested);
+        if (coupon) pushCoupon(coupon, couponIdFromUnknown(nested));
+      }
+    }
+  }
+
+  return coupons;
+}
+
+export type DiscountFulfillmentDecision =
+  | { ok: true }
+  | { ok: false; reason: string };
+
+/**
+ * Fulfillment-time gate: digital_comp coupons may only entitle digital single.
+ * Non-digital_comp coupons (referral, print promos) do not change today's behaviour.
+ * When a discount was applied but coupons cannot be resolved, fail closed.
+ */
+export function evaluateAppliedCouponsForOrderFulfillment(input: {
+  orderType: CheckoutOrderType;
+  plan?: CheckoutPlan;
+  coupons: CouponMetadataLike[];
+  sessionHasDiscount: boolean;
+}): DiscountFulfillmentDecision {
+  if (input.sessionHasDiscount && input.coupons.length === 0) {
+    return { ok: false, reason: "discount_present_but_coupon_unresolved" };
+  }
+
+  const plan: CheckoutPlan = input.plan ?? "single";
+  for (const coupon of input.coupons) {
+    if (!isDigitalCompCoupon(coupon)) continue;
+    if (
+      !isManualPromotionCompatibleWithOrder({
+        orderType: input.orderType,
+        plan,
+        coupon,
+      })
+    ) {
+      return {
+        ok: false,
+        reason: `digital_comp_incompatible_with_${input.orderType}_${plan}`,
+      };
+    }
+  }
+  return { ok: true };
+}
+
+/**
+ * Resolve session discounts and apply the digital_comp fulfillment rule.
+ * No-discount sessions return ok without Stripe lookups.
+ */
+export async function evaluateCheckoutSessionDiscountFulfillment(input: {
+  session: CheckoutSessionDiscountSource & FulfillableSessionLike;
+  orderType: CheckoutOrderType;
+  plan?: CheckoutPlan;
+  lookup: CouponLookup;
+}): Promise<DiscountFulfillmentDecision> {
+  const hasDiscount = sessionHasAppliedDiscount(input.session);
+  if (!hasDiscount) return { ok: true };
+
+  let coupons: CouponMetadataLike[] = [];
+  try {
+    coupons = await resolveCheckoutSessionDiscountCoupons(input.session, input.lookup);
+  } catch {
+    return { ok: false, reason: "discount_coupon_lookup_failed" };
+  }
+
+  return evaluateAppliedCouponsForOrderFulfillment({
+    orderType: input.orderType,
+    plan: input.plan,
+    coupons,
+    sessionHasDiscount: hasDiscount,
+  });
+}
+
+/**
+ * Editor paywall promo field: once the user edits the input, that value
+ * (including empty / cleared) is authoritative. Untouched fields still fall
+ * back to URL (?code=) then localStorage.
+ */
+export function normalizeCheckoutPromoCode(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const normalized = raw.trim().toUpperCase();
+  if (!/^[A-Z0-9_-]{3,40}$/.test(normalized)) return null;
+  return normalized;
+}
+
+export function resolveEditorCheckoutPromoCode(input: {
+  fieldValue: string;
+  fieldEdited: boolean;
+  queryPromoCode: string | null;
+  storedPromoCode: string | null;
+}): string | null {
+  const typed = normalizeCheckoutPromoCode(input.fieldValue);
+  if (input.fieldEdited) return typed;
+  return typed ?? input.queryPromoCode ?? input.storedPromoCode;
+}

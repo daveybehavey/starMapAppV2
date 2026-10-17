@@ -12,7 +12,11 @@ import {
   isQaStripeSession,
 } from "@/lib/commerceAnalytics";
 import { recordPaymentVerifiedOnce } from "@/lib/funnel";
-import { isFulfillableCheckoutPayment } from "@/lib/checkoutPromotions";
+import {
+  evaluateCheckoutSessionDiscountFulfillment,
+  isFulfillableCheckoutPayment,
+  type CouponLookup,
+} from "@/lib/checkoutPromotions";
 
 export const runtime = "nodejs";
 
@@ -24,6 +28,14 @@ const stripe =
     httpClient: Stripe.createFetchHttpClient(),
     timeout: 20_000,
   });
+
+function createStripeCouponLookup(client: Stripe): CouponLookup {
+  return {
+    retrieveCoupon: (id) => client.coupons.retrieve(id),
+    retrievePromotionCode: (id) =>
+      client.promotionCodes.retrieve(id, { expand: ["coupon"] }),
+  };
+}
 
 type SessionRecord = {
   paid?: boolean;
@@ -189,7 +201,9 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    const session = await stripe.checkout.sessions.retrieve(sessionId, {
+      expand: ["total_details.breakdown"],
+    });
     const paidViaStripe =
       (session.mode === "payment" || session.mode === "subscription") &&
       isFulfillableCheckoutPayment(session);
@@ -201,6 +215,21 @@ export async function GET(req: NextRequest) {
     const printVariant = getPrintVariant(session);
     const hasDigitalAddOn = includesDigitalAddOn(session);
     const plan = getPlan(session, orderType, hasDigitalAddOn);
+    const discountGate = await evaluateCheckoutSessionDiscountFulfillment({
+      session,
+      orderType,
+      plan,
+      lookup: createStripeCouponLookup(stripe),
+    });
+    if (!discountGate.ok) {
+      console.warn("Stripe verify refused incompatible checkout discount", {
+        sessionId,
+        reason: discountGate.reason,
+        orderType,
+        plan: plan ?? null,
+      });
+      return NextResponse.json({ paid: false }, { headers: { "Cache-Control": "no-store" } });
+    }
     let credits = getCredits(session, plan);
     const existingSessionId = req.cookies.get(PREMIUM_COOKIE_NAME)?.value;
     if (existingSessionId && existingSessionId !== sessionId && plan !== "subscription") {

@@ -67,7 +67,11 @@ import {
   ENTITLEMENT_KV,
   refreshEntitledMapRecipeTtl,
 } from "@/lib/entitlementsStore";
-import { isFulfillableCheckoutPayment } from "@/lib/checkoutPromotions";
+import {
+  evaluateCheckoutSessionDiscountFulfillment,
+  isFulfillableCheckoutPayment,
+  type CouponLookup,
+} from "@/lib/checkoutPromotions";
 
 export const runtime = "nodejs";
 
@@ -105,6 +109,14 @@ const stripe =
     httpClient: Stripe.createFetchHttpClient(),
     timeout: 20_000,
   });
+
+function createStripeCouponLookup(client: Stripe): CouponLookup {
+  return {
+    retrieveCoupon: (id) => client.coupons.retrieve(id),
+    retrievePromotionCode: (id) =>
+      client.promotionCodes.retrieve(id, { expand: ["coupon"] }),
+  };
+}
 
 type SessionRecord = {
   paid?: boolean;
@@ -1443,9 +1455,34 @@ export async function POST(req: Request) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
       try {
-        await markSessionPaid(session);
+        // digital_comp must not entitle print/pack3/subscription (hosted-page bypass).
+        // queuePrintOrder does not read the paid KV record — it runs on completed
+        // independently; $0 comps still fail the print amount floor.
+        const orderType = getOrderType(session);
+        const hasDigitalAddOn = includesDigitalAddOn(session);
+        const plan = getPlan(session, orderType, hasDigitalAddOn);
+        let skipEntitlementGrants = false;
+        if (stripe) {
+          const discountGate = await evaluateCheckoutSessionDiscountFulfillment({
+            session,
+            orderType,
+            plan,
+            lookup: createStripeCouponLookup(stripe),
+          });
+          if (!discountGate.ok) {
+            skipEntitlementGrants = true;
+            console.warn(
+              `Skipping paid entitlement grants for session ${session.id}: ${discountGate.reason}`,
+            );
+          }
+        }
+        if (!skipEntitlementGrants) {
+          await markSessionPaid(session);
+        }
         await queuePrintOrder(session);
-        await applyReferralReward(session);
+        if (!skipEntitlementGrants) {
+          await applyReferralReward(session);
+        }
       } catch (error) {
         // Unretainable / deleted durable print-order state must fail closed and
         // finalize the Stripe event — retrying would remint retention and risk a
