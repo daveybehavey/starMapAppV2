@@ -12,6 +12,7 @@ import {
   isQaStripeSession,
 } from "@/lib/commerceAnalytics";
 import { recordPaymentVerifiedOnce } from "@/lib/funnel";
+import { isFulfillableCheckoutPayment } from "@/lib/checkoutPromotions";
 
 export const runtime = "nodejs";
 
@@ -191,7 +192,7 @@ export async function GET(req: NextRequest) {
     const session = await stripe.checkout.sessions.retrieve(sessionId);
     const paidViaStripe =
       (session.mode === "payment" || session.mode === "subscription") &&
-      (session.payment_status === "paid" || session.payment_status === "no_payment_required");
+      isFulfillableCheckoutPayment(session);
     if (!paidViaStripe) {
       return NextResponse.json({ paid: false }, { headers: { "Cache-Control": "no-store" } });
     }

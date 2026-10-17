@@ -1,18 +1,59 @@
 import { expect, test } from "@playwright/test";
 import {
+  canUseHostedPromotionCodes,
   canUseManualPromotionCode,
+  isDigitalCompCoupon,
+  isFulfillableCheckoutPayment,
+  isManualPromotionCompatibleWithOrder,
   selectCheckoutPromotion,
 } from "../src/lib/checkoutPromotions";
 
 test.describe("checkout promotion selection", () => {
-  test("manual promotion codes are print-only", () => {
+  test("manual promotion codes allowed for print and digital single", () => {
     expect(canUseManualPromotionCode("print", "single")).toBe(true);
-    expect(canUseManualPromotionCode("digital", "single")).toBe(false);
+    expect(canUseManualPromotionCode("digital", "single")).toBe(true);
     expect(canUseManualPromotionCode("digital", "pack3")).toBe(false);
     expect(canUseManualPromotionCode("digital", "subscription")).toBe(false);
   });
 
-  test("applies manual promotion code only for print checkout", () => {
+  test("hosted promotion codes remain print-only", () => {
+    expect(canUseHostedPromotionCodes("print", "single")).toBe(true);
+    expect(canUseHostedPromotionCodes("digital", "single")).toBe(false);
+  });
+
+  test("digital_comp metadata gates digital vs print compatibility", () => {
+    expect(isDigitalCompCoupon({ metadata: { digital_comp: "true" } })).toBe(true);
+    expect(
+      isManualPromotionCompatibleWithOrder({
+        orderType: "digital",
+        plan: "single",
+        coupon: { metadata: { digital_comp: "true" } },
+      })
+    ).toBe(true);
+    expect(
+      isManualPromotionCompatibleWithOrder({
+        orderType: "digital",
+        plan: "single",
+        coupon: { metadata: {} },
+      })
+    ).toBe(false);
+    expect(
+      isManualPromotionCompatibleWithOrder({
+        orderType: "print",
+        plan: "single",
+        coupon: { metadata: { digital_comp: "true" } },
+      })
+    ).toBe(false);
+    expect(
+      isManualPromotionCompatibleWithOrder({
+        orderType: "digital",
+        plan: "pack3",
+        coupon: { metadata: { digital_comp: "true" } },
+      })
+    ).toBe(false);
+  });
+
+  test("applies manual promotion code for print; digital prefers manual when present", () => {
     const printSelected = selectCheckoutPromotion({
       manualPromotionCodeId: "promo_xmas15",
       referralCode: "REF12345",
@@ -26,16 +67,15 @@ test.describe("checkout promotion selection", () => {
     });
 
     const digitalSelected = selectCheckoutPromotion({
-      manualPromotionCodeId: "promo_xmas15",
+      manualPromotionCodeId: "promo_digital_comp",
       referralCode: "REF12345",
       referralPromotionCodeId: "promo_referral_123",
       orderType: "digital",
       plan: "single",
     });
-    // Digital ignores manual Christmas/print codes; referral auto may still apply.
     expect(digitalSelected).toEqual({
-      promotionCodeId: "promo_referral_123",
-      source: "referral_auto",
+      promotionCodeId: "promo_digital_comp",
+      source: "manual",
     });
   });
 
@@ -80,5 +120,30 @@ test.describe("checkout promotion selection", () => {
     });
 
     expect(selected).toEqual({ source: "none" });
+  });
+
+  test("$0 discounted session fulfillment gate", () => {
+    expect(
+      isFulfillableCheckoutPayment({
+        mode: "payment",
+        payment_status: "no_payment_required",
+        amount_total: 0,
+        total_details: { amount_discount: 900 },
+      })
+    ).toBe(true);
+    expect(
+      isFulfillableCheckoutPayment({
+        mode: "payment",
+        payment_status: "no_payment_required",
+        amount_total: 0,
+      })
+    ).toBe(false);
+    expect(
+      isFulfillableCheckoutPayment({
+        mode: "payment",
+        payment_status: "paid",
+        amount_total: 900,
+      })
+    ).toBe(true);
   });
 });

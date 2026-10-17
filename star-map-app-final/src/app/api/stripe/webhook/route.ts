@@ -67,6 +67,7 @@ import {
   ENTITLEMENT_KV,
   refreshEntitledMapRecipeTtl,
 } from "@/lib/entitlementsStore";
+import { isFulfillableCheckoutPayment } from "@/lib/checkoutPromotions";
 
 export const runtime = "nodejs";
 
@@ -316,7 +317,7 @@ function getCredits(session: Stripe.Checkout.Session, plan: CheckoutPlan | undef
 
 async function markSessionPaid(session: Stripe.Checkout.Session) {
   if (!session.id) return;
-  if (session.payment_status !== "paid" && session.payment_status !== "no_payment_required") return;
+  if (!isFulfillableCheckoutPayment(session)) return;
 
   const existing = await kv.get<SessionRecord>(sessionKey(session.id));
   if (existing?.revoked) return;
@@ -497,7 +498,7 @@ async function resolvePaymentIntentIdFromCharge(chargeId?: string | null) {
 
 async function applyReferralReward(session: Stripe.Checkout.Session) {
   if (!session.id) return;
-  if (session.payment_status !== "paid" && session.payment_status !== "no_payment_required") return;
+  if (!isFulfillableCheckoutPayment(session)) return;
 
   const referralCode = normalizeReferralCode(session.metadata?.referral_code);
   const referrerSessionId =

@@ -450,10 +450,31 @@ export function EditorExperience({
       return null;
     }
   }, []);
-  const getCheckoutPromoCode = useCallback(
-    () => queryPromoCode ?? readStoredPromoCode(),
-    [queryPromoCode, readStoredPromoCode]
-  );
+  const [editorPromoCode, setEditorPromoCode] = useState("");
+  useEffect(() => {
+    const initial = queryPromoCode ?? readStoredPromoCode() ?? "";
+    setEditorPromoCode(initial);
+  }, [queryPromoCode, readStoredPromoCode]);
+  const persistPromoCode = useCallback((raw: string) => {
+    const display = raw.toUpperCase().slice(0, 64);
+    setEditorPromoCode(display);
+    if (typeof window === "undefined") return;
+    try {
+      const normalized = normalizePromoCode(display);
+      if (normalized) {
+        window.localStorage.setItem(PROMO_CODE_KEY, normalized);
+      } else if (!display.trim()) {
+        window.localStorage.removeItem(PROMO_CODE_KEY);
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, []);
+  const getCheckoutPromoCode = useCallback(() => {
+    const typed = normalizePromoCode(editorPromoCode);
+    if (typed) return typed;
+    return queryPromoCode ?? readStoredPromoCode();
+  }, [editorPromoCode, queryPromoCode, readStoredPromoCode]);
   const getCheckoutReferralCode = useCallback(
     () => queryReferralCode ?? readStoredReferralCode(),
     [queryReferralCode]
@@ -1932,7 +1953,7 @@ export function EditorExperience({
           reason === "rate_limited" || reason === "Too many requests. Please try again later."
             ? "One moment — too many checkout attempts. Please try again in a few seconds."
             : reason === "promotion_not_applicable"
-              ? "That promo code does not apply to this order."
+              ? "This code isn't valid for this item."
               : reason === "promotion_lookup_failed"
                 ? "We couldn't verify your promo code right now. Please try again in a moment."
                 : reason === "print_asset_failed"
@@ -3898,6 +3919,8 @@ export function EditorExperience({
                 isWeddingCommerceContext(searchParams.get("source")) ? "wedding" : undefined
               }
               showReferralHint={Boolean(getCheckoutReferralCode())}
+              promoCode={editorPromoCode}
+              onPromoCodeChange={persistPromoCode}
               onStartCheckout={(plan, options) => {
                 setPaywallIntent("digital");
                 void startCheckout(plan, { customerEmail: options?.customerEmail });
