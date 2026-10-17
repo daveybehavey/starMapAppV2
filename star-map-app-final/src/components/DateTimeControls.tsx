@@ -58,7 +58,7 @@ export default function DateTimeControls({ dateTime, onChange, timezone }: Props
 
       <div>
         <label htmlFor="star-time" className="mb-1 block text-xs font-semibold text-white">
-          Time <span className="font-normal text-neutral-200">(optional, defaults to midnight)</span>
+          Time <span className="font-normal text-neutral-200">(optional, defaults to 9 PM)</span>
         </label>
         <input
           id="star-time"

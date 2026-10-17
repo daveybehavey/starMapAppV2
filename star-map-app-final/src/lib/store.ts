@@ -109,7 +109,8 @@ export interface EditorState {
 
 const initialDate = (() => {
   const now = new Date();
-  now.setHours(0, 0, 0, 0);
+  // Match DEFAULT_TIME (9:00 PM) so a blank exact-time field stays consistent.
+  now.setHours(21, 0, 0, 0);
   return now;
 })();
 

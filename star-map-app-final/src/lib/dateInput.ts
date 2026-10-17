@@ -1,6 +1,7 @@
 "use client";
 
-export const DEFAULT_TIME = "00:00:00";
+/** Blank exact-time default: 9:00 PM in the picked location's timezone. */
+export const DEFAULT_TIME = "21:00:00";
 export const STANDARD_DATE_PLACEHOLDER = "YYYY-MM-DD";
 export const IOS_DATE_FALLBACK_PLACEHOLDER = "YYYYMMDD";
 export const DATE_INPUT_ERROR_MESSAGE =
