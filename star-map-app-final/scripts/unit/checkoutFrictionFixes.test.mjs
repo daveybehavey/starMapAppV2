@@ -99,6 +99,7 @@ test("429 and handoff failures are retryable; map errors are not", () => {
   assert.equal(shouldRetryCheckoutFailure("rate_limited", 429), true);
   assert.equal(shouldRetryCheckoutFailure("checkout_handoff_required", 403), true);
   assert.equal(shouldRetryCheckoutFailure("map_required", 400), false);
+  assert.equal(shouldRetryCheckoutFailure("sky_location_required", 400), false);
   assert.equal(CHECKOUT_RETRY_STATUS_MESSAGE, "One moment, retrying…");
 });
 
@@ -106,6 +107,21 @@ test("parseCheckoutApiErrorPayload maps bare 429 bodies to rate_limited", () => 
   const parsed = parseCheckoutApiErrorPayload({ error: "Too many requests. Please try again later." }, 429);
   assert.equal(parsed.code, "rate_limited");
   assert.equal(parsed.httpStatus, 429);
+});
+
+test("parseCheckoutApiErrorPayload keeps customer-readable sky location error", () => {
+  const parsed = parseCheckoutApiErrorPayload(
+    {
+      code: "sky_location_required",
+      error: "Please choose the location for your star map before checking out",
+    },
+    400
+  );
+  assert.equal(parsed.code, "sky_location_required");
+  assert.equal(
+    parsed.errorMessage,
+    "Please choose the location for your star map before checking out"
+  );
 });
 
 test("checkout_handoff_required payload includes editorRecoveryUrl when provided", () => {

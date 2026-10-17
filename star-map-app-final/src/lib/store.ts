@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { maybeRebaseUntouchedDefaultOnTimezoneChange } from "./dateInput";
 import type { MapLookTier } from "./mapLookTiers";
 import type { AspectRatio, Shape } from "./types";
 
@@ -81,10 +82,23 @@ export interface RenderOptions {
   showTechnicalRing?: boolean;
 }
 
+/** Last sample-design texts written by picker auto-sync (not manual edits). */
+export type SampleDesignLastAutoSyncedState = {
+  subtitle: string | null;
+  dedication: string | null;
+};
+
 export interface EditorState {
   dateTime: string;
+  /**
+   * True while date/time is still the pre-populated evening default the user has
+   * not edited. Location timezone changes rebase that default to 21:00 local.
+   */
+  dateTimeIsUntouchedDefault: boolean;
   location: LocationState;
   textBoxes: TextBox[];
+  /** Last auto-synced subtitle/dedication values for repeatable sample sync. */
+  sampleDesignLastAutoSynced: SampleDesignLastAutoSyncedState;
   selectedStyle: StyleId;
   aspectRatio: AspectRatio;
   shape: Shape;
@@ -98,6 +112,8 @@ export interface EditorState {
   updateTextBox: (id: string, payload: Partial<TextBox>) => void;
   removeTextBox: (id: string) => void;
   addTextBox: () => void;
+  setSampleDesignLastAutoSynced: (next: Partial<SampleDesignLastAutoSyncedState>) => void;
+  clearSampleDesignLastAutoSynced: () => void;
   setStyle: (style: StyleId) => void;
   setAspectRatio: (aspectRatio: AspectRatio) => void;
   setShape: (shape: Shape) => void;
@@ -107,14 +123,21 @@ export interface EditorState {
   setRevealed: (revealed: boolean) => void;
 }
 
+const EMPTY_SAMPLE_DESIGN_LAST_AUTO_SYNCED: SampleDesignLastAutoSyncedState = {
+  subtitle: null,
+  dedication: null,
+};
+
 const initialDate = (() => {
   const now = new Date();
-  now.setHours(0, 0, 0, 0);
+  // Match DEFAULT_TIME (9:00 PM) so a blank exact-time field stays consistent.
+  now.setHours(21, 0, 0, 0);
   return now;
 })();
 
 const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) => Partial<EditorState>)) => void): EditorState => ({
   dateTime: initialDate.toISOString(),
+  dateTimeIsUntouchedDefault: true,
   location: {
     name: "",
     latitude: 0,
@@ -161,6 +184,7 @@ const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) =
       position: { x: 0.5, y: 0.9 },
     },
   ],
+  sampleDesignLastAutoSynced: { ...EMPTY_SAMPLE_DESIGN_LAST_AUTO_SYNCED },
   selectedStyle: "navyGold",
   renderOptions: {
     mapLookTier: "polished",
@@ -185,9 +209,21 @@ const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) =
   previewFidelity: "standard",
   paid: false,
   revealed: false,
-  setDateTime: (dateTime) => set({ dateTime }),
+  setDateTime: (dateTime) => set({ dateTime, dateTimeIsUntouchedDefault: false }),
   setLocation: (location) =>
-    set((state) => ({ location: { ...state.location, ...location } })),
+    set((state) => {
+      const nextLocation = { ...state.location, ...location };
+      const nextDateTime = maybeRebaseUntouchedDefaultOnTimezoneChange({
+        dateTimeIso: state.dateTime,
+        previousTimezone: state.location.timezone,
+        nextTimezone: nextLocation.timezone,
+        dateTimeIsUntouchedDefault: state.dateTimeIsUntouchedDefault,
+      });
+      return {
+        location: nextLocation,
+        dateTime: nextDateTime,
+      };
+    }),
   setTextBoxes: (boxes) => set({ textBoxes: boxes }),
   updateTextBox: (id, payload) =>
     set((state) => ({
@@ -214,6 +250,15 @@ const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) =
       };
       return { textBoxes: [...state.textBoxes, newBox] };
     }),
+  setSampleDesignLastAutoSynced: (next) =>
+    set((state) => ({
+      sampleDesignLastAutoSynced: {
+        ...state.sampleDesignLastAutoSynced,
+        ...next,
+      },
+    })),
+  clearSampleDesignLastAutoSynced: () =>
+    set({ sampleDesignLastAutoSynced: { ...EMPTY_SAMPLE_DESIGN_LAST_AUTO_SYNCED } }),
   setStyle: (selectedStyle) => set({ selectedStyle }),
   setAspectRatio: (aspectRatio) => set({ aspectRatio }),
   setShape: (shape) => set({ shape }),

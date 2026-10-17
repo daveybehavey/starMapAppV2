@@ -41,7 +41,12 @@ import {
   parseCheckoutApiErrorPayload,
   shouldRetryCheckoutFailure,
 } from "@/lib/checkoutClientFailure";
+import {
+  CHECKOUT_SKY_LOCATION_REQUIRED_CODE,
+  CHECKOUT_SKY_LOCATION_REQUIRED_MESSAGE,
+} from "@/lib/checkoutSkyGuard";
 import { checkoutUrlErrorMessage, redirectToStripeCheckout } from "@/lib/stripeCheckoutNavigation";
+import { syncSampleDesignTextBoxes } from "@/lib/sampleDesignTextSync";
 
 // Lazy load the canvas for better initial load
 const PreviewCanvas = dynamic(() => import("@/components/PreviewCanvas"), {
@@ -135,6 +140,10 @@ export function SimplifiedEditor() {
   const [exportError, setExportError] = useState<string | null>(null);
   const [downloadHint, setDownloadHint] = useState<string | null>(null);
   const [titleTouched, setTitleTouched] = useState(false);
+  const [subtitleTouched, setSubtitleTouched] = useState(false);
+  // Dedication has no dedicated input in this simplified UI; once the sample
+  // string is replaced (or edited elsewhere), sync stops matching SAMPLE_DESIGN_DATE.
+  const dedicationTouched = false;
   const [dateTouched, setDateTouched] = useState(false);
   const [dateError, setDateError] = useState<string | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
@@ -211,6 +220,7 @@ export function SimplifiedEditor() {
         aspectRatio?: typeof aspectRatio;
         shape?: Shape;
         renderOptions?: typeof renderOptions;
+        sampleDesignLastAutoSynced?: { subtitle?: string | null; dedication?: string | null };
       };
       if (typeof parsed.dateTime === "string") {
         setDateTime(parsed.dateTime);
@@ -238,6 +248,11 @@ export function SimplifiedEditor() {
       if (parsed.renderOptions) {
         setRenderOptions(parsed.renderOptions);
       }
+      const synced = parsed.sampleDesignLastAutoSynced;
+      useStore.getState().setSampleDesignLastAutoSynced({
+        subtitle: typeof synced?.subtitle === "string" ? synced.subtitle : null,
+        dedication: typeof synced?.dedication === "string" ? synced.dedication : null,
+      });
       setMode("customizing");
     } catch {
       // ignore draft parse errors
@@ -254,15 +269,19 @@ export function SimplifiedEditor() {
     }
     draftSaveTimerRef.current = window.setTimeout(() => {
       try {
-        const sharedDraft = buildRecipeFromState({
-          dateTime,
-          location,
-          textBoxes,
-          selectedStyle,
-          aspectRatio,
-          shape,
-          renderOptions,
-        });
+        const sampleDesignLastAutoSynced = useStore.getState().sampleDesignLastAutoSynced;
+        const sharedDraft = {
+          ...buildRecipeFromState({
+            dateTime,
+            location,
+            textBoxes,
+            selectedStyle,
+            aspectRatio,
+            shape,
+            renderOptions,
+          }),
+          sampleDesignLastAutoSynced,
+        };
         localStorage.setItem(
           DRAFT_STORAGE_KEY,
           JSON.stringify({
@@ -273,6 +292,7 @@ export function SimplifiedEditor() {
             aspectRatio,
             shape,
             renderOptions,
+            sampleDesignLastAutoSynced,
           })
         );
         localStorage.setItem(SHARED_DRAFT_STORAGE_KEY, JSON.stringify(sharedDraft));
@@ -305,6 +325,24 @@ export function SimplifiedEditor() {
     };
   }, []);
 
+  const syncSampleTextFromPickers = useCallback(
+    (next: { locationName?: string; dateValue?: string }) => {
+      const state = useStore.getState();
+      const synced = syncSampleDesignTextBoxes({
+        textBoxes: state.textBoxes,
+        touched: { subtitle: subtitleTouched, dedication: dedicationTouched },
+        lastAutoSynced: state.sampleDesignLastAutoSynced,
+        locationDisplayName: next.locationName,
+        dateValue: next.dateValue,
+      });
+      if (synced.changed) {
+        setTextBoxes(synced.textBoxes);
+        state.setSampleDesignLastAutoSynced(synced.lastAutoSynced);
+      }
+    },
+    [dedicationTouched, setTextBoxes, subtitleTouched]
+  );
+
   const handleDateChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const nextValue = e.target.value.trim();
@@ -325,10 +363,16 @@ export function SimplifiedEditor() {
       const iso = combineDateTime(nextValue, currentTime, location.timezone);
       if (iso) {
         setDateTime(iso);
+        syncSampleTextFromPickers({ dateValue: nextValue });
       }
     },
-    [dateTime, location.timezone, maxDateValue, setDateTime]
+    [dateTime, location.timezone, maxDateValue, setDateTime, syncSampleTextFromPickers]
   );
+
+  const handleLocationPicked = useCallback(() => {
+    const nextName = useStore.getState().location.name;
+    syncSampleTextFromPickers({ locationName: nextName });
+  }, [syncSampleTextFromPickers]);
 
   const handleExactTimeChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -384,12 +428,15 @@ export function SimplifiedEditor() {
   const handleSubtitleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const newSubtitle = e.target.value;
+      if (!subtitleTouched) {
+        setSubtitleTouched(true);
+      }
       const updatedBoxes = textBoxes.map((tb) =>
         tb.id === "subtitle" ? { ...tb, text: newSubtitle } : tb
       );
       setTextBoxes(updatedBoxes);
     },
-    [textBoxes, setTextBoxes]
+    [textBoxes, setTextBoxes, subtitleTouched]
   );
 
   const toggleSubtitle = useCallback(() => {
@@ -658,6 +705,9 @@ export function SimplifiedEditor() {
         lastDiagnostics = parseCheckoutApiErrorPayload(payload, res.status);
         if (payload?.code === "map_required") throw new Error("map_required");
         if (payload?.code === "map_not_found") throw new Error("map_not_found");
+        if (payload?.code === CHECKOUT_SKY_LOCATION_REQUIRED_CODE) {
+          throw new Error(CHECKOUT_SKY_LOCATION_REQUIRED_CODE);
+        }
         if (attempt < 2 && shouldRetryCheckoutFailure(lastDiagnostics.code, res.status)) {
           setExportError(CHECKOUT_RETRY_STATUS_MESSAGE);
           const retryDelayMs =
@@ -704,6 +754,8 @@ export function SimplifiedEditor() {
       const urlMessage = checkoutUrlErrorMessage(reason);
       if (urlMessage) {
         setExportError(urlMessage);
+      } else if (reason === CHECKOUT_SKY_LOCATION_REQUIRED_CODE) {
+        setExportError(CHECKOUT_SKY_LOCATION_REQUIRED_MESSAGE);
       } else if (reason === "map_required") {
         setExportError("Generate a preview before checkout.");
       } else if (reason === "map_not_found") {
@@ -889,7 +941,7 @@ export function SimplifiedEditor() {
                       className="input-glow ios-form-control min-w-0 w-full rounded-lg border border-white/30 bg-white/10 px-3 py-3 text-base text-white placeholder:text-white/40 transition-all focus:border-amber-400/50 focus:outline-none"
                     />
                     <p className="mt-1 text-[10px] text-white/50">
-                      Leave blank to default to midnight
+                      Leave blank to default to 9 PM
                     </p>
                   </div>
                 )}
@@ -905,7 +957,11 @@ export function SimplifiedEditor() {
             >
               Where were you?
             </label>
-            <LocationInput disabled={mode === "sample"} inputId={`${formId}-location`} />
+            <LocationInput
+              disabled={mode === "sample"}
+              inputId={`${formId}-location`}
+              onLocationChange={handleLocationPicked}
+            />
           </div>
 
           {/* Title Input */}

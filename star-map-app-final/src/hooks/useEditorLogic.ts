@@ -234,6 +234,7 @@ export function useEditorLogic(options: UseEditorLogicOptions = {}): UseEditorLo
 
       // Always apply style, shape, textBoxes, and render options from preset
       setTextBoxes(preset.textBoxes);
+      useStore.getState().clearSampleDesignLastAutoSynced();
       setStyle(preset.style);
       const styleDefaults = applyStyleDefaults(preset.style, preset.textBoxes);
       if (Object.keys(styleDefaults.renderOptions).length) {
@@ -304,6 +305,7 @@ export function useEditorLogic(options: UseEditorLogicOptions = {}): UseEditorLo
       setShape(preset.shape);
       setAspectRatio(preset.aspectRatio);
       setTextBoxes(preset.textBoxes);
+      useStore.getState().clearSampleDesignLastAutoSynced();
       setRenderMode(preset.renderMode);
       setIntensity(preset.intensity);
       setIntensityDisplay(preset.intensity);

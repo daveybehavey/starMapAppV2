@@ -1,6 +1,7 @@
 "use client";
 
-export const DEFAULT_TIME = "00:00:00";
+/** Blank exact-time default: 9:00 PM in the picked location's timezone. */
+export const DEFAULT_TIME = "21:00:00";
 export const STANDARD_DATE_PLACEHOLDER = "YYYY-MM-DD";
 export const IOS_DATE_FALLBACK_PLACEHOLDER = "YYYYMMDD";
 export const DATE_INPUT_ERROR_MESSAGE =
@@ -156,6 +157,43 @@ export function combineDateTime(date: string, time: string, timezone?: string, f
     if (!Number.isFinite(combined.getTime())) return null;
     return combined.toISOString();
   }
+}
+
+/**
+ * Rebase an untouched evening default so wall-clock time is 21:00 in `locationTimezone`.
+ * Keeps the calendar date the user currently sees in the date control (browser-local
+ * components of the stored instant), then converts via {@link combineDateTime}.
+ */
+export function rebaseUntouchedDefaultDateTime(
+  dateTimeIso: string,
+  locationTimezone: string,
+  fallback = DEFAULT_TIME
+): string | null {
+  const instant = new Date(dateTimeIso);
+  if (!Number.isFinite(instant.getTime())) return null;
+  const dateStr = formatDateInput(instant);
+  if (!dateStr) return null;
+  const zone = typeof locationTimezone === "string" && locationTimezone.trim() ? locationTimezone.trim() : "UTC";
+  return combineDateTime(dateStr, fallback, zone, fallback);
+}
+
+/**
+ * When the location timezone changes and the date/time is still the untouched
+ * evening default, return a rebased ISO instant. User-set date/times are returned
+ * unchanged (same absolute instant / chosen wall time).
+ */
+export function maybeRebaseUntouchedDefaultOnTimezoneChange(input: {
+  dateTimeIso: string;
+  previousTimezone: string;
+  nextTimezone: string;
+  dateTimeIsUntouchedDefault: boolean;
+}): string {
+  const prev = (input.previousTimezone || "UTC").trim() || "UTC";
+  const next = (input.nextTimezone || "UTC").trim() || "UTC";
+  if (!input.dateTimeIsUntouchedDefault || prev === next) {
+    return input.dateTimeIso;
+  }
+  return rebaseUntouchedDefaultDateTime(input.dateTimeIso, next) ?? input.dateTimeIso;
 }
 
 export function toISODate(date: Date) {
