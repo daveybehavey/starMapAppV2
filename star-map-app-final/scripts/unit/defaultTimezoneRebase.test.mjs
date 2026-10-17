@@ -7,13 +7,13 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { DEFAULT_TIME, combineDateTime } from "../../src/lib/dateInput.ts";
 import {
-  DEFAULT_TIME,
-  combineDateTime,
+  formatDateTimeForLocation,
   maybeRebaseUntouchedDefaultOnTimezoneChange,
   rebaseUntouchedDefaultDateTime,
-} from "../../src/lib/dateInput.ts";
-import { formatDateTimeForLocation } from "../../src/lib/dateTime.ts";
+  resolveBrowserTimeZone,
+} from "../../src/lib/dateTime.ts";
 import {
   parseEditorDraft,
   readEditorDraft,
@@ -38,30 +38,116 @@ function freshLoadDefaultIso(ymd = "2024-06-15") {
   return local.toISOString();
 }
 
+/** Run `fn` under a process TZ so Date + Intl.resolvedOptions match that zone. */
+function withProcessTz(tz, fn) {
+  const previous = process.env.TZ;
+  process.env.TZ = tz;
+  try {
+    return fn();
+  } finally {
+    if (previous === undefined) delete process.env.TZ;
+    else process.env.TZ = previous;
+  }
+}
+
 test("rebaseUntouchedDefaultDateTime yields 21:00 wall time in the target timezone", () => {
   const defaultIso = freshLoadDefaultIso("2024-06-15");
-  const athensIso = rebaseUntouchedDefaultDateTime(defaultIso, "Europe/Athens");
+  const athensIso = rebaseUntouchedDefaultDateTime(defaultIso, "Europe/Athens", "UTC");
   assert.ok(athensIso);
   const athens = formatDateTimeForLocation(athensIso, "Europe/Athens");
   assert.ok(athens);
   assert.equal(athens.time, "21:00");
   assert.equal(athens.date, "2024-06-15");
 
-  const tokyoIso = rebaseUntouchedDefaultDateTime(defaultIso, "Asia/Tokyo");
+  const tokyoIso = rebaseUntouchedDefaultDateTime(defaultIso, "Asia/Tokyo", "UTC");
   assert.ok(tokyoIso);
   const tokyo = formatDateTimeForLocation(tokyoIso, "Asia/Tokyo");
   assert.ok(tokyo);
   assert.equal(tokyo.time, "21:00");
 });
 
+test("first placeholder hop preserves browser-local day (Honolulu browser → Tokyo)", () => {
+  withProcessTz("Pacific/Honolulu", () => {
+    assert.equal(resolveBrowserTimeZone(), "Pacific/Honolulu");
+    // Initial default: June 15 21:00 browser-local → June 16 07:00 UTC.
+    const defaultIso = freshLoadDefaultIso("2024-06-15");
+    assert.equal(defaultIso, "2024-06-16T07:00:00.000Z");
+
+    // Placeholder previousTimezone is still "UTC" (or an unset sentinel). Without
+    // isInitialPlaceholder, formatting in UTC would yield June 16 and Tokyo would
+    // land on June 16 21:00. With the flag, browser zone keeps June 15.
+    const tokyoIso = maybeRebaseUntouchedDefaultOnTimezoneChange({
+      dateTimeIso: defaultIso,
+      previousTimezone: "UTC",
+      nextTimezone: "Asia/Tokyo",
+      dateTimeIsUntouchedDefault: true,
+      isInitialPlaceholder: true,
+    });
+    const tokyo = formatDateTimeForLocation(tokyoIso, "Asia/Tokyo");
+    assert.ok(tokyo);
+    assert.equal(tokyo.date, "2024-06-15");
+    assert.equal(tokyo.time, "21:00");
+    assert.notEqual(tokyo.date, "2024-06-16");
+
+    // Control: same inputs without the flag still drift to June 16 (documents the bug).
+    const drifted = maybeRebaseUntouchedDefaultOnTimezoneChange({
+      dateTimeIso: defaultIso,
+      previousTimezone: "UTC",
+      nextTimezone: "Asia/Tokyo",
+      dateTimeIsUntouchedDefault: true,
+      isInitialPlaceholder: false,
+    });
+    const driftedWall = formatDateTimeForLocation(drifted, "Asia/Tokyo");
+    assert.ok(driftedWall);
+    assert.equal(driftedWall.date, "2024-06-16");
+  });
+});
+
+test("multi-hop rebase preserves prior-location calendar date (Honolulu → Tokyo)", () => {
+  // Simulate UTC-browser fresh load: June 15 at 21:00 local → that UTC instant.
+  withProcessTz("UTC", () => {
+    assert.equal(resolveBrowserTimeZone(), "UTC");
+    const defaultIso = "2024-06-15T21:00:00.000Z";
+
+    const honoluluIso = maybeRebaseUntouchedDefaultOnTimezoneChange({
+      dateTimeIso: defaultIso,
+      previousTimezone: "UTC",
+      nextTimezone: "Pacific/Honolulu",
+      dateTimeIsUntouchedDefault: true,
+      isInitialPlaceholder: true,
+    });
+    // June 15 21:00 Honolulu is June 16 07:00 UTC.
+    assert.equal(honoluluIso, "2024-06-16T07:00:00.000Z");
+    const honoluluWall = formatDateTimeForLocation(honoluluIso, "Pacific/Honolulu");
+    assert.ok(honoluluWall);
+    assert.equal(honoluluWall.date, "2024-06-15");
+    assert.equal(honoluluWall.time, "21:00");
+
+    // Subsequent hop: real prior location TZ (not browser). Keep Honolulu's June 15.
+    const tokyoIso = maybeRebaseUntouchedDefaultOnTimezoneChange({
+      dateTimeIso: honoluluIso,
+      previousTimezone: "Pacific/Honolulu",
+      nextTimezone: "Asia/Tokyo",
+      dateTimeIsUntouchedDefault: true,
+      isInitialPlaceholder: false,
+    });
+    const tokyo = formatDateTimeForLocation(tokyoIso, "Asia/Tokyo");
+    assert.ok(tokyo);
+    assert.equal(tokyo.date, "2024-06-15");
+    assert.equal(tokyo.time, "21:00");
+    assert.notEqual(tokyo.date, "2024-06-16");
+  });
+});
+
 test("fresh-load default + location pick in another timezone → 21:00 local in picked TZ", () => {
   const defaultIso = freshLoadDefaultIso("2024-06-15");
-  // Store starts as UTC location; picking Athens rebases the untouched default.
+  // Store starts as placeholder; picking Athens rebases the untouched default.
   const afterAthens = maybeRebaseUntouchedDefaultOnTimezoneChange({
     dateTimeIso: defaultIso,
     previousTimezone: "UTC",
     nextTimezone: "Europe/Athens",
     dateTimeIsUntouchedDefault: true,
+    isInitialPlaceholder: true,
   });
   const athens = formatDateTimeForLocation(afterAthens, "Europe/Athens");
   assert.ok(athens);
@@ -73,6 +159,7 @@ test("fresh-load default + location pick in another timezone → 21:00 local in 
     previousTimezone: "Europe/Athens",
     nextTimezone: "Europe/London",
     dateTimeIsUntouchedDefault: true,
+    isInitialPlaceholder: false,
   });
   const london = formatDateTimeForLocation(afterLondon, "Europe/London");
   assert.ok(london);
@@ -103,12 +190,25 @@ test("user-set time + location change → wall time / instant unchanged", () => 
 test("store wires untouched-default rebase through setLocation", () => {
   const store = readSrc("src/lib/store.ts");
   assert.match(store, /dateTimeIsUntouchedDefault/);
+  assert.match(store, /resolveBrowserTimeZone/);
+  assert.match(
+    store,
+    /import \{\s*maybeRebaseUntouchedDefaultOnTimezoneChange,\s*resolveBrowserTimeZone,\s*\} from "\.\/dateTime"/s
+  );
   assert.match(store, /maybeRebaseUntouchedDefaultOnTimezoneChange/);
   assert.match(store, /setDateTime: \(dateTime\) => set\(\{ dateTime, dateTimeIsUntouchedDefault: false \}\)/);
   assert.match(store, /setLocation: \(location\) =>/);
   assert.match(store, /previousTimezone: state\.location\.timezone/);
   assert.match(store, /nextTimezone: nextLocation\.timezone/);
   assert.match(store, /dateTimeIsUntouchedDefault: state\.dateTimeIsUntouchedDefault/);
+  assert.match(store, /isInitialPlaceholder: isInitialPlaceholderLocation\(state\.location\)/);
+  assert.match(store, /timezone: resolveBrowserTimeZone\(\)/);
+
+  const dateTime = readSrc("src/lib/dateTime.ts");
+  assert.match(dateTime, /formatDateTimeForLocation\(dateTimeIso, prevZone\)/);
+  assert.match(dateTime, /toUTCDateFromLocalWall\(dateStr, normalizedTime, zone\)/);
+  assert.match(dateTime, /isInitialPlaceholder/);
+  assert.match(dateTime, /resolveBrowserTimeZone\(\)/);
 });
 
 test("draft save/restore round-trip preserves sampleDesignLastAutoSynced", () => {

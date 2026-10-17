@@ -576,10 +576,14 @@ export function EditorExperience({
           ? "Confirm your place to unlock preview"
           : "Add your place to unlock preview";
 
-  // Wrap hook's applyPreset to scroll to dateLocationRef
+  // Wrap hook's applyPreset to scroll to dateLocationRef.
+  // Reset sample-text touch flags so freshly installed preset strings can auto-sync
+  // (matches clearSampleDesignLastAutoSynced in the hook).
   const applyPreset = useCallback(
     (id: string) => {
       hookApplyPreset(id, dateLocationRef.current);
+      setSubtitleTouched(false);
+      setDedicationTouched(false);
     },
     [hookApplyPreset]
   );

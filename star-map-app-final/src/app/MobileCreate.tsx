@@ -227,10 +227,14 @@ export function MobileCreate({
     });
   }, [textBoxes]);
 
-  // Wrap hook's applyPreset to scroll to mobile preview
+  // Wrap hook's applyPreset to scroll to mobile preview.
+  // Reset sample-text touch flags so freshly installed preset strings can auto-sync
+  // (matches clearSampleDesignLastAutoSynced in the hook).
   const applyPreset = useCallback(
     (id: string) => {
       hookApplyPreset(id, document.getElementById("mobile-preview"));
+      setSubtitleTouched(false);
+      setDedicationTouched(false);
     },
     [hookApplyPreset]
   );

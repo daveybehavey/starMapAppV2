@@ -183,3 +183,53 @@ test("mobile handler path syncs untouched sample text on date/location change", 
   assert.match(store, /setSampleDesignLastAutoSynced/);
   assert.match(store, /clearSampleDesignLastAutoSynced/);
 });
+
+test("reapplying sample preset resets touch flags so location sync resumes", () => {
+  assert.ok(wedding);
+
+  // Simulate: user edited subtitle (touched) → reapply wedding sample → change location.
+  // After preset reapply, text is sample again and touch flags must be false so sync works.
+  const afterManualEdit = wedding.textBoxes.map((b) =>
+    b.id === "subtitle" ? { ...b, text: "Our beach house" } : { ...b }
+  );
+  const blockedWhileTouched = syncSampleDesignTextBoxes({
+    textBoxes: afterManualEdit,
+    touched: { subtitle: true, dedication: false },
+    lastAutoSynced: { subtitle: null, dedication: null },
+    locationDisplayName: "Paris, France",
+  });
+  assert.equal(blockedWhileTouched.changed, false);
+  assert.equal(
+    blockedWhileTouched.textBoxes.find((b) => b.id === "subtitle")?.text,
+    "Our beach house"
+  );
+
+  // applyPreset replaces text boxes with the sample and clears auto-sync provenance.
+  const afterPresetReapply = wedding.textBoxes.map((b) => ({ ...b }));
+  const clearedLastAutoSynced = { subtitle: null, dedication: null };
+  // Touch flags reset to false (EditorExperience + MobileCreate applyPreset wrappers).
+  const afterLocation = syncSampleDesignTextBoxes({
+    textBoxes: afterPresetReapply,
+    touched: { subtitle: false, dedication: false },
+    lastAutoSynced: clearedLastAutoSynced,
+    locationDisplayName: "Tokyo, Japan",
+  });
+  assert.equal(afterLocation.changed, true);
+  assert.equal(afterLocation.textBoxes.find((b) => b.id === "subtitle")?.text, "Tokyo, Japan");
+  assert.equal(afterLocation.lastAutoSynced.subtitle, "Tokyo, Japan");
+
+  const editor = read("src/components/EditorExperience.tsx");
+  assert.match(
+    editor,
+    /const applyPreset = useCallback\(\s*\([\s\S]*?setSubtitleTouched\(false\);\s*setDedicationTouched\(false\);/
+  );
+
+  const mobile = read("src/app/MobileCreate.tsx");
+  assert.match(
+    mobile,
+    /const applyPreset = useCallback\(\s*\([\s\S]*?setSubtitleTouched\(false\);\s*setDedicationTouched\(false\);/
+  );
+
+  const hook = read("src/hooks/useEditorLogic.ts");
+  assert.match(hook, /clearSampleDesignLastAutoSynced\(\)/);
+});
