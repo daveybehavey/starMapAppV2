@@ -618,15 +618,18 @@ export function EditorExperience({
 
   const syncSampleTextFromPickers = useCallback(
     (next: { locationName?: string; dateValue?: string }) => {
-      const currentBoxes = useStore.getState().textBoxes;
+      const state = useStore.getState();
+      const currentBoxes = state.textBoxes;
       const synced = syncSampleDesignTextBoxes({
         textBoxes: currentBoxes,
         touched: { subtitle: subtitleTouched, dedication: dedicationTouched },
+        lastAutoSynced: state.sampleDesignLastAutoSynced,
         locationDisplayName: next.locationName,
         dateValue: next.dateValue,
       });
-      if (synced !== currentBoxes) {
-        setTextBoxes(synced);
+      if (synced.changed) {
+        setTextBoxes(synced.textBoxes);
+        useStore.getState().setSampleDesignLastAutoSynced(synced.lastAutoSynced);
       }
     },
     [dedicationTouched, setTextBoxes, subtitleTouched]

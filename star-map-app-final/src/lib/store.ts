@@ -81,10 +81,18 @@ export interface RenderOptions {
   showTechnicalRing?: boolean;
 }
 
+/** Last sample-design texts written by picker auto-sync (not manual edits). */
+export type SampleDesignLastAutoSyncedState = {
+  subtitle: string | null;
+  dedication: string | null;
+};
+
 export interface EditorState {
   dateTime: string;
   location: LocationState;
   textBoxes: TextBox[];
+  /** Last auto-synced subtitle/dedication values for repeatable sample sync. */
+  sampleDesignLastAutoSynced: SampleDesignLastAutoSyncedState;
   selectedStyle: StyleId;
   aspectRatio: AspectRatio;
   shape: Shape;
@@ -98,6 +106,8 @@ export interface EditorState {
   updateTextBox: (id: string, payload: Partial<TextBox>) => void;
   removeTextBox: (id: string) => void;
   addTextBox: () => void;
+  setSampleDesignLastAutoSynced: (next: Partial<SampleDesignLastAutoSyncedState>) => void;
+  clearSampleDesignLastAutoSynced: () => void;
   setStyle: (style: StyleId) => void;
   setAspectRatio: (aspectRatio: AspectRatio) => void;
   setShape: (shape: Shape) => void;
@@ -106,6 +116,11 @@ export interface EditorState {
   setPaid: (paid: boolean) => void;
   setRevealed: (revealed: boolean) => void;
 }
+
+const EMPTY_SAMPLE_DESIGN_LAST_AUTO_SYNCED: SampleDesignLastAutoSyncedState = {
+  subtitle: null,
+  dedication: null,
+};
 
 const initialDate = (() => {
   const now = new Date();
@@ -162,6 +177,7 @@ const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) =
       position: { x: 0.5, y: 0.9 },
     },
   ],
+  sampleDesignLastAutoSynced: { ...EMPTY_SAMPLE_DESIGN_LAST_AUTO_SYNCED },
   selectedStyle: "navyGold",
   renderOptions: {
     mapLookTier: "polished",
@@ -215,6 +231,15 @@ const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) =
       };
       return { textBoxes: [...state.textBoxes, newBox] };
     }),
+  setSampleDesignLastAutoSynced: (next) =>
+    set((state) => ({
+      sampleDesignLastAutoSynced: {
+        ...state.sampleDesignLastAutoSynced,
+        ...next,
+      },
+    })),
+  clearSampleDesignLastAutoSynced: () =>
+    set({ sampleDesignLastAutoSynced: { ...EMPTY_SAMPLE_DESIGN_LAST_AUTO_SYNCED } }),
   setStyle: (selectedStyle) => set({ selectedStyle }),
   setAspectRatio: (aspectRatio) => set({ aspectRatio }),
   setShape: (shape) => set({ shape }),

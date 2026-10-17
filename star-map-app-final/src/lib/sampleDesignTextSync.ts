@@ -1,7 +1,8 @@
 /**
  * Sync sample/demo design text boxes when the user picks a new date or location.
- * Only overwrites while the box still holds the wedding sample string and the
- * user has not manually edited that box.
+ * Overwrites while the box is untouched and its text still equals either the
+ * wedding sample constant or the last value this sync wrote. Manual edits
+ * (touched) permanently stop syncing for that box.
  */
 
 export const SAMPLE_DESIGN_TITLE = "The Night We Became One";
@@ -16,6 +17,18 @@ export type SampleDesignTextBox = {
 export type SampleDesignTouchedState = {
   subtitle?: boolean;
   dedication?: boolean;
+};
+
+/** Last values written by auto-sync (not by the user). */
+export type SampleDesignLastAutoSynced = {
+  subtitle?: string | null;
+  dedication?: string | null;
+};
+
+export type SyncSampleDesignTextBoxesResult<T extends SampleDesignTextBox> = {
+  textBoxes: T[];
+  lastAutoSynced: SampleDesignLastAutoSynced;
+  changed: boolean;
 };
 
 /** Format a YYYY-MM-DD (or Date) as "June 1, 2024" to match the wedding sample. */
@@ -54,45 +67,75 @@ export function formatSampleDedicationDate(dateInput: string | Date): string {
   }).format(local);
 }
 
+function isEligibleForAutoSync(
+  currentText: string,
+  touched: boolean | undefined,
+  sampleConstant: string,
+  lastAuto: string | null | undefined
+): boolean {
+  if (touched) return false;
+  if (currentText === sampleConstant) return true;
+  return typeof lastAuto === "string" && lastAuto.length > 0 && currentText === lastAuto;
+}
+
 /**
- * When subtitle still equals the sample place text and is untouched, replace it
- * with the picked location display name. When dedication still equals the sample
- * date text and is untouched, replace it with the formatted picked date.
+ * When subtitle is untouched and still holds the sample place (or the last
+ * auto-synced place), replace it with the picked location display name.
+ * When dedication is untouched and still holds the sample date (or the last
+ * auto-synced date), replace it with the formatted picked date.
  */
 export function syncSampleDesignTextBoxes<T extends SampleDesignTextBox>(input: {
   textBoxes: readonly T[];
   touched: SampleDesignTouchedState;
+  lastAutoSynced?: SampleDesignLastAutoSynced | null;
   locationDisplayName?: string | null;
   dateValue?: string | Date | null;
-}): T[] {
+}): SyncSampleDesignTextBoxesResult<T> {
   const placeName =
     typeof input.locationDisplayName === "string" ? input.locationDisplayName.trim() : "";
   const formattedDate = input.dateValue ? formatSampleDedicationDate(input.dateValue) : "";
+  const prevLast: SampleDesignLastAutoSynced = {
+    subtitle: input.lastAutoSynced?.subtitle ?? null,
+    dedication: input.lastAutoSynced?.dedication ?? null,
+  };
 
   let changed = false;
+  let nextLast = prevLast;
   const next = input.textBoxes.map((box) => {
     if (
       box.id === "subtitle" &&
-      !input.touched.subtitle &&
-      box.text === SAMPLE_DESIGN_PLACE &&
       placeName &&
-      placeName !== box.text
+      placeName !== box.text &&
+      isEligibleForAutoSync(box.text, input.touched.subtitle, SAMPLE_DESIGN_PLACE, prevLast.subtitle)
     ) {
       changed = true;
+      nextLast = { ...nextLast, subtitle: placeName };
       return { ...box, text: placeName };
     }
     if (
       box.id === "dedication" &&
-      !input.touched.dedication &&
-      box.text === SAMPLE_DESIGN_DATE &&
       formattedDate &&
-      formattedDate !== box.text
+      formattedDate !== box.text &&
+      isEligibleForAutoSync(box.text, input.touched.dedication, SAMPLE_DESIGN_DATE, prevLast.dedication)
     ) {
       changed = true;
+      nextLast = { ...nextLast, dedication: formattedDate };
       return { ...box, text: formattedDate };
     }
     return box;
   });
 
-  return changed ? next : (input.textBoxes as T[]);
+  if (!changed) {
+    return {
+      textBoxes: input.textBoxes as T[],
+      lastAutoSynced: prevLast,
+      changed: false,
+    };
+  }
+
+  return {
+    textBoxes: next,
+    lastAutoSynced: nextLast,
+    changed: true,
+  };
 }

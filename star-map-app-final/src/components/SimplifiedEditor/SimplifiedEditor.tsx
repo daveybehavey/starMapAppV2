@@ -316,17 +316,20 @@ export function SimplifiedEditor() {
 
   const syncSampleTextFromPickers = useCallback(
     (next: { locationName?: string; dateValue?: string }) => {
+      const state = useStore.getState();
       const synced = syncSampleDesignTextBoxes({
-        textBoxes,
+        textBoxes: state.textBoxes,
         touched: { subtitle: subtitleTouched, dedication: dedicationTouched },
+        lastAutoSynced: state.sampleDesignLastAutoSynced,
         locationDisplayName: next.locationName,
         dateValue: next.dateValue,
       });
-      if (synced !== textBoxes) {
-        setTextBoxes(synced);
+      if (synced.changed) {
+        setTextBoxes(synced.textBoxes);
+        state.setSampleDesignLastAutoSynced(synced.lastAutoSynced);
       }
     },
-    [dedicationTouched, setTextBoxes, subtitleTouched, textBoxes]
+    [dedicationTouched, setTextBoxes, subtitleTouched]
   );
 
   const handleDateChange = useCallback(

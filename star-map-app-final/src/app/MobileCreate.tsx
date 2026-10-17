@@ -30,6 +30,9 @@ import { PrintGiftDecisionPanel } from "@/components/PrintGiftDecisionPanel";
 import { getRevealProgressPercent, REVEAL_STAGES } from "@/lib/revealExperience";
 import { useEditorLogic } from "@/hooks/useEditorLogic";
 import { useAndroidAppMode } from "@/hooks/useAndroidAppMode";
+import { useStore } from "@/lib/store";
+import { formatDateTimeForLocation } from "@/lib/dateTime";
+import { syncSampleDesignTextBoxes } from "@/lib/sampleDesignTextSync";
 
 const REVEAL_ANIMATION_MS = 900;
 const DEFAULT_TITLE_TEXT = "our night sky";
@@ -169,6 +172,8 @@ export function MobileCreate({
   const renderModeBannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showFontBanner, setShowFontBanner] = useState(false);
   const fontBannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [subtitleTouched, setSubtitleTouched] = useState(false);
+  const [dedicationTouched, setDedicationTouched] = useState(false);
 
   const showGuidedForm = !revealed || !showAdvanced;
   const showEditor = revealed && showAdvanced;
@@ -336,6 +341,24 @@ export function MobileCreate({
     dateLocationRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [setCustomOccasion, setRevealed, setSelectedOccasion]);
 
+  const syncSampleTextFromPickers = useCallback(
+    (next: { locationName?: string; dateValue?: string }) => {
+      const state = useStore.getState();
+      const synced = syncSampleDesignTextBoxes({
+        textBoxes: state.textBoxes,
+        touched: { subtitle: subtitleTouched, dedication: dedicationTouched },
+        lastAutoSynced: state.sampleDesignLastAutoSynced,
+        locationDisplayName: next.locationName,
+        dateValue: next.dateValue,
+      });
+      if (synced.changed) {
+        setTextBoxes(synced.textBoxes);
+        state.setSampleDesignLastAutoSynced(synced.lastAutoSynced);
+      }
+    },
+    [dedicationTouched, setTextBoxes, subtitleTouched],
+  );
+
   const handleDateTimeChange = useCallback(
     (iso: string) => {
       setDateTime(iso);
@@ -343,8 +366,17 @@ export function MobileCreate({
       if (selectedOccasion) {
         setSelectedOccasion(null);
       }
+      const tz = useStore.getState().location.timezone || "UTC";
+      const parts = formatDateTimeForLocation(iso, tz);
+      syncSampleTextFromPickers({ dateValue: parts?.date || undefined });
     },
-    [selectedOccasion, setCustomOccasion, setDateTime, setSelectedOccasion],
+    [
+      selectedOccasion,
+      setCustomOccasion,
+      setDateTime,
+      setSelectedOccasion,
+      syncSampleTextFromPickers,
+    ],
   );
 
   const handleLocationChange = useCallback(() => {
@@ -352,7 +384,22 @@ export function MobileCreate({
     if (selectedOccasion) {
       setSelectedOccasion(null);
     }
-  }, [selectedOccasion, setCustomOccasion, setSelectedOccasion]);
+    const nextName = useStore.getState().location.name;
+    syncSampleTextFromPickers({ locationName: nextName });
+  }, [selectedOccasion, setCustomOccasion, setSelectedOccasion, syncSampleTextFromPickers]);
+
+  const handleTextBoxTextChange = useCallback(
+    (boxId: string, text: string) => {
+      if (boxId === "subtitle" && !subtitleTouched) {
+        setSubtitleTouched(true);
+      }
+      if (boxId === "dedication" && !dedicationTouched) {
+        setDedicationTouched(true);
+      }
+      updateTextBox(boxId, { text });
+    },
+    [dedicationTouched, subtitleTouched, updateTextBox],
+  );
 
   const applySampleMoment = useCallback(() => {
     const preset = occasionPresets.find((item) => item.id === "wedding") ?? occasionPresets[0];
@@ -842,7 +889,7 @@ export function MobileCreate({
                   <input
                     type="text"
                     value={box.text}
-                    onChange={(e) => updateTextBox(box.id, { text: e.target.value })}
+                    onChange={(e) => handleTextBoxTextChange(box.id, e.target.value)}
                     className="h-10 w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
                     placeholder={`Enter ${box.label.toLowerCase()}...`}
                   />
@@ -937,7 +984,7 @@ export function MobileCreate({
                     <input
                       type="text"
                       value={box.text}
-                      onChange={(e) => updateTextBox(box.id, { text: e.target.value })}
+                      onChange={(e) => handleTextBoxTextChange(box.id, e.target.value)}
                       className="h-10 w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
                       placeholder={`Enter ${box.label.toLowerCase()}...`}
                     />
