@@ -13,8 +13,10 @@ import {
   SAMPLE_DESIGN_PLACE,
   SAMPLE_DESIGN_TITLE,
   formatSampleDedicationDate,
+  resolvePresetTextBoxesOnApply,
   syncSampleDesignTextBoxes,
 } from "../../src/lib/sampleDesignTextSync.ts";
+import { formatDateTimeForLocation } from "../../src/lib/dateTime.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const appRoot = join(here, "../..");
@@ -232,4 +234,94 @@ test("reapplying sample preset resets touch flags so location sync resumes", () 
 
   const hook = read("src/hooks/useEditorLogic.ts");
   assert.match(hook, /clearSampleDesignLastAutoSynced\(\)/);
+  assert.match(hook, /resolvePresetTextBoxesOnApply\(/);
+});
+
+test("applyPreset with preserved custom sky syncs wedding sample text immediately", () => {
+  assert.ok(wedding);
+
+  // Reported sequence: user sets custom location + date, then applies Wedding.
+  // Preset installs sample wording, but preserved sky must win for subtitle/dedication.
+  const customLocation = "Chicago, IL";
+  const customDateIso = "2025-02-14T21:00:00.000Z";
+  const dateParts = formatDateTimeForLocation(customDateIso, "America/Chicago");
+  assert.ok(dateParts?.date, "custom date must format");
+
+  const resolved = resolvePresetTextBoxesOnApply({
+    presetTextBoxes: wedding.textBoxes.map((b) => ({ ...b })),
+    preserveCustomSky: true,
+    locationDisplayName: customLocation,
+    dateValue: dateParts.date,
+  });
+
+  assert.equal(resolved.changed, true);
+  assert.equal(resolved.textBoxes.find((b) => b.id === "title")?.text, SAMPLE_DESIGN_TITLE);
+  assert.equal(resolved.textBoxes.find((b) => b.id === "subtitle")?.text, customLocation);
+  assert.equal(
+    resolved.textBoxes.find((b) => b.id === "dedication")?.text,
+    formatSampleDedicationDate(dateParts.date)
+  );
+  assert.equal(resolved.lastAutoSynced.subtitle, customLocation);
+  assert.equal(
+    resolved.lastAutoSynced.dedication,
+    formatSampleDedicationDate(dateParts.date)
+  );
+
+  // Provenance stays in auto-sync state (#293 touch reset): a later picker change still syncs.
+  const afterNextPick = syncSampleDesignTextBoxes({
+    textBoxes: resolved.textBoxes,
+    touched: {},
+    lastAutoSynced: resolved.lastAutoSynced,
+    locationDisplayName: "London, UK",
+    dateValue: "2026-03-20",
+  });
+  assert.equal(afterNextPick.textBoxes.find((b) => b.id === "subtitle")?.text, "London, UK");
+  assert.equal(afterNextPick.textBoxes.find((b) => b.id === "dedication")?.text, "March 20, 2026");
+});
+
+test("applyPreset without custom sky keeps preset sample text in auto-sync-ready state", () => {
+  assert.ok(wedding);
+
+  const resolved = resolvePresetTextBoxesOnApply({
+    presetTextBoxes: wedding.textBoxes.map((b) => ({ ...b })),
+    preserveCustomSky: false,
+    locationDisplayName: "Chicago, IL",
+    dateValue: "2025-02-14",
+  });
+
+  assert.equal(resolved.changed, false);
+  assert.equal(resolved.textBoxes.find((b) => b.id === "subtitle")?.text, SAMPLE_DESIGN_PLACE);
+  assert.equal(resolved.textBoxes.find((b) => b.id === "dedication")?.text, SAMPLE_DESIGN_DATE);
+  assert.equal(resolved.lastAutoSynced.subtitle, null);
+  assert.equal(resolved.lastAutoSynced.dedication, null);
+
+  // Cleared provenance + sample constants: first picker change still syncs.
+  const afterPick = syncSampleDesignTextBoxes({
+    textBoxes: resolved.textBoxes,
+    touched: {},
+    lastAutoSynced: resolved.lastAutoSynced,
+    locationDisplayName: "Tokyo, Japan",
+    dateValue: "2024-08-01",
+  });
+  assert.equal(afterPick.changed, true);
+  assert.equal(afterPick.textBoxes.find((b) => b.id === "subtitle")?.text, "Tokyo, Japan");
+  assert.equal(afterPick.textBoxes.find((b) => b.id === "dedication")?.text, "August 1, 2024");
+});
+
+test("hook applyPreset wires preserve-sky sync; MobileCreate shares the hook path", () => {
+  const hook = read("src/hooks/useEditorLogic.ts");
+  assert.match(hook, /import \{ resolvePresetTextBoxesOnApply \} from "@\/lib\/sampleDesignTextSync"/);
+  assert.match(hook, /import \{ formatDateTimeForLocation \} from "@\/lib\/dateTime"/);
+  assert.match(hook, /const preserveCustomSky = !shouldAutofill/);
+  assert.match(hook, /resolvePresetTextBoxesOnApply\(\{/);
+  assert.match(hook, /setSampleDesignLastAutoSynced\(resolvedText\.lastAutoSynced\)/);
+
+  // MobileCreate / EditorExperience only wrap the shared hook — no second preset text path.
+  const mobile = read("src/app/MobileCreate.tsx");
+  assert.match(mobile, /applyPreset: hookApplyPreset/);
+  assert.doesNotMatch(mobile, /setTextBoxes\(preset\.textBoxes\)/);
+
+  const editor = read("src/components/EditorExperience.tsx");
+  assert.match(editor, /applyPreset: hookApplyPreset/);
+  assert.doesNotMatch(editor, /setTextBoxes\(preset\.textBoxes\)/);
 });

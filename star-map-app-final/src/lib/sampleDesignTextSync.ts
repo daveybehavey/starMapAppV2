@@ -139,3 +139,42 @@ export function syncSampleDesignTextBoxes<T extends SampleDesignTextBox>(input: 
     changed: true,
   };
 }
+
+/**
+ * Resolve text boxes when an occasion preset is applied.
+ *
+ * - When the preset also installs its sample sky (`preserveCustomSky: false`),
+ *   keep the preset's own text and start in cleared auto-sync provenance
+ *   (same ready state as after `clearSampleDesignLastAutoSynced`).
+ * - When the user's date/location are preserved (`preserveCustomSky: true`),
+ *   install the preset's text boxes then immediately sync eligible sample
+ *   subtitle/dedication to the preserved sky — same rules as picker sync.
+ *
+ * Callers must reset subtitle/dedication touch flags on apply (PR #293) so
+ * freshly installed sample strings can auto-sync; this helper therefore
+ * treats boxes as untouched.
+ */
+export function resolvePresetTextBoxesOnApply<T extends SampleDesignTextBox>(input: {
+  presetTextBoxes: readonly T[];
+  preserveCustomSky: boolean;
+  locationDisplayName?: string | null;
+  dateValue?: string | Date | null;
+}): SyncSampleDesignTextBoxesResult<T> {
+  const cleared: SampleDesignLastAutoSynced = { subtitle: null, dedication: null };
+
+  if (!input.preserveCustomSky) {
+    return {
+      textBoxes: input.presetTextBoxes as T[],
+      lastAutoSynced: cleared,
+      changed: false,
+    };
+  }
+
+  return syncSampleDesignTextBoxes({
+    textBoxes: input.presetTextBoxes,
+    touched: {},
+    lastAutoSynced: cleared,
+    locationDisplayName: input.locationDisplayName,
+    dateValue: input.dateValue,
+  });
+}
