@@ -15,6 +15,9 @@ jobs:
   full-smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    env:
+      CI: "true"
+      NEXT_FONT_GOOGLE_MOCKED_RESPONSES: ${{ github.workspace }}/star-map-app-final/.ci-fonts/responses.json
     steps:
       - uses: actions/checkout@v4
 
@@ -26,6 +29,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Prepare deterministic CI fonts
+        run: node scripts/prepare-ci-fonts.mjs --acquire
 
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
