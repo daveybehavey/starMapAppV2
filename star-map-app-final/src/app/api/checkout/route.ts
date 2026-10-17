@@ -75,6 +75,7 @@ import {
   isPromotionsConsentUnsupportedError,
   shouldAttemptPromotionsConsent,
 } from "@/lib/stripeConsentCollection";
+import { evaluateCheckoutSkyGuard } from "@/lib/checkoutSkyGuard";
 
 export const runtime = "nodejs";
 
@@ -262,9 +263,27 @@ async function resolveCheckoutPrintAssetId(input: {
   return loadReusablePrintAssetId(input.mapId, input.recipeFingerprint);
 }
 
-async function mapExists(mapId: string): Promise<boolean> {
-  const record = await kv.get<unknown>(`map:${mapId}`);
-  return Boolean(record);
+type StoredCheckoutMapRecord = {
+  location?: { latitude?: number; longitude?: number };
+};
+
+async function loadCheckoutMapRecord(mapId: string): Promise<StoredCheckoutMapRecord | null> {
+  const record = await kv.get<StoredCheckoutMapRecord>(`map:${mapId}`);
+  return record ?? null;
+}
+
+/**
+ * Refuse checkout when the saved design still uses the DEFAULT_RECIPE
+ * placeholder sky (latitude and longitude both exactly 0).
+ */
+async function assertConfiguredSkyForCheckout(mapId: string | undefined) {
+  if (!mapId) return;
+  const record = await loadCheckoutMapRecord(mapId);
+  if (!record) return;
+  const guard = evaluateCheckoutSkyGuard(record);
+  if (!guard.ok) {
+    throw new CheckoutError(guard.message, guard.code, 400);
+  }
 }
 
 async function assertDigitalCheckoutMap(mapId: string | undefined, plan: CheckoutPlan) {
@@ -275,13 +294,17 @@ async function assertDigitalCheckoutMap(mapId: string | undefined, plan: Checkou
   if (!mapId) {
     throw new CheckoutError("Create your map preview before starting checkout.", "map_required", 400);
   }
-  const exists = await mapExists(mapId);
-  if (!exists) {
+  const record = await loadCheckoutMapRecord(mapId);
+  if (!record) {
     throw new CheckoutError(
       "We couldn't find that map. Open the editor, generate your preview, then retry checkout.",
       "map_not_found",
       404
     );
+  }
+  const guard = evaluateCheckoutSkyGuard(record);
+  if (!guard.ok) {
+    throw new CheckoutError(guard.message, guard.code, 400);
   }
 }
 
@@ -1408,6 +1431,25 @@ export async function GET(req: NextRequest) {
       }
       throw error;
     }
+  } else {
+    try {
+      await assertConfiguredSkyForCheckout(mapId);
+    } catch (error) {
+      if (error instanceof CheckoutError) {
+        await bestEffortCheckoutSideEffect({
+          correlationId,
+          stage: "buyer_failure_diag_print_get_sky",
+          run: () =>
+            recordBuyerCheckoutFailure(qaContext, {
+              reason: error.code,
+              source: "checkout_api_print_get",
+              plan: printVariant,
+            }),
+        });
+        return NextResponse.json({ error: error.message, code: error.code }, { status: error.status });
+      }
+      throw error;
+    }
   }
 
   try {
@@ -1740,6 +1782,8 @@ export async function POST(req: NextRequest) {
     }
     if (orderType !== "print") {
       await assertDigitalCheckoutMap(mapId, plan);
+    } else {
+      await assertConfiguredSkyForCheckout(mapId);
     }
     const promotion = canUseManualPromotionCode(orderType, plan)
       ? await resolvePromotionCodeId(promoCode)

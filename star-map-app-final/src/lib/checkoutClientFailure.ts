@@ -12,6 +12,8 @@ export type CheckoutApiErrorPayload = {
 
 export type CheckoutFailureDiagnostics = {
   code: string;
+  /** Customer-readable `error` string from the API when present. */
+  errorMessage: string | null;
   serverReason: string | null;
   diagnosticId: string | null;
   httpStatus: number;
@@ -30,6 +32,8 @@ export function parseCheckoutApiErrorPayload(
         : typeof data?.error === "string" && data.error.trim()
           ? data.error.trim()
           : "checkout_failed";
+  const errorMessage =
+    typeof data?.error === "string" && data.error.trim() ? data.error.trim().slice(0, 240) : null;
   const serverReason =
     typeof data?.reason === "string" && data.reason.trim() ? data.reason.trim().slice(0, 80) : null;
   const diagnosticId =
@@ -40,7 +44,7 @@ export function parseCheckoutApiErrorPayload(
     typeof data?.editorRecoveryUrl === "string" && data.editorRecoveryUrl.trim()
       ? data.editorRecoveryUrl.trim()
       : null;
-  return { code, serverReason, diagnosticId, httpStatus, editorRecoveryUrl };
+  return { code, errorMessage, serverReason, diagnosticId, httpStatus, editorRecoveryUrl };
 }
 
 /** Errors that should not auto-retry (user/input issues). */
@@ -48,6 +52,7 @@ const NON_RETRYABLE_CHECKOUT_CODES = new Set([
   "promotion_not_applicable",
   "map_required",
   "map_not_found",
+  "sky_location_required",
   "missing_shipping_country",
   "print_shipping_country_invalid",
   "print_checkout_disabled",
@@ -91,6 +96,7 @@ export function shouldOfferDigitalSingleFallback(input: {
     if (
       input.code === "map_required" ||
       input.code === "map_not_found" ||
+      input.code === "sky_location_required" ||
       input.code === "missing_shipping_country" ||
       input.code === "print_shipping_country_invalid"
     ) {

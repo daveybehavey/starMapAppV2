@@ -4,7 +4,13 @@ import { isAndroidAppModeClient } from "@/lib/androidAppMode";
 import { useAndroidAppMode } from "@/hooks/useAndroidAppMode";
 import dynamic from "next/dynamic";
 import { TextBox, useStore } from "@/lib/store";
-import { aspectRatioToNumber, buildRecipeFromState, renderStarMap } from "@/lib/renderSky";
+import {
+  aspectRatioToNumber,
+  buildRecipeFromState,
+  formatDateTimeForLocation,
+  renderStarMap,
+} from "@/lib/renderSky";
+
 import { getShapeData } from "@/lib/shapeUtils";
 import { buildStarMapDownloadFilename } from "@/lib/downloadFilename";
 import {
@@ -22,6 +28,11 @@ import {
   CHECKOUT_RETRY_STATUS_MESSAGE,
   shouldRetryCheckoutFailure,
 } from "@/lib/checkoutClientFailure";
+import {
+  CHECKOUT_SKY_LOCATION_REQUIRED_CODE,
+  CHECKOUT_SKY_LOCATION_REQUIRED_MESSAGE,
+} from "@/lib/checkoutSkyGuard";
+import { syncSampleDesignTextBoxes } from "@/lib/sampleDesignTextSync";
 import { CheckoutLegalNotice } from "@/components/CheckoutLegalNotice";
 import {
   formatPrice,
@@ -363,6 +374,8 @@ export function EditorExperience({
   const [printShippingCountry, setPrintShippingCountry] = useState<string | null>(null);
   const [, setPendingExport] = useState<"preview" | "hd" | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [subtitleTouched, setSubtitleTouched] = useState(false);
+  const [dedicationTouched, setDedicationTouched] = useState(false);
   const [checkoutFallbackOffer, setCheckoutFallbackOffer] = useState<"digital_single" | null>(null);
   const [checkoutInFlight, setCheckoutInFlight] = useState(false);
   const checkoutInFlightRef = useRef(false);
@@ -603,6 +616,22 @@ export function EditorExperience({
     dateLocationRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [setCustomOccasion, setRevealed, setSelectedOccasion]);
 
+  const syncSampleTextFromPickers = useCallback(
+    (next: { locationName?: string; dateValue?: string }) => {
+      const currentBoxes = useStore.getState().textBoxes;
+      const synced = syncSampleDesignTextBoxes({
+        textBoxes: currentBoxes,
+        touched: { subtitle: subtitleTouched, dedication: dedicationTouched },
+        locationDisplayName: next.locationName,
+        dateValue: next.dateValue,
+      });
+      if (synced !== currentBoxes) {
+        setTextBoxes(synced);
+      }
+    },
+    [dedicationTouched, setTextBoxes, subtitleTouched]
+  );
+
   const handleDateTimeChange = useCallback(
     (iso: string) => {
       setDateTime(iso);
@@ -610,8 +639,17 @@ export function EditorExperience({
       if (selectedOccasion) {
         setSelectedOccasion(null);
       }
+      const tz = useStore.getState().location.timezone || "UTC";
+      const parts = formatDateTimeForLocation(iso, tz);
+      syncSampleTextFromPickers({ dateValue: parts?.date || undefined });
     },
-    [selectedOccasion, setCustomOccasion, setDateTime, setSelectedOccasion]
+    [
+      selectedOccasion,
+      setCustomOccasion,
+      setDateTime,
+      setSelectedOccasion,
+      syncSampleTextFromPickers,
+    ]
   );
 
   const handleLocationChange = useCallback(() => {
@@ -619,7 +657,22 @@ export function EditorExperience({
     if (selectedOccasion) {
       setSelectedOccasion(null);
     }
-  }, [selectedOccasion, setCustomOccasion, setSelectedOccasion]);
+    const nextName = useStore.getState().location.name;
+    syncSampleTextFromPickers({ locationName: nextName });
+  }, [selectedOccasion, setCustomOccasion, setSelectedOccasion, syncSampleTextFromPickers]);
+
+  const handleTextBoxTextChange = useCallback(
+    (boxId: string, text: string) => {
+      if (boxId === "subtitle" && !subtitleTouched) {
+        setSubtitleTouched(true);
+      }
+      if (boxId === "dedication" && !dedicationTouched) {
+        setDedicationTouched(true);
+      }
+      updateTextBox(boxId, { text });
+    },
+    [dedicationTouched, subtitleTouched, updateTextBox]
+  );
 
   const refreshPaidStatus = useCallback(async () => {
     try {
@@ -1779,6 +1832,9 @@ export function EditorExperience({
           if (failureCode === "missing_shipping_country") throw new Error("missing_shipping_country");
           if (failureCode === "map_required") throw new Error("map_required");
           if (failureCode === "map_not_found") throw new Error("map_not_found");
+          if (failureCode === CHECKOUT_SKY_LOCATION_REQUIRED_CODE) {
+            throw new Error(CHECKOUT_SKY_LOCATION_REQUIRED_CODE);
+          }
 
           const canRetry =
             attempt < maxAttempts && shouldRetryCheckoutFailure(failureCode, res.status);
@@ -1884,15 +1940,17 @@ export function EditorExperience({
                                   ? "That print option is temporarily unavailable for the selected country. Try another format or country."
                                   : reason === "print_checkout_disabled"
                                     ? "Print checkout is not live yet."
-                                    : reason === "map_required"
-                                      ? "Generate your map preview before checkout."
-                                      : reason === "map_not_found"
-                                        ? "We couldn't find that map. Refresh preview and try checkout again."
-                                        : reason.startsWith("save_failed_") || reason === "map_save_failed"
-                                          ? "We couldn't save this map yet. Please retry in a moment."
-                                          : reason === "unknown_error"
-                                            ? "We couldn't start checkout right now. Please try again shortly."
-                                            : "Checkout is unavailable right now. Please try again shortly.";
+                                    : reason === CHECKOUT_SKY_LOCATION_REQUIRED_CODE
+                                      ? CHECKOUT_SKY_LOCATION_REQUIRED_MESSAGE
+                                      : reason === "map_required"
+                                        ? "Generate your map preview before checkout."
+                                        : reason === "map_not_found"
+                                          ? "We couldn't find that map. Refresh preview and try checkout again."
+                                          : reason.startsWith("save_failed_") || reason === "map_save_failed"
+                                            ? "We couldn't save this map yet. Please retry in a moment."
+                                            : reason === "unknown_error"
+                                              ? "We couldn't start checkout right now. Please try again shortly."
+                                              : "Checkout is unavailable right now. Please try again shortly.";
         setCheckoutError(checkoutErrorMessage);
         const offerFallback = shouldOfferDigitalSingleFallback({
           orderType,
@@ -2448,7 +2506,7 @@ export function EditorExperience({
                                   <input
                                     type="text"
                                     value={box.text}
-                                    onChange={(e) => updateTextBox(box.id, { text: e.target.value })}
+                                    onChange={(e) => handleTextBoxTextChange(box.id, e.target.value)}
                                     className="h-10 w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm text-white shadow-inner shadow-black/20 transition outline-none focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
                                     placeholder={`Enter ${box.label.toLowerCase()}...`}
                                   />
@@ -2601,7 +2659,7 @@ export function EditorExperience({
                                                   type="text"
                                                   value={box.text}
                                                   onChange={(e) =>
-                                                    updateTextBox(box.id, { text: e.target.value })
+                                                    handleTextBoxTextChange(box.id, e.target.value)
                                                   }
                                                   className="w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-xs text-white shadow-inner shadow-black/20 transition outline-none focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
                                                   placeholder={`Enter ${box.label.toLowerCase()}...`}
