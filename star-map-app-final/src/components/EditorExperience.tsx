@@ -32,6 +32,10 @@ import {
   CHECKOUT_SKY_LOCATION_REQUIRED_CODE,
   CHECKOUT_SKY_LOCATION_REQUIRED_MESSAGE,
 } from "@/lib/checkoutSkyGuard";
+import {
+  normalizeCheckoutPromoCode,
+  resolveEditorCheckoutPromoCode,
+} from "@/lib/checkoutPromotions";
 import { syncSampleDesignTextBoxes } from "@/lib/sampleDesignTextSync";
 import { CheckoutLegalNotice } from "@/components/CheckoutLegalNotice";
 import {
@@ -194,10 +198,7 @@ function getDownloadLocationHint() {
 }
 
 function normalizePromoCode(raw: string | null | undefined) {
-  if (!raw) return null;
-  const normalized = raw.trim().toUpperCase();
-  if (!/^[A-Z0-9_-]{3,40}$/.test(normalized)) return null;
-  return normalized;
+  return normalizeCheckoutPromoCode(raw);
 }
 
 function parsePrintVariantParam(raw: string | null | undefined): PrintVariant | null {
@@ -451,11 +452,15 @@ export function EditorExperience({
     }
   }, []);
   const [editorPromoCode, setEditorPromoCode] = useState("");
+  /** Once the user edits the promo field, empty/cleared is authoritative (no URL fallback). */
+  const [promoCodeEdited, setPromoCodeEdited] = useState(false);
   useEffect(() => {
+    if (promoCodeEdited) return;
     const initial = queryPromoCode ?? readStoredPromoCode() ?? "";
     setEditorPromoCode(initial);
-  }, [queryPromoCode, readStoredPromoCode]);
+  }, [queryPromoCode, readStoredPromoCode, promoCodeEdited]);
   const persistPromoCode = useCallback((raw: string) => {
+    setPromoCodeEdited(true);
     const display = raw.toUpperCase().slice(0, 64);
     setEditorPromoCode(display);
     if (typeof window === "undefined") return;
@@ -471,10 +476,13 @@ export function EditorExperience({
     }
   }, []);
   const getCheckoutPromoCode = useCallback(() => {
-    const typed = normalizePromoCode(editorPromoCode);
-    if (typed) return typed;
-    return queryPromoCode ?? readStoredPromoCode();
-  }, [editorPromoCode, queryPromoCode, readStoredPromoCode]);
+    return resolveEditorCheckoutPromoCode({
+      fieldValue: editorPromoCode,
+      fieldEdited: promoCodeEdited,
+      queryPromoCode,
+      storedPromoCode: readStoredPromoCode(),
+    });
+  }, [editorPromoCode, promoCodeEdited, queryPromoCode, readStoredPromoCode]);
   const getCheckoutReferralCode = useCallback(
     () => queryReferralCode ?? readStoredReferralCode(),
     [queryReferralCode]
@@ -504,13 +512,14 @@ export function EditorExperience({
   );
 
   useEffect(() => {
-    if (!queryPromoCode || typeof window === "undefined") return;
+    // Do not re-seed storage from the URL after the user has edited/cleared the field.
+    if (promoCodeEdited || !queryPromoCode || typeof window === "undefined") return;
     try {
       window.localStorage.setItem(PROMO_CODE_KEY, queryPromoCode);
     } catch {
       // ignore storage errors
     }
-  }, [queryPromoCode]);
+  }, [queryPromoCode, promoCodeEdited]);
 
   useEffect(() => {
     if (!paywallOpen) return;
