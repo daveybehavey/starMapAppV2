@@ -586,12 +586,14 @@ html:has(.cookie-banner) body {
 }
 
 @media (max-width: 640px) {
+  /* Reserved space tracks the banner height incl. the safe-area inset that
+     is added to the banner's own bottom padding (D11). */
   html:has(.cookie-banner) {
-    scroll-padding-bottom: 5.25rem;
+    scroll-padding-bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
   }
 
   html:has(.cookie-banner) body {
-    padding-bottom: 4.75rem;
+    padding-bottom: calc(4.25rem + env(safe-area-inset-bottom, 0px));
   }
 
   .cookie-banner {
@@ -604,7 +606,12 @@ html:has(.cookie-banner) body {
     flex-direction: row;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.55rem 0.75rem calc(0.55rem + env(safe-area-inset-bottom, 0px));
+    padding: 0.4rem 0.65rem calc(0.4rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .cookie-text {
+    font-size: 0.68rem;
+    line-height: 1.25;
   }
 
   .cookie-actions {

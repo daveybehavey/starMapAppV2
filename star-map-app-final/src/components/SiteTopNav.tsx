@@ -29,7 +29,7 @@ export default function SiteTopNav() {
           : "sticky top-0 z-50 border-b border-white/10 bg-gradient-to-b from-[rgba(7,17,42,0.82)] to-[rgba(5,9,21,0.66)] text-[#f7f0e2] backdrop-blur-md"
       }
     >
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2 sm:px-6 sm:py-3">
         <Link
           href="/"
           prefetch={false}
@@ -50,7 +50,7 @@ export default function SiteTopNav() {
             <Link
               href="/shop"
               prefetch={false}
-              className="whitespace-nowrap rounded-full px-2.5 py-1.5 text-amber-100 transition hover:bg-white/10 sm:px-3"
+              className="whitespace-nowrap rounded-full px-2.5 py-1 text-amber-100 transition hover:bg-white/10 sm:px-3 sm:py-1.5"
             >
               Shop
             </Link>
@@ -58,14 +58,14 @@ export default function SiteTopNav() {
           <Link
             href="/star-map-gallery"
             prefetch={false}
-            className="whitespace-nowrap rounded-full px-2.5 py-1.5 text-white/85 transition hover:bg-white/10 sm:px-3"
+            className="whitespace-nowrap rounded-full px-2.5 py-1 text-white/85 transition hover:bg-white/10 sm:px-3 sm:py-1.5"
           >
             Gallery
           </Link>
           <Link
             href="/how-to-print-star-map"
             prefetch={false}
-            className="hidden whitespace-nowrap rounded-full px-3 py-1.5 text-white/85 transition hover:bg-white/10 md:inline-flex"
+            className="hidden whitespace-nowrap rounded-full px-3 py-1 text-white/85 transition hover:bg-white/10 sm:py-1.5 md:inline-flex"
           >
             Print guide
           </Link>
@@ -74,8 +74,8 @@ export default function SiteTopNav() {
             prefetch={false}
             className={
               isHome
-                ? "whitespace-nowrap rounded-md border border-[#f7c24a]/80 bg-transparent px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-[#f7c24a] transition hover:bg-[#f7c24a]/10 sm:px-3 sm:text-xs"
-                : "whitespace-nowrap rounded-full border border-amber-400/50 bg-amber-400/15 px-2.5 py-1.5 text-amber-100 transition hover:bg-amber-400/25 sm:px-3"
+                ? "whitespace-nowrap rounded-md border border-[#f7c24a]/80 bg-transparent px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-[#f7c24a] transition hover:bg-[#f7c24a]/10 sm:px-3 sm:py-1.5 sm:text-xs"
+                : "whitespace-nowrap rounded-full border border-amber-400/50 bg-amber-400/15 px-2.5 py-1 text-amber-100 transition hover:bg-amber-400/25 sm:px-3 sm:py-1.5"
             }
           >
             {isHome ? "Create yours" : "Create map"}

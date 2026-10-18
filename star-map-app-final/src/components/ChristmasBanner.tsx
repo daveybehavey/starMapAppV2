@@ -33,8 +33,8 @@ export default function ChristmasBanner({ nowMs }: Props = {}) {
       data-christmas-promo-code={content.promoCode ?? ""}
       data-digital-offer={content.phase === "digital_last_minute" ? true : undefined}
     >
-      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-4 py-2.5 text-center sm:flex-row sm:text-left sm:px-6">
-        <p className="text-[12px] leading-snug sm:text-[13px]">{content.message}</p>
+      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-1.5 px-4 py-2 text-center sm:flex-row sm:gap-2 sm:text-left sm:px-6 sm:py-2.5">
+        <p className="text-[12px] leading-tight sm:text-[13px] sm:leading-snug">{content.message}</p>
         <Link
           href={content.ctaHref}
           prefetch={false}
