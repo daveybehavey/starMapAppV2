@@ -26,7 +26,7 @@ import { PRINT_NEUTRAL_SHIPPING_CARD_NOTE } from "@/lib/printfulShipping";
 export const revalidate = 86400;
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
-const ogImage = `${siteUrl}/og-default.png`;
+const ogImage = `${siteUrl}/custom-star-map-anniversary.webp`;
 const breadcrumbs = [
   { href: "/", label: "Home" },
   { href: "/star-map-gift-formats", label: "Gift formats" },

@@ -47,13 +47,21 @@ function merchShopTeaser(id: MerchFamilyId): string {
 export const metadata: Metadata = {
   title: "Shop prints & gifts | StarMapCo",
   description:
-    "Browse museum-grade star map posters, framed prints, optional stickers and apparel, plus HD digital delivery. Fulfillment via Printful — customize every map in the editor before checkout.",
+    "Browse museum-grade star map posters, framed prints, canvas wraps and the black glossy mug, plus stickers, small merch and HD digital delivery. Fulfillment via Printful — customize every map in the editor before checkout.",
   alternates: { canonical: `${siteUrl}/shop` },
   openGraph: {
     title: "Shop prints & gifts | StarMapCo",
     description:
-      "Browse museum-grade star map posters, framed prints, optional stickers and apparel, plus HD digital delivery. Customize every map in the editor before checkout.",
+      "Browse museum-grade star map posters, framed prints, canvas wraps and the black glossy mug, plus stickers, small merch and HD digital delivery. Customize every map in the editor before checkout.",
     url: `${siteUrl}/shop`,
+    images: [
+      {
+        url: `${siteUrl}/custom-star-map-anniversary.webp`,
+        width: 1200,
+        height: 630,
+        alt: "Custom star map print from StarMapCo",
+      },
+    ],
     type: "website",
   },
 };
@@ -324,9 +332,6 @@ export default function ShopPage() {
           <section id="merch-addons" className="mt-14 border-t border-neutral-200 pt-10">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-xl font-semibold text-midnight">Stickers & small merch</h2>
-              <span className="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-violet-800">
-                Live beta
-              </span>
             </div>
             <p className="mt-2 text-sm text-neutral-700">
               Same editor artwork — pick product options after your preview. Shipping appears in Stripe before payment.

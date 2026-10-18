@@ -168,7 +168,7 @@ export const metadata: Metadata = {
     siteName: "StarMapCo",
     images: [
       {
-        url: `${siteUrl}/custom-star-map-anniversary.png`,
+        url: `${siteUrl}/custom-star-map-anniversary.webp`,
         width: 1200,
         height: 630,
         alt: "Custom star map preview from StarMapCo",
@@ -190,7 +190,7 @@ export const metadata: Metadata = {
     title: "Custom Star Map & Constellation Map | StarMapCo",
     description:
       "Create a custom star map or constellation map for any date and location. Start with a free live preview, then choose a gift-ready framed print, lower-cost unframed print, or HD digital delivery.",
-    images: [`${siteUrl}/custom-star-map-anniversary.png`],
+    images: [`${siteUrl}/custom-star-map-anniversary.webp`],
   },
   verification: {
     other: {

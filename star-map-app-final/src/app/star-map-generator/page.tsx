@@ -18,7 +18,7 @@ export const revalidate = 86400; // refresh once per day
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 const pageUrl = `${siteUrl}/star-map-generator`;
-const ogImage = `${siteUrl}/og-default.png`;
+const ogImage = `${siteUrl}/custom-star-map-anniversary.webp`;
 
 const howToSteps = [
   {

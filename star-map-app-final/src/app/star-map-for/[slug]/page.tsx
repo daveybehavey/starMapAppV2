@@ -39,7 +39,7 @@ import type { Metadata } from "next";
 export const revalidate = 86400;
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
-const ogImage = `${siteUrl}/og-default.png`;
+const ogImage = `${siteUrl}/custom-star-map-anniversary.webp`;
 
 type PageProps = {
   params: Promise<{ slug: string }>;
