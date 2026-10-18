@@ -204,7 +204,7 @@ export default function HomeStaticSections({ priceLabels, promoStatus, promoCode
               design and the physical gift before checkout.
             </p>
           </div>
-          <div className="stagger-children visible grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-4 md:gap-5 lg:gap-6 xl:grid-cols-4">
+          <div className="stagger-children visible grid grid-cols-1 items-start gap-4 sm:grid-cols-2 sm:gap-4 md:gap-5 lg:gap-6 xl:grid-cols-4">
             {[
               {
                 imageSrc: proofImages.framed,
@@ -212,6 +212,7 @@ export default function HomeStaticSections({ priceLabels, promoStatus, promoCode
                 renderMode: "Mockup",
                 caption: "Generated from the same artwork buyers preview before checkout",
                 badge: "FRAMED",
+                aspectClass: "aspect-[4/3]",
               },
               {
                 imageSrc: proofImages.unframed,
@@ -219,6 +220,7 @@ export default function HomeStaticSections({ priceLabels, promoStatus, promoCode
                 renderMode: "Mockup",
                 caption: "Lower-cost physical option with the same star map artwork",
                 badge: "POSTER",
+                aspectClass: "aspect-square",
               },
               ...featuredRenderExamples.map((item) => {
                 const [occasion, renderMode] = item.title.split(" · ");
@@ -228,6 +230,7 @@ export default function HomeStaticSections({ priceLabels, promoStatus, promoCode
                   renderMode,
                   caption: item.caption,
                   badge: item.badge,
+                  aspectClass: "aspect-square",
                 };
               }),
             ].map((item, idx) => (
@@ -235,7 +238,7 @@ export default function HomeStaticSections({ priceLabels, promoStatus, promoCode
                 key={`${item.imageSrc}-${idx}`}
                 className="card-hover-glow group overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-lg shadow-black/30"
               >
-                <div className="relative aspect-[4/3] overflow-hidden bg-[#0a1228]">
+                <div className={`relative ${item.aspectClass} overflow-hidden bg-[#0a1228]`}>
                   <ResilientImage
                     src={item.imageSrc}
                     fallbackSrc={HOME_MOCKUPS.framedBedroom}
