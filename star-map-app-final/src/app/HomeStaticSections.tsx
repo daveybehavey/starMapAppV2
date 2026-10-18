@@ -190,7 +190,7 @@ export default function HomeStaticSections({ priceLabels, promoStatus, promoCode
 
       <div className="section-divider my-12 sm:my-14 lg:my-16" />
 
-      <section className="content-visibility-auto fade-in-up visible mx-auto w-full max-w-7xl py-12 sm:py-16 lg:py-20">
+      <section className="content-visibility-auto fade-in-up visible mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
         <div className="space-y-6 lg:space-y-8">
           <div className="space-y-2">
             <p className="text-xs font-semibold tracking-[0.25em] text-amber-400 uppercase">
@@ -271,7 +271,7 @@ export default function HomeStaticSections({ priceLabels, promoStatus, promoCode
 
       <section
         id="how-it-works"
-        className="content-visibility-auto fade-in-up visible mx-auto w-full max-w-7xl scroll-mt-24 py-12 sm:py-16 lg:py-20"
+        className="content-visibility-auto fade-in-up visible mx-auto w-full max-w-7xl scroll-mt-24 px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20"
       >
         <div className="space-y-8">
           <div className="space-y-2">
