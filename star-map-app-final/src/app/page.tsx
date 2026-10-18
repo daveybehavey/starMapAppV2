@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import HomeHero from "./HomeHero";
-import HomeStaticSections from "./HomeStaticSections";
+import HomeStaticSections, { buildHomeFaqItems } from "./HomeStaticSections";
 import { formatPrice, getPricingTiers, getPrintPricingTiers } from "@/lib/pricing";
-import { getPrintDeliveryTimingFaqAnswer } from "@/lib/commerceFacts";
-import { formatPrintPriceWithShipping, getPrintShippingDisclosure, isUsOnlyPrintCheckout } from "@/lib/printCheckoutConfig";
+import { formatPrintPriceWithShipping, isUsOnlyPrintCheckout } from "@/lib/printCheckoutConfig";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 const homepageDescription =
@@ -75,7 +74,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     printTiers.poster_unframed.amountCents,
     (printTiers.poster_unframed.currency || "USD").toUpperCase(),
   );
-  const shippingDisclosure = getPrintShippingDisclosure();
   const isUsOnlyPrint = isUsOnlyPrintCheckout();
   const packSavingsPercent =
     tiers.single.amountCents > 0
@@ -169,115 +167,20 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       },
       {
         "@type": "FAQPage",
-        mainEntity: [
-          {
-            "@type": "Question",
-            name: "How accurate are StarMapCo custom star maps?",
-            acceptedAnswer: {
-              "@type": "Answer",
-              text: "StarMapCo uses real date, time, timezone, and location inputs, then calculates the sky with astronomy-engine and bundled star catalog data.",
-            },
+        // Built from the same item set as the visible "Quick answers" block
+        // (buildHomeFaqItems) so the schema matches the page exactly.
+        mainEntity: buildHomeFaqItems({
+          single: priceLabel,
+          framed: printFramedLabel,
+          unframed: printUnframedOfferLabel,
+        }).map((item) => ({
+          "@type": "Question",
+          name: item.q,
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: item.a,
           },
-          {
-            "@type": "Question",
-            name: "What data sources do you use for the night sky?",
-            acceptedAnswer: {
-              "@type": "Answer",
-              text: "We rely on real astronomical data from trusted sources like the Yale Bright Star Catalog to calculate exact positions for your date, time, and location.",
-            },
-          },
-          {
-            "@type": "Question",
-            name: "Can I customize text, styles, and shapes?",
-            acceptedAnswer: {
-              "@type": "Answer",
-              text: "Yes—add titles, subtitles, or dedications; choose from four styles (navy gold, vintage, parchment, minimal) and shapes (rectangle free, heart/circle/star premium) plus visual modes and constellations.",
-            },
-          },
-          {
-            "@type": "Question",
-            name: "What is included in the free version vs. premium unlock?",
-            acceptedAnswer: {
-              "@type": "Answer",
-              text: `Free preview lets you confirm the date, location, and layout first. Paid checkout can unlock framed print (${printFramedLabel}), unframed print (${printUnframedOfferLabel}), or HD digital delivery from ${priceLabel}. Digital packs and subscription stay available if you need repeat exports.`,
-            },
-          },
-          {
-            "@type": "Question",
-            name: "How do I export or download my star map?",
-            acceptedAnswer: {
-              "@type": "Answer",
-              text: "After premium unlock, download a high-resolution PNG directly from the app.",
-            },
-          },
-          {
-            "@type": "Question",
-            name: "Do I have to subscribe to buy a star map?",
-            acceptedAnswer: {
-              "@type": "Answer",
-              text: "No. One-time checkout covers framed print, unframed print, or a single HD file. Subscription is optional only for repeat digital exports.",
-            },
-          },
-          {
-            "@type": "Question",
-            name: "Are the maps suitable for printing?",
-            acceptedAnswer: {
-              "@type": "Answer",
-              text:
-                "Yes—designed to be print-ready up to 6000x6000 resolution for crisp posters and framed gifts.",
-            },
-          },
-          {
-            "@type": "Question",
-            name: "Can I order a printed or framed version directly?",
-            acceptedAnswer: {
-              "@type": "Answer",
-              text: printCheckoutEnabled
-                ? `Yes. After the free preview, checkout supports framed print (${printFramedLabel}), unframed print (${printUnframedOfferLabel}), and HD digital delivery.`
-                : "Physical print checkout is in staged rollout. You can always download a print-ready HD file immediately after payment.",
-            },
-          },
-          {
-            "@type": "Question",
-            name: "When do I see shipping cost and delivery timing?",
-            acceptedAnswer: {
-              "@type": "Answer",
-              text: getPrintDeliveryTimingFaqAnswer(shippingDisclosure),
-            },
-          },
-          {
-            "@type": "Question",
-            name: "What if a print arrives damaged?",
-            acceptedAnswer: {
-              "@type": "Answer",
-              text: "Contact support@starmapco.com and we will help resolve the issue.",
-            },
-          },
-          {
-            "@type": "Question",
-            name: "Can I share my custom star map with others?",
-            acceptedAnswer: {
-              "@type": "Answer",
-              text: "Yes. You can share exported images right away and use private access or referral links from the success/download flow.",
-            },
-          },
-          {
-            "@type": "Question",
-            name: "What if I enter the wrong date or location?",
-            acceptedAnswer: {
-              "@type": "Answer",
-              text: "Edit inputs anytime before export—the preview updates in real time so you can correct details.",
-            },
-          },
-          {
-            "@type": "Question",
-            name: "Why choose StarMapCo over other star map generators?",
-            acceptedAnswer: {
-              "@type": "Answer",
-              text: "Free live preview, accurate science, and a clear delivery ladder: framed for premium gifting, unframed for lower physical cost, or HD digital for instant access.",
-            },
-          },
-        ],
+        })),
       },
     ],
   };

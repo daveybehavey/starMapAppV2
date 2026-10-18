@@ -129,4 +129,4 @@ export function getFramedHdBundlePriceLine(): string {
   return `${total} framed + HD digital`;
 }
 
-export { getPrintFreeShippingOfferLine } from "@/lib/printFreeShipping";
+export { getPrintFreeShippingOfferLine, getPrintFreeShippingShortTag } from "@/lib/printFreeShipping";

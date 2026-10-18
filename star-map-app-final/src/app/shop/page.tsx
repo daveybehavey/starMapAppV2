@@ -12,6 +12,7 @@ import { HOME_MOCKUPS } from "@/lib/homeMockups";
 import {
   formatPrintPriceWithShipping,
   getPrintAvailabilityBadgeLabel,
+  getPrintFreeShippingShortTag,
   getPrintProductionReviewDisclosure,
   getPrintProductionReviewTrustPoint,
   getPrintShippingDisclosure,
@@ -254,12 +255,14 @@ export default function ShopPage() {
         </p>
         {framedDeliveryDisclosure ? (
           <p className="mt-1 text-xs text-neutral-600">
-            Free preview first. {framedDeliveryDisclosure}. {shippingDisclosure}
+            Free preview first. {framedDeliveryDisclosure}.
           </p>
         ) : null}
         <ul className="mt-4 flex flex-wrap gap-2 text-xs font-semibold text-neutral-700">
           <li className="rounded-full border border-amber-200/80 bg-amber-50/90 px-3 py-1">{printBadge}</li>
-          <li className="rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1">{shippingDisclosure}</li>
+          <li className="rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1">
+            {getPrintFreeShippingShortTag() ?? shippingDisclosure}
+          </li>
           {!printCheckoutEnabled ? (
             <li className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-rose-900">
               Physical checkout is paused — digital HD still available.

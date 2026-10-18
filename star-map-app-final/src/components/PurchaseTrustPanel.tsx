@@ -1,7 +1,11 @@
 import Link from "next/link";
 import CustomerPhotoStrip from "@/components/CustomerPhotoStrip";
 import { LOVE_IT_GUARANTEE_LINE } from "@/lib/loveItGuarantee";
-import { getPrintProductionReviewDisclosure, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import {
+  getPrintFreeShippingShortTag,
+  getPrintProductionReviewDisclosure,
+  getPrintShippingDisclosure,
+} from "@/lib/printCheckoutConfig";
 
 /** Trust points that advertise HD/digital delivery are digital offers (hidden in Google Play app mode). */
 export function isDigitalClaim(text: string): boolean {
@@ -69,7 +73,7 @@ export default function PurchaseTrustPanel({
         <div className="rounded-2xl border border-black/5 bg-white p-4">
           <h3 className="text-sm font-semibold text-midnight sm:text-base">Physical order confidence</h3>
           <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm text-neutral-800">
-            <li>{shippingDisclosure}</li>
+            <li>{getPrintFreeShippingShortTag() ?? shippingDisclosure}</li>
             <li>
               Framed print is the premium gift route; unframed<span data-digital-offer> and HD</span> stay available if a
               different path fits better.

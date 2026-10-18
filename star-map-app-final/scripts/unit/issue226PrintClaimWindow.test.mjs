@@ -25,7 +25,8 @@ test("returns policy states 30-day damage/defect claim window with evidence + ca
   assert.match(src, /damaged,\s*defective,\s*or\s*materially\s*different/i);
   assert.match(src, WITHIN_30_DAYS);
   assert.match(src, /photos and order details/i);
-  assert.match(src, /Approved cases may be resolved with a replacement\s+or refund/i);
+  assert.match(src, /LOVE_IT_GUARANTEE_LINE/);
+  assert.match(src, /arrange the free reprint promised by the Love-It Guarantee/i);
   assert.match(src, /change-of-mind returns are not accepted/i);
   assert.doesNotMatch(src, STALE_WITHIN_7_DAYS);
 });

@@ -2,6 +2,7 @@ import { formatPrintDeliveryDisclosure } from "@/lib/printfulShipping";
 import {
   formatPrintPriceWithShipping,
   getFramedHdBundlePriceLine,
+  getPrintFreeShippingShortTag,
   getPrintProductionReviewDisclosure,
   getPrintShippingDisclosure,
 } from "@/lib/printCheckoutConfig";
@@ -71,7 +72,7 @@ export default function MoneyPagePriceAtGlance({
         <p className="text-[11px] leading-relaxed text-white/75 sm:text-xs">
           Free preview first. <span data-digital-offer>HD unlocks instantly after checkout. </span>
           {productionDisclosure} {framedDelivery}.{" "}
-          {shippingDisclosure}
+          {getPrintFreeShippingShortTag() ?? shippingDisclosure}
         </p>
       ) : null}
     </div>

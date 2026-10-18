@@ -4,11 +4,7 @@ import {
   getPrintFramedHdBundleTimingLine,
   getPrintStandardShippingOnlyLine,
 } from "@/lib/commerceFacts";
-import {
-  getFramedHdBundlePriceLine,
-  getPrintProductionReviewDisclosure,
-  getPrintShippingDisclosure,
-} from "@/lib/printCheckoutConfig";
+import { getFramedHdBundlePriceLine, getPrintProductionReviewDisclosure } from "@/lib/printCheckoutConfig";
 
 const steps = [
   {
@@ -28,7 +24,6 @@ const steps = [
 
 export default function WeddingGiftJourneySection() {
   const bundleLine = getFramedHdBundlePriceLine();
-  const shippingDisclosure = getPrintShippingDisclosure();
   const productionDisclosure = getPrintProductionReviewDisclosure();
 
   return (
@@ -60,8 +55,7 @@ export default function WeddingGiftJourneySection() {
 
       <div className="mt-5 rounded-2xl border border-black/5 bg-neutral-50 px-4 py-3 text-xs leading-relaxed text-neutral-700 sm:text-sm">
         <span className="text-midnight font-semibold">Timing:</span> {getPrintFramedHdBundleShortLine()}{" "}
-        {productionDisclosure} {getPrintDeliveryEstimateLine()} {getPrintStandardShippingOnlyLine()}{" "}
-        {shippingDisclosure}
+        {productionDisclosure} {getPrintDeliveryEstimateLine()} {getPrintStandardShippingOnlyLine()}
       </div>
     </section>
   );

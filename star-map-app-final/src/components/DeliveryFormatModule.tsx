@@ -7,6 +7,7 @@ import {
   buildPrintEditorCheckoutHref,
   formatPrintPriceWithShipping,
   getFramedHdBundlePriceLine,
+  getPrintFreeShippingShortTag,
   getPrintShippingDisclosure,
 } from "@/lib/printCheckoutConfig";
 
@@ -99,7 +100,7 @@ export default function DeliveryFormatModule({
             </p>
             <ul className="mt-3 list-disc space-y-1.5 pl-5 text-xs text-neutral-700 sm:text-sm">
               <li>Museum-quality poster stock</li>
-              <li>{shippingDisclosure}</li>
+              <li>{getPrintFreeShippingShortTag() ?? shippingDisclosure}</li>
               {baselineDeliveryDisclosure ? <li>{baselineDeliveryDisclosure}</li> : null}
               <li>Starts at {printLabels.unframed}</li>
             </ul>

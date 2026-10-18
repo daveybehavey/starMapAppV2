@@ -186,13 +186,46 @@ test("framed+HD sticky bars and remaining homepage digital promotions are marked
 test("homepage delivery + FAQ digital copy hidden; owned pack credits keep navigation", () => {
   const home = read("src/app/HomeStaticSections.tsx");
   assert.match(home, /<span data-digital-offer>, or HD digital delivery<\/span>/);
-  assert.match(home, /<span data-digital-offer>\s*, or unlock HD digital from \{priceLabels\.single\}/);
+  assert.match(home, /<span data-digital-offer>\s*, or unlock HD digital from \{input\.single\}/);
   assert.equal((home.match(/<span data-app-only> or<\/span>/g) || []).length, 2);
   const css = read("src/app/globals.css");
   assert.match(css, /html\[data-app-mode="android"\] \[data-app-only\] \{\s*display: inline;/);
   assert.doesNotMatch(css, /a\[href\*="pack3"\]/);
   assert.doesNotMatch(css, /a\[href\*="subscription"\]/);
   assert.ok(!"/editor?mode=quick&source=my-downloads-pack3-create-next".includes("plan=pack3"));
+});
+
+test("merged homepage FAQ marks every digital-advertising answer (aNode + data-digital-offer)", () => {
+  const home = read("src/app/HomeStaticSections.tsx");
+  // Behaviour being pinned: the visible FAQ renders aNode when present (the
+  // plain `a` strings are the FAQPage JSON-LD copies only), so any answer that
+  // advertises a digital purchase must define an aNode whose digital fragment
+  // sits inside a data-digital-offer span — the premium-unlock pattern — so
+  // app-mode CSS suppresses exactly that fragment. An unmarked plain-string
+  // answer would advertise HD checkout/subscriptions the app forbids.
+  assert.match(home, /\{item\.aNode \?\? item\.a\}/);
+  // order-printed: HD digital delivery is a marked fragment in both checkout states
+  assert.match(home, /<span data-digital-offer>, and HD digital delivery<\/span>/);
+  assert.match(
+    home,
+    /<span data-digital-offer> You can always download a print-ready HD file immediately after payment\.<\/span>/
+  );
+  // subscription: the single-HD-file + subscription pitch is one marked fragment
+  assert.match(
+    home,
+    /<span data-digital-offer>\s*, or a single HD file\. Subscription is optional only for repeat digital\s+exports\s*<\/span>/
+  );
+  // why-starmapco: the HD digital route is a marked fragment
+  assert.match(home, /<span data-digital-offer>, or HD digital for instant access<\/span>/);
+  // each digital-advertising FAQ item must actually define a marked aNode — a
+  // marked span in an unrendered string would not change what app mode shows
+  for (const id of ["premium-unlock", "order-printed", "subscription", "why-starmapco"]) {
+    const start = home.indexOf(`id: "${id}"`);
+    assert.ok(start >= 0, `FAQ item ${id} exists`);
+    const block = home.slice(start, home.indexOf("\n    },", start));
+    assert.match(block, /aNode:/, `FAQ item ${id} must render through an aNode`);
+    assert.match(block, /data-digital-offer/, `FAQ item ${id} aNode must mark its digital fragment`);
+  }
 });
 
 test("shared price/receive/preview fragments are marked and app mode is read synchronously", () => {
