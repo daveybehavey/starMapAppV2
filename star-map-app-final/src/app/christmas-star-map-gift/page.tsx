@@ -23,10 +23,12 @@ import {
   getInstantHdPriceLine,
 } from "@/lib/digitalGiftCheckout";
 import { buildFramedHdCheckoutHref, getGiftLadderIntro } from "@/lib/moneyPageGiftCheckout";
+import ChristmasOrderByTable from "@/components/ChristmasOrderByTable";
 import {
   getChristmasDigitalPitchLine,
   getChristmasLandingPromo,
   getChristmasOrderBySummaryLines,
+  getChristmasPromoCodesFaqAnswer,
   resolveChristmasCampaignNowMs,
 } from "@/lib/christmasCampaign";
 import { LOVE_IT_GUARANTEE_LINE, getLoveItGuaranteeFaq } from "@/lib/loveItGuarantee";
@@ -87,8 +89,7 @@ export default async function ChristmasStarMapGiftPage({ searchParams }: PagePro
     },
     {
       question: "Do Christmas discount codes apply to HD digital?",
-      answer:
-        "No. Seasonal codes such as XMAS15 and BLACKFRIDAY20 apply to prints only. HD digital is excluded from those promotions.",
+      answer: getChristmasPromoCodesFaqAnswer(),
     },
     {
       question: "What if I miss the print cutoff?",
@@ -174,11 +175,14 @@ export default async function ChristmasStarMapGiftPage({ searchParams }: PagePro
           <p className="text-xs text-neutral-700 sm:text-sm">{landingPromo.digitalExcludedNote}</p>
         ) : null}
         {landingPromo.showOrderBy ? (
-          <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800">
-            {orderByLines.map((line) => (
-              <li key={line}>{line}</li>
-            ))}
-          </ul>
+          <>
+            <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800">
+              {orderByLines.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+            <ChristmasOrderByTable />
+          </>
         ) : null}
         {landingPromo.showDigitalPitch ? (
           <p className="text-sm text-neutral-800" data-digital-offer>{digitalPitch}</p>
