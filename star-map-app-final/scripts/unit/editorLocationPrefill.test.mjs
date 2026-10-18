@@ -400,15 +400,22 @@ test("PreviewStartForm prefills editable location and optional coords without lo
   const source = readSrc("components/PreviewStartForm.tsx");
   assert.match(source, /defaultLocation\?: string/);
   assert.match(source, /defaultLocationCoords\?:/);
-  assert.match(source, /defaultValue=\{initialLocation \|\| undefined\}/);
   assert.match(source, /name="lat"/);
   assert.match(source, /name="lon"/);
   assert.match(source, /name="tz"/);
   assert.match(source, /syncCoordsForEditedLocation/);
   assert.match(source, /id="preview-location"/);
   assert.match(source, /name="location"/);
-  assert.doesNotMatch(source, /id="preview-location"[\s\S]{0,500}\breadOnly\b/);
-  assert.doesNotMatch(source, /id="preview-location"[\s\S]{0,500}\bdisabled\b/);
+  // C3: the location input itself now lives in LocationTypeahead. The
+  // prefill contract is unchanged: the form seeds it with the landing's
+  // initial location as an editable value, never a locked field.
+  assert.match(source, /<LocationTypeahead/);
+  assert.match(source, /useState\(initialLocation\)/);
+  assert.match(source, /value=\{locationText\}/);
+  const typeahead = readSrc("components/LocationTypeahead.tsx");
+  assert.match(typeahead, /value=\{value\}/);
+  assert.doesNotMatch(typeahead, /\breadOnly\b/);
+  assert.doesNotMatch(typeahead, /\bdisabled\b/);
 });
 
 test("city landing page wires coordinate-resolved prefill into primary CTAs", () => {
