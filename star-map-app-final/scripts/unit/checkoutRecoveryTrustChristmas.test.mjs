@@ -126,7 +126,8 @@ test("Christmas banner discount windows (Pacific) cover each promo phase", async
   assert.ok(orderBy);
   assert.match(orderBy.message, /Dec 8|Dec 9/i);
   assert.match(orderBy.message, /order early/i);
-  assert.equal(/Nov 30|Dec 1/.test(orderBy.message), false);
+  // (Dec 1(?!0): the genuine poster Canada date "Dec 10" must not trip this.)
+  assert.equal(/Nov 30|Dec 1(?!0)/.test(orderBy.message), false);
   assert.equal(orderBy.promoCode, undefined);
   assert.equal(/XMAS15|BLACKFRIDAY20/.test(orderBy.message), false);
 
@@ -328,7 +329,7 @@ test("Christmas order-by summary lines carry no rest-of-world dates", async () =
     "Framed & canvas: United States Dec 8 · Canada Dec 9 · rest of world: order early",
     "Posters: United States Dec 9 · Canada Dec 10 · rest of world: order early",
   ]);
-  assert.equal(/Nov 30|Dec 1/.test(lines.join(" ")), false);
+  assert.equal(/Nov 30|Dec 1(?!0)/.test(lines.join(" ")), false);
 });
 
 test("christmas order-by table wiring: page, component, footer and home links", () => {
