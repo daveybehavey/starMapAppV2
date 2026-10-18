@@ -61,11 +61,18 @@ html {
 }
 
 .content-visibility-auto {
-  content-visibility: auto;
-  /* `auto` makes the browser reuse each element's last rendered size;
-     900px is only the first-render estimate. Without it, skipped sections
-     are always estimated at a flat 900px and page height shifts on scroll (D08). */
-  contain-intrinsic-size: auto 900px;
+  /* D08 round 2 (2026-10-18): content-visibility was REMOVED from these
+     sections after measurement proved it was the layout-shift driver.
+     With `contain-intrinsic-size: auto 900px`, every skipped section is
+     sized at a flat 900px estimate on first visit, but real section
+     heights run 140-3360px and differ per viewport (grids collapse on
+     mobile), so the document height snapped by up to ~6,100px on the
+     first scroll (43/80 surfaces in the Phase 3 re-crawl). Round 1
+     (#303) added `auto` so sizes are remembered after first render,
+     which stabilised repeat scrolls but cannot fix the first visit.
+     No single estimate can be right per section AND per viewport, so
+     the sections render eagerly again. The class name is kept in the
+     markup (36 files) to keep this change minimal and reversible. */
 }
 
 body {
