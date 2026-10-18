@@ -155,7 +155,7 @@ export default function BulkEventOrdersPage() {
       <section className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
         <div className="space-y-6">
           <div className="rounded-[32px] border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-600">Best fit</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-800">Best fit</p>
             <h2 className="mt-3 text-2xl font-semibold text-midnight">Built for manual event quoting, not self-serve checkout.</h2>
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               {useCases.map((item) => (
@@ -168,7 +168,7 @@ export default function BulkEventOrdersPage() {
           </div>
 
           <div className="rounded-[32px] border border-black/5 bg-[linear-gradient(180deg,rgba(255,255,255,0.93),rgba(247,241,227,0.95))] p-6 shadow-xl shadow-black/10">
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-600">What is included</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-800">What is included</p>
             <ul className="mt-4 space-y-3 text-sm leading-7 text-slate-800">
               {includedItems.map((item) => (
                 <li key={item} className="flex gap-3">
@@ -185,7 +185,7 @@ export default function BulkEventOrdersPage() {
 
       <section className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
         <div className="rounded-[32px] border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-600">How it works</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-800">How it works</p>
           <ol className="mt-4 space-y-4">
             {steps.map((step, index) => (
               <li key={step} className="flex gap-4 rounded-[24px] border border-slate-200 bg-slate-50/80 p-4">
@@ -199,7 +199,7 @@ export default function BulkEventOrdersPage() {
         </div>
 
         <div className="rounded-[32px] border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-600">FAQ</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-800">FAQ</p>
           <div className="mt-4 space-y-4">
             {faqs.map((item) => (
               <div key={item.question} className="rounded-[24px] border border-amber-100 bg-amber-50/65 p-4">

@@ -156,7 +156,7 @@ export default function PreviewStartForm({
               name="date"
               autoComplete="bday"
               placeholder={STANDARD_DATE_PLACEHOLDER}
-              className="ios-form-control w-full min-w-0 rounded-xl border border-amber-200/80 bg-white px-3 py-3 text-sm text-neutral-800 shadow-sm placeholder:text-neutral-400 focus:border-amber-300 focus:ring-2 focus:ring-amber-200 focus:outline-none"
+              className="ios-form-control w-full min-w-0 rounded-xl border border-amber-200/80 bg-white px-3 py-3 text-sm text-neutral-800 shadow-sm placeholder:text-neutral-400 focus:border-amber-600 focus:ring-2 focus:ring-amber-700 focus:outline-none"
             />
           </div>
           <div className="min-w-0">
@@ -171,7 +171,7 @@ export default function PreviewStartForm({
               autoComplete="address-level2"
               defaultValue={initialLocation || undefined}
               onChange={(event) => syncCoordsForEditedLocation(event.currentTarget.value)}
-              className="ios-form-control w-full min-w-0 rounded-xl border border-amber-200/80 bg-white px-3 py-3 text-sm text-neutral-800 shadow-sm placeholder:text-neutral-400 focus:border-amber-300 focus:ring-2 focus:ring-amber-200 focus:outline-none"
+              className="ios-form-control w-full min-w-0 rounded-xl border border-amber-200/80 bg-white px-3 py-3 text-sm text-neutral-800 shadow-sm placeholder:text-neutral-400 focus:border-amber-600 focus:ring-2 focus:ring-amber-700 focus:outline-none"
             />
           </div>
         </div>
@@ -222,7 +222,7 @@ export default function PreviewStartForm({
                     data-digital-offer={
                       isDigitalPreviewIntent(intent) ? true : undefined
                     }
-                    className={`focus:ring-gold rounded-2xl border px-4 py-3 text-left transition hover:-translate-y-[1px] hover:shadow-md focus:ring-2 focus:ring-offset-2 focus:ring-offset-amber-50 focus:outline-none ${toneClass}`}
+                    className={`focus:ring-amber-700 rounded-2xl border px-4 py-3 text-left transition hover:-translate-y-[1px] hover:shadow-md focus:ring-2 focus:ring-offset-2 focus:ring-offset-amber-50 focus:outline-none ${toneClass}`}
                   >
                     <span className="block text-sm font-semibold">{intent.label}</span>
                     {intent.detail ? (
@@ -243,7 +243,7 @@ export default function PreviewStartForm({
             formAction={buildEditorAction(resolvedSource)}
             data-source={resolvedSource}
             data-plan="preview"
-            className="text-midnight focus:ring-gold mt-4 w-full rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:ring-2 focus:ring-offset-2 focus:ring-offset-amber-50 focus:outline-none"
+            className="text-midnight focus:ring-amber-700 mt-4 w-full rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:ring-2 focus:ring-offset-2 focus:ring-offset-amber-50 focus:outline-none"
           >
             {buttonLabel}
           </button>

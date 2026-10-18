@@ -356,13 +356,13 @@ export default function WeddingPage() {
               variant: "poster_framed",
               includeDigitalAddOn: true,
             })}
-            className="text-midnight focus:ring-gold inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold shadow-lg transition hover:-translate-y-[1px] focus:ring-2 focus:outline-none"
+            className="text-midnight focus:ring-amber-700 inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold shadow-lg transition hover:-translate-y-[1px] focus:ring-2 focus:outline-none"
           >
             Preview framed + HD gift
           </Link>
           <Link
             href="/editor?mode=quick&source=wedding-bottom-preview"
-            className="text-midnight focus:ring-gold inline-flex min-h-11 items-center justify-center rounded-full border border-amber-300/80 bg-white px-5 py-3 text-sm font-semibold transition hover:bg-amber-50 focus:ring-2 focus:outline-none"
+            className="text-midnight focus:ring-amber-700 inline-flex min-h-11 items-center justify-center rounded-full border border-amber-300/80 bg-white px-5 py-3 text-sm font-semibold transition hover:bg-amber-50 focus:ring-2 focus:outline-none"
           >
             Free preview
           </Link>
@@ -387,7 +387,7 @@ export default function WeddingPage() {
           </div>
           <Link
             href="/blog/custom-star-maps-for-weddings?source=wedding-page-guide"
-            className="text-midnight focus:ring-gold inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border border-amber-300 bg-white px-5 py-3 text-sm font-semibold shadow-sm transition hover:bg-amber-50 focus:ring-2 focus:outline-none"
+            className="text-midnight focus:ring-amber-700 inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border border-amber-300 bg-white px-5 py-3 text-sm font-semibold shadow-sm transition hover:bg-amber-50 focus:ring-2 focus:outline-none"
           >
             Read the wedding guide
           </Link>
