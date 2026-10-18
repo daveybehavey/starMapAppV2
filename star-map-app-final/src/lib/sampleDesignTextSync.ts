@@ -144,16 +144,29 @@ export function syncSampleDesignTextBoxes<T extends SampleDesignTextBox>(input: 
  * Pure decision for the sky half of occasion-preset application
  * (regression-covered; sibling of resolvePresetTextBoxesOnApply below).
  *
- * A preset installs its sample sky only when the user has not genuinely
- * provided their own date/location. The untouched placeholder sky — no
- * confirmed location and the store's untouched default date — must ALWAYS
- * autofill, even if a component-local `customOccasion` flag claims
- * otherwise: MobileCreate's draft-restore heuristic once marked the
- * untouched autosaved draft as "custom", which made the mobile sample
- * apply the preset's text while keeping today's date and the (0,0)
- * placeholder location (D16). A genuinely provided sky (confirmed
- * location, or a date the user actually picked) keeps the legacy
- * preserve behaviour.
+ * The decision is a pure function of sky provenance — deliberately NOT of
+ * component-local UI flags (`customOccasion`) or name strings, because
+ * both restore paths derive those from heuristics that cannot see the
+ * date's origin:
+ *
+ * - A confirmed location is a sky the user chose: always preserve.
+ * - The untouched placeholder sky — no confirmed location and the store's
+ *   untouched default date — must ALWAYS autofill, even if a
+ *   component-local `customOccasion` flag claims otherwise:
+ *   MobileCreate's draft-restore heuristic once marked the untouched
+ *   autosaved draft as "custom", which made the mobile sample apply the
+ *   preset's text while keeping today's date and the (0,0) placeholder
+ *   location (D16).
+ * - A date the user actually picked is user content: never silently
+ *   replace it. `setDateTime` clears the untouched flag on any real pick,
+ *   and the draft persists the flag, so this holds after a reload too —
+ *   including a restored draft that is NOT "custom" by the
+ *   location-name rule and has no location yet, whose picked date the
+ *   previous `!customOccasion && !locationName` branch replaced with
+ *   the sample date (Codex P2 on PR #310). When a picked date is
+ *   preserved, the preset's location is preserved with it (the sky is
+ *   kept whole; the preset's text still installs and syncs to it).
+ * - With no usable date at all there is nothing to preserve.
  *
  * `hasConfirmedLocation` is computed by the caller with
  * hasConfirmedEditorLocation (lib/editorLocationPrefill) so this module
@@ -162,14 +175,11 @@ export function syncSampleDesignTextBoxes<T extends SampleDesignTextBox>(input: 
 export function shouldAutofillPresetSky(input: {
   hasConfirmedLocation: boolean;
   dateTimeIsUntouchedDefault: boolean;
-  customOccasion: boolean;
-  locationName: string;
   hasDate: boolean;
 }): boolean {
-  const skyIsUntouchedPlaceholder =
-    !input.hasConfirmedLocation && input.dateTimeIsUntouchedDefault;
-  if (skyIsUntouchedPlaceholder) return true;
-  return !input.customOccasion && (!input.locationName || !input.hasDate);
+  if (input.hasConfirmedLocation) return false;
+  if (input.dateTimeIsUntouchedDefault) return true;
+  return !input.hasDate;
 }
 
 /**

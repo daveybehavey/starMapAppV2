@@ -61,6 +61,7 @@ const makeDraft = () => ({
   },
   selectedOccasion: "anniversary",
   sampleDesignLastAutoSynced: { subtitle: null, dedication: null },
+  dateTimeIsUntouchedDefault: false,
 });
 
 test("valid current draft writes a versioned envelope and round-trips", () => {
@@ -82,6 +83,46 @@ test("valid current draft writes a versioned envelope and round-trips", () => {
   assert.equal(read.needsMigration, false);
   assert.equal(read.savedAt, now.toISOString());
   assert.deepEqual(read.data, makeDraft());
+});
+
+test("date provenance (dateTimeIsUntouchedDefault) round-trips both ways", () => {
+  for (const flag of [true, false]) {
+    const values = new Map();
+    const storage = {
+      getItem: (key) => values.get(key) ?? null,
+      setItem: (key, value) => values.set(key, value),
+    };
+    const write = writeEditorDraft(storage, { ...makeDraft(), dateTimeIsUntouchedDefault: flag });
+    assert.equal(write.status, "saved");
+    assert.equal(write.envelope.dateTimeIsUntouchedDefault, flag);
+
+    const read = readEditorDraft(storage);
+    assert.equal(read.status, "restored");
+    assert.equal(read.data.dateTimeIsUntouchedDefault, flag);
+  }
+});
+
+test("drafts saved before date provenance was persisted restore as picked (false)", () => {
+  // A pre-provenance versioned envelope: the field is simply absent. The
+  // date's origin is unknowable, and unknown must resolve to preserve —
+  // never to silently replacing the date on preset apply (Codex P2).
+  const legacy = makeDraft();
+  delete legacy.dateTimeIsUntouchedDefault;
+  const raw = JSON.stringify({
+    ...legacy,
+    schemaVersion: EDITOR_DRAFT_SCHEMA_VERSION,
+    savedAt: "2026-07-17T18:00:00.000Z",
+  });
+  const result = parseEditorDraft(raw);
+  assert.equal(result.status, "restored");
+  assert.equal(result.data.dateTimeIsUntouchedDefault, false);
+});
+
+test("a non-boolean date provenance value normalizes to false", () => {
+  const raw = JSON.stringify({ ...makeDraft(), dateTimeIsUntouchedDefault: "yes" });
+  const result = parseEditorDraft(raw);
+  assert.equal(result.status, "restored");
+  assert.equal(result.data.dateTimeIsUntouchedDefault, false);
 });
 
 test("optional in-memory fields may be undefined before JSON serialization", () => {
