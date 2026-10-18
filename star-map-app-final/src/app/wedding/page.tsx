@@ -249,7 +249,7 @@ export default function WeddingPage() {
           "If you are buying for a wedding that has not happened yet, you can still use the planned date, time and venue. Many guests give the map at the reception or send it afterwards so it arrives once the couple are home.",
         ]}
         ctaHref="/editor?mode=quick&source=occasion-wedding-story-preview&utm_source=site&utm_medium=landing&utm_campaign=wedding_story"
-        ctaLabel="Create your free preview"
+        ctaLabel="Start free preview"
         artwork={[
           {
             src: "/examples/example-wedding-aurora-heart.webp",

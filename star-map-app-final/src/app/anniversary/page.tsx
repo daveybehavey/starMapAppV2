@@ -250,7 +250,7 @@ export default function AnniversaryPage() {
           "If the anniversary is close, the digital option means you can still give something personal tonight. If you have a little time, a framed print turns the moment into a piece for the living room or bedroom that you will both walk past every day.",
         ]}
         ctaHref="/editor?mode=quick&source=occasion-anniversary-story-preview&utm_source=site&utm_medium=landing&utm_campaign=anniversary_story"
-        ctaLabel="Create your free preview"
+        ctaLabel="Start free preview"
         artwork={[
           {
             src: "/examples/example-anniversary-heirloom.webp",
