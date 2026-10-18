@@ -103,10 +103,14 @@ test("Christmas banner discount windows (Pacific) cover each promo phase", async
 
   assert.equal(CHRISTMAS_ORDER_BY_DATES.framed_us, "2026-12-08");
   assert.equal(CHRISTMAS_ORDER_BY_DATES.framed_ca, "2026-12-09");
-  assert.equal(CHRISTMAS_ORDER_BY_DATES.framed_row, "2026-11-30");
   assert.equal(CHRISTMAS_ORDER_BY_DATES.poster_us, "2026-12-09");
   assert.equal(CHRISTMAS_ORDER_BY_DATES.poster_ca, "2026-12-10");
-  assert.equal(CHRISTMAS_ORDER_BY_DATES.poster_row, "2026-12-01");
+  // No rest-of-world keys: Printful publishes holiday deadlines per
+  // destination country only — the framed 2026-11-30 / poster 2026-12-01
+  // figures that used to sit here appear in no Printful source and must
+  // never come back. ROW surfaces show "Order early" instead.
+  assert.equal("framed_row" in CHRISTMAS_ORDER_BY_DATES, false);
+  assert.equal("poster_row" in CHRISTMAS_ORDER_BY_DATES, false);
   // Mug / greeting card: owner-approved provisional cutoffs (2026-10-18).
   assert.equal(CHRISTMAS_ORDER_BY_DATES.mug_us, "2026-12-07");
   assert.equal(CHRISTMAS_ORDER_BY_DATES.mug_ca, "2026-12-08");
@@ -120,7 +124,9 @@ test("Christmas banner discount windows (Pacific) cover each promo phase", async
   assert.equal(resolveChristmasBannerPhase(oct), "order_by");
   const orderBy = getChristmasBannerContent(oct, "$9");
   assert.ok(orderBy);
-  assert.match(orderBy.message, /Dec 8|Dec 9|Nov 30/i);
+  assert.match(orderBy.message, /Dec 8|Dec 9/i);
+  assert.match(orderBy.message, /order early/i);
+  assert.equal(/Nov 30|Dec 1/.test(orderBy.message), false);
   assert.equal(orderBy.promoCode, undefined);
   assert.equal(/XMAS15|BLACKFRIDAY20/.test(orderBy.message), false);
 
@@ -271,7 +277,10 @@ test("Christmas order-by table rows derive from CHRISTMAS_ORDER_BY_DATES", async
   const framed = byProduct.get("Framed print");
   assert.equal(framed.canada, "Dec 9");
   assert.equal(framed.unitedStates, "Dec 8");
-  assert.equal(framed.restOfWorld, "Nov 30");
+  // No rest-of-world date is published for framed/poster/canvas —
+  // Printful sets deadlines per destination country only — so, exactly
+  // like mug and card below, the cell says "Order early".
+  assert.equal(framed.restOfWorld, "Order early");
   assert.equal(framed.instantNote, null);
 
   // Canvas has no cutoff key of its own — it shares the framed dates.
@@ -283,7 +292,7 @@ test("Christmas order-by table rows derive from CHRISTMAS_ORDER_BY_DATES", async
   const poster = byProduct.get("Unframed poster");
   assert.equal(poster.canada, "Dec 10");
   assert.equal(poster.unitedStates, "Dec 9");
-  assert.equal(poster.restOfWorld, "Dec 1");
+  assert.equal(poster.restOfWorld, "Order early");
 
   // Mug + greeting card: owner-approved provisional CA Dec 8 / US Dec 7.
   // No rest-of-world date is confirmed — the cell must say "Order early",
@@ -305,6 +314,21 @@ test("Christmas order-by table rows derive from CHRISTMAS_ORDER_BY_DATES", async
   assert.equal(digital.unitedStates, null);
   assert.equal(digital.restOfWorld, null);
   assert.match(digital.instantNote, /delivered instantly/i);
+});
+
+test("Christmas order-by summary lines carry no rest-of-world dates", async () => {
+  const { getChristmasOrderBySummaryLines } = await loadTs("src/lib/christmasCampaign.ts");
+
+  // These lines feed the landing-page bullets AND the "What are the
+  // Christmas order-by dates?" FAQ (visible copy + FaqSchema JSON-LD),
+  // so they get the same guarantee as the table: CA/US dates present,
+  // rest of world is "order early", never an invented date.
+  const lines = getChristmasOrderBySummaryLines();
+  assert.deepEqual(lines, [
+    "Framed & canvas: United States Dec 8 · Canada Dec 9 · rest of world: order early",
+    "Posters: United States Dec 9 · Canada Dec 10 · rest of world: order early",
+  ]);
+  assert.equal(/Nov 30|Dec 1/.test(lines.join(" ")), false);
 });
 
 test("christmas order-by table wiring: page, component, footer and home links", () => {

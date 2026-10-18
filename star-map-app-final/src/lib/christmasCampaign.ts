@@ -16,10 +16,8 @@ export type ChristmasBannerPhase =
 export type ChristmasCutoffKey =
   | "framed_us"
   | "framed_ca"
-  | "framed_row"
   | "poster_us"
   | "poster_ca"
-  | "poster_row"
   | "mug_us"
   | "mug_ca"
   | "card_us"
@@ -27,12 +25,15 @@ export type ChristmasCutoffKey =
 
 /** Local calendar dates in America/Los_Angeles. */
 export const CHRISTMAS_ORDER_BY_DATES: Record<ChristmasCutoffKey, string> = {
+  // No rest-of-world keys exist for any product: Printful publishes
+  // holiday deadlines per destination country only, never a single
+  // rest-of-world date (verified 2026-10-18 — the framed Nov 30 /
+  // poster Dec 1 figures previously here appear in no Printful
+  // source). Every rest-of-world cell shows "Order early" instead.
   framed_us: "2026-12-08",
   framed_ca: "2026-12-09",
-  framed_row: "2026-11-30",
   poster_us: "2026-12-09",
   poster_ca: "2026-12-10",
-  poster_row: "2026-12-01",
   // Mug + greeting card: owner-approved provisional cutoffs (2026-10-18).
   // No rest-of-world date is confirmed for either — the order-by table
   // shows "Order early" there instead of inventing one.
@@ -71,7 +72,7 @@ const DIGITAL_LAST_MINUTE_END = "2026-12-25";
 const BOXING_DAY = "2026-12-26";
 
 const ORDER_BY_BANNER_LINE =
-  "Order by these dates for Christmas delivery — framed/canvas: US Dec 8 · Canada Dec 9 · worldwide Nov 30. Posters: US Dec 9 · Canada Dec 10 · worldwide Dec 1.";
+  "Order by these dates for Christmas delivery — framed/canvas: US Dec 8 · Canada Dec 9 · rest of world: order early. Posters: US Dec 9 · Canada Dec 10 · rest of world: order early.";
 
 function parseYmd(ymd: string): { y: number; m: number; d: number } {
   const [y, m, d] = ymd.split("-").map((part) => Number(part));
@@ -378,8 +379,8 @@ export function getChristmasPromoCodesFaqAnswer(): string {
 /** Exported for tests / landing page display. */
 export function getChristmasOrderBySummaryLines(): string[] {
   return [
-    "Framed & canvas: United States Dec 8 · Canada Dec 9 · rest of world Nov 30",
-    "Posters: United States Dec 9 · Canada Dec 10 · rest of world Dec 1",
+    "Framed & canvas: United States Dec 8 · Canada Dec 9 · rest of world: order early",
+    "Posters: United States Dec 9 · Canada Dec 10 · rest of world: order early",
   ];
 }
 
@@ -423,14 +424,16 @@ const REST_OF_WORLD_UNCONFIRMED_LABEL = "Order early";
  * own: it ships on the framed profile (see printCatalog `canvas_wrap`)
  * and shares the framed dates, exactly as the summary lines present it.
  * Mug and greeting card use the owner-approved provisional cutoffs
- * (Canada Dec 8 · US Dec 7, approved 2026-10-18); no rest-of-world date
- * is confirmed for either, so that cell reads "Order early".
+ * (Canada Dec 8 · US Dec 7, approved 2026-10-18). No rest-of-world date
+ * is confirmed for ANY product — Printful publishes holiday deadlines
+ * per destination country only — so every rest-of-world cell reads
+ * "Order early" rather than an invented date.
  */
 export function getChristmasOrderByTableRows(): ChristmasOrderByTableRow[] {
   const framed = {
     canada: formatOrderByDisplayDate("framed_ca"),
     unitedStates: formatOrderByDisplayDate("framed_us"),
-    restOfWorld: formatOrderByDisplayDate("framed_row"),
+    restOfWorld: REST_OF_WORLD_UNCONFIRMED_LABEL,
   };
   return [
     { product: "Framed print", ...framed, instantNote: null },
@@ -439,7 +442,7 @@ export function getChristmasOrderByTableRows(): ChristmasOrderByTableRow[] {
       product: "Unframed poster",
       canada: formatOrderByDisplayDate("poster_ca"),
       unitedStates: formatOrderByDisplayDate("poster_us"),
-      restOfWorld: formatOrderByDisplayDate("poster_row"),
+      restOfWorld: REST_OF_WORLD_UNCONFIRMED_LABEL,
       instantNote: null,
     },
     {
