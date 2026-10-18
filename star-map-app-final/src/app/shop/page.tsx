@@ -140,8 +140,8 @@ export default function ShopPage() {
     },
     {
       key: "mug",
-      imageSrc: HOME_MOCKUPS.digitalHd,
-      alt: "Star map mug gift mockup",
+      imageSrc: "/printproof/gift-raw/mug/mug-mockup.jpg",
+      alt: "Black glossy mug (11 oz) with a printed design",
       title: printTiers.mug_11oz.label,
       detail: "Everyday merch gift — not the wedding hero, but great for birthdays and desk gifts.",
       price: mugPrice,

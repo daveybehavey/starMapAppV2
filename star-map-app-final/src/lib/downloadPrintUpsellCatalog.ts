@@ -68,7 +68,10 @@ const DOWNLOAD_PRINT_CARD_META: Record<
 };
 
 function proofAssets(variant: PrintVariant) {
-  if (variant === "poster_unframed" || variant === "mug_11oz" || variant === "card_4x6") {
+  if (variant === "mug_11oz") {
+    return PRINT_PROOF_IMAGE_PATHS.mug;
+  }
+  if (variant === "poster_unframed" || variant === "card_4x6") {
     return PRINT_PROOF_IMAGE_PATHS.unframed;
   }
   return PRINT_PROOF_IMAGE_PATHS.framed;
