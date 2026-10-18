@@ -963,7 +963,12 @@ input[type="range"]:hover::-moz-range-thumb {
 .brand-pill {
   border: 1px solid rgba(247, 194, 74, 0.42);
   background: rgba(247, 194, 74, 0.14);
-  color: #6b470f;
+  /* No color here (census D03): this unlayered rule outranked the inherited
+     text colour, so on dark hero surfaces (star-map-poster pages) the pill
+     rendered dark amber #6b470f on an amber tint over navy (~1.7:1). The
+     pill is used on both light and dark surfaces; each call site already
+     sets a legible text colour on its parent (amber-900/90 on light,
+     amber-100/85 on dark), so inherit it. */
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
