@@ -49,7 +49,7 @@ export default function WeddingDesignExampleSection({ previewHref }: WeddingDesi
           </ul>
           <Link
             href={previewHref}
-            className="inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200/80 transition hover:-translate-y-[1px] focus:outline-none focus:ring-2 focus:ring-gold"
+            className="inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200/80 transition hover:-translate-y-[1px] focus:outline-none focus:ring-2 focus:ring-amber-700"
           >
             Preview with your date &amp; place
           </Link>

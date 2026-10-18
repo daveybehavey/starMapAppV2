@@ -189,7 +189,7 @@ export default function ShopPage() {
             href: "/editor?mode=quick&source=shop-sticker&merch_family=sticker_kisscut",
             cta: "Customize stickers",
             ctaClass:
-              "mt-auto inline-flex justify-center rounded-full bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-800",
+              "mt-auto inline-flex justify-center rounded-full bg-midnight px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-midnight/90",
             darkCard: false,
           },
         ]
@@ -353,7 +353,7 @@ export default function ShopPage() {
                     <Link
                       href={`/editor?mode=quick&source=shop-merch&merch_family=${encodeURIComponent(family.id)}`}
                       prefetch={false}
-                      className="mt-4 inline-flex justify-center rounded-full bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-800"
+                      className="mt-4 inline-flex justify-center rounded-full bg-midnight px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-midnight/90"
                     >
                       Customize in editor
                     </Link>

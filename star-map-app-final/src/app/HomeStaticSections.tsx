@@ -338,7 +338,7 @@ export default function HomeStaticSections({ priceLabels, promoStatus, promoCode
       <section className="content-visibility-auto cosmic-panel-enhanced cosmic-panel fade-in-up visible mx-auto w-full max-w-7xl rounded-[28px] px-5 py-10 sm:px-7 sm:py-12 lg:px-10 lg:py-14">
         <div className="text-midnight space-y-6">
           <div>
-            <p className="text-xs font-semibold tracking-[0.35em] text-amber-500 uppercase">FAQ</p>
+            <p className="text-xs font-semibold tracking-[0.35em] text-amber-800 uppercase">FAQ</p>
             <h2 className="mt-3 text-3xl font-semibold sm:text-4xl">Quick answers</h2>
             <p className="mt-3 text-sm text-neutral-800 sm:text-base">
               Fast clarity on accuracy, delivery, and what buyers actually receive.
@@ -418,7 +418,7 @@ export default function HomeStaticSections({ priceLabels, promoStatus, promoCode
 
       <section className="content-visibility-auto mx-auto w-full max-w-7xl px-4 pb-10 sm:px-6 sm:pb-12 lg:px-8">
         <div className="text-midnight rounded-3xl border border-amber-200/60 bg-white/80 p-6 shadow-md sm:p-8">
-          <p className="text-xs font-semibold tracking-[0.25em] text-amber-600 uppercase">Explore more</p>
+          <p className="text-xs font-semibold tracking-[0.25em] text-amber-800 uppercase">Explore more</p>
           <h2 className="mt-3 text-2xl font-semibold sm:text-3xl">Popular star map destinations</h2>
           <p className="mt-3 text-sm text-neutral-700 sm:text-base">
             Jump straight to gift, poster, and instant star map generator pages.

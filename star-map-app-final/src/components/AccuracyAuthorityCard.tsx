@@ -13,7 +13,7 @@ export default function AccuracyAuthorityCard({
     <section className="content-visibility-auto mt-6 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-500">Accuracy guide</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-800">Accuracy guide</p>
           <h2 className="text-lg font-semibold text-midnight">How accurate are StarMapCo star maps?</h2>
           <p className="max-w-2xl text-sm text-neutral-700 sm:text-base">{intro}</p>
         </div>

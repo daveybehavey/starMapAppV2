@@ -104,7 +104,7 @@ export default function BulkQuoteRequestForm({ supportEmail }: BulkQuoteRequestF
       className="rounded-[32px] border border-amber-200/60 bg-[linear-gradient(180deg,rgba(255,251,240,0.98),rgba(247,241,227,0.94))] p-6 shadow-2xl shadow-black/20 sm:p-8"
     >
       <div className="space-y-3 text-midnight">
-        <p className="text-xs font-semibold uppercase tracking-[0.32em] text-amber-600">Request a custom quote</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.32em] text-amber-800">Request a custom quote</p>
         <h2 className="text-2xl font-semibold leading-tight sm:text-3xl">Tell us the event, quantity, and timeline.</h2>
         <p className="text-sm leading-7 text-slate-800 sm:text-base">
           We use this to scope the version count, production format, and delivery plan before sending a formal quote.
