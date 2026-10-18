@@ -6,6 +6,7 @@ import type { AspectRatio, Shape } from "@/lib/types";
 import { FONT_STACKS } from "@/lib/fonts";
 import { formatDateTimeForLocation } from "@/lib/dateTime";
 import { adjustColor, parseHexColor, parseRgbColor, toRgba } from "@/lib/colorUtils";
+import { resolveTextFitScale } from "./textFit";
 import {
   getStarDensityTuning,
   resolveMapLookTier,
@@ -1322,9 +1323,18 @@ function drawText(
     // Skip empty text boxes
     if (!box.text || box.text.trim() === "") return;
 
-    const fontSize = Math.max(10, (box.size ?? 28) * scale);
     const weight = box.fontWeight ?? 600;
-    const font = `${weight} ${fontSize}px ${FONT_STACKS[box.fontFamily]}`;
+    const baseFontSize = Math.max(10, (box.size ?? 28) * scale);
+    const baseFont = `${weight} ${baseFontSize}px ${FONT_STACKS[box.fontFamily]}`;
+    // Fit-to-width (P01): a line wider than the canvas shrinks to fit
+    // instead of spilling symmetrically off both edges of the print. Lines
+    // that already fit get a fit scale of exactly 1 and the identical font
+    // string, so their rendering is unchanged.
+    const measuredWidth = getCachedTextWidth(ctx, box.text, baseFont);
+    const fitScale = resolveTextFitScale(measuredWidth, width);
+    const fontSize = baseFontSize * fitScale;
+    const font =
+      fitScale < 1 ? `${weight} ${fontSize}px ${FONT_STACKS[box.fontFamily]}` : baseFont;
     ctx.font = font;
     ctx.fillStyle = box.color;
     if (box.textGlow) {
