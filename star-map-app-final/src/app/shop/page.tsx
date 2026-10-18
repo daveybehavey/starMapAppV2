@@ -44,6 +44,39 @@ function merchShopTeaser(id: MerchFamilyId): string {
   }
 }
 
+/** Truthful Printful catalog product photos per merch family (sample designs shown). */
+function merchShopImage(id: MerchFamilyId): { src: string; alt: string } | null {
+  switch (id) {
+    case "sticker_kisscut":
+      return {
+        src: "/printproof/gift-raw/sticker/sticker-catalog.jpg",
+        alt: "Kiss-cut vinyl sticker with a sample design — your star map is printed to order",
+      };
+    case "magnet_diecut":
+      return {
+        src: "/printproof/gift-raw/magnet/magnet-catalog.jpg",
+        alt: "Die-cut magnet with a sample design — your star map is printed to order",
+      };
+    case "pins_set":
+      return {
+        src: "/printproof/gift-raw/pins/pins-catalog.jpg",
+        alt: "Pin buttons, front and back — your star map is printed on the front",
+      };
+    case "tee_unisex_bc3001":
+      return {
+        src: "/printproof/gift-raw/tshirt/tee-catalog.jpg",
+        alt: "Unisex staple tee — your star map is printed on the front",
+      };
+    case "hoodie_unisex_g18500":
+      return {
+        src: "/printproof/gift-raw/hoodie/hoodie-catalog.jpg",
+        alt: "Unisex hoodie — your star map is printed on the front",
+      };
+    default:
+      return null;
+  }
+}
+
 export const metadata: Metadata = {
   title: "Shop prints & gifts | StarMapCo",
   description:
@@ -134,8 +167,8 @@ export default function ShopPage() {
     },
     {
       key: "canvas",
-      imageSrc: HOME_MOCKUPS.framedLightWood,
-      alt: "Star map canvas gallery wrap in a living room",
+      imageSrc: "/printproof/canvas-catalog.jpg",
+      alt: "Canvas gallery wrap — your star map printed on canvas stretched over a wooden frame",
       title: printTiers.canvas_wrap.label,
       detail: "Gallery-wrap canvas — premium wall art between poster and framed print.",
       price: canvasPrice,
@@ -179,8 +212,8 @@ export default function ShopPage() {
       ? [
           {
             key: "stickers",
-            imageSrc: "/printproof/gift-raw/sticker/sticker-mockup.png",
-            alt: "Kiss-cut star map stickers on a laptop",
+            imageSrc: "/printproof/gift-raw/sticker/sticker-catalog.jpg",
+            alt: "Kiss-cut vinyl sticker with a sample design — your star map is printed to order",
             title: getMerchPublicDisplayLabel(stickerFamily),
             detail:
               "Weatherproof kiss-cut stickers from the same map you preview — great add-on gift or laptop keepsake.",
@@ -342,12 +375,25 @@ export default function ShopPage() {
                 const cents = getMerchPublicDisplayPriceCents(family);
                 const label = getMerchPublicDisplayLabel(family);
                 const priceLine = formatPrice(cents, "USD");
+                const image = merchShopImage(family.id);
                 return (
                   <li
                     key={family.id}
                     className="flex flex-col rounded-2xl border border-violet-200/80 bg-gradient-to-br from-violet-50/90 via-white to-white p-4 shadow-sm"
                   >
-                    <p className="mt-2 text-lg font-semibold text-midnight">{label}</p>
+                    {image ? (
+                      <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-neutral-100">
+                        <ResilientImage
+                          src={image.src}
+                          fallbackSrc={image.src}
+                          alt={image.alt}
+                          fill
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                          className="object-cover"
+                        />
+                      </div>
+                    ) : null}
+                    <p className="mt-3 text-lg font-semibold text-midnight">{label}</p>
                     <p className="mt-2 flex-1 text-sm leading-relaxed text-neutral-700">{merchShopTeaser(family.id)}</p>
                     <p className="mt-3 text-base font-semibold text-violet-900">{priceLine}+ shipping at checkout</p>
                     <Link
