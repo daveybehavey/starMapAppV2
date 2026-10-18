@@ -797,6 +797,7 @@ export function SimplifiedEditor() {
     { id: "circle", name: "Circle", icon: "○" },
     { id: "heart", name: "Heart", icon: "♥" },
     { id: "star", name: "Star", icon: "★" },
+    { id: "diamond", name: "Diamond", icon: "◆" },
   ];
 
   const { dateInputValue, exactTimeValue } = useMemo(
