@@ -168,7 +168,7 @@ export default function DeliveryFormatModule({
           prefetch={false}
           className="mt-2 inline-flex text-xs font-semibold text-amber-700 underline hover:text-amber-800"
         >
-          Explore full gift formats and pilot queue
+          Explore all gift formats
         </Link>
       </div>
     </section>

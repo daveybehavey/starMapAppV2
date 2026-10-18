@@ -93,7 +93,7 @@ export default async function ChristmasStarMapGiftPage({ searchParams }: PagePro
     },
     {
       question: "What if I miss the print cutoff?",
-      answer: `Choose the ${instantPrice} instant HD digital file — ready to send the same day as a last-minute Christmas gift through December 25.`,
+      answer: `Choose the ${instantPrice} instant HD digital file — ready to send the same day, even at the last minute.`,
     },
     {
       question: "How long does print delivery take?",

@@ -290,7 +290,7 @@ export default function WeddingPage() {
         <div className="space-y-2">
           <h2 className="text-midnight text-lg font-semibold">Wedding map examples</h2>
           <p className="text-sm text-neutral-800 sm:text-base">
-            Start with a current-engine look you like, then personalize wording, date line, and frame feel for
+            Start with a look you like, then personalize the wording, date line, and frame feel for
             your event.
           </p>
         </div>

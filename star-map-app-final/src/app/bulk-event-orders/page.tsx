@@ -62,7 +62,7 @@ const includedItems = [
   "Subtle logo placement when needed",
   "Manual quote based on quantity, versions, and timing",
   "One proof and one revision round before production",
-  "Unframed-first pricing for the cleanest margin and fulfillment path",
+  "Unframed-first pricing for the simplest route from proof to delivery",
   "Simple version sheet for multi-map orders",
 ];
 
