@@ -7,4 +7,8 @@ export const PRINT_PROOF_IMAGE_PATHS = {
     src: "/printproof/unframed-mockup.jpg",
     fallback: "/printproof/unframed-catalog.jpg",
   },
+  mug: {
+    src: "/printproof/gift-raw/mug/mug-mockup.jpg",
+    fallback: "/printproof/gift-raw/mug/mug-mockup.jpg",
+  },
 } as const;
