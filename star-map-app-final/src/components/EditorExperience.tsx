@@ -3367,7 +3367,7 @@ export function EditorExperience({
                             <button
                               type="button"
                               onClick={() => setIsFullscreen(true)}
-                              className="focus:ring-gold absolute right-3 bottom-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-lg text-white shadow-md backdrop-blur transition hover:-translate-y-[1px] hover:shadow-lg focus:ring-2 focus:ring-offset-2 focus:outline-none"
+                              className="focus:ring-gold absolute right-3 bottom-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-lg text-white shadow-md backdrop-blur transition hover:-translate-y-[1px] hover:shadow-lg focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0b1a30] focus:outline-none"
                               aria-label="Open fullscreen"
                             >
                               ⤢
@@ -3376,7 +3376,7 @@ export function EditorExperience({
                               <button
                                 type="button"
                                 onClick={handleEditScroll}
-                                className="focus:ring-gold absolute top-3 left-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/15 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:ring-2 focus:ring-offset-2 focus:outline-none"
+                                className="focus:ring-gold absolute top-3 left-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/15 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0b1a30] focus:outline-none"
                               >
                                 ← Edit
                               </button>
@@ -3393,7 +3393,7 @@ export function EditorExperience({
                             onClick={() => void handleExport("preview")}
                             aria-label="Free export"
                             data-cta-priority="secondary"
-                            className="focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:ring-2 focus:ring-offset-2 focus:outline-none"
+                            className="focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0b1a30] focus:outline-none"
                           >
                             Free preview
                           </button>
@@ -3405,7 +3405,7 @@ export function EditorExperience({
                             data-digital-offer={paid ? undefined : true}
                             data-cta-priority="primary"
                             disabled={hdExportInFlight}
-                            className="text-midnight focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold shadow-md transition hover:-translate-y-[1px] hover:shadow-lg focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
+                            className="text-midnight focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-4 py-2 text-xs font-semibold shadow-md transition hover:-translate-y-[1px] hover:shadow-lg focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0b1a30] focus:outline-none disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
                             title="Unlock to export HD without watermark; preview stays free."
                           >
                             {hdExportInFlight ? "Preparing..." : paid ? "HD download" : "Unlock HD"}
@@ -3426,7 +3426,7 @@ export function EditorExperience({
                               }}
                               data-cta-priority="secondary"
                               data-testid="desktop-print-frame"
-                              className="focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/70 bg-amber-300/25 px-4 py-2 text-xs font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-300/35 focus:ring-2 focus:ring-offset-2 focus:outline-none"
+                              className="focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-amber-300/70 bg-amber-300/25 px-4 py-2 text-xs font-semibold text-amber-100 shadow-sm transition hover:-translate-y-[1px] hover:bg-amber-300/35 focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0b1a30] focus:outline-none"
                               title="Buy a printed star map with framing options."
                             >
                               Print & frame
@@ -3438,7 +3438,7 @@ export function EditorExperience({
                               onClick={handleCustomizeMore}
                               data-testid="desktop-customize-more"
                               data-cta-priority="secondary"
-                              className="focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:bg-white/15 hover:shadow focus:ring-2 focus:ring-offset-2 focus:outline-none"
+                              className="focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:bg-white/15 hover:shadow focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0b1a30] focus:outline-none"
                             >
                               Customize more
                             </button>
@@ -3452,7 +3452,7 @@ export function EditorExperience({
                             type="button"
                             onClick={handleShareImage}
                             data-cta-priority="secondary"
-                            className="focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:ring-2 focus:ring-offset-2 focus:outline-none"
+                            className="focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0b1a30] focus:outline-none"
                           >
                             🔗 Share
                           </button>
@@ -3461,7 +3461,7 @@ export function EditorExperience({
                               type="button"
                               onClick={handleShare}
                               data-cta-priority="secondary"
-                              className="focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:ring-2 focus:ring-offset-2 focus:outline-none"
+                              className="focus:ring-gold inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-[1px] hover:shadow focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0b1a30] focus:outline-none"
                             >
                               💾 Save & Remix
                             </button>

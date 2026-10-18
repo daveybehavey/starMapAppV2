@@ -401,7 +401,7 @@ export function PaywallModal({
             type="button"
             onClick={onClose}
             aria-label="Close purchase options"
-            className="hover:text-midnight flex-shrink-0 rounded-full p-1 text-neutral-500 transition hover:bg-black/10 focus:ring-2 focus:ring-amber-400 focus:outline-none"
+            className="hover:text-midnight flex-shrink-0 rounded-full p-1 text-neutral-500 transition hover:bg-black/10 focus:ring-2 focus:ring-amber-700 focus:outline-none"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"

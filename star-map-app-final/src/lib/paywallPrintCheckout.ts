@@ -89,7 +89,7 @@ export function paywallPrintSkuButtonClassesEditorPanel(
   preferredIncludeDigitalAddOn = false,
 ) {
   const shared =
-    "focus:ring-gold inline-flex min-h-[3.25rem] flex-col items-center justify-center rounded-full border px-3 py-2 text-xs font-semibold transition hover:-translate-y-[1px] focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-70";
+    "focus:ring-gold inline-flex min-h-[3.25rem] flex-col items-center justify-center rounded-full border px-3 py-2 text-xs font-semibold transition hover:-translate-y-[1px] focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0b1a30] focus:outline-none disabled:cursor-not-allowed disabled:opacity-70";
 
   if (row.recommended) {
     return `${shared} border-amber-200/70 bg-amber-300/35 text-amber-50 hover:bg-amber-300/45`;
