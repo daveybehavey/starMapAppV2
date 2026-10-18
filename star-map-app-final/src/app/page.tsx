@@ -111,6 +111,12 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         brand: { "@type": "Brand", name: "StarMapCo" },
         image: [`${siteUrl}/custom-star-map-anniversary.webp`],
         category: "Personalized gifts",
+        // Deliberately NO review aggregate in this Product schema: the
+        // 5.0-star rating belongs to the Google Business Profile (the
+        // business), not to this product, and Google prohibits presenting
+        // one entity's reviews as another's. The rating is displayed
+        // visibly, labeled "on Google", by GoogleRatingsTrust — it is not
+        // claimed in structured data.
         additionalProperty: [
           {
             "@type": "PropertyValue",

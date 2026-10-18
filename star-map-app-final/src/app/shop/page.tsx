@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import GiftFormatLadder from "@/components/GiftFormatLadder";
 import FramedProofSection from "@/components/FramedProofSection";
+import GoogleRatingsTrust from "@/components/GoogleRatingsTrust";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import ResilientImage from "@/components/ResilientImage";
@@ -277,6 +278,8 @@ export default function ShopPage() {
             Start free preview
           </Link>
         </div>
+
+        <GoogleRatingsTrust variant="strip" className="mt-5 border-t border-neutral-200/80 pt-4" />
 
         <PreviewStartForm
           source="shop"
