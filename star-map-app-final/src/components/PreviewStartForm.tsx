@@ -3,8 +3,13 @@
 import { type FormEvent, type ReactNode, useCallback, useState } from "react";
 import { track, trackFunnelStep } from "@/lib/analytics";
 import IOSSafeDateInput from "@/components/IOSSafeDateInput";
+import LocationTypeahead from "@/components/LocationTypeahead";
 import { MOBILE_DATE_HELPER_TEXT, STANDARD_DATE_PLACEHOLDER } from "@/lib/dateInput";
 import type { EditorLocationPrefill } from "@/lib/editorLocationPrefill";
+import {
+  resolvePreviewLocationFields,
+  type PickedPreviewLocation,
+} from "@/lib/previewStartLocation";
 import type { PrintVariant } from "@/lib/pricing";
 
 type PreviewStartIntent = {
@@ -26,7 +31,7 @@ type PreviewStartFormProps = {
   source?: string;
   /**
    * Optional initial location for city (or other contextual) landings.
-   * Prefills the input via defaultValue; remains editable and is submitted as `location`.
+   * Prefills the location field; remains editable and is submitted as `location`.
    */
   defaultLocation?: string;
   /**
@@ -92,6 +97,8 @@ export default function PreviewStartForm({
   const initialLocation = defaultLocation?.trim() || "";
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
   const [coordsActive, setCoordsActive] = useState(Boolean(defaultLocationCoords && initialLocation));
+  const [locationText, setLocationText] = useState(initialLocation);
+  const [pickedLocation, setPickedLocation] = useState<PickedPreviewLocation | null>(null);
 
   const syncCoordsForEditedLocation = useCallback(
     (nextValue: string) => {
@@ -103,6 +110,28 @@ export default function PreviewStartForm({
     },
     [defaultLocationCoords, initialLocation]
   );
+
+  const handleLocationTextChange = useCallback(
+    (nextValue: string) => {
+      setLocationText(nextValue);
+      syncCoordsForEditedLocation(nextValue);
+    },
+    [syncCoordsForEditedLocation]
+  );
+
+  const handleLocationPick = useCallback((picked: PickedPreviewLocation) => {
+    setPickedLocation(picked);
+  }, []);
+
+  // What the native GET actually submits for the location: the typed (or
+  // picked) name, plus lat/lon/tz only while a resolution still matches
+  // the text — identical to the previous validated submit's shape.
+  const locationFields = resolvePreviewLocationFields({
+    locationText,
+    picked: pickedLocation,
+    defaultCoords: coordsActive ? defaultLocationCoords ?? null : null,
+    initialLocation,
+  });
 
   const handleSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
@@ -163,23 +192,26 @@ export default function PreviewStartForm({
             <label className="sr-only" htmlFor="preview-location">
               Location
             </label>
-            <input
+            <LocationTypeahead
               id="preview-location"
               name="location"
-              type="text"
+              value={locationText}
+              onValueChange={handleLocationTextChange}
+              onPick={handleLocationPick}
               placeholder="City or address"
               autoComplete="address-level2"
-              defaultValue={initialLocation || undefined}
-              onChange={(event) => syncCoordsForEditedLocation(event.currentTarget.value)}
+              selectedName={
+                pickedLocation && locationText === pickedLocation.name ? pickedLocation.name : undefined
+              }
               className="ios-form-control w-full min-w-0 rounded-xl border border-amber-200/80 bg-white px-3 py-3 text-sm text-neutral-800 shadow-sm placeholder:text-neutral-400 focus:border-amber-600 focus:ring-2 focus:ring-amber-700 focus:outline-none"
             />
           </div>
         </div>
-        {coordsActive && defaultLocationCoords ? (
+        {locationFields.lat !== undefined ? (
           <>
-            <input type="hidden" name="lat" value={String(defaultLocationCoords.latitude)} />
-            <input type="hidden" name="lon" value={String(defaultLocationCoords.longitude)} />
-            <input type="hidden" name="tz" value={defaultLocationCoords.timezone} />
+            <input type="hidden" name="lat" value={locationFields.lat} />
+            <input type="hidden" name="lon" value={locationFields.lon} />
+            <input type="hidden" name="tz" value={locationFields.tz} />
           </>
         ) : null}
         {showMobileDateHelper ? (
