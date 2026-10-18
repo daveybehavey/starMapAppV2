@@ -313,9 +313,11 @@ export function getChristmasLandingPromo(nowMs: number = Date.now()): ChristmasL
       heading: "Boxing Day print sale",
       discountLine: `Boxing Day: 15% off prints with code ${CHRISTMAS_PROMO.xmas15.code}`,
       // Christmas delivery has passed — no order-by content, Boxing Day
-      // framing only.
+      // framing only. The digital pitch is off too: the only pitch line
+      // (getChristmasDigitalPitchLine) is Christmas-framed — "last-minute
+      // gift through December 25" — which would be expired copy on Dec 26.
       showOrderBy: false,
-      showDigitalPitch: true,
+      showDigitalPitch: false,
       promoCode: CHRISTMAS_PROMO.xmas15.code,
       digitalExcludedNote: "Discount codes apply to prints only — HD digital is excluded.",
     };

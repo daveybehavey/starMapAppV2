@@ -179,8 +179,12 @@ test("Christmas banner discount windows (Pacific) cover each promo phase", async
 });
 
 test("Christmas cyber monday and boxing day phases (boundaries + copy)", async () => {
-  const { resolveChristmasBannerPhase, getChristmasBannerContent, getChristmasLandingPromo } =
-    await loadTs("src/lib/christmasCampaign.ts");
+  const {
+    resolveChristmasBannerPhase,
+    getChristmasBannerContent,
+    getChristmasLandingPromo,
+    getChristmasDigitalPitchLine,
+  } = await loadTs("src/lib/christmasCampaign.ts");
 
   const at = (ymd) => Date.parse(`${ymd}T20:00:00.000Z`);
 
@@ -217,6 +221,23 @@ test("Christmas cyber monday and boxing day phases (boundaries + copy)", async (
   assert.match(landing.discountLine, /Boxing Day: 15% off prints/i);
   assert.equal(landing.promoCode, "XMAS15");
   assert.equal(landing.showOrderBy, false);
+  // Regression (Codex P2 on #309): the landing must not render the digital
+  // pitch on Dec 26. The only pitch line is Christmas-framed — it reads
+  // "last-minute gift through December 25" — which is expired copy under a
+  // Boxing Day sale. Lock the helper's framing (so this guard stays
+  // meaningful), lock the flag off, then compose everything the page
+  // would show for Dec 26 (the pitch renders only when the flag is true)
+  // and assert no trace of the stale pitch or Christmas-delivery framing.
+  assert.match(getChristmasDigitalPitchLine(), /December 25/);
+  assert.equal(landing.showDigitalPitch, false);
+  const dec26VisibleCopy = [
+    content.message,
+    landing.heading,
+    landing.discountLine ?? "",
+    landing.showDigitalPitch ? getChristmasDigitalPitchLine() : "",
+  ].join("\n");
+  assert.equal(/December 25/.test(dec26VisibleCopy), false);
+  assert.equal(/Christmas delivery|last-minute gift/i.test(dec26VisibleCopy), false);
 
   // Dec 27 onward is off-season.
   assert.equal(resolveChristmasBannerPhase(at("2026-12-27")), "hidden");
