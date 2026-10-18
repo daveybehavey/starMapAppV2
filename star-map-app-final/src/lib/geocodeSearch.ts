@@ -37,10 +37,7 @@ export function getCachedGeocodeResults(query: string): GeocodeResult[] | undefi
  * Throws Error("Search failed") when the endpoint responds non-OK; aborts
  * propagate as AbortError like a raw fetch so callers can distinguish them.
  */
-export async function fetchGeocodeResults(
-  query: string,
-  signal?: AbortSignal
-): Promise<GeocodeResult[]> {
+export async function fetchGeocodeResults(query: string, signal?: AbortSignal): Promise<GeocodeResult[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];
   const res = await fetch(`/api/geocode?q=${encodeURIComponent(trimmed)}`, { signal });
@@ -57,11 +54,7 @@ export async function fetchGeocodeResults(
  * Mirrors the editor's previous behaviour: keep the caller's timezone
  * when the lookup cannot resolve, defaulting to "UTC".
  */
-export function lookupGeocodeTimezone(
-  latitude: number,
-  longitude: number,
-  fallback: string
-): string {
+export function lookupGeocodeTimezone(latitude: number, longitude: number, fallback: string): string {
   try {
     return tzLookup(latitude, longitude);
   } catch {

@@ -200,9 +200,7 @@ export default function LocationTypeahead({
         aria-autocomplete="list"
         aria-expanded={dropdownOpen}
         aria-controls={dropdownOpen ? listId : undefined}
-        aria-activedescendant={
-          highlightedIndex >= 0 ? `${listId}-option-${highlightedIndex}` : undefined
-        }
+        aria-activedescendant={highlightedIndex >= 0 ? `${listId}-option-${highlightedIndex}` : undefined}
         className={className}
       />
       {loading && (
@@ -219,9 +217,7 @@ export default function LocationTypeahead({
         >
           {error && <div className="px-3 py-2 text-sm text-rose-600">{error}</div>}
           {!error && !loading && !hasResults && (
-            <div className="px-3 py-2 text-sm text-neutral-600">
-              No matches found. Try another name.
-            </div>
+            <div className="px-3 py-2 text-sm text-neutral-600">No matches found. Try another name.</div>
           )}
           {!error &&
             results.map((result, index) => {

@@ -15,10 +15,7 @@ export type SetupGuideField = "date" | "place";
  * `hasPlace` means whatever the surface itself requires for place
  * (MobileCreate: a named place; EditorExperience: a confirmed place).
  */
-export function getSetupGuideField(input: {
-  hasDate: boolean;
-  hasPlace: boolean;
-}): SetupGuideField | null {
+export function getSetupGuideField(input: { hasDate: boolean; hasPlace: boolean }): SetupGuideField | null {
   if (!input.hasDate) return "date";
   if (!input.hasPlace) return "place";
   return null;
