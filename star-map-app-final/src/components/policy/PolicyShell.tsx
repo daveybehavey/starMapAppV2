@@ -17,9 +17,13 @@ export default function PolicyShell({
   maxWidthClass = "max-w-3xl",
   children,
 }: PolicyShellProps) {
+  // Census D02: the "dark" variant renders a cream card inside a text-white
+  // <main>, and `text-midnight` generates no utility under Tailwind v4 (the
+  // v3 JS config palette is not loaded), so headings inherited white onto
+  // cream (~1.13:1). Use the literal midnight value so the class resolves.
   const titleClass =
     variant === "dark"
-      ? "mt-2 text-3xl font-bold text-midnight sm:text-4xl"
+      ? "mt-2 text-3xl font-bold text-[#0c1021] sm:text-4xl"
       : `text-3xl font-semibold text-midnight sm:text-4xl${eyebrow ? " mt-2" : ""}`;
 
   const eyebrowClass =
@@ -39,7 +43,7 @@ export default function PolicyShell({
     return (
       <main className="bg-[#050915] px-4 py-12 text-white sm:py-16">
         <div
-          className={`mx-auto ${maxWidthClass} rounded-3xl border border-amber-200/70 bg-[rgba(247,241,227,0.92)] p-6 text-midnight shadow-2xl sm:p-8`}
+          className={`mx-auto ${maxWidthClass} rounded-3xl border border-amber-200/70 bg-[rgba(247,241,227,0.92)] p-6 text-[#0c1021] shadow-2xl sm:p-8`}
         >
           {header}
           {children}
