@@ -95,8 +95,9 @@ export default function ShippingPage() {
 
         <section className="mt-6">
           <h2 className="text-xl font-semibold text-midnight">Physical print countries</h2>
-          <div className="mt-3 overflow-x-auto rounded-2xl border border-amber-200/80 bg-white/85">
-            <table className="min-w-full text-left text-xs text-neutral-900 sm:text-sm">
+          <div className="relative mt-3">
+            <div className="overflow-x-auto rounded-2xl border border-amber-200/80 bg-white/85">
+              <table className="min-w-[540px] text-left text-xs text-neutral-900 sm:min-w-full sm:text-sm">
               <thead className="bg-amber-100/80 text-[11px] uppercase tracking-wide text-midnight sm:text-xs">
                 <tr>
                   <th className="px-3 py-2 font-semibold">Country</th>
@@ -115,7 +116,15 @@ export default function ShippingPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+              </table>
+            </div>
+            {/* Census D04: right-edge fade cue that the table scrolls
+                sideways on small screens; hidden at sm+ where the table
+                fits at full width. */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 right-0 w-10 rounded-r-2xl bg-gradient-to-l from-white/95 to-transparent sm:hidden"
+            />
           </div>
         </section>
 
