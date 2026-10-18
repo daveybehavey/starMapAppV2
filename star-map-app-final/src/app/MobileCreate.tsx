@@ -33,6 +33,7 @@ import { useAndroidAppMode } from "@/hooks/useAndroidAppMode";
 import { useStore } from "@/lib/store";
 import { formatDateTimeForLocation } from "@/lib/dateTime";
 import { syncSampleDesignTextBoxes } from "@/lib/sampleDesignTextSync";
+import { resolveRestoredCustomOccasion } from "@/lib/editorDraft";
 
 const REVEAL_ANIMATION_MS = 900;
 const DEFAULT_TITLE_TEXT = "our night sky";
@@ -256,12 +257,24 @@ export function MobileCreate({
     }
     if (draft) {
       try {
-        const parsed = JSON.parse(draft) as { selectedOccasion?: string | null };
+        const parsed = JSON.parse(draft) as {
+          selectedOccasion?: string | null;
+          location?: { name?: string | null };
+        };
         if (parsed.selectedOccasion) {
           setSelectedOccasion(parsed.selectedOccasion);
         } else if (parsed.selectedOccasion === null) {
-          // User had custom date/location
-          setCustomOccasion(true);
+          // Custom only when the draft carries a named location. The
+          // untouched draft the parent editor autosaves on first load has
+          // selectedOccasion: null and an unnamed placeholder location;
+          // calling it "custom" suppressed the sample preset's
+          // date/location on mobile while its text was applied (D16).
+          setCustomOccasion(
+            resolveRestoredCustomOccasion({
+              selectedOccasion: null,
+              location: { name: parsed.location?.name },
+            }),
+          );
         }
       } catch {
         // Ignore parse errors

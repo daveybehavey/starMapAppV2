@@ -10,6 +10,17 @@ export type EditorDraftData = Omit<MapRecipe, "renderOptions"> & {
   selectedOccasion: string | null;
   /** Provenance for repeatable sample text sync; nulls when absent (legacy drafts). */
   sampleDesignLastAutoSynced: SampleDesignLastAutoSyncedState;
+  /**
+   * Whether datetimeISO is still the pre-populated default the user has not
+   * edited (mirrors the store flag of the same name). Persisted so restore
+   * reconstructs the flag exactly: an untouched autosaved draft keeps
+   * autofilling sample presets (D16), while an explicitly picked date
+   * survives a reload instead of being silently replaced by a preset
+   * (Codex P2 on PR #310). Drafts written before this field existed
+   * normalize to false — preserve is the safe direction when the date's
+   * provenance is unknown.
+   */
+  dateTimeIsUntouchedDefault: boolean;
 };
 
 /**
@@ -62,6 +73,25 @@ export interface EditorDraftStorage {
 
 export interface EditorDraftStorageHost {
   readonly localStorage: EditorDraftStorage;
+}
+
+/**
+ * Whether a restored draft represents a user-customized sky.
+ *
+ * A draft with a selected occasion is owned by the occasion flow (not
+ * custom); otherwise only a NAMED location marks the draft as custom. An
+ * unnamed placeholder draft — including the untouched default the editor
+ * autosaves on first load — is not custom. Treating `selectedOccasion:
+ * null` alone as custom was D16: MobileCreate mounts after the parent
+ * editor's autosave, read the just-written untouched draft, marked itself
+ * custom, and the sample preset then applied text only on mobile.
+ */
+export function resolveRestoredCustomOccasion(draft: {
+  selectedOccasion: string | null;
+  location: { name?: string | null };
+}): boolean {
+  if (draft.selectedOccasion) return false;
+  return Boolean(draft.location.name?.trim());
 }
 
 type ValidationResult<T> = { ok: true; value: T } | { ok: false; reason: EditorDraftInvalidReason };
@@ -483,6 +513,12 @@ export function normalizeEditorDraftData(value: unknown): ValidationResult<Edito
     hasOwn(value, "sampleDesignLastAutoSynced") ? value.sampleDesignLastAutoSynced : undefined
   );
 
+  // Only a literal boolean true counts: a missing field (drafts saved
+  // before date provenance was persisted) or a malformed value means the
+  // date's origin is unknown, which must resolve to "preserve", never to
+  // silently replacing the date on preset apply.
+  const dateTimeIsUntouchedDefault = value.dateTimeIsUntouchedDefault === true;
+
   return {
     ok: true,
     value: {
@@ -500,6 +536,7 @@ export function normalizeEditorDraftData(value: unknown): ValidationResult<Edito
       renderOptions: renderOptions.value,
       selectedOccasion,
       sampleDesignLastAutoSynced,
+      dateTimeIsUntouchedDefault,
     },
   };
 }

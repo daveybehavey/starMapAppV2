@@ -10,7 +10,7 @@ import { applyStyleDefaults } from "@/lib/styleDefaults";
 import { track } from "@/lib/analytics";
 import { hasConfirmedEditorLocation } from "@/lib/editorLocationPrefill";
 import { formatDateTimeForLocation } from "@/lib/dateTime";
-import { resolvePresetTextBoxesOnApply } from "@/lib/sampleDesignTextSync";
+import { resolvePresetTextBoxesOnApply, shouldAutofillPresetSky } from "@/lib/sampleDesignTextSync";
 
 export interface UseEditorLogicOptions {
   /** Editor variant affects default intensity value */
@@ -224,10 +224,20 @@ export function useEditorLogic(options: UseEditorLogicOptions = {}): UseEditorLo
       const preset = occasionPresets.find((item) => item.id === id);
       if (!preset) return;
 
-      // Only autofill when the user hasn't provided date/location yet.
-      // If the user is actively editing (customOccasion), we should not overwrite
-      // the current location/date even if derived store flags lag briefly.
-      const shouldAutofill = !customOccasion && (!locationName || !hasDate);
+      // Only autofill when the user hasn't genuinely provided a sky yet.
+      // The decision is provenance-based (see shouldAutofillPresetSky):
+      // a confirmed location or a deliberately picked date is preserved,
+      // and the untouched placeholder sky always autofills (D16). The
+      // restore-derived customOccasion flag must NOT gate this — it is
+      // false for exactly the restored drafts whose picked dates most
+      // need preserving (Codex P2 on PR #310); the draft persists the
+      // untouched flag so the store value read here is exact after a
+      // reload as well.
+      const shouldAutofill = shouldAutofillPresetSky({
+        hasConfirmedLocation: hasConfirmedEditorLocation(location),
+        dateTimeIsUntouchedDefault: useStore.getState().dateTimeIsUntouchedDefault,
+        hasDate,
+      });
       setSelectedOccasion(id);
       // If we are not autofilling, keep the "custom" state so the UI preserves
       // the user's manual inputs (and doesn't clear the location text field).

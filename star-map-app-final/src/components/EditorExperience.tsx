@@ -121,7 +121,11 @@ import {
   type HydratableMapRecipe,
 } from "@/lib/mapRecipeHydration";
 import { parseMapIdParam } from "@/lib/mapId";
-import { readEditorDraftFromHost, writeEditorDraftToHost } from "@/lib/editorDraft";
+import {
+  readEditorDraftFromHost,
+  resolveRestoredCustomOccasion,
+  writeEditorDraftToHost,
+} from "@/lib/editorDraft";
 
 const MobileCreate = dynamic(() => import("@/app/MobileCreate").then((mod) => mod.MobileCreate), {
   ssr: false,
@@ -771,8 +775,14 @@ export function EditorExperience({
       // Validate the complete draft before atomically applying editor state.
       useStore.setState({
         dateTime: draft.datetimeISO,
-        // Restored drafts are user/session content, not the fresh evening default.
-        dateTimeIsUntouchedDefault: false,
+        // Reconstruct the untouched flag from the draft's persisted
+        // provenance rather than assuming a restored date was picked:
+        // an untouched autosaved draft must keep autofill behaviour
+        // (D16), while a draft holding an explicitly picked date
+        // restores with the flag cleared so the pick is preserved
+        // (Codex P2). Drafts saved before the flag was persisted
+        // normalize to false (preserve).
+        dateTimeIsUntouchedDefault: draft.dateTimeIsUntouchedDefault,
         location: draft.location,
         textBoxes: draft.textBoxes,
         selectedStyle: draft.selectedStyle,
@@ -785,7 +795,7 @@ export function EditorExperience({
         revealed: hasConfirmedEditorLocation(draft.location),
       });
       setSelectedOccasion(draft.selectedOccasion);
-      setCustomOccasion(draft.selectedOccasion ? false : Boolean(draft.location.name.trim()));
+      setCustomOccasion(resolveRestoredCustomOccasion(draft));
     } else if (draftOutcome.status === "invalid" || draftOutcome.status === "storage-unavailable") {
       // Do not replace an unreadable or forward-version draft with defaults.
       draftWritesBlockedRef.current = true;
@@ -1118,6 +1128,9 @@ export function EditorExperience({
       ...recipe,
       selectedOccasion,
       sampleDesignLastAutoSynced: state.sampleDesignLastAutoSynced,
+      // Persist date provenance with the draft so the restore above can
+      // reconstruct the store flag exactly (see editorDraft.ts).
+      dateTimeIsUntouchedDefault: state.dateTimeIsUntouchedDefault,
     };
     const saveOutcome = writeEditorDraftToHost(window, draft);
     if (saveOutcome.status === "saved") {

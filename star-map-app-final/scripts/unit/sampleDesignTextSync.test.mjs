@@ -310,7 +310,7 @@ test("applyPreset without custom sky keeps preset sample text in auto-sync-ready
 
 test("hook applyPreset wires preserve-sky sync; MobileCreate shares the hook path", () => {
   const hook = read("src/hooks/useEditorLogic.ts");
-  assert.match(hook, /import \{ resolvePresetTextBoxesOnApply \} from "@\/lib\/sampleDesignTextSync"/);
+  assert.match(hook, /import \{ resolvePresetTextBoxesOnApply, shouldAutofillPresetSky \} from "@\/lib\/sampleDesignTextSync"/);
   assert.match(hook, /import \{ formatDateTimeForLocation \} from "@\/lib\/dateTime"/);
   assert.match(hook, /const preserveCustomSky = !shouldAutofill/);
   assert.match(hook, /resolvePresetTextBoxesOnApply\(\{/);

@@ -348,7 +348,10 @@ test("both editor draft serializers persist sampleDesignLastAutoSynced on save a
   const editorExperience = readSrc("src/components/EditorExperience.tsx");
   assert.match(editorExperience, /sampleDesignLastAutoSynced: state\.sampleDesignLastAutoSynced/);
   assert.match(editorExperience, /sampleDesignLastAutoSynced: draft\.sampleDesignLastAutoSynced/);
-  assert.match(editorExperience, /dateTimeIsUntouchedDefault: false/);
+  // Restore reconstructs the untouched flag from the draft's persisted
+  // provenance (PR #310 fix round) — it must not hardcode false, which
+  // made a restored untouched draft indistinguishable from a picked date.
+  assert.match(editorExperience, /dateTimeIsUntouchedDefault: draft\.dateTimeIsUntouchedDefault/);
 
   const simplified = readSrc("src/components/SimplifiedEditor/SimplifiedEditor.tsx");
   assert.match(simplified, /sampleDesignLastAutoSynced,/);
