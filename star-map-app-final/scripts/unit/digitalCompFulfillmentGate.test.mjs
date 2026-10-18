@@ -13,6 +13,7 @@ import {
   evaluateAppliedCouponsForOrderFulfillment,
   evaluateCheckoutSessionDiscountFulfillment,
   isDiscountFulfillmentRetryable,
+  isFulfillableCheckoutPayment,
   resolveCheckoutSessionDiscountCoupons,
   resolveEditorCheckoutPromoCode,
 } from "../../src/lib/checkoutPromotions.ts";
@@ -367,6 +368,152 @@ test("evaluateCheckoutSessionDiscountFulfillment end-to-end: print+comp refuses;
     lookup,
   });
   assert.deepEqual(referralPrint, { ok: true });
+});
+
+/**
+ * The $0 branch: production fulfills a session only when
+ * isFulfillableCheckoutPayment(session) AND the discount gate both pass
+ * (verify: paidViaStripe = mode + isFulfillable, then the gate; webhook:
+ * isFulfillable guards the handlers, then the gate). The live $0 proof
+ * session completed with payment_status "paid", so the no_payment_required
+ * arm of isFulfillableCheckoutPayment gets its independent coverage here,
+ * with pinned-API breakdown-shaped fixtures throughout.
+ */
+const resolvingLookup = {
+  retrieveCoupon: async (id) => ({ id, metadata: {} }),
+  retrievePromotionCode: async () => null,
+};
+
+test("($0 branch) $0 + no_payment_required + digital_comp in breakdown fulfills end to end", async () => {
+  const session = {
+    mode: "payment",
+    payment_status: "no_payment_required",
+    amount_total: 0,
+    total_details: {
+      amount_discount: 900,
+      breakdown: {
+        discounts: [{ amount: 900, discount: { coupon: DIGITAL_COMP, promotion_code: null } }],
+      },
+    },
+    // Pinned API shape: no top-level discounts array.
+  };
+  assert.equal(isFulfillableCheckoutPayment(session), true);
+  const gate = await evaluateCheckoutSessionDiscountFulfillment({
+    session,
+    orderType: "digital",
+    plan: "single",
+    lookup: resolvingLookup,
+  });
+  assert.deepEqual(gate, { ok: true });
+});
+
+test("($0 branch) $0 + no_payment_required with NO applied discount does not fulfill", async () => {
+  const session = {
+    mode: "payment",
+    payment_status: "no_payment_required",
+    amount_total: 0,
+    total_details: { amount_discount: 0, breakdown: { discounts: [] } },
+  };
+  // The denial lives in isFulfillableCheckoutPayment: $0 alone is not
+  // enough — a discount must actually have been applied.
+  assert.equal(isFulfillableCheckoutPayment(session), false);
+  // The discount gate itself has nothing to police without a discount;
+  // pinning that here documents which layer denies.
+  const gate = await evaluateCheckoutSessionDiscountFulfillment({
+    session,
+    orderType: "digital",
+    plan: "single",
+    lookup: resolvingLookup,
+  });
+  assert.deepEqual(gate, { ok: true });
+});
+
+test("($0 branch) $0 digital + resolved coupon WITHOUT digital_comp metadata is not denied by the fulfillment gate (actual contract)", async () => {
+  // Contract check, deliberately NOT the naive expectation: the
+  // fulfillment gate polices digital_comp coupons on the wrong order/plan
+  // and unresolvable discounts. A resolved non-comp coupon (PRINT_PROMO)
+  // does not change behaviour — referral 100%-off is the canonical case
+  // and must keep fulfilling digital. Keeping non-comp coupons off
+  // digital is the checkout-entry gate's job, not fulfillment's.
+  const session = { ...breakdownOnlySession(PRINT_PROMO), mode: "payment" };
+  assert.equal(isFulfillableCheckoutPayment(session), true);
+  const gate = await evaluateCheckoutSessionDiscountFulfillment({
+    session,
+    orderType: "digital",
+    plan: "single",
+    lookup: resolvingLookup,
+  });
+  assert.deepEqual(gate, { ok: true });
+});
+
+test("($0 branch) $0 + no_payment_required + UNRESOLVABLE breakdown discount fails closed (retryable)", async () => {
+  // The $0 branch's actual fail-closed protection: a $0 digital session
+  // must not fulfill on a discount whose coupon cannot be resolved to
+  // verifiable metadata.
+  const session = {
+    mode: "payment",
+    payment_status: "no_payment_required",
+    amount_total: 0,
+    total_details: {
+      amount_discount: 900,
+      breakdown: {
+        discounts: [{ amount: 900, discount: { coupon: "coup_unknown", promotion_code: null } }],
+      },
+    },
+  };
+  assert.equal(isFulfillableCheckoutPayment(session), true);
+  const gate = await evaluateCheckoutSessionDiscountFulfillment({
+    session,
+    orderType: "digital",
+    plan: "single",
+    lookup: {
+      retrieveCoupon: async () => null,
+      retrievePromotionCode: async () => null,
+    },
+  });
+  assert.equal(gate.ok, false);
+  assert.equal(gate.reason, "discount_present_but_coupon_unresolved");
+  assert.equal(gate.retryable, true);
+  assert.equal(isDiscountFulfillmentRetryable(gate), true);
+});
+
+test("($0 branch) isFulfillableCheckoutPayment edges: paid arm unchanged, nonzero $0-status refused, subscription $0 allowed", () => {
+  // Paid sessions fulfill as before, discount or not.
+  assert.equal(
+    isFulfillableCheckoutPayment({ mode: "payment", payment_status: "paid", amount_total: 900 }),
+    true
+  );
+  // no_payment_required with a nonzero total is not a $0 fulfillment.
+  assert.equal(
+    isFulfillableCheckoutPayment({
+      mode: "payment",
+      payment_status: "no_payment_required",
+      amount_total: 900,
+      total_details: { amount_discount: 900, breakdown: { discounts: [{ amount: 900 }] } },
+    }),
+    false
+  );
+  // Subscription $0 (free trial / $0 first invoice) keeps existing behaviour.
+  assert.equal(
+    isFulfillableCheckoutPayment({
+      mode: "subscription",
+      payment_status: "no_payment_required",
+      amount_total: 0,
+    }),
+    true
+  );
+  // Unpaid is never fulfillable.
+  assert.equal(
+    isFulfillableCheckoutPayment({ mode: "payment", payment_status: "unpaid", amount_total: 0 }),
+    false
+  );
+});
+
+test("($0 branch) verify and webhook both require isFulfillableCheckoutPayment before granting", () => {
+  const webhook = fs.readFileSync(WEBHOOK, "utf8");
+  const verify = fs.readFileSync(VERIFY, "utf8");
+  assert.match(verify, /isFulfillableCheckoutPayment\(session\)/);
+  assert.match(webhook, /isFulfillableCheckoutPayment\(session\)/);
 });
 
 test("webhook and verify routes wire the shared fulfillment discount gate", () => {
