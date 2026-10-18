@@ -170,6 +170,80 @@ test("Christmas banner discount windows (Pacific) cover each promo phase", async
   assert.equal(getChristmasBannerContent(dec26), null);
 });
 
+test("Christmas promo publicity flag defaults on; FAQ answer names the codes", async () => {
+  const { CHRISTMAS_PROMO_PUBLICITY, getChristmasPromoCodesFaqAnswer } = await loadTs(
+    "src/lib/christmasCampaign.ts"
+  );
+
+  // Default reproduces today's behaviour: the codes are publicised, so the
+  // FAQ answer names them exactly as the landing page always has.
+  assert.equal(CHRISTMAS_PROMO_PUBLICITY, true);
+  assert.equal(
+    getChristmasPromoCodesFaqAnswer(),
+    "No. Seasonal codes such as XMAS15 and BLACKFRIDAY20 apply to prints only. HD digital is excluded from those promotions."
+  );
+});
+
+test("Christmas order-by table rows derive from CHRISTMAS_ORDER_BY_DATES", async () => {
+  const { getChristmasOrderByTableRows } = await loadTs("src/lib/christmasCampaign.ts");
+
+  const rows = getChristmasOrderByTableRows();
+  assert.deepEqual(
+    rows.map((row) => row.product),
+    ["Framed print", "Canvas wrap", "Unframed poster", "HD digital download"]
+  );
+  const byProduct = new Map(rows.map((row) => [row.product, row]));
+
+  const framed = byProduct.get("Framed print");
+  assert.equal(framed.canada, "Dec 9");
+  assert.equal(framed.unitedStates, "Dec 8");
+  assert.equal(framed.restOfWorld, "Nov 30");
+  assert.equal(framed.instantNote, null);
+
+  // Canvas has no cutoff key of its own — it shares the framed dates.
+  const canvas = byProduct.get("Canvas wrap");
+  assert.equal(canvas.canada, framed.canada);
+  assert.equal(canvas.unitedStates, framed.unitedStates);
+  assert.equal(canvas.restOfWorld, framed.restOfWorld);
+
+  const poster = byProduct.get("Unframed poster");
+  assert.equal(poster.canada, "Dec 10");
+  assert.equal(poster.unitedStates, "Dec 9");
+  assert.equal(poster.restOfWorld, "Dec 1");
+
+  const digital = byProduct.get("HD digital download");
+  assert.equal(digital.canada, null);
+  assert.equal(digital.unitedStates, null);
+  assert.equal(digital.restOfWorld, null);
+  assert.match(digital.instantNote, /delivered instantly/i);
+
+  // Mug / greeting-card cutoffs are unconfirmed — no rows may be published.
+  assert.equal(rows.some((row) => /mug|greeting card/i.test(row.product)), false);
+});
+
+test("christmas order-by table wiring: page, component, footer and home links", () => {
+  const page = fs.readFileSync(path.join(ROOT, "src/app/christmas-star-map-gift/page.tsx"), "utf8");
+  assert.match(page, /ChristmasOrderByTable/);
+  assert.match(page, /getChristmasPromoCodesFaqAnswer/);
+  // The landing page must not name the codes itself — they come from the
+  // campaign lib so CHRISTMAS_PROMO_PUBLICITY gates every display surface.
+  assert.equal(/XMAS15|BLACKFRIDAY20/.test(page), false);
+
+  const component = fs.readFileSync(path.join(ROOT, "src/components/ChristmasOrderByTable.tsx"), "utf8");
+  assert.match(component, /getChristmasOrderByTableRows/);
+  assert.match(component, /overflow-x-auto/);
+  assert.match(component, /min-w-\[540px\]/);
+  // Dates must come from the lib, never hardcoded in the component.
+  assert.equal(/Dec (8|9|10)|Nov 30/.test(component), false);
+
+  const layout = fs.readFileSync(path.join(ROOT, "src/app/layout.tsx"), "utf8");
+  assert.match(layout, /label: "Christmas Gifts", href: "\/christmas-star-map-gift"/);
+  assert.match(layout, /isChristmasLandingInSeason/);
+
+  const home = fs.readFileSync(path.join(ROOT, "src/app/HomeStaticSections.tsx"), "utf8");
+  assert.match(home, /href="\/christmas-star-map-gift"/);
+});
+
 test("webhook route logs checkout_session_expired without inventing promo codes", () => {
   const webhook = fs.readFileSync(path.join(ROOT, "src/app/api/stripe/webhook/route.ts"), "utf8");
   assert.match(webhook, /checkout_session_expired/);

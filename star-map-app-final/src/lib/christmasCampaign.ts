@@ -34,6 +34,17 @@ export const CHRISTMAS_PROMO = {
   blackFriday: { code: "BLACKFRIDAY20", percent: 20 },
 } as const;
 
+/**
+ * Owner kill-switch for publicising the seasonal print promo codes
+ * (XMAS15 / BLACKFRIDAY20). While true — the behaviour the site has today —
+ * the codes are named in the sitewide banner, the Christmas landing promo
+ * box, and the landing-page FAQ during their campaign phases. Set to false
+ * to stop publicising them: those surfaces fall back to order-by content
+ * with no codes named. The codes still redeem at checkout either way;
+ * this flag only gates their display.
+ */
+export const CHRISTMAS_PROMO_PUBLICITY = true;
+
 const CAMPAIGN_YEAR_START = "2026-10-01";
 const XMAS15_EARLY_START = "2026-11-01";
 const BLACK_FRIDAY_START = "2026-11-28";
@@ -144,7 +155,7 @@ export function getChristmasBannerContent(
     };
   }
 
-  if (phase === "xmas15_early") {
+  if (phase === "xmas15_early" && CHRISTMAS_PROMO_PUBLICITY) {
     return {
       phase,
       message: `15% off prints with code ${CHRISTMAS_PROMO.xmas15.code}. ${ORDER_BY_BANNER_LINE}`,
@@ -155,7 +166,7 @@ export function getChristmasBannerContent(
     };
   }
 
-  if (phase === "black_friday") {
+  if (phase === "black_friday" && CHRISTMAS_PROMO_PUBLICITY) {
     return {
       phase,
       message: `Black Friday: 20% off prints with code ${CHRISTMAS_PROMO.blackFriday.code}`,
@@ -166,7 +177,7 @@ export function getChristmasBannerContent(
     };
   }
 
-  if (phase === "xmas15_last_call") {
+  if (phase === "xmas15_last_call" && CHRISTMAS_PROMO_PUBLICITY) {
     return {
       phase,
       message: `Last call: 15% off prints with ${CHRISTMAS_PROMO.xmas15.code}. ${ORDER_BY_BANNER_LINE}`,
@@ -178,8 +189,9 @@ export function getChristmasBannerContent(
   }
 
   // Before Nov 1 (still in campaign season): order-by banner without discount codes.
+  // Also the fallback for the promo phases when CHRISTMAS_PROMO_PUBLICITY is off.
   return {
-    phase: "order_by",
+    phase,
     message: ORDER_BY_BANNER_LINE,
     ctaHref: "/christmas-star-map-gift",
     ctaLabel: "Christmas star map gifts",
@@ -212,7 +224,7 @@ export function getChristmasLandingPromo(nowMs: number = Date.now()): ChristmasL
     };
   }
 
-  if (phase === "xmas15_early") {
+  if (phase === "xmas15_early" && CHRISTMAS_PROMO_PUBLICITY) {
     return {
       phase,
       heading: "Christmas print sale",
@@ -224,7 +236,7 @@ export function getChristmasLandingPromo(nowMs: number = Date.now()): ChristmasL
     };
   }
 
-  if (phase === "black_friday") {
+  if (phase === "black_friday" && CHRISTMAS_PROMO_PUBLICITY) {
     return {
       phase,
       heading: "Black Friday print sale",
@@ -236,7 +248,7 @@ export function getChristmasLandingPromo(nowMs: number = Date.now()): ChristmasL
     };
   }
 
-  if (phase === "xmas15_last_call") {
+  if (phase === "xmas15_last_call" && CHRISTMAS_PROMO_PUBLICITY) {
     return {
       phase,
       heading: "Last call for Christmas prints",
@@ -260,8 +272,10 @@ export function getChristmasLandingPromo(nowMs: number = Date.now()): ChristmasL
     };
   }
 
+  // Order-by phase — and the fallback for the promo phases when
+  // CHRISTMAS_PROMO_PUBLICITY is off (dates only, no codes named).
   return {
-    phase: "order_by",
+    phase,
     heading: "Christmas order-by dates",
     discountLine: null,
     showOrderBy: true,
@@ -271,11 +285,88 @@ export function getChristmasLandingPromo(nowMs: number = Date.now()): ChristmasL
   };
 }
 
+/**
+ * Landing-page FAQ answer for "Do Christmas discount codes apply to HD
+ * digital?" — names the codes only while CHRISTMAS_PROMO_PUBLICITY is on;
+ * otherwise keeps the prints-only rule without publicising either code.
+ */
+export function getChristmasPromoCodesFaqAnswer(): string {
+  if (CHRISTMAS_PROMO_PUBLICITY) {
+    return `No. Seasonal codes such as ${CHRISTMAS_PROMO.xmas15.code} and ${CHRISTMAS_PROMO.blackFriday.code} apply to prints only. HD digital is excluded from those promotions.`;
+  }
+  return "No. Seasonal codes apply to prints only. HD digital is excluded from those promotions.";
+}
+
 /** Exported for tests / landing page display. */
 export function getChristmasOrderBySummaryLines(): string[] {
   return [
     "Framed & canvas: United States Dec 8 · Canada Dec 9 · rest of world Nov 30",
     "Posters: United States Dec 9 · Canada Dec 10 · rest of world Dec 1",
+  ];
+}
+
+export type ChristmasOrderByTableRow = {
+  product: string;
+  /** Display date (e.g. "Dec 9") per region; null only on the instant row. */
+  canada: string | null;
+  unitedStates: string | null;
+  restOfWorld: string | null;
+  /** Set on the HD digital row: one note spanning every date column. */
+  instantNote: string | null;
+};
+
+const ORDER_BY_MONTH_LABELS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+] as const;
+
+function formatOrderByDisplayDate(key: ChristmasCutoffKey): string {
+  const { m, d } = parseYmd(CHRISTMAS_ORDER_BY_DATES[key]);
+  return `${ORDER_BY_MONTH_LABELS[m - 1]} ${d}`;
+}
+
+/**
+ * Rows for the Christmas order-by table, derived from
+ * CHRISTMAS_ORDER_BY_DATES so the table can never drift from the banner,
+ * the landing summary lines, or the FAQ. Canvas has no cutoff key of its
+ * own: it ships on the framed profile (see printCatalog `canvas_wrap`)
+ * and shares the framed dates, exactly as the summary lines present it.
+ * Mug and greeting-card rows are intentionally absent — their Christmas
+ * cutoffs are not provider-confirmed, so no dates are published for them.
+ */
+export function getChristmasOrderByTableRows(): ChristmasOrderByTableRow[] {
+  const framed = {
+    canada: formatOrderByDisplayDate("framed_ca"),
+    unitedStates: formatOrderByDisplayDate("framed_us"),
+    restOfWorld: formatOrderByDisplayDate("framed_row"),
+  };
+  return [
+    { product: "Framed print", ...framed, instantNote: null },
+    { product: "Canvas wrap", ...framed, instantNote: null },
+    {
+      product: "Unframed poster",
+      canada: formatOrderByDisplayDate("poster_ca"),
+      unitedStates: formatOrderByDisplayDate("poster_us"),
+      restOfWorld: formatOrderByDisplayDate("poster_row"),
+      instantNote: null,
+    },
+    {
+      product: "HD digital download",
+      canada: null,
+      unitedStates: null,
+      restOfWorld: null,
+      instantNote: "Order any time — delivered instantly",
+    },
   ];
 }
 

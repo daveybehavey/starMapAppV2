@@ -22,6 +22,7 @@ import {
   getPrintUrgentHdUpsellLine,
 } from "@/lib/commerceFacts";
 import { getGiftLadderIntro } from "@/lib/moneyPageGiftCheckout";
+import { isChristmasLandingInSeason } from "@/lib/christmasCampaign";
 
 type PriceLabels = {
   single: string;
@@ -51,6 +52,7 @@ export default function HomeStaticSections({ priceLabels, promoStatus, promoCode
     digitalAddOn: formatPrice(printDigitalAddOn.amountCents, printDigitalAddOn.currency),
   };
   const printBadgeLabel = getPrintAvailabilityBadgeLabel();
+  const christmasInSeason = isChristmasLandingInSeason();
   const shippingDisclosure = getPrintShippingDisclosure();
   const bundlePriceLine = getFramedHdBundlePriceLine();
   const proofImages = {
@@ -94,6 +96,17 @@ export default function HomeStaticSections({ priceLabels, promoStatus, promoCode
             birthday
           </Link>
           ,{" "}
+          {christmasInSeason ? (
+            <>
+              <Link
+                href="/christmas-star-map-gift"
+                className="font-semibold text-amber-300 underline decoration-amber-400/60 underline-offset-2 hover:text-amber-200"
+              >
+                christmas
+              </Link>
+              ,{" "}
+            </>
+          ) : null}
           <Link
             href="/hd-star-map"
             className="font-semibold text-amber-300 underline decoration-amber-400/60 underline-offset-2 hover:text-amber-200"

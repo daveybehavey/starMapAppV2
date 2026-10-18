@@ -11,6 +11,7 @@ import SiteTopNav from "@/components/SiteTopNav";
 import ChristmasBanner from "@/components/ChristmasBanner";
 import { getBusinessPhoneHref, getBusinessProfile } from "@/lib/businessProfile";
 import { isBulkOrdersEnabled } from "@/lib/bulkQuotes";
+import { isChristmasLandingInSeason } from "@/lib/christmasCampaign";
 import { isShopTabEnabled } from "@/lib/shopTab";
 
 const playfair = localFont({
@@ -49,6 +50,9 @@ function buildFooterLinks(): ReadonlyArray<{ label: string; href: string }> {
     ...(shopEnabled ? [{ label: "Shop", href: "/shop" }] : []),
     { label: "Gift Ideas", href: "/star-map-gift-ideas" },
     { label: "Gift Formats", href: "/star-map-gift-formats" },
+    ...(isChristmasLandingInSeason()
+      ? [{ label: "Christmas Gifts", href: "/christmas-star-map-gift" }]
+      : []),
     { label: "Blog", href: "/blog" },
     { label: "My Downloads", href: "/my-downloads" },
     ...(isBulkOrdersEnabled() ? [{ label: "Bulk & Event Orders", href: "/bulk-event-orders" }] : []),
