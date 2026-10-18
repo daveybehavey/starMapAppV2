@@ -141,6 +141,38 @@ export function syncSampleDesignTextBoxes<T extends SampleDesignTextBox>(input: 
 }
 
 /**
+ * Pure decision for the sky half of occasion-preset application
+ * (regression-covered; sibling of resolvePresetTextBoxesOnApply below).
+ *
+ * A preset installs its sample sky only when the user has not genuinely
+ * provided their own date/location. The untouched placeholder sky — no
+ * confirmed location and the store's untouched default date — must ALWAYS
+ * autofill, even if a component-local `customOccasion` flag claims
+ * otherwise: MobileCreate's draft-restore heuristic once marked the
+ * untouched autosaved draft as "custom", which made the mobile sample
+ * apply the preset's text while keeping today's date and the (0,0)
+ * placeholder location (D16). A genuinely provided sky (confirmed
+ * location, or a date the user actually picked) keeps the legacy
+ * preserve behaviour.
+ *
+ * `hasConfirmedLocation` is computed by the caller with
+ * hasConfirmedEditorLocation (lib/editorLocationPrefill) so this module
+ * stays dependency-free and unit-testable.
+ */
+export function shouldAutofillPresetSky(input: {
+  hasConfirmedLocation: boolean;
+  dateTimeIsUntouchedDefault: boolean;
+  customOccasion: boolean;
+  locationName: string;
+  hasDate: boolean;
+}): boolean {
+  const skyIsUntouchedPlaceholder =
+    !input.hasConfirmedLocation && input.dateTimeIsUntouchedDefault;
+  if (skyIsUntouchedPlaceholder) return true;
+  return !input.customOccasion && (!input.locationName || !input.hasDate);
+}
+
+/**
  * Resolve text boxes when an occasion preset is applied.
  *
  * - When the preset also installs its sample sky (`preserveCustomSky: false`),

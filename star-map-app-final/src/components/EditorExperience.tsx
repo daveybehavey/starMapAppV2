@@ -121,7 +121,11 @@ import {
   type HydratableMapRecipe,
 } from "@/lib/mapRecipeHydration";
 import { parseMapIdParam } from "@/lib/mapId";
-import { readEditorDraftFromHost, writeEditorDraftToHost } from "@/lib/editorDraft";
+import {
+  readEditorDraftFromHost,
+  resolveRestoredCustomOccasion,
+  writeEditorDraftToHost,
+} from "@/lib/editorDraft";
 
 const MobileCreate = dynamic(() => import("@/app/MobileCreate").then((mod) => mod.MobileCreate), {
   ssr: false,
@@ -785,7 +789,7 @@ export function EditorExperience({
         revealed: hasConfirmedEditorLocation(draft.location),
       });
       setSelectedOccasion(draft.selectedOccasion);
-      setCustomOccasion(draft.selectedOccasion ? false : Boolean(draft.location.name.trim()));
+      setCustomOccasion(resolveRestoredCustomOccasion(draft));
     } else if (draftOutcome.status === "invalid" || draftOutcome.status === "storage-unavailable") {
       // Do not replace an unreadable or forward-version draft with defaults.
       draftWritesBlockedRef.current = true;

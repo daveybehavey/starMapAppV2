@@ -10,7 +10,7 @@ import { applyStyleDefaults } from "@/lib/styleDefaults";
 import { track } from "@/lib/analytics";
 import { hasConfirmedEditorLocation } from "@/lib/editorLocationPrefill";
 import { formatDateTimeForLocation } from "@/lib/dateTime";
-import { resolvePresetTextBoxesOnApply } from "@/lib/sampleDesignTextSync";
+import { resolvePresetTextBoxesOnApply, shouldAutofillPresetSky } from "@/lib/sampleDesignTextSync";
 
 export interface UseEditorLogicOptions {
   /** Editor variant affects default intensity value */
@@ -227,7 +227,16 @@ export function useEditorLogic(options: UseEditorLogicOptions = {}): UseEditorLo
       // Only autofill when the user hasn't provided date/location yet.
       // If the user is actively editing (customOccasion), we should not overwrite
       // the current location/date even if derived store flags lag briefly.
-      const shouldAutofill = !customOccasion && (!locationName || !hasDate);
+      // The untouched placeholder sky always autofills (D16) — a local flag
+      // set by a draft-restore heuristic must not suppress the preset's
+      // date/location while its text is installed. See shouldAutofillPresetSky.
+      const shouldAutofill = shouldAutofillPresetSky({
+        hasConfirmedLocation: hasConfirmedEditorLocation(location),
+        dateTimeIsUntouchedDefault: useStore.getState().dateTimeIsUntouchedDefault,
+        customOccasion,
+        locationName,
+        hasDate,
+      });
       setSelectedOccasion(id);
       // If we are not autofilling, keep the "custom" state so the UI preserves
       // the user's manual inputs (and doesn't clear the location text field).
