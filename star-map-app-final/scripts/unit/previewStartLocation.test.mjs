@@ -157,3 +157,23 @@ test("typeahead and editor search share one geocode module", () => {
   assert.doesNotMatch(typeahead, /api\/geocode\?q=/);
   assert.doesNotMatch(editorSearch, /tz-lookup/);
 });
+
+test("homepage hero quick-start uses the same typeahead and payload helper", () => {
+  const hero = readSrc("components/HeroEditorDeferred.tsx");
+  assert.match(hero, /import LocationTypeahead from "@\/components\/LocationTypeahead";/);
+  assert.match(hero, /resolvePreviewLocationFields/);
+  assert.match(hero, /id="hero-location"/);
+  assert.match(hero, /name="lat"/);
+  assert.match(hero, /name="lon"/);
+  assert.match(hero, /name="tz"/);
+});
+
+test("timezone lookup stays out of the typeahead's static bundle", () => {
+  const typeahead = readSrc("components/LocationTypeahead.tsx");
+  // tz-lookup is heavy and the hero bundle is lean on purpose: the
+  // typeahead loads the timezone module dynamically at pick time only.
+  assert.doesNotMatch(typeahead, /from "@\/lib\/geocodeTimezone"/);
+  assert.match(typeahead, /import\("@\/lib\/geocodeTimezone"\)/);
+  const editorSearch = readSrc("components/LocationSearch.tsx");
+  assert.match(editorSearch, /from "@\/lib\/geocodeTimezone"/);
+});

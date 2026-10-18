@@ -5,8 +5,9 @@
  * resolve places through this module, so the funnel's front door and the
  * editor itself search, cache, and name places the same way. No new
  * provider: this is the existing Nominatim-backed internal endpoint.
+ * (Timezone resolution lives in lib/geocodeTimezone so bundle-sensitive
+ * surfaces can load tz-lookup lazily.)
  */
-import tzLookup from "tz-lookup";
 import { LRUCache } from "@/lib/lruCache";
 
 export type GeocodeResult = {
@@ -47,17 +48,4 @@ export async function fetchGeocodeResults(query: string, signal?: AbortSignal): 
   const data = (await res.json()) as GeocodeResult[];
   cache.set(cacheKey(trimmed), data);
   return data;
-}
-
-/**
- * IANA timezone for a coordinate pair, with a documented fallback.
- * Mirrors the editor's previous behaviour: keep the caller's timezone
- * when the lookup cannot resolve, defaulting to "UTC".
- */
-export function lookupGeocodeTimezone(latitude: number, longitude: number, fallback: string): string {
-  try {
-    return tzLookup(latitude, longitude);
-  } catch {
-    return fallback || "UTC";
-  }
 }

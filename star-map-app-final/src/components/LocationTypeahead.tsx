@@ -4,7 +4,6 @@ import { useEffect, useId, useRef, useState, useCallback } from "react";
 import {
   fetchGeocodeResults,
   getCachedGeocodeResults,
-  lookupGeocodeTimezone,
   type GeocodeResult,
 } from "@/lib/geocodeSearch";
 import type { PickedPreviewLocation } from "@/lib/previewStartLocation";
@@ -123,14 +122,29 @@ export default function LocationTypeahead({
   const pickResult = useCallback(
     (result: GeocodeResult) => {
       onValueChange(result.name);
-      onPick({
-        name: result.name,
-        latitude: result.latitude,
-        longitude: result.longitude,
-        timezone: lookupGeocodeTimezone(result.latitude, result.longitude, "UTC"),
-      });
       setDropdownOpen(false);
       setHighlightedIndex(-1);
+      // Resolve the timezone lazily: tz-lookup is a large dataset and this
+      // field also renders in the homepage hero, whose bundle is kept lean
+      // on purpose. The pick still lands within the same interaction; the
+      // editor's own parse falls back to UTC if a tz were ever missing.
+      void import("@/lib/geocodeTimezone")
+        .then(({ lookupGeocodeTimezone }) => {
+          onPick({
+            name: result.name,
+            latitude: result.latitude,
+            longitude: result.longitude,
+            timezone: lookupGeocodeTimezone(result.latitude, result.longitude, "UTC"),
+          });
+        })
+        .catch(() => {
+          onPick({
+            name: result.name,
+            latitude: result.latitude,
+            longitude: result.longitude,
+            timezone: "UTC",
+          });
+        });
     },
     [onPick, onValueChange]
   );

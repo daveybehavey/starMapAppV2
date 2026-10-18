@@ -6,9 +6,9 @@ import { useShallow } from "zustand/react/shallow";
 import {
   fetchGeocodeResults,
   getCachedGeocodeResults,
-  lookupGeocodeTimezone,
   type GeocodeResult,
 } from "@/lib/geocodeSearch";
+import { lookupGeocodeTimezone } from "@/lib/geocodeTimezone";
 
 type LocationSearchProps = {
   onLocationChange?: () => void;
