@@ -29,6 +29,7 @@ export const shapes: { id: Shape; label: string }[] = [
   { id: "heart", label: "Heart" },
   { id: "circle", label: "Circle" },
   { id: "star", label: "Star" },
+  { id: "diamond", label: "Diamond" },
 ];
 
 export const shapeSymbols: Record<Shape, string> = {
