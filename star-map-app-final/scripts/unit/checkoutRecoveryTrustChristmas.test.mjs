@@ -107,6 +107,11 @@ test("Christmas banner discount windows (Pacific) cover each promo phase", async
   assert.equal(CHRISTMAS_ORDER_BY_DATES.poster_us, "2026-12-09");
   assert.equal(CHRISTMAS_ORDER_BY_DATES.poster_ca, "2026-12-10");
   assert.equal(CHRISTMAS_ORDER_BY_DATES.poster_row, "2026-12-01");
+  // Mug / greeting card: owner-approved provisional cutoffs (2026-10-18).
+  assert.equal(CHRISTMAS_ORDER_BY_DATES.mug_us, "2026-12-07");
+  assert.equal(CHRISTMAS_ORDER_BY_DATES.mug_ca, "2026-12-08");
+  assert.equal(CHRISTMAS_ORDER_BY_DATES.card_us, "2026-12-07");
+  assert.equal(CHRISTMAS_ORDER_BY_DATES.card_ca, "2026-12-08");
 
   const at = (ymd) => Date.parse(`${ymd}T20:00:00.000Z`);
 
@@ -132,8 +137,8 @@ test("Christmas banner discount windows (Pacific) cover each promo phase", async
     assert.match(landing.digitalExcludedNote, /prints only/i);
   }
 
-  // Nov 27–Dec 1 → Black Friday
-  for (const day of ["2026-11-27", "2026-11-28", "2026-11-30", "2026-12-01"]) {
+  // Nov 27–29 → Black Friday (Nov 30–Dec 1 is cyber_monday, tested below)
+  for (const day of ["2026-11-27", "2026-11-28", "2026-11-29"]) {
     assert.equal(resolveChristmasBannerPhase(at(day)), "black_friday", day);
     const content = getChristmasBannerContent(at(day), "$9");
     assert.match(content.message, /Black Friday:\s*20% off prints/i);
@@ -164,10 +169,79 @@ test("Christmas banner discount windows (Pacific) cover each promo phase", async
     assert.equal(landing.promoCode, null);
   }
 
-  // After Christmas → hidden
+  // Dec 26 → Boxing Day phase (detail in the dedicated test below)
+  assert.equal(resolveChristmasBannerPhase(at("2026-12-26")), "boxing_day");
+
+  // Dec 27 onward → hidden (off-season)
+  const dec27 = at("2026-12-27");
+  assert.equal(resolveChristmasBannerPhase(dec27), "hidden");
+  assert.equal(getChristmasBannerContent(dec27), null);
+});
+
+test("Christmas cyber monday and boxing day phases (boundaries + copy)", async () => {
+  const {
+    resolveChristmasBannerPhase,
+    getChristmasBannerContent,
+    getChristmasLandingPromo,
+    getChristmasDigitalPitchLine,
+  } = await loadTs("src/lib/christmasCampaign.ts");
+
+  const at = (ymd) => Date.parse(`${ymd}T20:00:00.000Z`);
+
+  // Nov 29 is the last Black Friday day; Nov 30–Dec 1 is Cyber Monday,
+  // presenting the same BLACKFRIDAY20 code with Cyber Monday framing.
+  assert.equal(resolveChristmasBannerPhase(at("2026-11-29")), "black_friday");
+  for (const day of ["2026-11-30", "2026-12-01"]) {
+    assert.equal(resolveChristmasBannerPhase(at(day)), "cyber_monday", day);
+    const content = getChristmasBannerContent(at(day), "$9");
+    assert.match(content.message, /Cyber Monday:\s*20% off prints/i);
+    assert.equal(content.promoCode, "BLACKFRIDAY20");
+    assert.equal(content.promoPercent, 20);
+    assert.equal(/XMAS15/.test(content.message), false);
+    const landing = getChristmasLandingPromo(at(day));
+    assert.match(landing.discountLine, /Cyber Monday: 20% off prints/i);
+    assert.equal(landing.promoCode, "BLACKFRIDAY20");
+    assert.equal(landing.showOrderBy, true);
+  }
+  // Dec 2 hands back to last call, unchanged.
+  assert.equal(resolveChristmasBannerPhase(at("2026-12-02")), "xmas15_last_call");
+
+  // Dec 26 → Boxing Day: XMAS15 (coupon carries no redeem_by expiry) with
+  // Boxing Day framing only — Christmas delivery has passed, so no
+  // order-by content and no Christmas-delivery promises anywhere.
   const dec26 = at("2026-12-26");
-  assert.equal(resolveChristmasBannerPhase(dec26), "hidden");
-  assert.equal(getChristmasBannerContent(dec26), null);
+  assert.equal(resolveChristmasBannerPhase(dec26), "boxing_day");
+  const content = getChristmasBannerContent(dec26, "$9");
+  assert.ok(content);
+  assert.match(content.message, /Boxing Day:\s*15% off prints/i);
+  assert.equal(content.promoCode, "XMAS15");
+  assert.equal(content.promoPercent, 15);
+  assert.equal(/Christmas delivery|Order by these dates/i.test(content.message), false);
+  const landing = getChristmasLandingPromo(dec26);
+  assert.match(landing.discountLine, /Boxing Day: 15% off prints/i);
+  assert.equal(landing.promoCode, "XMAS15");
+  assert.equal(landing.showOrderBy, false);
+  // Regression (Codex P2 on #309): the landing must not render the digital
+  // pitch on Dec 26. The only pitch line is Christmas-framed — it reads
+  // "last-minute gift through December 25" — which is expired copy under a
+  // Boxing Day sale. Lock the helper's framing (so this guard stays
+  // meaningful), lock the flag off, then compose everything the page
+  // would show for Dec 26 (the pitch renders only when the flag is true)
+  // and assert no trace of the stale pitch or Christmas-delivery framing.
+  assert.match(getChristmasDigitalPitchLine(), /December 25/);
+  assert.equal(landing.showDigitalPitch, false);
+  const dec26VisibleCopy = [
+    content.message,
+    landing.heading,
+    landing.discountLine ?? "",
+    landing.showDigitalPitch ? getChristmasDigitalPitchLine() : "",
+  ].join("\n");
+  assert.equal(/December 25/.test(dec26VisibleCopy), false);
+  assert.equal(/Christmas delivery|last-minute gift/i.test(dec26VisibleCopy), false);
+
+  // Dec 27 onward is off-season.
+  assert.equal(resolveChristmasBannerPhase(at("2026-12-27")), "hidden");
+  assert.equal(getChristmasBannerContent(at("2026-12-27")), null);
 });
 
 test("Christmas promo publicity flag defaults on; FAQ answer names the codes", async () => {
@@ -190,7 +264,7 @@ test("Christmas order-by table rows derive from CHRISTMAS_ORDER_BY_DATES", async
   const rows = getChristmasOrderByTableRows();
   assert.deepEqual(
     rows.map((row) => row.product),
-    ["Framed print", "Canvas wrap", "Unframed poster", "HD digital download"]
+    ["Framed print", "Canvas wrap", "Unframed poster", "Mug", "Greeting card", "HD digital download"]
   );
   const byProduct = new Map(rows.map((row) => [row.product, row]));
 
@@ -211,14 +285,26 @@ test("Christmas order-by table rows derive from CHRISTMAS_ORDER_BY_DATES", async
   assert.equal(poster.unitedStates, "Dec 9");
   assert.equal(poster.restOfWorld, "Dec 1");
 
+  // Mug + greeting card: owner-approved provisional CA Dec 8 / US Dec 7.
+  // No rest-of-world date is confirmed — the cell must say "Order early",
+  // never an invented date.
+  const mug = byProduct.get("Mug");
+  assert.equal(mug.canada, "Dec 8");
+  assert.equal(mug.unitedStates, "Dec 7");
+  assert.equal(mug.restOfWorld, "Order early");
+  assert.equal(mug.instantNote, null);
+
+  const card = byProduct.get("Greeting card");
+  assert.equal(card.canada, "Dec 8");
+  assert.equal(card.unitedStates, "Dec 7");
+  assert.equal(card.restOfWorld, "Order early");
+  assert.equal(card.instantNote, null);
+
   const digital = byProduct.get("HD digital download");
   assert.equal(digital.canada, null);
   assert.equal(digital.unitedStates, null);
   assert.equal(digital.restOfWorld, null);
   assert.match(digital.instantNote, /delivered instantly/i);
-
-  // Mug / greeting-card cutoffs are unconfirmed — no rows may be published.
-  assert.equal(rows.some((row) => /mug|greeting card/i.test(row.product)), false);
 });
 
 test("christmas order-by table wiring: page, component, footer and home links", () => {

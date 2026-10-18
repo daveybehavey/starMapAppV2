@@ -7,8 +7,10 @@ export type ChristmasBannerPhase =
   | "order_by"
   | "xmas15_early"
   | "black_friday"
+  | "cyber_monday"
   | "xmas15_last_call"
   | "digital_last_minute"
+  | "boxing_day"
   | "hidden";
 
 export type ChristmasCutoffKey =
@@ -17,7 +19,11 @@ export type ChristmasCutoffKey =
   | "framed_row"
   | "poster_us"
   | "poster_ca"
-  | "poster_row";
+  | "poster_row"
+  | "mug_us"
+  | "mug_ca"
+  | "card_us"
+  | "card_ca";
 
 /** Local calendar dates in America/Los_Angeles. */
 export const CHRISTMAS_ORDER_BY_DATES: Record<ChristmasCutoffKey, string> = {
@@ -27,6 +33,13 @@ export const CHRISTMAS_ORDER_BY_DATES: Record<ChristmasCutoffKey, string> = {
   poster_us: "2026-12-09",
   poster_ca: "2026-12-10",
   poster_row: "2026-12-01",
+  // Mug + greeting card: owner-approved provisional cutoffs (2026-10-18).
+  // No rest-of-world date is confirmed for either — the order-by table
+  // shows "Order early" there instead of inventing one.
+  mug_us: "2026-12-07",
+  mug_ca: "2026-12-08",
+  card_us: "2026-12-07",
+  card_ca: "2026-12-08",
 };
 
 export const CHRISTMAS_PROMO = {
@@ -48,10 +61,14 @@ export const CHRISTMAS_PROMO_PUBLICITY = true;
 const CAMPAIGN_YEAR_START = "2026-10-01";
 const XMAS15_EARLY_START = "2026-11-01";
 const BLACK_FRIDAY_START = "2026-11-27";
+/** Cyber Monday (Nov 30) plus its usual extension day; BLACKFRIDAY20 continues. */
+const CYBER_MONDAY_START = "2026-11-30";
 const XMAS15_LAST_CALL_START = "2026-12-02";
 /** Starts Dec 11 — after the Dec 10 Canada poster order-by day, print ordering has closed. */
 const DIGITAL_LAST_MINUTE_START = "2026-12-11";
 const DIGITAL_LAST_MINUTE_END = "2026-12-25";
+/** Boxing Day only (Dec 26): XMAS15 returns for prints; Dec 27+ is off-season. */
+const BOXING_DAY = "2026-12-26";
 
 const ORDER_BY_BANNER_LINE =
   "Order by these dates for Christmas delivery — framed/canvas: US Dec 8 · Canada Dec 9 · worldwide Nov 30. Posters: US Dec 9 · Canada Dec 10 · worldwide Dec 1.";
@@ -121,9 +138,11 @@ export function resolveChristmasCampaignNowMs(options?: {
 export function resolveChristmasBannerPhase(nowMs: number = Date.now()): ChristmasBannerPhase {
   const today = getPacificCalendarDate(nowMs);
   if (compareYmd(today, CAMPAIGN_YEAR_START) < 0) return "hidden";
+  if (compareYmd(today, BOXING_DAY) === 0) return "boxing_day";
   if (compareYmd(today, DIGITAL_LAST_MINUTE_END) > 0) return "hidden";
   if (compareYmd(today, DIGITAL_LAST_MINUTE_START) >= 0) return "digital_last_minute";
   if (compareYmd(today, XMAS15_LAST_CALL_START) >= 0) return "xmas15_last_call";
+  if (compareYmd(today, CYBER_MONDAY_START) >= 0) return "cyber_monday";
   if (compareYmd(today, BLACK_FRIDAY_START) >= 0) return "black_friday";
   if (compareYmd(today, XMAS15_EARLY_START) >= 0) return "xmas15_early";
   return "order_by";
@@ -174,6 +193,34 @@ export function getChristmasBannerContent(
       ctaLabel: "Shop Black Friday prints",
       promoCode: CHRISTMAS_PROMO.blackFriday.code,
       promoPercent: CHRISTMAS_PROMO.blackFriday.percent,
+    };
+  }
+
+  if (phase === "cyber_monday" && CHRISTMAS_PROMO_PUBLICITY) {
+    return {
+      phase,
+      message: `Cyber Monday: 20% off prints with code ${CHRISTMAS_PROMO.blackFriday.code}`,
+      ctaHref: "/christmas-star-map-gift",
+      ctaLabel: "Shop Cyber Monday prints",
+      promoCode: CHRISTMAS_PROMO.blackFriday.code,
+      promoPercent: CHRISTMAS_PROMO.blackFriday.percent,
+    };
+  }
+
+  if (phase === "boxing_day") {
+    if (!CHRISTMAS_PROMO_PUBLICITY) {
+      // No code-free fallback fits Boxing Day — the order-by line is all
+      // Christmas-delivery framing, which has passed — so the banner
+      // stays hidden rather than show stale dates.
+      return null;
+    }
+    return {
+      phase,
+      message: `Boxing Day: 15% off prints with code ${CHRISTMAS_PROMO.xmas15.code}`,
+      ctaHref: "/christmas-star-map-gift",
+      ctaLabel: "Shop Boxing Day prints",
+      promoCode: CHRISTMAS_PROMO.xmas15.code,
+      promoPercent: CHRISTMAS_PROMO.xmas15.percent,
     };
   }
 
@@ -248,6 +295,34 @@ export function getChristmasLandingPromo(nowMs: number = Date.now()): ChristmasL
     };
   }
 
+  if (phase === "cyber_monday" && CHRISTMAS_PROMO_PUBLICITY) {
+    return {
+      phase,
+      heading: "Cyber Monday print sale",
+      discountLine: `Cyber Monday: 20% off prints with code ${CHRISTMAS_PROMO.blackFriday.code}`,
+      showOrderBy: true,
+      showDigitalPitch: true,
+      promoCode: CHRISTMAS_PROMO.blackFriday.code,
+      digitalExcludedNote: "Discount codes apply to prints only — HD digital is excluded.",
+    };
+  }
+
+  if (phase === "boxing_day" && CHRISTMAS_PROMO_PUBLICITY) {
+    return {
+      phase,
+      heading: "Boxing Day print sale",
+      discountLine: `Boxing Day: 15% off prints with code ${CHRISTMAS_PROMO.xmas15.code}`,
+      // Christmas delivery has passed — no order-by content, Boxing Day
+      // framing only. The digital pitch is off too: the only pitch line
+      // (getChristmasDigitalPitchLine) is Christmas-framed — "last-minute
+      // gift through December 25" — which would be expired copy on Dec 26.
+      showOrderBy: false,
+      showDigitalPitch: false,
+      promoCode: CHRISTMAS_PROMO.xmas15.code,
+      digitalExcludedNote: "Discount codes apply to prints only — HD digital is excluded.",
+    };
+  }
+
   if (phase === "xmas15_last_call" && CHRISTMAS_PROMO_PUBLICITY) {
     return {
       phase,
@@ -260,7 +335,10 @@ export function getChristmasLandingPromo(nowMs: number = Date.now()): ChristmasL
     };
   }
 
-  if (phase === "hidden") {
+  if (phase === "hidden" || phase === "boxing_day") {
+    // Boxing Day reaches here only when CHRISTMAS_PROMO_PUBLICITY is off
+    // (the on case returned above): show the neutral block rather than
+    // order-by dates that have already passed.
     return {
       phase,
       heading: "Christmas star map gifts",
@@ -335,14 +413,18 @@ function formatOrderByDisplayDate(key: ChristmasCutoffKey): string {
   return `${ORDER_BY_MONTH_LABELS[m - 1]} ${d}`;
 }
 
+/** Shown where no order-by date is confirmed for a region — never invent one. */
+const REST_OF_WORLD_UNCONFIRMED_LABEL = "Order early";
+
 /**
  * Rows for the Christmas order-by table, derived from
  * CHRISTMAS_ORDER_BY_DATES so the table can never drift from the banner,
  * the landing summary lines, or the FAQ. Canvas has no cutoff key of its
  * own: it ships on the framed profile (see printCatalog `canvas_wrap`)
  * and shares the framed dates, exactly as the summary lines present it.
- * Mug and greeting-card rows are intentionally absent — their Christmas
- * cutoffs are not provider-confirmed, so no dates are published for them.
+ * Mug and greeting card use the owner-approved provisional cutoffs
+ * (Canada Dec 8 · US Dec 7, approved 2026-10-18); no rest-of-world date
+ * is confirmed for either, so that cell reads "Order early".
  */
 export function getChristmasOrderByTableRows(): ChristmasOrderByTableRow[] {
   const framed = {
@@ -358,6 +440,20 @@ export function getChristmasOrderByTableRows(): ChristmasOrderByTableRow[] {
       canada: formatOrderByDisplayDate("poster_ca"),
       unitedStates: formatOrderByDisplayDate("poster_us"),
       restOfWorld: formatOrderByDisplayDate("poster_row"),
+      instantNote: null,
+    },
+    {
+      product: "Mug",
+      canada: formatOrderByDisplayDate("mug_ca"),
+      unitedStates: formatOrderByDisplayDate("mug_us"),
+      restOfWorld: REST_OF_WORLD_UNCONFIRMED_LABEL,
+      instantNote: null,
+    },
+    {
+      product: "Greeting card",
+      canada: formatOrderByDisplayDate("card_ca"),
+      unitedStates: formatOrderByDisplayDate("card_us"),
+      restOfWorld: REST_OF_WORLD_UNCONFIRMED_LABEL,
       instantNote: null,
     },
     {
