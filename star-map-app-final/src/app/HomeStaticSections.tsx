@@ -97,6 +97,17 @@ export function buildHomeFaqItems(input: { single: string; framed: string; unfra
       a: printCheckoutEnabled
         ? `Yes. After the free preview, checkout supports framed print (${input.framed}), unframed print (${input.unframed}), and HD digital delivery.`
         : "Physical print checkout is in staged rollout. You can always download a print-ready HD file immediately after payment.",
+      aNode: printCheckoutEnabled ? (
+        <>
+          Yes. After the free preview, checkout supports framed print ({input.framed}), unframed print (
+          {input.unframed})<span data-digital-offer>, and HD digital delivery</span>.
+        </>
+      ) : (
+        <>
+          Physical print checkout is in staged rollout.
+          <span data-digital-offer> You can always download a print-ready HD file immediately after payment.</span>
+        </>
+      ),
     },
     {
       id: "shipping-timing",
@@ -112,6 +123,15 @@ export function buildHomeFaqItems(input: { single: string; framed: string; unfra
       id: "subscription",
       q: "Do I have to subscribe to buy a star map?",
       a: "No. One-time checkout covers framed print, unframed print, or a single HD file. Subscription is optional only for repeat digital exports.",
+      aNode: (
+        <>
+          No. One-time checkout covers framed print, unframed print
+          <span data-digital-offer>
+            , or a single HD file. Subscription is optional only for repeat digital exports
+          </span>
+          .
+        </>
+      ),
     },
     {
       id: "damaged",
@@ -132,6 +152,13 @@ export function buildHomeFaqItems(input: { single: string; framed: string; unfra
       id: "why-starmapco",
       q: "Why choose StarMapCo over other star map generators?",
       a: "Free live preview, accurate science, and a clear delivery ladder: framed for premium gifting, unframed for lower physical cost, or HD digital for instant access.",
+      aNode: (
+        <>
+          Free live preview, accurate science, and a clear delivery ladder: framed for premium gifting, unframed for
+          lower physical cost
+          <span data-digital-offer>, or HD digital for instant access</span>.
+        </>
+      ),
     },
   ];
 }
