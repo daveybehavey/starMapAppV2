@@ -38,6 +38,17 @@
   --font-sans: var(--font-playfair);
 }
 
+/* Brand colours formerly declared in tailwind.config.ts. Tailwind v4 is
+   CSS-first (@import "tailwindcss") and never loads that config, so these
+   utilities silently generated nothing until registered here. Only colours
+   with actual utility usages in src/ are registered (audit 2026-10-17:
+   midnight + gold; parchment, navy, cosmic-*, accent-*, pale-* have zero
+   utility usages). Values copied exactly from tailwind.config.ts. */
+@theme {
+  --color-midnight: #0c1021;
+  --color-gold: #c6a35c;
+}
+
 *,
 *::before,
 *::after {
