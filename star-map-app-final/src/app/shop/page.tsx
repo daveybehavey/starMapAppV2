@@ -109,7 +109,7 @@ export default function ShopPage() {
       imageSrc: HOME_MOCKUPS.framedBedroom,
       alt: "Framed StarMapCo print in a styled bedroom",
       title: printTiers.poster_framed.label,
-      detail: "Premium presentation — gift-ready framing matched to our Printful storefront SKU.",
+      detail: "Premium presentation — gift-ready framing that arrives ready to hang.",
       price: framedPrice,
       shippingNote: PRINT_NEUTRAL_SHIPPING_CARD_NOTE,
       href: "/editor?mode=quick&source=shop-framed&checkout=print&print_variant=poster_framed",
@@ -393,8 +393,8 @@ export default function ShopPage() {
         <section className="mt-14 rounded-2xl border border-neutral-200 bg-neutral-50 p-5 text-sm text-neutral-800">
           <p className="font-semibold text-midnight">Fulfillment note</p>
           <p className="mt-2 leading-relaxed">
-            Poster and framed SKUs map to your configured Printful variants. Merch add-ons use Printful catalog variants
-            per selected options. {productionReviewDisclosure}
+            Every poster and framed print is made to order from the design you approve. Merch add-ons are
+            printed on demand to match the options you pick. {productionReviewDisclosure}
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             <Link href="/how-to-print-star-map" prefetch={false} className="font-semibold text-amber-800 underline">

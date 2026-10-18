@@ -200,7 +200,7 @@ export default function StarMapGiftFormatsPage() {
         <h2 className="text-midnight text-lg font-semibold">How we decide what launches</h2>
         <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li>Quality standard: no weak print quality or fragile packaging.</li>
-          <li>Margin gate: every SKU must clear profitability targets across top shipping countries.</li>
+          <li>Fair pricing: every format must work at a fair price across our top shipping countries.</li>
           <li>Support risk: we avoid formats that create avoidable returns and support load.</li>
           <li>Checkout focus: too many options hurt conversions, so we keep primary checkout clean.</li>
         </ul>
@@ -241,7 +241,7 @@ export default function StarMapGiftFormatsPage() {
           </div>
           <div>
             <h3 className="text-midnight font-semibold">Will you add more products?</h3>
-            <p>Yes. New products are added in pilots after quality and margin checks pass.</p>
+            <p>Yes. We add new products gradually, once they pass our quality checks.</p>
           </div>
           <div>
             <h3 className="text-midnight font-semibold">Can I buy digital and print together?</h3>
@@ -250,7 +250,7 @@ export default function StarMapGiftFormatsPage() {
           <div>
             <h3 className="text-midnight font-semibold">Where can I request a new product format?</h3>
             <p>
-              Email support@starmapco.com with your request and country so we can prioritize pilot demand.
+              Email support@starmapco.com with your request and country — requests help us decide what to add next.
             </p>
           </div>
         </div>
@@ -288,7 +288,7 @@ export default function StarMapGiftFormatsPage() {
           },
           {
             question: "Will you add more products?",
-            answer: "Yes. New products are added in pilots after quality and margin checks pass.",
+            answer: "Yes. We add new products gradually, once they pass our quality checks.",
           },
           {
             question: "Can I buy digital and print together?",
@@ -297,7 +297,7 @@ export default function StarMapGiftFormatsPage() {
           {
             question: "Where can I request a new product format?",
             answer:
-              "Email support@starmapco.com with your request and country so we can prioritize pilot demand.",
+              "Email support@starmapco.com with your request and country — requests help us decide what to add next.",
           },
         ]}
       />
