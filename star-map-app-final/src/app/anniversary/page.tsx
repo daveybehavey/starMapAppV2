@@ -263,6 +263,7 @@ export default function AnniversaryPage() {
           {
             src: "/home-mockups/offer-framed-print.png",
             alt: "Framed anniversary star map print mockup",
+            aspect: "16:9",
           },
         ]}
         bullets={[

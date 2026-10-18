@@ -262,6 +262,7 @@ export default function WeddingPage() {
           {
             src: "/home-mockups/gallery-living-room-framed.png",
             alt: "Framed wedding star map in a living room setting",
+            aspect: "4:3",
           },
         ]}
         bullets={[
