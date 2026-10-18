@@ -74,7 +74,11 @@ button:disabled {
 }
 
 a {
-  color: inherit;
+  /* Do not set color here: this unlayered rule outranks every Tailwind v4
+     layered text-* utility on anchors, which silently rendered secondary
+     CTAs in the inherited body colour (census D01). Tailwind preflight
+     already supplies color: inherit inside @layer base, where utilities
+     correctly override it. */
   text-decoration: none;
 }
 
