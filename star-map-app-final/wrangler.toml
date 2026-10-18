@@ -61,6 +61,11 @@ PRINT_CHECKOUT_ENABLED = "true"
 NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED = "true"
 # Optional merch landing + nav tab (/shop). Uses roadmap SKUs + NEXT_PUBLIC_SHOP_EXTERNAL_OFFERS_JSON for partner links.
 NEXT_PUBLIC_SHOP_TAB_ENABLED = "true"
+# Kept as bindings on purpose: scripts/qa-go-no-go.mjs hard-requires
+# PRINT_UNFRAMED_PRICE_CENTS / PRINT_FRAMED_PRICE_CENTS (or STRIPE_PRICE_ID_PRINT_*
+# equivalents, which do not exist) when print checkout is enabled.
+PRINT_UNFRAMED_PRICE_CENTS = "4900"
+PRINT_FRAMED_PRICE_CENTS = "9900"
 PRINT_UNFRAMED_LABEL = "Museum-grade poster (18x18)"
 PRINT_FRAMED_LABEL = "Framed print (14x14)"
 # Leave empty to use all countries currently present in data/printful-shipping.json
