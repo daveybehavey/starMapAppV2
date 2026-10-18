@@ -1,3 +1,5 @@
+import type { OccasionArtworkItem } from "@/components/OccasionStorySection";
+
 export type SeoOccasion = {
   slug: string;
   label: string;
@@ -17,7 +19,7 @@ export type SeoOccasion = {
   storyCtaHref?: string;
   storyCtaLabel?: string;
   /** Occasion artwork shown in the story section (paths under /public). */
-  artwork?: { src: string; alt: string }[];
+  artwork?: OccasionArtworkItem[];
 };
 
 export const seoOccasions: SeoOccasion[] = [
@@ -124,7 +126,7 @@ export const seoOccasions: SeoOccasion[] = [
         alt: "Birth night star map example in a dark noir style",
       },
       {
-        src: "/home-mockups/offer-unframed-print.png",
+        src: "/printproof/unframed-mockup.jpg",
         alt: "Unframed star map print mockup for a nursery gift",
       },
     ],
@@ -197,6 +199,7 @@ export const seoOccasions: SeoOccasion[] = [
       {
         src: "/home-mockups/gallery-star-poster.png",
         alt: "Star map poster mockup for a remembrance gift",
+        aspect: "4:3",
       },
     ],
     faqs: [
@@ -264,6 +267,7 @@ export const seoOccasions: SeoOccasion[] = [
       {
         src: "/home-mockups/offer-digital-hd.png",
         alt: "Digital HD star map mockup for a graduation gift",
+        aspect: "4:3",
       },
     ],
     faqs: [
@@ -681,6 +685,7 @@ export const seoOccasions: SeoOccasion[] = [
       {
         src: "/home-mockups/gallery-living-room-framed.png",
         alt: "Framed star map in a living room holiday setting",
+        aspect: "4:3",
       },
       {
         src: "/home-mockups/gallery-framed-light-wood.png",
@@ -689,10 +694,12 @@ export const seoOccasions: SeoOccasion[] = [
       {
         src: "/home-mockups/offer-framed-print.png",
         alt: "Framed star map print product mockup",
+        aspect: "16:9",
       },
       {
         src: "/home-mockups/offer-digital-hd.png",
         alt: "Digital HD star map mockup for last-minute Christmas gifts",
+        aspect: "4:3",
       },
     ],
     faqs: [

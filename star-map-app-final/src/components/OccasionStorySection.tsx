@@ -1,9 +1,21 @@
 import Image from "next/image";
 import Link from "next/link";
 
+/** Display aspect of an artwork source image. Tiles render at the source's own
+ *  aspect (mirroring the PR #304 home-gallery treatment) so renders are not cropped. */
+export type OccasionArtworkAspect = "1:1" | "4:3" | "16:9";
+
 export type OccasionArtworkItem = {
   src: string;
   alt: string;
+  /** Aspect of the source image; defaults to "1:1" (the square render examples). */
+  aspect?: OccasionArtworkAspect;
+};
+
+const ARTWORK_ASPECT_CLASS: Record<OccasionArtworkAspect, string> = {
+  "1:1": "aspect-square",
+  "4:3": "aspect-[4/3]",
+  "16:9": "aspect-[16/9]",
 };
 
 type OccasionStorySectionProps = {
@@ -29,7 +41,7 @@ export default function OccasionStorySection({
       <h2 className="text-midnight text-xl font-semibold">{heading}</h2>
       {artwork && artwork.length > 0 ? (
         <div
-          className={`grid gap-3 ${
+          className={`grid items-start gap-3 ${
             artwork.length === 1
               ? "sm:grid-cols-1"
               : artwork.length === 2 || artwork.length === 4
@@ -42,7 +54,7 @@ export default function OccasionStorySection({
               key={item.src}
               className="overflow-hidden rounded-2xl bg-neutral-100 shadow-md ring-1 shadow-black/5 ring-black/[0.06]"
             >
-              <div className="relative aspect-[4/3]">
+              <div className={`relative ${ARTWORK_ASPECT_CLASS[item.aspect ?? "1:1"]}`}>
                 <Image
                   src={item.src}
                   alt={item.alt}

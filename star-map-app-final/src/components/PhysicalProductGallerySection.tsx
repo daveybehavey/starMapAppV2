@@ -18,7 +18,7 @@ const galleryCards = [
   },
   {
     src: HOME_MOCKUPS.unframedPoster,
-    alt: "Unframed StarMapCo poster leaning against a wall",
+    alt: "Unframed StarMapCo square poster print on a white background",
     eyebrow: "Unframed · Classic",
     title: "Lower-cost unframed print",
     detail: "Unframed route keeps physical delivery while leaving frame choice open for the buyer.",

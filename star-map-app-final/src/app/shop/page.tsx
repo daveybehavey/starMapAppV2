@@ -121,7 +121,7 @@ export default function ShopPage() {
     {
       key: "unframed",
       imageSrc: HOME_MOCKUPS.unframedPoster,
-      alt: "Unframed StarMapCo poster leaning against a wall",
+      alt: "Unframed StarMapCo square poster print on a white background",
       title: printTiers.poster_unframed.label,
       detail: "Large-format poster print — ideal when you want to frame it locally or keep total cost lower.",
       price: unframedPrice,

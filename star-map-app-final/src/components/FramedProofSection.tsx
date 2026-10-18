@@ -59,14 +59,14 @@ export default function FramedProofSection({
               Framed print mockup
             </div>
           </div>
-          <div className="relative min-h-[180px] overflow-hidden rounded-2xl border border-black/10 bg-[#0a1228] shadow-sm">
+          <div className="relative min-h-[180px] overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm">
             <ResilientImage
               src={unframedProofImage}
               fallbackSrc={HOME_MOCKUPS.unframedPoster}
-              alt="Unframed StarMapCo poster leaning against a wall"
+              alt="Unframed StarMapCo square poster print on a white background"
               fill
-              sizes="(max-width: 1024px) 100vw, 25vw"
-              className="object-cover"
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+              className="object-contain"
             />
             <div className="text-midnight absolute bottom-3 left-3 rounded-full border border-black/10 bg-white/90 px-3 py-1 text-[11px] font-semibold shadow-sm">
               Unframed poster mockup
@@ -81,8 +81,8 @@ export default function FramedProofSection({
               fallbackSrc={HOME_MOCKUPS.digitalHd}
               alt="StarMapCo HD download on laptop and phone"
               fill
-              sizes="(max-width: 1024px) 100vw, 25vw"
-              className="object-cover"
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+              className="object-contain"
             />
             <div className="text-midnight absolute bottom-3 left-3 rounded-full border border-black/10 bg-white/90 px-3 py-1 text-[11px] font-semibold shadow-sm">
               HD digital delivery

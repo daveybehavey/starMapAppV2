@@ -29,7 +29,7 @@ type HomeOfferStackProps = {
 const OFFER_MOCKUPS = {
   digital: "/home-mockups/offer-digital-hd.png",
   framed: "/home-mockups/offer-framed-print.png",
-  unframed: "/home-mockups/offer-unframed-print.png",
+  unframed: "/printproof/unframed-mockup.jpg",
 } as const;
 
 export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferStackProps) {
@@ -169,7 +169,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
               <ResilientImage
                 src={OFFER_MOCKUPS.unframed}
                 fallbackSrc={OFFER_MOCKUPS.unframed}
-                alt="Unframed StarMapCo poster leaning against a wall"
+                alt="Unframed StarMapCo square poster print on a white background"
                 fill
                 sizes="(max-width: 768px) 100vw, 33vw"
                 className="object-cover object-center"
