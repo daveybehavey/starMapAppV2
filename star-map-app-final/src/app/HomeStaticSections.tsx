@@ -1,5 +1,6 @@
 import Link from "next/link";
 import FramedProofSection from "@/components/FramedProofSection";
+import GoogleRatingsTrust from "@/components/GoogleRatingsTrust";
 import GiftFormatLadder from "@/components/GiftFormatLadder";
 import HomeOfferStack from "@/components/HomeOfferStack";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
@@ -281,6 +282,10 @@ export default function HomeStaticSections({ priceLabels, promoStatus, promoCode
             checkout. The goal is simple: no guessing about what the gift will look like.
           </p>
         </div>
+      </section>
+
+      <section className="content-visibility-auto mx-auto w-full max-w-4xl px-4 sm:px-6 lg:px-8">
+        <GoogleRatingsTrust />
       </section>
 
       <div className="section-divider my-12 sm:my-14 lg:my-16" />

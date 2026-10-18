@@ -4,6 +4,7 @@ import HomeStaticSections from "./HomeStaticSections";
 import { formatPrice, getPricingTiers, getPrintPricingTiers } from "@/lib/pricing";
 import { getPrintDeliveryTimingFaqAnswer } from "@/lib/commerceFacts";
 import { formatPrintPriceWithShipping, getPrintShippingDisclosure, isUsOnlyPrintCheckout } from "@/lib/printCheckoutConfig";
+import { GOOGLE_RATINGS } from "@/lib/googleRatings";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 const homepageDescription =
@@ -111,6 +112,14 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         brand: { "@type": "Brand", name: "StarMapCo" },
         image: [`${siteUrl}/custom-star-map-anniversary.webp`],
         category: "Personalized gifts",
+        // Same constants the on-page GoogleRatingsTrust component displays
+        // (Google Business Profile: 5.0 stars, 2 reviews, verified 2026-10-18),
+        // so the markup never claims more than the page shows.
+        aggregateRating: {
+          "@type": "AggregateRating",
+          ratingValue: GOOGLE_RATINGS.ratingValue.toFixed(1),
+          reviewCount: GOOGLE_RATINGS.reviewCount,
+        },
         additionalProperty: [
           {
             "@type": "PropertyValue",
