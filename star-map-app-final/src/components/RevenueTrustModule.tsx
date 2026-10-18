@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   formatPrintPriceWithShipping,
+  getPrintFreeShippingShortTag,
   getPrintProductionReviewDisclosure,
   getPrintShippingDisclosure,
 } from "@/lib/printCheckoutConfig";
@@ -54,7 +55,7 @@ export default function RevenueTrustModule({
           </p>
           <p className="mt-1 text-xs text-neutral-700">
             {printCheckoutEnabled
-              ? `Unlock HD instantly, or choose ${printFormats[0]} or ${printFormats[1]} from the editor. ${shippingDisclosure}`
+              ? `Unlock HD instantly, or choose ${printFormats[0]} or ${printFormats[1]} from the editor. ${getPrintFreeShippingShortTag() ?? shippingDisclosure}`
               : "HD file unlocks immediately after successful payment verification."}
           </p>
         </div>
@@ -85,7 +86,7 @@ export default function RevenueTrustModule({
           <div className="brand-light-card rounded-2xl px-4 py-3">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">Before payment</p>
             <p className="mt-1 text-sm text-neutral-700">
-              {shippingDisclosure} Checkout shows the exact variant before the card is charged.
+              Checkout shows the exact shipping and variant before the card is charged.
             </p>
           </div>
           <div className="brand-light-card rounded-2xl px-4 py-3">

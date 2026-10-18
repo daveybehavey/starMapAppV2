@@ -147,7 +147,7 @@ export default function WeddingPage() {
   const framedFaqIndex = weddingFaqItems.findIndex(
     (item) => item.question === "Can I order a framed wedding print directly?"
   );
-  const framedFaqAnswer = `${weddingFaqItems[framedFaqIndex].answer} ${shippingDisclosure}`;
+  const framedFaqAnswer = weddingFaqItems[framedFaqIndex].answer;
   const deliveryIntro = `Recommended presentation is framed + HD (${bundlePriceLine}) for a ready-to-hang keepsake plus an instant digital file. Unframed is the lower-cost option if you already have a frame. HD-only is fastest when you need same-day delivery.`;
 
   return (

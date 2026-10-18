@@ -5,7 +5,7 @@ import {
   getPrintShippingDisclosure,
 } from "@/lib/printCheckoutConfig";
 import { getPrintPhysicalOrderSummaryLine } from "@/lib/commerceFacts";
-import { getPrintFreeShippingOfferLine } from "@/lib/printFreeShipping";
+import { getPrintFreeShippingOfferLine, getPrintFreeShippingShortTag } from "@/lib/printFreeShipping";
 import ResilientImage from "@/components/ResilientImage";
 import {
   PRINT_NEUTRAL_SHIPPING_CARD_NOTE,
@@ -246,7 +246,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
           <ul className="mt-2 grid gap-2 text-xs text-neutral-200 sm:grid-cols-2">
             <li>✓ {getPrintProductionReviewTrustPoint()}</li>
             <li>✓ {getPrintPhysicalOrderSummaryLine()}</li>
-            <li>✓ {shippingDisclosure}</li>
+            <li>✓ {getPrintFreeShippingShortTag() ?? shippingDisclosure}</li>
             <li>✓ Damage support: support@starmapco.com.</li>
             <li data-digital-offer>✓ HD digital add-on available for {printLabels.digitalAddOn}.</li>
             <li>✓ {printBadgeLabel}</li>

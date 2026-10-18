@@ -1,5 +1,10 @@
 import Link from "next/link";
-import { formatPrintPriceWithShipping, getPrintAddOnTimelinePoint, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import {
+  formatPrintPriceWithShipping,
+  getPrintAddOnTimelinePoint,
+  getPrintFreeShippingShortTag,
+  getPrintShippingDisclosure,
+} from "@/lib/printCheckoutConfig";
 import { isDigitalClaim } from "@/components/PurchaseTrustPanel";
 import { formatPrice, getPrintDigitalAddOnPrice, getPrintPricingTiers } from "@/lib/pricing";
 
@@ -107,7 +112,7 @@ export default function WhatYouReceiveModule({
           {printCheckoutEnabled ? (
             <>
               <li>{printAddOnTimelinePoint}</li>
-              <li>{shippingDisclosure}</li>
+              <li>{getPrintFreeShippingShortTag() ?? shippingDisclosure}</li>
             </>
           ) : null}
         </ol>

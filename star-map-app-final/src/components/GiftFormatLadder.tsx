@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { buildGiftFormatTiers } from "@/lib/giftFormatLadder";
 import { FRAMED_HD_RECOMMENDED_BADGE, getGiftLadderIntro } from "@/lib/moneyPageGiftCheckout";
-import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import { getPrintFreeShippingShortTag, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 
 type GiftFormatLadderProps = {
   sourcePrefix?: string;
@@ -71,7 +71,7 @@ export default function GiftFormatLadder({
       </div>
 
       <p className="mt-4 text-xs leading-relaxed text-neutral-600 sm:text-sm">
-        Free preview first. Physical checkout shows shipping before payment. {shippingDisclosure}
+        Free preview first. Physical checkout shows shipping before payment. {getPrintFreeShippingShortTag() ?? shippingDisclosure}
       </p>
     </section>
   );

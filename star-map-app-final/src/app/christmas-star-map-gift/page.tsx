@@ -32,7 +32,7 @@ import {
   resolveChristmasCampaignNowMs,
 } from "@/lib/christmasCampaign";
 import { LOVE_IT_GUARANTEE_LINE, getLoveItGuaranteeFaq } from "@/lib/loveItGuarantee";
-import { getPrintDeliveryTimingFaqAnswer } from "@/lib/commerceFacts";
+import { getPrintDeliveryTimingFaqAnswerShort } from "@/lib/commerceFacts";
 import type { Metadata } from "next";
 
 export const revalidate = 86400;
@@ -97,7 +97,7 @@ export default async function ChristmasStarMapGiftPage({ searchParams }: PagePro
     },
     {
       question: "How long does print delivery take?",
-      answer: getPrintDeliveryTimingFaqAnswer(shippingDisclosure),
+      answer: getPrintDeliveryTimingFaqAnswerShort(),
     },
     {
       question: loveItFaq.question,
