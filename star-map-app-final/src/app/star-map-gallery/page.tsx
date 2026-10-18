@@ -108,7 +108,7 @@ export default function StarMapGalleryPage() {
 
       <FramedProofSection
         heading="Compare the finished print with the on-screen render"
-        intro="The gallery cards are freshly rendered with the current engine. This photographed framed example shows how the physical piece lands in a real room. Use both before deciding between digital, unframed, or framed checkout."
+        intro="The gallery cards are freshly rendered from real sky data. This photographed framed example shows how the physical piece lands in a real room. Use both before deciding between digital, unframed, or framed checkout."
         sourcePrefix="gallery-proof"
       />
 

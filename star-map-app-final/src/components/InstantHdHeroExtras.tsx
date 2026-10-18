@@ -37,7 +37,7 @@ export default function InstantHdHeroExtras({
             href="/hd-star-map"
             className="font-semibold text-amber-200 underline decoration-amber-400/50 underline-offset-2 hover:text-amber-100"
           >
-            Instant HD funnel
+            Instant HD
           </Link>
         </p>
       ) : null}

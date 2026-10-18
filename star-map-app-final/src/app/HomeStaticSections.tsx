@@ -200,7 +200,7 @@ export default function HomeStaticSections({ priceLabels, promoStatus, promoCode
               See the render and the framed finish before you start
             </h2>
             <p className="max-w-3xl text-base text-neutral-200 sm:text-lg">
-              A mix of current-engine renders and real product mockups, so buyers can judge both the on-screen
+              A mix of fresh renders and real product mockups, so buyers can judge both the on-screen
               design and the physical gift before checkout.
             </p>
           </div>
@@ -264,7 +264,7 @@ export default function HomeStaticSections({ priceLabels, promoStatus, promoCode
             ))}
           </div>
           <p className="text-sm text-neutral-200 sm:text-base lg:text-[13px] lg:leading-snug">
-            Compare the physical product mockups with current-engine render examples before you ever reach
+            Compare the physical product mockups with fresh render examples before you ever reach
             checkout. The goal is simple: no guessing about what the gift will look like.
           </p>
         </div>

@@ -17,7 +17,7 @@ type WhatYouReceiveModuleProps = {
 const defaultItems: ReceiveItem[] = [
   {
     title: "Astronomically accurate map",
-    detail: "Rendered from your selected date, time, and location using the same engine used in preview.",
+    detail: "Rendered from your selected date, time, and location using the same sky calculation as your preview.",
   },
   {
     title: "HD watermark-free PNG",
