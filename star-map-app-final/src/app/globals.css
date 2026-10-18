@@ -62,7 +62,10 @@ html {
 
 .content-visibility-auto {
   content-visibility: auto;
-  contain-intrinsic-size: 1px 900px;
+  /* `auto` makes the browser reuse each element's last rendered size;
+     900px is only the first-render estimate. Without it, skipped sections
+     are always estimated at a flat 900px and page height shifts on scroll (D08). */
+  contain-intrinsic-size: auto 900px;
 }
 
 body {
