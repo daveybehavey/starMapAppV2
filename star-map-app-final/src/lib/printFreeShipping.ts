@@ -56,6 +56,16 @@ export function getPrintFreeShippingOfferLine(currency = "usd"): string | null {
   return `Free standard shipping on print orders ${thresholdLabel}+ (merchandise before shipping).`;
 }
 
+/**
+ * Short tag form of the free-shipping offer for cards, pills, and bullets.
+ * The full threshold statement (`getPrintShippingDisclosure`) appears once per page.
+ */
+export function getPrintFreeShippingShortTag(currency = "usd"): string | null {
+  const thresholdLabel = formatPrintFreeShippingThresholdLabel(currency);
+  if (!thresholdLabel) return null;
+  return `Free shipping ${thresholdLabel}+`;
+}
+
 export function getPrintFreeShippingQualifyingHint(currency = "usd"): string | null {
   const thresholdLabel = formatPrintFreeShippingThresholdLabel(currency);
   if (!thresholdLabel) return null;

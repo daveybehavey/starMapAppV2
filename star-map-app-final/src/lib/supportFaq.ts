@@ -47,6 +47,6 @@ export const SUPPORT_FAQ_ITEMS: readonly { id: string; question: string; answer:
     id: "contact",
     question: "How do I reach StarMapCo?",
     answer:
-      "Use the Contact page for email, phone, hours, and business address. Including your order email speeds up print and billing issues.",
+      "Use the Contact page for our email address and support hours. Including your order email speeds up print and billing issues.",
   },
 ] as const;

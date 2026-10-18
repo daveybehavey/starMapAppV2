@@ -4,7 +4,7 @@ const supportEmail = (process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "support@starmapc
 // even if NEXT_PUBLIC_SUPPORT_PHONE is set in the environment.
 const supportPhone = "";
 const businessAddress = (process.env.NEXT_PUBLIC_BUSINESS_ADDRESS || "").trim();
-const supportHours = (process.env.NEXT_PUBLIC_SUPPORT_HOURS || "Mon-Sat 9:00 AM-5:00 PM").trim();
+const supportHours = (process.env.NEXT_PUBLIC_SUPPORT_HOURS || "Mon-Sat 9:00 AM-5:00 PM Pacific Time").trim();
 
 export type BusinessProfile = {
   name: string;

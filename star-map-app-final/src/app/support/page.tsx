@@ -170,7 +170,7 @@ export default function SupportPage() {
         </section>
 
         <p className="mt-8 text-sm text-neutral-800 sm:text-base">
-          Prefer the full contact block (address, hours, and context)? See{" "}
+          Prefer the full contact block (email, hours, and context)? See{" "}
           <Link className="font-semibold text-midnight underline" href="/contact">
             Contact
           </Link>

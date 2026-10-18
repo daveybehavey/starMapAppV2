@@ -4,7 +4,7 @@
  */
 import type { PrintVariant } from "@/lib/printCatalog";
 import { isPrintfulAutoConfirmEnabled } from "@/lib/printCheckoutConfig";
-import { formatPrintDeliveryDisclosure } from "@/lib/printfulShipping";
+import { formatPrintDeliveryDisclosure, PRINT_NEUTRAL_SHIPPING_CARD_NOTE } from "@/lib/printfulShipping";
 
 export const PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS = "2–5 business days" as const;
 
@@ -101,6 +101,14 @@ export function getPrintDeliveryTimingFaqAnswer(
   input?: PrintDeliveryEstimateInput,
 ): string {
   return `${shippingDisclosure} ${getPrintDeliveryEstimateLine(input)} ${getPrintStandardShippingOnlyLine()} ${getPrintUrgentHdUpsellLine()}`;
+}
+
+/**
+ * FAQ delivery-timing answer for pages that already carry the full free-shipping
+ * disclosure once — same facts, without repeating the threshold statement.
+ */
+export function getPrintDeliveryTimingFaqAnswerShort(input?: PrintDeliveryEstimateInput): string {
+  return `${PRINT_NEUTRAL_SHIPPING_CARD_NOTE} ${getPrintDeliveryEstimateLine(input)} ${getPrintStandardShippingOnlyLine()} ${getPrintUrgentHdUpsellLine()}`;
 }
 
 /** Compact trust-panel / policy summary for physical print orders. */
