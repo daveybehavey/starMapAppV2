@@ -119,8 +119,8 @@ test("Christmas banner discount windows (Pacific) cover each promo phase", async
   assert.equal(orderBy.promoCode, undefined);
   assert.equal(/XMAS15|BLACKFRIDAY20/.test(orderBy.message), false);
 
-  // Nov 1–27 → XMAS15 + order-by
-  for (const day of ["2026-11-01", "2026-11-15", "2026-11-27"]) {
+  // Nov 1–26 → XMAS15 + order-by
+  for (const day of ["2026-11-01", "2026-11-15", "2026-11-26"]) {
     assert.equal(resolveChristmasBannerPhase(at(day)), "xmas15_early", day);
     const content = getChristmasBannerContent(at(day), "$9");
     assert.match(content.message, /15% off prints/i);
@@ -132,8 +132,8 @@ test("Christmas banner discount windows (Pacific) cover each promo phase", async
     assert.match(landing.digitalExcludedNote, /prints only/i);
   }
 
-  // Nov 28–Dec 1 → Black Friday
-  for (const day of ["2026-11-28", "2026-11-30", "2026-12-01"]) {
+  // Nov 27–Dec 1 → Black Friday
+  for (const day of ["2026-11-27", "2026-11-28", "2026-11-30", "2026-12-01"]) {
     assert.equal(resolveChristmasBannerPhase(at(day)), "black_friday", day);
     const content = getChristmasBannerContent(at(day), "$9");
     assert.match(content.message, /Black Friday:\s*20% off prints/i);
@@ -142,8 +142,8 @@ test("Christmas banner discount windows (Pacific) cover each promo phase", async
     assert.equal(/XMAS15/.test(content.message), false);
   }
 
-  // Dec 2–9 → last call XMAS15 + order-by deadlines
-  for (const day of ["2026-12-02", "2026-12-05", "2026-12-09"]) {
+  // Dec 2–10 → last call XMAS15 + order-by deadlines
+  for (const day of ["2026-12-02", "2026-12-05", "2026-12-09", "2026-12-10"]) {
     assert.equal(resolveChristmasBannerPhase(at(day)), "xmas15_last_call", day);
     const content = getChristmasBannerContent(at(day), "$9");
     assert.match(content.message, /Last call:\s*15% off prints/i);
@@ -152,8 +152,8 @@ test("Christmas banner discount windows (Pacific) cover each promo phase", async
     assert.equal(content.promoCode, "XMAS15");
   }
 
-  // Dec 10/11–25 → $9 HD instant pitch, no discount
-  for (const day of ["2026-12-10", "2026-12-11", "2026-12-25"]) {
+  // Dec 11–25 → $9 HD instant pitch, no discount
+  for (const day of ["2026-12-11", "2026-12-25"]) {
     assert.equal(resolveChristmasBannerPhase(at(day)), "digital_last_minute", day);
     const content = getChristmasBannerContent(at(day), "$9");
     assert.match(content.message, /\$9|instant HD/i);

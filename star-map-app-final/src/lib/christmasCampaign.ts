@@ -36,10 +36,10 @@ export const CHRISTMAS_PROMO = {
 
 const CAMPAIGN_YEAR_START = "2026-10-01";
 const XMAS15_EARLY_START = "2026-11-01";
-const BLACK_FRIDAY_START = "2026-11-28";
+const BLACK_FRIDAY_START = "2026-11-27";
 const XMAS15_LAST_CALL_START = "2026-12-02";
-/** After Dec 9 last-call window; includes Dec 10–11 poster cutoff days. */
-const DIGITAL_LAST_MINUTE_START = "2026-12-10";
+/** Starts Dec 11 — after the Dec 10 Canada poster order-by day, print ordering has closed. */
+const DIGITAL_LAST_MINUTE_START = "2026-12-11";
 const DIGITAL_LAST_MINUTE_END = "2026-12-25";
 
 const ORDER_BY_BANNER_LINE =
