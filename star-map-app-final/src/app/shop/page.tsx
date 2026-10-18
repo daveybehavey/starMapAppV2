@@ -45,28 +45,32 @@ function merchShopTeaser(id: MerchFamilyId): string {
   }
 }
 
-/** Truthful Printful catalog product photos per merch family (sample designs shown). */
+/**
+ * Product photos per merch family, composited with an example star map design
+ * (a genuine StarMapCo example render) so shoppers see a map on the product —
+ * the customer's own map replaces the example design in the editor flow.
+ */
 function merchShopImage(id: MerchFamilyId): { src: string; alt: string } | null {
   switch (id) {
     case "sticker_kisscut":
       return {
-        src: "/printproof/gift-raw/sticker/sticker-catalog.jpg",
-        alt: "Kiss-cut vinyl sticker with a sample design — your star map is printed to order",
+        src: "/printproof/gift-raw/sticker/sticker-starmap.jpg",
+        alt: "Kiss-cut vinyl sticker with an example star map design — your own map is printed to order",
       };
     case "magnet_diecut":
       return {
-        src: "/printproof/gift-raw/magnet/magnet-catalog.jpg",
-        alt: "Die-cut magnet with a sample design — your star map is printed to order",
+        src: "/printproof/gift-raw/magnet/magnet-starmap.jpg",
+        alt: "Die-cut magnet with an example star map design — your own map is printed to order",
       };
     case "pins_set":
       return {
-        src: "/printproof/gift-raw/pins/pins-catalog.jpg",
-        alt: "Pin buttons, front and back — your star map is printed on the front",
+        src: "/printproof/gift-raw/pins/pins-starmap.jpg",
+        alt: "Pin button with an example star map design on the front — your own map is printed to order",
       };
     case "tee_unisex_bc3001":
       return {
-        src: "/printproof/gift-raw/tshirt/tee-catalog.jpg",
-        alt: "Unisex staple tee — your star map is printed on the front",
+        src: "/printproof/gift-raw/tshirt/tee-starmap.jpg",
+        alt: "Unisex staple tee with an example star map design on the front — your own map is printed to order",
       };
     case "hoodie_unisex_g18500":
       return {
@@ -168,8 +172,8 @@ export default function ShopPage() {
     },
     {
       key: "canvas",
-      imageSrc: "/printproof/canvas-catalog.jpg",
-      alt: "Canvas gallery wrap — your star map printed on canvas stretched over a wooden frame",
+      imageSrc: "/printproof/canvas-starmap.jpg",
+      alt: "Canvas gallery wrap with an example star map design — your own map printed on canvas stretched over a wooden frame",
       title: printTiers.canvas_wrap.label,
       detail: "Gallery-wrap canvas — premium wall art between poster and framed print.",
       price: canvasPrice,
@@ -213,8 +217,8 @@ export default function ShopPage() {
       ? [
           {
             key: "stickers",
-            imageSrc: "/printproof/gift-raw/sticker/sticker-catalog.jpg",
-            alt: "Kiss-cut vinyl sticker with a sample design — your star map is printed to order",
+            imageSrc: "/printproof/gift-raw/sticker/sticker-starmap.jpg",
+            alt: "Kiss-cut vinyl sticker with an example star map design — your own map is printed to order",
             title: getMerchPublicDisplayLabel(stickerFamily),
             detail:
               "Weatherproof kiss-cut stickers from the same map you preview — great add-on gift or laptop keepsake.",
