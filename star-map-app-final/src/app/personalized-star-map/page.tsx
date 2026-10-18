@@ -178,7 +178,7 @@ export default function PersonalizedStarMapPage() {
         <div className="space-y-2">
           <h2 className="text-midnight text-lg font-semibold">Recent personalized map examples</h2>
           <p className="text-sm text-neutral-800 sm:text-base">
-            These are freshly rendered StarMapCo outputs from the current engine. Start from one of these
+            These are freshly rendered StarMapCo examples. Start from one of these
             looks, then adjust fonts, lines, and text.
           </p>
         </div>

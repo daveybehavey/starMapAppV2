@@ -62,7 +62,7 @@ export default function HowToPrintStarMapPage() {
             href="/hd-star-map"
             className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#f1c27d] bg-transparent px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent"
           >
-            Instant HD funnel
+            Instant HD
           </Link>
         </div>
       </header>
@@ -77,7 +77,7 @@ export default function HowToPrintStarMapPage() {
       <StickyCtaBar
         source="sticky-how-to-print-instant-hd"
         title="Printing locally?"
-        description="Unlock the HD file first — same preview engine, poster-quality PNG."
+        description="Unlock the HD file first — same preview, poster-quality PNG."
         buttonLabel="Preview instant HD"
         primaryHref={instantHref}
         primaryPlan="hd_digital"
@@ -87,9 +87,9 @@ export default function HowToPrintStarMapPage() {
       />
 
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
-        <h2 className="text-xl font-semibold text-midnight">StarMapCo print SKUs (live today)</h2>
+        <h2 className="text-xl font-semibold text-midnight">StarMapCo print options (live today)</h2>
         <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
-          Physical checkout uses square artwork matched to Printful variants. Use a square layout in the editor for the
+          Physical checkout uses square artwork matched to our print sizes. Use a square layout in the editor for the
           best fit.
         </p>
         <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">

@@ -35,7 +35,7 @@ export function getPrintSizingLine(variant: PrintVariant = "poster_framed"): str
     case "mug_11oz":
       return "11 oz mug — wrap print on glossy black ceramic.";
     default:
-      return "Physical size is fixed per SKU — preview your map before checkout.";
+      return "Each print comes in one fixed size — preview your map before checkout.";
   }
 }
 
