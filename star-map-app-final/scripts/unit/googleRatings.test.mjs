@@ -58,13 +58,25 @@ test("no surface hard-codes the rating — all read the one lib module", () => {
   assert.match(shop, /<GoogleRatingsTrust variant="strip"/);
 });
 
-test("homepage JSON-LD aggregateRating is built from the same constants", () => {
+test("homepage Product schema claims NO aggregateRating; the visible component still renders the constants", () => {
+  // The 5.0-star rating belongs to the Google Business Profile (the business),
+  // not to the homepage's Product. Google's review-snippet guidelines require
+  // a Product's aggregateRating to be reviews of that product and prohibit
+  // presenting another entity's ratings as product ratings — so the schema
+  // must not carry one (and it must not move onto an Organization node
+  // either). The visible, clearly-labeled "on Google" display stays.
   const page = read("src/app/page.tsx");
-  assert.match(page, /aggregateRating/);
-  assert.match(page, /ratingValue: GOOGLE_RATINGS\.ratingValue\.toFixed\(1\)/);
-  assert.match(page, /reviewCount: GOOGLE_RATINGS\.reviewCount/);
   assert.ok(
-    !/ratingValue:\s*"\d/.test(page),
-    "schema ratingValue must not be a hard-coded string",
+    !page.includes("aggregateRating"),
+    "homepage JSON-LD must not contain an aggregateRating property",
   );
+  assert.ok(
+    !page.includes("AggregateRating"),
+    "homepage JSON-LD must not contain an AggregateRating type",
+  );
+
+  const component = read("src/components/GoogleRatingsTrust.tsx");
+  assert.match(component, /formatGoogleRatingValue\(\)/);
+  assert.match(component, /getGoogleReviewCountLabel\(\)/);
+  assert.match(component, /GOOGLE_RATINGS/);
 });
