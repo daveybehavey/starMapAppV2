@@ -74,8 +74,8 @@ function merchShopImage(id: MerchFamilyId): { src: string; alt: string } | null 
       };
     case "hoodie_unisex_g18500":
       return {
-        src: "/printproof/gift-raw/hoodie/hoodie-starmap.jpg",
-        alt: "Unisex hoodie with an example star map design on the front — your own map is printed to order",
+        src: "/printproof/gift-raw/hoodie/hoodie-catalog.jpg",
+        alt: "Unisex hoodie — your star map is printed on the front",
       };
     default:
       return null;
