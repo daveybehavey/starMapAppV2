@@ -142,7 +142,9 @@ export default function FramedProofSection({
           </div>
 
           <ul className="space-y-2 text-sm text-neutral-800">
-            <li className="brand-light-card rounded-2xl px-4 py-3">{getPrintFreeShippingShortTag() ?? shippingDisclosure}</li>
+            <li className="brand-light-card rounded-2xl px-4 py-3">
+              {getPrintFreeShippingShortTag() ?? shippingDisclosure}
+            </li>
             <li className="brand-light-card rounded-2xl px-4 py-3">{getPrintPhysicalOrderSummaryLine()}</li>
             <li className="brand-light-card rounded-2xl px-4 py-3">
               The same approved map can stay digital, ship unframed, or arrive framed without rebuilding the
