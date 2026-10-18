@@ -186,7 +186,7 @@ test("framed+HD sticky bars and remaining homepage digital promotions are marked
 test("homepage delivery + FAQ digital copy hidden; owned pack credits keep navigation", () => {
   const home = read("src/app/HomeStaticSections.tsx");
   assert.match(home, /<span data-digital-offer>, or HD digital delivery<\/span>/);
-  assert.match(home, /<span data-digital-offer>\s*, or unlock HD digital from \{priceLabels\.single\}/);
+  assert.match(home, /<span data-digital-offer>\s*, or unlock HD digital from \{input\.single\}/);
   assert.equal((home.match(/<span data-app-only> or<\/span>/g) || []).length, 2);
   const css = read("src/app/globals.css");
   assert.match(css, /html\[data-app-mode="android"\] \[data-app-only\] \{\s*display: inline;/);
