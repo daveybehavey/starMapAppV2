@@ -87,7 +87,7 @@ export default function DeliveryFormatModule({
             href={digitalHref}
             className="bg-midnight hover:bg-midnight/90 mt-4 inline-flex rounded-full border border-black/10 px-4 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px]"
           >
-            Preview then buy digital
+            Start free preview
           </Link>
         </article>
 

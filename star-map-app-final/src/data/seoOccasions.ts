@@ -115,7 +115,7 @@ export const seoOccasions: SeoOccasion[] = [
     ],
     storyCtaHref:
       "/editor?mode=quick&source=occasion-new-baby-story-preview&utm_source=site&utm_medium=landing&utm_campaign=new-baby_story",
-    storyCtaLabel: "Create your free preview",
+    storyCtaLabel: "Start free preview",
     artwork: [
       {
         src: "/examples/example-new-baby-heirloom.webp",
@@ -190,7 +190,7 @@ export const seoOccasions: SeoOccasion[] = [
     ],
     storyCtaHref:
       "/editor?mode=quick&source=occasion-memorial-story-preview&utm_source=site&utm_medium=landing&utm_campaign=memorial_story",
-    storyCtaLabel: "Create your free preview",
+    storyCtaLabel: "Start free preview",
     artwork: [
       {
         src: "/examples/example-memorial-starlace.webp",
@@ -258,7 +258,7 @@ export const seoOccasions: SeoOccasion[] = [
     ],
     storyCtaHref:
       "/editor?mode=quick&source=occasion-graduation-story-preview&utm_source=site&utm_medium=landing&utm_campaign=graduation_story",
-    storyCtaLabel: "Create your free preview",
+    storyCtaLabel: "Start free preview",
     artwork: [
       {
         src: "/examples/example-graduation-aurora.webp",
@@ -680,7 +680,7 @@ export const seoOccasions: SeoOccasion[] = [
     ],
     storyCtaHref:
       "/editor?mode=quick&source=occasion-christmas-story-preview&utm_source=site&utm_medium=landing&utm_campaign=christmas_story",
-    storyCtaLabel: "Create your free preview",
+    storyCtaLabel: "Start free preview",
     artwork: [
       {
         src: "/home-mockups/gallery-living-room-framed.png",

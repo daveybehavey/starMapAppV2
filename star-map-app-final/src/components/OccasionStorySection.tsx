@@ -32,7 +32,7 @@ export default function OccasionStorySection({
   heading,
   paragraphs,
   ctaHref,
-  ctaLabel = "Create your free preview",
+  ctaLabel = "Start free preview",
   artwork,
   bullets,
 }: OccasionStorySectionProps) {

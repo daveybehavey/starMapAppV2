@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { getBusinessProfile } from "@/lib/businessProfile";
 import { isShopTabEnabled } from "@/lib/shopTab";
 
-function shouldHideSiteTopNav(pathname: string) {
+export function shouldHideSiteTopNav(pathname: string) {
   if (pathname.startsWith("/editor")) return true;
   if (pathname.startsWith("/m/")) return true;
   if (pathname.startsWith("/funnel")) return true;

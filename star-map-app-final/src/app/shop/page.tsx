@@ -208,7 +208,7 @@ export default function ShopPage() {
       price: digitalPrice,
       shippingNote: "Delivered instantly after checkout",
       href: "/editor?mode=quick&source=shop-digital",
-      cta: "Start digital map",
+      cta: "Start free preview",
       ctaClass:
         "mt-auto inline-flex justify-center rounded-full bg-midnight px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-midnight/90",
       darkCard: true,

@@ -1,3 +1,4 @@
+import GoogleRatingsTrust from "@/components/GoogleRatingsTrust";
 import HeroEditorDeferred from "@/components/HeroEditorDeferred";
 import { getPrintProductionReviewTrustPoint, isPrintfulAutoConfirmEnabled } from "@/lib/printCheckoutConfig";
 import { HomeHeroCta } from "./HomeHeroCta";
@@ -132,6 +133,10 @@ export default function HomeHero() {
                 How it works
               </HomeHeroCta>
             </div>
+            <GoogleRatingsTrust
+              variant="strip"
+              className="mt-4 rounded-2xl bg-[#f7f1e3] px-4 py-2.5 shadow-lg"
+            />
             <p className="hero-plan__cta-note">
               Or{" "}
               <a href="#preview" className="hero-plan__cta-note-link">

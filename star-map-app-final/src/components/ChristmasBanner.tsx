@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   getChristmasBannerContent,
   resolveChristmasCampaignNowMs,
 } from "@/lib/christmasCampaign";
+import { shouldHideSiteTopNav } from "@/components/SiteTopNav";
 import { getInstantHdPriceLine } from "@/lib/digitalGiftCheckout";
 
 type Props = {
@@ -18,7 +19,11 @@ type Props = {
  * Override clock with `?christmas_now=YYYY-MM-DD` or `CHRISTMAS_CAMPAIGN_NOW` / `NEXT_PUBLIC_CHRISTMAS_CAMPAIGN_NOW`.
  */
 export default function ChristmasBanner({ nowMs }: Props = {}) {
+  const pathname = usePathname() || "";
   const searchParams = useSearchParams();
+  // Same route gate as the site nav: no sitewide chrome on the editor (or the
+  // /m/ and /funnel flows), where the tool owns the first screen.
+  if (shouldHideSiteTopNav(pathname)) return null;
   const override = searchParams.get("christmas_now");
   const clockMs = resolveChristmasCampaignNowMs({ nowMs, override });
   const content = getChristmasBannerContent(clockMs, getInstantHdPriceLine());
