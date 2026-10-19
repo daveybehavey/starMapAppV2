@@ -105,7 +105,9 @@ export function parseCalendarDateParamToIso(dateParam, timeZone) {
     return parsed.toISOString();
   }
 
-  const zoned = zonedWallTimeToUtcDate(year, month, day, 12, 0, resolvedZone);
+  // 21:00 mirrors EVENING_DEFAULT_TIME in src/lib/dateTime.ts: a date-only
+  // prefill with a resolved city timezone lands on the evening default.
+  const zoned = zonedWallTimeToUtcDate(year, month, day, 21, 0, resolvedZone);
   if (!zoned) return null;
 
   const formatted = formatDateTimeForLocation(zoned.toISOString(), resolvedZone);

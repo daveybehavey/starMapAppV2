@@ -48,7 +48,9 @@ test("U01: a Sydney date displays as that calendar date in the fields", () => {
   assert.ok(prefillIso);
   const shown = formatDateTimeForLocation(prefillIso, "Australia/Sydney");
   assert.equal(shown?.date, "2019-07-14");
-  assert.equal(shown?.time, "12:00");
+  // U02: the date-only prefill lands on the evening default (21:00) at the
+  // place — previously noon, which contradicted the editor's own label.
+  assert.equal(shown?.time, "21:00");
 
   const eveningIso = combineDateTime("2019-07-14", "21:00:00", "Australia/Sydney");
   assert.equal(eveningIso, "2019-07-14T11:00:00.000Z"); // AEST is UTC+10 in July
@@ -56,6 +58,27 @@ test("U01: a Sydney date displays as that calendar date in the fields", () => {
     date: "2019-07-14",
     time: "21:00",
   });
+});
+
+test("U02: date-only prefill stores the instant that is 21:00 at the place (real lib)", () => {
+  // New York (EST = UTC-5 in January): 21:00 local is 02:00Z the next day.
+  assert.equal(
+    parseCalendarDateParamToIso("2026-01-15", "America/New_York"),
+    "2026-01-16T02:00:00.000Z"
+  );
+  // Paris (CET = UTC+1 in January): 21:00 local is 20:00Z the same day.
+  assert.equal(
+    parseCalendarDateParamToIso("2026-01-15", "Europe/Paris"),
+    "2026-01-15T20:00:00.000Z"
+  );
+  // Auckland (NZDT = UTC+13 in January): 21:00 local is 08:00Z the same day.
+  assert.equal(
+    parseCalendarDateParamToIso("2026-01-15", "Pacific/Auckland"),
+    "2026-01-15T08:00:00.000Z"
+  );
+  // No timezone (name-only handoff): legacy browser-local noon, unchanged.
+  const legacy = parseCalendarDateParamToIso("2026-01-15", null);
+  assert.equal(legacy, new Date(2026, 0, 15, 12, 0, 0, 0).toISOString());
 });
 
 test("U01: an untouched evening default rebases to 21:00 in the new place's zone", () => {

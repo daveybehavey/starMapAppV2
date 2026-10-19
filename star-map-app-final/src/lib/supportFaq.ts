@@ -37,6 +37,18 @@ export const SUPPORT_FAQ_ITEMS: readonly { id: string; question: string; answer:
       "Under our Love-It Guarantee, email us within 30 days of delivery with photos and your order details for a free reprint if the print arrived damaged or misprinted. Change-of-mind refunds are not offered on custom made-to-order prints. Eligible damage or defect cases are handled as described in our Returns & Refunds policy.",
   },
   {
+    id: "merch-damaged",
+    question: "My merch arrived damaged or wrong. What should I do?",
+    answer:
+      "Merch (stickers, magnets, pin buttons, tees, and hoodies) is made to order. If an item arrives defective, damaged, or different from what you ordered, email us within 30 days of delivery with photos and your order details and we will replace it free. See our Returns & Refunds policy for details.",
+  },
+  {
+    id: "merch-wrong-size",
+    question: "Can I exchange a tee or hoodie for a different size?",
+    answer:
+      "Because each piece is made to order for the person who ordered it, we can't offer refunds or exchanges for size — the size you order is the size that gets made, so please double-check your size before ordering. If the item arrives defective or damaged, that is different: contact us and we will replace it free.",
+  },
+  {
     id: "refund-digital",
     question: "Can I get a refund on a digital purchase?",
     answer:

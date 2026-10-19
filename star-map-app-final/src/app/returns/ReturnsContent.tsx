@@ -50,6 +50,24 @@ export default function ReturnsContent() {
         </section>
 
         <section>
+          <h2 className="text-xl font-semibold text-midnight">Merch (stickers, magnets, pins, and apparel)</h2>
+          <p className="mt-2">
+            Merch items — kiss-cut stickers, die-cut magnets, pin buttons, tees, and hoodies — are made to order
+            after checkout, just like prints. If a merch item arrives defective, damaged, or different from what
+            you ordered, contact{" "}
+            <a className="font-semibold text-midnight underline" href={`mailto:${profile.email}`}>
+              {profile.email}
+            </a>{" "}
+            within 30 days of delivery with photos and order details, and we will replace it free.
+          </p>
+          <p className="mt-2">
+            Because every merch item is made for the person who ordered it, change-of-mind returns are not
+            accepted on merch. For tees and hoodies we also cannot offer refunds or exchanges for size: the size
+            you order is the size that gets made, so please double-check the size you select before ordering.
+          </p>
+        </section>
+
+        <section>
           <h2 className="text-xl font-semibold text-midnight">International shipping charges</h2>
           <p className="mt-2">
             Import duties, customs fees, VAT, brokerage charges, or other destination-country fees are not refunded by

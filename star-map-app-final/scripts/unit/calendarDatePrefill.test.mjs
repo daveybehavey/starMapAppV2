@@ -25,13 +25,15 @@ test("city-timezone date parse keeps the requested local calendar date across la
   assert.ok(tokyoIso);
   const tokyoLocal = formatDateTimeForLocation(tokyoIso, "Asia/Tokyo");
   assert.equal(tokyoLocal?.date, "2024-06-12");
-  assert.equal(tokyoLocal?.time, "12:00");
+  // U02: a date-only prefill lands on the evening default (21:00) in the
+  // city's timezone — the wall time a fresh editor shows — not noon.
+  assert.equal(tokyoLocal?.time, "21:00");
 
   const laIso = parseCalendarDateParamToIso("2024-06-12", "America/Los_Angeles");
   assert.ok(laIso);
   const laLocal = formatDateTimeForLocation(laIso, "America/Los_Angeles");
   assert.equal(laLocal?.date, "2024-06-12");
-  assert.equal(laLocal?.time, "12:00");
+  assert.equal(laLocal?.time, "21:00");
 
   // Materially different zones both preserve the same requested calendar date.
   assert.notEqual(tokyoIso, laIso);
@@ -50,6 +52,43 @@ test("Sydney vs New York city timezones preserve the same requested calendar dat
   assert.equal(formatDateTimeForLocation(sydneyIso, "Australia/Sydney")?.date, date);
   assert.equal(formatDateTimeForLocation(nyIso, "America/New_York")?.date, date);
   assert.notEqual(sydneyIso, nyIso);
+});
+
+test("U02: date-only prefill stores exactly 21:00 in the place's timezone", () => {
+  // New York, winter (EST = UTC-5): 21:00 EST is 02:00Z the next day.
+  const nyWinter = parseCalendarDateParamToIso("2026-01-15", "America/New_York");
+  assert.equal(nyWinter, "2026-01-16T02:00:00.000Z");
+  assert.deepEqual(formatDateTimeForLocation(nyWinter, "America/New_York"), {
+    date: "2026-01-15",
+    time: "21:00",
+  });
+
+  // New York, summer (EDT = UTC-4): 21:00 EDT is 01:00Z the next day.
+  const nySummer = parseCalendarDateParamToIso("2026-07-15", "America/New_York");
+  assert.equal(nySummer, "2026-07-16T01:00:00.000Z");
+  assert.deepEqual(formatDateTimeForLocation(nySummer, "America/New_York"), {
+    date: "2026-07-15",
+    time: "21:00",
+  });
+
+  // Auckland, summer (NZDT = UTC+13): 21:00 NZDT is 08:00Z the same day.
+  const auckland = parseCalendarDateParamToIso("2026-01-15", "Pacific/Auckland");
+  assert.equal(auckland, "2026-01-15T08:00:00.000Z");
+  assert.deepEqual(formatDateTimeForLocation(auckland, "Pacific/Auckland"), {
+    date: "2026-01-15",
+    time: "21:00",
+  });
+});
+
+test("U02: src/lib/dateTime.ts derives the zoned prefill from EVENING_DEFAULT_TIME; legacy branch keeps noon", () => {
+  const dateTime = readSrc("lib/dateTime.ts");
+  assert.match(dateTime, /EVENING_DEFAULT_TIME\.split\(":"\)/);
+  assert.match(
+    dateTime,
+    /zonedWallTimeToUtcDate\(year, month, day, eveningHour, eveningMinute, resolvedZone\)/
+  );
+  // The no-timezone (name-only) branch is deliberately unchanged.
+  assert.match(dateTime, /const parsed = new Date\(year, month - 1, day, 12, 0, 0, 0\);/);
 });
 
 test("generic/non-city date parse without timezone keeps browser-local noon behavior", () => {
