@@ -217,10 +217,17 @@ export function getPrintDigitalAddOnPrice(): { amountCents: number; currency: st
 }
 
 export function formatPrice(amountCents: number, currency: string): string {
-  return new Intl.NumberFormat("en-US", {
+  const code = (currency || "USD").toUpperCase();
+  const formatted = new Intl.NumberFormat("en-US", {
     style: "currency",
-    currency: currency || "USD",
+    currency: code,
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amountCents / 100);
+  // Always name the currency next to the amount (sweep U03): a bare "$"
+  // leaves the currency ambiguous, and Stripe Adaptive Pricing can show
+  // a converted total with a conversion fee the page never mentioned.
+  // Every customer-facing price routes through here, so the code is
+  // appended exactly once by construction.
+  return `${formatted} ${code}`;
 }
