@@ -58,6 +58,30 @@
  * the render; a position missing on either side) so the flag can
  * never spin unconsumed.
  *
+ * Alignment round (Codex bot P2 on PR #345, thread 4317818826):
+ * the recheck fed the STORED position straight into the
+ * centre-based clamp — but a stored position.x is the renderer's
+ * drawing ANCHOR, not the glyph centre. drawText fills at
+ * position.x with ctx.textAlign = box.align, so a left-aligned
+ * glyph spans [anchor, anchor + width] and a right-aligned one
+ * [anchor - width, anchor] (y is always the centre: the baseline
+ * is "middle"). Judging the anchor as a centre both moves aligned
+ * boxes whose glyph is already contained and permits anchors
+ * whose glyph edge lands outside the region — Codex's example: a
+ * left-aligned 240x48 box at (0.1, 0.5) rechecked to 0.18 though
+ * contained, and an anchor of 0.82 passed though its glyph's
+ * right edge sits at 1.02. The recheck now converts anchor ->
+ * centre before clamping and centre -> anchor before storing
+ * (resolveTextAnchorToCenterX / resolveTextCenterToAnchorX in
+ * textFit.ts), using the box's align and the fresh rect's width.
+ * The other three clamp call sites need no conversion — the drag
+ * rAF, the pointer-up commit and the keyboard nudge all clamp
+ * centres derived from the bounds rect itself (the hit test's
+ * centre, the preview position that pipeline produced, the
+ * rect's centre), never the stored anchor; that centre pipeline
+ * predates this PR on main. Centre-aligned boxes convert by
+ * exactly 0, so every pin above is unaffected.
+ *
  * Scope, from the same source evidence: the fit bounds ONLY the
  * diamond (mask width at the line's row) and the framed rectangle
  * (frame inner bounds); every other shape is deliberately bounded
@@ -91,6 +115,8 @@ import {
   resolveFrameInsetPx,
   resolveFrameTextFitPaddingPx,
   resolveShapeTextAvailableWidth,
+  resolveTextAnchorToCenterX,
+  resolveTextCenterToAnchorX,
   resolveTextFitScale,
 } from "../../src/lib/textFit.ts";
 
@@ -297,7 +323,7 @@ test("circle / heart / star: pass-through — the fit bounds these shapes by the
 
 test("wiring: PreviewCanvas applies the shape clamp after the canvas clamp — drag, commit, nudge", () => {
   const canvas = read("src/components/PreviewCanvas.tsx");
-  assert.match(canvas, /import \{ clampTextCenterToShape \} from "@\/lib\/textFit";/);
+  assert.match(canvas, /import \{[^}]*clampTextCenterToShape[^}]*\} from "@\/lib\/textFit";/);
   // Drag preview (rAF): canvas clamp first, shape clamp second.
   assert.match(
     canvas,
@@ -495,4 +521,166 @@ test("wiring: recheck eligibility keys on the soundness checks + readOnly, not o
   // rendered IS the stored position (round-1 pin covers the write).
   assert.match(block, /rendered\.position\.x === stored\.position\.x/);
   assert.match(block, /rendered\.position\.y === stored\.position\.y/);
+});
+
+/* ------------------------------------------------------------------ */
+/* Alignment round: the stored anchor is not the glyph centre (P2)   */
+/* ------------------------------------------------------------------ */
+
+const clampFramedRect = (center, rectWidthPx, rectHeightPx) =>
+  clampTextCenterToShape(center, {
+    shape: "rectangle",
+    frameEnabled: true,
+    rectWidthPx,
+    rectHeightPx,
+    width: W,
+    height: W,
+  });
+
+// The post-render recheck's correction, composed exactly as
+// PreviewCanvas now runs it: stored ANCHOR -> glyph centre via the
+// box's align and the fresh rect's width -> shape clamp -> anchor
+// again for storage. (Pre-fix, the recheck skipped both conversions
+// and clamped the anchor as if it were the centre.)
+const recheckCorrect = (position, align, rectWidthPx, rectHeightPx, clampFn) => {
+  const clampedCenter = clampFn(
+    {
+      x: resolveTextAnchorToCenterX(position.x, align, rectWidthPx, W),
+      y: position.y,
+    },
+    rectWidthPx,
+    rectHeightPx,
+  );
+  return {
+    x: resolveTextCenterToAnchorX(clampedCenter.x, align, rectWidthPx, W),
+    y: clampedCenter.y,
+  };
+};
+
+// The glyph's horizontal span for a stored anchor, per drawText:
+// left [anchor, anchor + w], centre [anchor - w/2, anchor + w/2],
+// right [anchor - w, anchor].
+const glyphSpanX = (anchorX, align, rectWidthPx) => {
+  const rw = rectWidthPx / W;
+  if (align === "left") return [anchorX, anchorX + rw];
+  if (align === "right") return [anchorX - rw, anchorX];
+  return [anchorX - rw / 2, anchorX + rw / 2];
+};
+
+// Codex's example geometry: a 240x48 box on the 1200px diamond at
+// the middle row. Band half-width across its span (end rows
+// 0.48/0.52) is 0.42, so centres clamp to [0.18, 0.82].
+const ALIGNED_RECT = { rectWidthPx: 240, rectHeightPx: 48 };
+
+test("anchor conversion: left shifts by +half width, right by -half, centre/undefined by 0; the pair round-trips", () => {
+  const { rectWidthPx } = ALIGNED_RECT;
+  near(resolveTextAnchorToCenterX(0.1, "left", rectWidthPx, W), 0.2, "left anchor->centre");
+  near(resolveTextAnchorToCenterX(0.9, "right", rectWidthPx, W), 0.8, "right anchor->centre");
+  assert.equal(resolveTextAnchorToCenterX(0.35, "center", rectWidthPx, W), 0.35);
+  assert.equal(resolveTextAnchorToCenterX(0.35, undefined, rectWidthPx, W), 0.35);
+  assert.equal(resolveTextCenterToAnchorX(0.35, "center", rectWidthPx, W), 0.35);
+  for (const align of ["left", "right"]) {
+    const roundTrip = resolveTextCenterToAnchorX(
+      resolveTextAnchorToCenterX(0.37, align, rectWidthPx, W),
+      align,
+      rectWidthPx,
+      W,
+    );
+    near(roundTrip, 0.37, `${align} round-trip`);
+  }
+  // Degenerate inputs convert by 0 rather than producing NaN.
+  assert.equal(resolveTextAnchorToCenterX(0.3, "left", rectWidthPx, 0), 0.3);
+});
+
+test("diamond: a contained left-aligned box passes the recheck unchanged — the unconverted clamp moved it (Codex P2)", () => {
+  const { rectWidthPx, rectHeightPx } = ALIGNED_RECT;
+  const stored = { x: 0.1, y: 0.5 };
+  // The bug: judging the anchor (0.1) as a centre clamps it to the
+  // band's minimum centre, 0.18 — a visible jump for a box whose
+  // glyph [0.1, 0.3] is already well inside the mask.
+  near(clampDiamond(stored, rectWidthPx, rectHeightPx).x, 0.18, "unconverted clamp misjudges the anchor");
+  // Fixed: the true centre is 0.2, inside [0.18, 0.82], so the
+  // correction is the stored anchor back, unchanged.
+  const corrected = recheckCorrect(stored, "left", rectWidthPx, rectHeightPx, clampDiamond);
+  near(corrected.x, stored.x, "left-aligned contained anchor must not move");
+  near(corrected.y, stored.y, "y is a centre for every alignment and never converts");
+  assertDiamondContained({ x: 0.2, y: 0.5 }, rectWidthPx, rectHeightPx);
+});
+
+test("diamond: a left-aligned anchor the unconverted clamp passed lets the glyph spill past 1.0 — the conversion clamps the GLYPH edge (Codex P2)", () => {
+  const { rectWidthPx, rectHeightPx } = ALIGNED_RECT;
+  const stored = { x: 0.82, y: 0.5 };
+  // The bug: 0.82 passes as a "centre" (it is the band maximum),
+  // but the glyph spans [0.82, 1.02] — outside even the canvas.
+  near(clampDiamond(stored, rectWidthPx, rectHeightPx).x, 0.82, "unconverted clamp passes the anchor");
+  const [bugLeft, bugRight] = glyphSpanX(stored.x, "left", rectWidthPx);
+  near(bugLeft, 0.82, "bug glyph left");
+  near(bugRight, 1.02, "bug glyph right edge (Codex's number)");
+  // Fixed: centre 0.92 clamps to 0.82, anchor converts back to
+  // 0.72, and the glyph's right edge lands exactly on the mask
+  // bound across the span (0.5 + 0.42).
+  const corrected = recheckCorrect(stored, "left", rectWidthPx, rectHeightPx, clampDiamond);
+  near(corrected.x, 0.72, "corrected anchor");
+  const [, right] = glyphSpanX(corrected.x, "left", rectWidthPx);
+  near(right, 0.92, "glyph right edge lands on the bound");
+  assertDiamondContained({ x: 0.82, y: 0.5 }, rectWidthPx, rectHeightPx);
+});
+
+test("diamond: right-aligned mirrors — contained anchor passes unchanged, boundary anchor clamps by the glyph's left edge", () => {
+  const { rectWidthPx, rectHeightPx } = ALIGNED_RECT;
+  // Contained: anchor 0.9, glyph [0.7, 0.9], true centre 0.8 is
+  // inside [0.18, 0.82]. The unconverted clamp moved it to 0.82.
+  near(clampDiamond({ x: 0.9, y: 0.5 }, rectWidthPx, rectHeightPx).x, 0.82, "unconverted clamp misjudges the right anchor");
+  const contained = recheckCorrect({ x: 0.9, y: 0.5 }, "right", rectWidthPx, rectHeightPx, clampDiamond);
+  near(contained.x, 0.9, "right-aligned contained anchor must not move");
+  // Boundary: anchor 0.18 -> centre 0.08 clamps to 0.18 -> anchor
+  // 0.28, so the glyph's LEFT edge lands on the bound (0.5 - 0.42).
+  const corrected = recheckCorrect({ x: 0.18, y: 0.5 }, "right", rectWidthPx, rectHeightPx, clampDiamond);
+  near(corrected.x, 0.28, "corrected right anchor");
+  const [left] = glyphSpanX(corrected.x, "right", rectWidthPx);
+  near(left, 0.08, "glyph left edge lands on the bound");
+  assertDiamondContained({ x: 0.18, y: 0.5 }, rectWidthPx, rectHeightPx);
+});
+
+test("rectangle (framed): aligned anchors clamp so the glyph edge lands on the frame inset + padding", () => {
+  const { rectWidthPx, rectHeightPx } = ALIGNED_RECT;
+  const insetPx = resolveFrameInsetPx(W, W) + resolveFrameTextFitPaddingPx(W);
+  assert.equal(insetPx, 22);
+  // Left-aligned, anchor hard against the canvas edge: centre 0.1
+  // clamps to the frame centre minimum, anchor converts back so
+  // the glyph's left edge is exactly the 22px bound.
+  const leftFixed = recheckCorrect({ x: 0, y: 0.5 }, "left", rectWidthPx, rectHeightPx, clampFramedRect);
+  near(leftFixed.x * W, insetPx, "left glyph edge lands on the frame bound");
+  // Right-aligned mirror: glyph's right edge 22px from the right.
+  const rightFixed = recheckCorrect({ x: 1, y: 0.5 }, "right", rectWidthPx, rectHeightPx, clampFramedRect);
+  near((1 - rightFixed.x) * W, insetPx, "right glyph edge lands on the frame bound");
+  // A contained left-aligned box (glyph [0.05, 0.25], left edge
+  // 60px > 22px) passes unchanged.
+  const contained = recheckCorrect({ x: 0.05, y: 0.5 }, "left", rectWidthPx, rectHeightPx, clampFramedRect);
+  near(contained.x, 0.05, "contained framed anchor must not move");
+});
+
+test("alignment round: centre-aligned boxes flow through the recheck composition byte-for-byte as before", () => {
+  const { rectWidthPx, rectHeightPx } = SAMPLE.title;
+  const dragged = { x: 0.85, y: 0.1 };
+  const viaRecheck = recheckCorrect(dragged, "center", rectWidthPx, rectHeightPx, clampDiamond);
+  assert.deepEqual(viaRecheck, clampDiamond(dragged, rectWidthPx, rectHeightPx));
+  const viaUndefined = recheckCorrect(dragged, undefined, rectWidthPx, rectHeightPx, clampDiamond);
+  assert.deepEqual(viaUndefined, viaRecheck);
+});
+
+test("wiring: the recheck converts the stored anchor to the glyph centre before clamping and back before storing (gate P2)", () => {
+  const canvas = read("src/components/PreviewCanvas.tsx");
+  assert.match(
+    canvas,
+    /resolveTextAnchorToCenterX\(\s*stored\.position\.x,\s*stored\.align,\s*freshRect\.width,\s*width,\s*\)/,
+  );
+  assert.match(
+    canvas,
+    /resolveTextCenterToAnchorX\(\s*clampedCenter\.x,\s*stored\.align,\s*freshRect\.width,\s*width,\s*\)/,
+  );
+  // The converted centre is what clampDragCenter receives...
+  assert.match(canvas, /const clampedCenter = clampDragCenter\(/);
+  // ...and the value stored is the converted-back `corrected`
+  // (the round-1 wiring pin covers the write itself).
 });

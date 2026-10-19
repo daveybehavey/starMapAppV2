@@ -296,6 +296,68 @@ export function clampTextCenterToShape(
 }
 
 /* ------------------------------------------------------------------ */
+/* Stored anchor <-> glyph centre conversion (gate P2 on PR #345)    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A stored text position's x is the renderer's drawing ANCHOR, not
+ * the glyph rect's centre: drawText (renderSky.ts) fills the text at
+ * (position.x x canvas width) with ctx.textAlign = box.align, so a
+ * left-aligned glyph spans [anchor, anchor + width] and a
+ * right-aligned one [anchor - width, anchor]. (The y is always the
+ * centre — the baseline is "middle" for every alignment — so only x
+ * ever converts.) clampTextCenterToShape works in centre space, so
+ * any path that feeds it a STORED position, or stores its result,
+ * must convert with the box's alignment and rendered rect width:
+ *
+ *   centre = anchor + width/2 (left) | anchor (centre) | anchor - width/2 (right)
+ *
+ * Without the conversion the clamp both rejects positions whose
+ * glyph is already contained (it judges the anchor as if it were
+ * the centre) and permits anchors whose glyph edge lands outside
+ * the region. Centre-aligned boxes — every designed default —
+ * convert by exactly 0. Degenerate inputs convert by 0 as well, so
+ * callers can apply the pair unconditionally.
+ */
+export function resolveTextAnchorToCenterX(
+  anchorX: number,
+  align: string | undefined,
+  rectWidthPx: number,
+  canvasWidthPx: number,
+): number {
+  return anchorX + textAnchorCenterOffsetX(align, rectWidthPx, canvasWidthPx);
+}
+
+/** Inverse of resolveTextAnchorToCenterX: centre -> stored anchor. */
+export function resolveTextCenterToAnchorX(
+  centerX: number,
+  align: string | undefined,
+  rectWidthPx: number,
+  canvasWidthPx: number,
+): number {
+  return centerX - textAnchorCenterOffsetX(align, rectWidthPx, canvasWidthPx);
+}
+
+function textAnchorCenterOffsetX(
+  align: string | undefined,
+  rectWidthPx: number,
+  canvasWidthPx: number,
+): number {
+  if (
+    !Number.isFinite(rectWidthPx) ||
+    !Number.isFinite(canvasWidthPx) ||
+    canvasWidthPx <= 0 ||
+    rectWidthPx < 0
+  ) {
+    return 0;
+  }
+  const halfWidthNorm = rectWidthPx / (canvasWidthPx * 2);
+  if (align === "left") return halfWidthNorm;
+  if (align === "right") return -halfWidthNorm;
+  return 0;
+}
+
+/* ------------------------------------------------------------------ */
 /* Default text-box rows per shape (fleet PR #16: U14 diamond rows)    */
 /* ------------------------------------------------------------------ */
 

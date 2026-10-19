@@ -10,7 +10,11 @@ import {
   type MapRecipe,
 } from "@/lib/renderSky";
 import { resolveTextFitFrameEnabled } from "@/lib/mapLookTiers";
-import { clampTextCenterToShape } from "@/lib/textFit";
+import {
+  clampTextCenterToShape,
+  resolveTextAnchorToCenterX,
+  resolveTextCenterToAnchorX,
+} from "@/lib/textFit";
 import { hitTestText } from "@/lib/textHitTest";
 import { useStore } from "@/lib/store";
 import { useShallow } from "zustand/react/shallow";
@@ -451,11 +455,39 @@ export default function PreviewCanvas({
           pendingShapeRecheckRef.current = null;
           const freshRect = textBoundsRef.current.get(recheckId);
           if (freshRect) {
-            const corrected = clampDragCenter(
-              { x: stored.position.x, y: stored.position.y },
+            // The stored position.x is the renderer's drawing
+            // ANCHOR, not the glyph centre the shape clamp works
+            // in (gate P2): drawText fills at position.x with
+            // ctx.textAlign = the box's align, so for left/right
+            // alignment anchor and centre differ by half the
+            // rendered width. Convert anchor -> centre before
+            // clamping and centre -> anchor before storing, or
+            // the recheck moves contained aligned boxes and lets
+            // others spill. (The drag, commit and nudge paths
+            // need no conversion: they clamp centres derived
+            // from the bounds rect itself, never the anchor.)
+            const clampedCenter = clampDragCenter(
+              {
+                x: resolveTextAnchorToCenterX(
+                  stored.position.x,
+                  stored.align,
+                  freshRect.width,
+                  width,
+                ),
+                y: stored.position.y,
+              },
               freshRect,
               { width, height }
             );
+            const corrected = {
+              x: resolveTextCenterToAnchorX(
+                clampedCenter.x,
+                stored.align,
+                freshRect.width,
+                width,
+              ),
+              y: clampedCenter.y,
+            };
             if (corrected.x !== stored.position.x || corrected.y !== stored.position.y) {
               updateTextBox(recheckId, { position: corrected });
             }
