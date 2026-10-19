@@ -389,7 +389,7 @@ export default function ShopPage() {
                 return (
                   <li
                     key={family.id}
-                    className="flex flex-col rounded-2xl border border-violet-200/80 bg-gradient-to-br from-violet-50/90 via-white to-white p-4 shadow-sm"
+                    className="flex flex-col rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm"
                   >
                     {image ? (
                       <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-neutral-100">
@@ -405,7 +405,7 @@ export default function ShopPage() {
                     ) : null}
                     <p className="mt-3 text-lg font-semibold text-midnight">{label}</p>
                     <p className="mt-2 flex-1 text-sm leading-relaxed text-neutral-700">{merchShopTeaser(family.id)}</p>
-                    <p className="mt-3 text-base font-semibold text-violet-900">{priceLine}+ shipping at checkout</p>
+                    <p className="mt-3 text-base font-semibold text-amber-800">{priceLine}+ shipping at checkout</p>
                     <Link
                       href={`/editor?mode=quick&source=shop-merch&merch_family=${encodeURIComponent(family.id)}`}
                       prefetch={false}
