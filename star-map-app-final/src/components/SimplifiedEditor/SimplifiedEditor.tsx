@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
+import { applyDefaultTextRowsForShape } from "@/lib/textFit";
 import { useShallow } from "zustand/react/shallow";
 import {
   buildRecipeFromState,
@@ -821,7 +822,13 @@ export function SimplifiedEditor() {
 
   // Dynamic recipe that applies user's style/shape/renderOptions choices to the sample preview
   const dynamicRecipe: MapRecipe = useMemo(() => {
-    const effectiveTextBoxes = textBoxes.length > 0 ? textBoxes : SAMPLE_RECIPE.textBoxes;
+    // The sample fallback carries the standard rows; when the store's
+    // shape is diamond, the designed boxes get the diamond rows (same
+    // relocation the store applies on setShape — fleet PR #16).
+    const effectiveTextBoxes =
+      textBoxes.length > 0
+        ? textBoxes
+        : applyDefaultTextRowsForShape(SAMPLE_RECIPE.textBoxes, shape);
     return {
       ...SAMPLE_RECIPE,
       selectedStyle,
