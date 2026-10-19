@@ -72,6 +72,19 @@ export function normalizeFlexibleDateInput(value: string) {
   return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6)}`;
 }
 
+/**
+ * The value a text-fallback date field settles on at blur. A typed entry
+ * (valid or partial) stays as typed; an EMPTIED field restores the
+ * controlled value, so the field never sits blank while a date is stored —
+ * the native desktop date input is controlled by the stored value and
+ * behaves the same way. Returns "" only when there is no controlled value
+ * to restore (uncontrolled usage).
+ */
+export function resolveDateInputBlurValue(normalized: string, controlledValue?: string) {
+  if (normalized) return normalized;
+  return controlledValue ?? "";
+}
+
 export function formatDateInput(date: Date) {
   if (!Number.isFinite(date.getTime())) return "";
   const y = date.getFullYear();
@@ -135,19 +148,43 @@ export function combineDateTime(date: string, time: string, timezone?: string, f
       hour12: false,
     });
 
-    const parts = formatter.formatToParts(testDate);
-    const localYear = Number(parts.find((p) => p.type === "year")?.value);
-    const localMonth = Number(parts.find((p) => p.type === "month")?.value);
-    const localDay = Number(parts.find((p) => p.type === "day")?.value);
-    const localHour = Number(parts.find((p) => p.type === "hour")?.value);
-    const localMinute = Number(parts.find((p) => p.type === "minute")?.value);
+    // Zone offset in force at `instant`: the instant minus its own wall
+    // fields read as UTC (negative east of Greenwich).
+    const probeOffsetMs = (instant: Date): number => {
+      const parts = formatter.formatToParts(instant);
+      const localYear = Number(parts.find((p) => p.type === "year")?.value);
+      const localMonth = Number(parts.find((p) => p.type === "month")?.value);
+      const localDay = Number(parts.find((p) => p.type === "day")?.value);
+      const localHourPart = Number(parts.find((p) => p.type === "hour")?.value);
+      // Some engines report midnight as hour 24 with the day already
+      // advanced; normalize it (as dateTime.ts's zoned helper does) or
+      // Date.UTC counts the day twice and the instant lands a day early.
+      const localHour = localHourPart === 24 ? 0 : localHourPart;
+      const localMinute = Number(parts.find((p) => p.type === "minute")?.value);
 
-    const localMs = Date.UTC(localYear, localMonth - 1, localDay, localHour, localMinute, 0);
-    const utcMs = testDate.getTime();
-    const offsetMs = utcMs - localMs;
+      const localMs = Date.UTC(localYear, localMonth - 1, localDay, localHour, localMinute, 0);
+      return instant.getTime() - localMs;
+    };
 
     const targetLocalMs = Date.UTC(year, month - 1, day, hour, minute, 0);
-    const result = new Date(targetLocalMs + offsetMs);
+
+    // The offset must be the one in force at the RESULTING instant, not
+    // only at the entered wall time read as UTC: beside a DST transition
+    // the two differ by an hour, so a single-pass conversion read back an
+    // hour off (03:30 in New York on 2026-03-08 came back as 04:30).
+    // Resolve with a fixed two refinement passes, re-sampling the offset
+    // at each candidate instant; a stable offset short-circuits, so
+    // non-transition inputs keep the exact result the single pass has
+    // always produced.
+    let offsetMs = probeOffsetMs(testDate);
+    let result = new Date(targetLocalMs + offsetMs);
+    for (let pass = 0; pass < 2; pass += 1) {
+      if (!Number.isFinite(result.getTime())) break;
+      const refinedOffsetMs = probeOffsetMs(result);
+      if (refinedOffsetMs === offsetMs) break;
+      offsetMs = refinedOffsetMs;
+      result = new Date(targetLocalMs + offsetMs);
+    }
 
     if (!Number.isFinite(result.getTime())) return null;
     return result.toISOString();

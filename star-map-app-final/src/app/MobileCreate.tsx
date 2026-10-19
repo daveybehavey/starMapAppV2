@@ -186,9 +186,10 @@ export function MobileCreate({
   const revealProgress = getRevealProgressPercent(revealStageIndex);
   const hasLocation = Boolean(location.name?.trim());
   // The reveal gate's own place predicate (useEditorLogic's canReveal):
-  // a named place with confirmed coordinates. The setup guide below uses
-  // this — not the name-only check — so a name-only handoff (date set,
-  // place unconfirmed) guides to "place" instead of dead-ending.
+  // a named place with confirmed coordinates. The setup guide, the
+  // "Date + place" step chip, and the unlock copy below all use this —
+  // not the name-only check — so a name-only handoff (date set, place
+  // unconfirmed) guides to "place" instead of dead-ending or reading Done.
   const hasConfirmedLocation = hasConfirmedEditorLocation(location);
   const titleText =
     textBoxes.find((box) => box.id === "title")?.text?.trim() ??
@@ -197,21 +198,28 @@ export function MobileCreate({
   const hasPersonalizedTitle =
     titleText.length > 0 && titleText.toLowerCase() !== DEFAULT_TITLE_TEXT;
   const setupSteps = [
-    { label: "Date + place", done: hasDate && hasLocation, optional: false },
+    { label: "Date + place", done: hasDate && hasConfirmedLocation, optional: false },
     { label: "Personalize title", done: hasPersonalizedTitle, optional: true },
     { label: "Preview", done: revealed, optional: false },
   ];
-  const previewLockedMessage = !hasDate && !hasLocation
+  // U07: same branches and copy as the desktop editor — a named but
+  // unconfirmed place reads "Confirm …", never "Add …", and the step chip
+  // above uses the confirmed predicate, not the name-only check.
+  const previewLockedMessage = !hasDate && !hasConfirmedLocation
     ? "Add your date and place to unlock preview. Presets optional."
     : !hasDate
       ? "Add your date to unlock preview. Presets optional."
-      : "Add your place to unlock preview. Presets optional.";
+      : hasLocation && !hasConfirmedLocation
+        ? "Confirm your place from suggestions to unlock preview. Presets optional."
+        : "Add your place to unlock preview. Presets optional.";
   const previewReadyMessage = "Preview is ready. Presets optional.";
-  const previewUnlockButtonLabel = !hasDate && !hasLocation
+  const previewUnlockButtonLabel = !hasDate && !hasConfirmedLocation
     ? "Add date + place to unlock preview"
     : !hasDate
       ? "Add your date to unlock preview"
-      : "Add your place to unlock preview";
+      : hasLocation && !hasConfirmedLocation
+        ? "Confirm your place to unlock preview"
+        : "Add your place to unlock preview";
   const hdCreditLabel =
     !paid
       ? null
@@ -755,7 +763,7 @@ export function MobileCreate({
           <h3 className="text-xs font-semibold text-white mb-2">Date & Location</h3>
           <div className="space-y-2">
             <LocationSearch onLocationChange={handleLocationChange} />
-            <DateTimeControls dateTime={dateTime} onChange={handleDateTimeChange} />
+            <DateTimeControls dateTime={dateTime} onChange={handleDateTimeChange} timezone={location.timezone} />
           </div>
         </section>
       )}
@@ -1007,7 +1015,7 @@ export function MobileCreate({
               <h3 className="text-xs font-semibold text-white mb-2">Date & Location</h3>
               <div className="space-y-2">
                 <LocationSearch onLocationChange={handleLocationChange} />
-                <DateTimeControls dateTime={dateTime} onChange={handleDateTimeChange} />
+                <DateTimeControls dateTime={dateTime} onChange={handleDateTimeChange} timezone={location.timezone} />
               </div>
             </section>
 
