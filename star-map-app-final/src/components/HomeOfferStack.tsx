@@ -144,7 +144,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
             <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-neutral-200">
               <li>Delivered framed and gift-ready</li>
               <li data-digital-offer>Pair with the HD add-on for instant digital from the same design</li>
-              {freeShippingOffer ? <li>{freeShippingOffer}</li> : null}
+              {freeShippingOffer ? <li>{getPrintFreeShippingShortTag() ?? freeShippingOffer}</li> : null}
               <li>Ready-to-hang premium option for special occasions</li>
               <li>
                 {PRINT_NEUTRAL_SHIPPING_CARD_NOTE}

@@ -13,6 +13,7 @@ import { getPrintPhysicalOrderSummaryLine } from "@/lib/commerceFacts";
 import {
   formatPrintPriceWithShipping,
   getPrintAllowedCountries,
+  getPrintFreeShippingShortTag,
   getPrintShippingDisclosure,
 } from "@/lib/printCheckoutConfig";
 import { FRAMED_HD_RECOMMENDED_BADGE } from "@/lib/moneyPageGiftCheckout";
@@ -53,6 +54,9 @@ export default function StarMapGiftFormatsPage() {
   const digitalAddOn = getPrintDigitalAddOnPrice();
   const printCountryCount = getPrintAllowedCountries().length;
   const shippingDisclosure = getPrintShippingDisclosure();
+  const freeShippingShortTag = getPrintFreeShippingShortTag();
+  // Secondary mentions use the short tag; the full disclosure is carried once by PurchaseTrustPanel.
+  const shippingTagSentence = freeShippingShortTag ? `${freeShippingShortTag}.` : shippingDisclosure;
   const proofImages = {
     framed: HOME_MOCKUPS.framedBedroom,
     unframed: HOME_MOCKUPS.unframedPoster,
@@ -149,7 +153,7 @@ export default function StarMapGiftFormatsPage() {
         <h2 className="text-midnight text-xl font-semibold">Live checkout formats</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
           We keep live options focused on formats that perform well for quality, delivery, and support.{" "}
-          {shippingDisclosure}
+          {shippingTagSentence}
         </p>
         <div className="grid gap-3 md:grid-cols-3">
           {liveFormats.map((item) => (

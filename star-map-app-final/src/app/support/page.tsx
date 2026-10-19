@@ -11,6 +11,22 @@ export const metadata: Metadata = {
   description:
     "Get help with StarMapCo orders, HD downloads, print shipping, and returns. Quick links to policies and contact options.",
   alternates: { canonical: `${siteUrl}/support` },
+  openGraph: {
+    title: "Support | StarMapCo",
+    description:
+      "Get help with StarMapCo orders, HD downloads, print shipping, and returns. Quick links to policies and contact options.",
+    url: `${siteUrl}/support`,
+    siteName: "StarMapCo",
+    images: [
+      {
+        url: `${siteUrl}/custom-star-map-anniversary.webp`,
+        width: 1200,
+        height: 630,
+        alt: "Custom star map preview from StarMapCo",
+      },
+    ],
+    type: "website",
+  },
 };
 
 export default function SupportPage() {

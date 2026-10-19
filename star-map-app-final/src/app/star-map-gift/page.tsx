@@ -14,7 +14,7 @@ import StickyCtaBar from "@/components/StickyCtaBar";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import MoneyPagePriceAtGlance from "@/components/MoneyPagePriceAtGlance";
 import { getPrintPhysicalOrderSummaryLine } from "@/lib/commerceFacts";
-import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import { getPrintFreeShippingShortTag, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import type { Metadata } from "next";
 
 export const revalidate = 86400;
@@ -51,6 +51,9 @@ export const metadata: Metadata = {
 
 export default function StarMapGiftPage() {
   const shippingDisclosure = getPrintShippingDisclosure();
+  const freeShippingShortTag = getPrintFreeShippingShortTag();
+  // Secondary mentions use the short tag; the full disclosure is carried once by PurchaseTrustPanel.
+  const shippingTagSentence = freeShippingShortTag ? `${freeShippingShortTag}.` : shippingDisclosure;
 
   return (
     <main className="mx-auto max-w-4xl px-4 pt-10 pb-12 sm:pt-14">
@@ -280,7 +283,7 @@ export default function StarMapGiftPage() {
             </h3>
             <p>
               Yes. You can choose framed print or unframed print in checkout after previewing your design.{" "}
-              {shippingDisclosure}
+              {shippingTagSentence}
             </p>
           </div>
         </div>
@@ -309,7 +312,7 @@ export default function StarMapGiftPage() {
           },
           {
             question: "Can I send a physical print instead of digital only?",
-            answer: `Yes. You can choose framed print or unframed print in checkout after previewing your design. ${shippingDisclosure}`,
+            answer: `Yes. You can choose framed print or unframed print in checkout after previewing your design. ${shippingTagSentence}`,
           },
         ]}
       />

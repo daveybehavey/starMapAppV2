@@ -5,6 +5,7 @@ import { track, trackFunnelStep } from "@/lib/analytics";
 import IOSSafeDateInput from "@/components/IOSSafeDateInput";
 import LocationTypeahead from "@/components/LocationTypeahead";
 import { MOBILE_DATE_HELPER_TEXT, STANDARD_DATE_PLACEHOLDER } from "@/lib/dateInput";
+import { getPrintFreeShippingShortTag } from "@/lib/printCheckoutConfig";
 import type { EditorLocationPrefill } from "@/lib/editorLocationPrefill";
 import {
   resolvePreviewLocationFields,
@@ -282,7 +283,7 @@ export default function PreviewStartForm({
         )}
         <p className="mt-2 text-xs text-neutral-600">Free preview · No account required</p>
         <p className="mt-1 text-xs font-semibold text-amber-700">
-          Framed print<span data-digital-offer> + HD digital</span> — free standard shipping on $100+ orders. Shipping shown before payment.
+          Framed print<span data-digital-offer> + HD digital</span> — {getPrintFreeShippingShortTag() ?? "Free shipping"}. Shipping shown before payment.
         </p>
         {footerContent ? <div className="mt-5 border-t border-amber-200/60 pt-4">{footerContent}</div> : null}
       </form>

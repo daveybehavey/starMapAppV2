@@ -9,6 +9,7 @@ import {
   buildPrintEditorCheckoutHref,
   getFramedHdBundlePriceLine,
   getPrintFreeShippingOfferLine,
+  getPrintFreeShippingShortTag,
   getPrintProductionReviewDisclosure,
   getPrintProductionReviewTrustPoint,
   getPrintShippingDisclosure,
@@ -52,6 +53,9 @@ export const metadata: Metadata = {
 export default function FramedHdBundleLandingPage() {
   const shippingDisclosure = getPrintShippingDisclosure();
   const freeShippingOfferLine = getPrintFreeShippingOfferLine();
+  const freeShippingShortTag = getPrintFreeShippingShortTag();
+  // Secondary mentions use the short tag; the full offer/disclosure is carried once by PurchaseTrustPanel.
+  const freeShippingTagOrOffer = freeShippingShortTag ? `${freeShippingShortTag}.` : freeShippingOfferLine;
   const productionReviewDisclosure = getPrintProductionReviewDisclosure();
   const productionReviewTrustPoint = getPrintProductionReviewTrustPoint();
   const profile = getBusinessProfile();
@@ -80,7 +84,7 @@ export default function FramedHdBundleLandingPage() {
     {
       question: "Is shipping free on this bundle?",
       answer: qualifiesFreeShipping
-        ? `Yes for this bundle under current thresholds. ${freeShippingOfferLine ?? shippingDisclosure}`
+        ? `Yes for this bundle under current thresholds. ${freeShippingTagOrOffer ?? shippingDisclosure}`
         : shippingDisclosure,
     },
     {
@@ -147,7 +151,7 @@ export default function FramedHdBundleLandingPage() {
               <p className="mt-2 text-xs leading-relaxed text-white/78">
                 Derived as {framedLabel} framed print + {digitalLabel} HD digital add-on.{" "}
                 {qualifiesFreeShipping
-                  ? freeShippingOfferLine ?? shippingDisclosure
+                  ? freeShippingTagOrOffer ?? shippingDisclosure
                   : shippingDisclosure}
               </p>
             </div>

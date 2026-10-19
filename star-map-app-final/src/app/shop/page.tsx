@@ -42,7 +42,7 @@ function merchShopTeaser(id: MerchFamilyId): string {
     case "hoodie_unisex_g18500":
       return "Midweight hoodie with front print placement.";
     default:
-      return "Printed merch fulfilled via Printful.";
+      return "Printed merch, made to order by our print partner.";
   }
 }
 
@@ -87,7 +87,7 @@ function merchShopImage(id: MerchFamilyId): { src: string; alt: string } | null 
 export const metadata: Metadata = {
   title: "Shop prints & gifts | StarMapCo",
   description:
-    "Browse museum-grade star map posters, framed prints, canvas wraps and the black glossy mug, plus stickers, small merch and HD digital delivery. Fulfillment via Printful — customize every map in the editor before checkout.",
+    "Browse museum-grade star map posters, framed prints, canvas wraps and the black glossy mug, plus stickers, small merch and HD digital delivery. Made to order by our print partner — customize every map in the editor before checkout.",
   alternates: { canonical: `${siteUrl}/shop` },
   openGraph: {
     title: "Shop prints & gifts | StarMapCo",
@@ -225,7 +225,7 @@ export default function ShopPage() {
             detail:
               "Weatherproof kiss-cut stickers from the same map you preview — great add-on gift or laptop keepsake.",
             price: `${stickerPrice}+ shipping`,
-            shippingNote: "Pick size in editor · Printful fulfillment",
+            shippingNote: "Pick size in editor · Made to order by our print partner",
             href: "/editor?mode=quick&source=shop-sticker&merch_family=sticker_kisscut",
             cta: "Customize stickers",
             ctaClass:
@@ -245,7 +245,7 @@ export default function ShopPage() {
         </h1>
         <p className="mt-3 max-w-2xl text-base leading-relaxed text-neutral-700 sm:text-lg">
           Every product starts in the editor so your sky, typography, and occasion lines stay yours. Physical orders ship
-          through Printful. {productionReviewDisclosure}
+          through our print partner. {productionReviewDisclosure}
         </p>
         <p className="mt-2 text-sm text-neutral-700">
           HD from <span className="font-semibold text-midnight">{digitalPrice}</span>

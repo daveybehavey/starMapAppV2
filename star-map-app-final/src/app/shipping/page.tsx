@@ -16,6 +16,22 @@ export const metadata: Metadata = {
   alternates: {
     canonical: `${siteUrl}/shipping`,
   },
+  openGraph: {
+    title: "Shipping Policy | StarMapCo",
+    description:
+      "Shipping policy for StarMapCo physical prints, including supported countries, delivery ranges, and support contact details.",
+    url: `${siteUrl}/shipping`,
+    siteName: "StarMapCo",
+    images: [
+      {
+        url: `${siteUrl}/custom-star-map-anniversary.webp`,
+        width: 1200,
+        height: 630,
+        alt: "Custom star map preview from StarMapCo",
+      },
+    ],
+    type: "website",
+  },
 };
 
 type ShippingRow = {

@@ -19,6 +19,7 @@ import MoneyPagePriceAtGlance from "@/components/MoneyPagePriceAtGlance";
 import {
   getFramedHdBundlePriceLine,
   getPrintProductionReviewTrustPoint,
+  getPrintFreeShippingShortTag,
   getPrintShippingDisclosure,
 } from "@/lib/printCheckoutConfig";
 import {
@@ -57,6 +58,9 @@ export const metadata: Metadata = {
 
 export default function PersonalizedStarMapPage() {
   const shippingDisclosure = getPrintShippingDisclosure();
+  const freeShippingShortTag = getPrintFreeShippingShortTag();
+  // Secondary mentions use the short tag; the full disclosure is carried once by PurchaseTrustPanel.
+  const shippingTagSentence = freeShippingShortTag ? `${freeShippingShortTag}.` : shippingDisclosure;
   const productionReviewTrustPoint = getPrintProductionReviewTrustPoint();
   const bundlePriceLine = getFramedHdBundlePriceLine();
   const framedHdHref = buildFramedHdCheckoutHref("personalized-star-map-hero-framed-hd");
@@ -304,7 +308,7 @@ export default function PersonalizedStarMapPage() {
             <h3 className="text-midnight font-semibold">Can I order a printed or framed version directly?</h3>
             <p>
               Yes. After preview, you can choose framed print, unframed print, or HD digital delivery during
-              checkout. {shippingDisclosure}
+              checkout. {shippingTagSentence}
             </p>
           </div>
           <div>
@@ -349,7 +353,7 @@ export default function PersonalizedStarMapPage() {
           },
           {
             question: "Can I order a printed or framed version directly?",
-            answer: `Yes. After preview, you can choose framed print, unframed print, or HD digital delivery during checkout. ${shippingDisclosure}`,
+            answer: `Yes. After preview, you can choose framed print, unframed print, or HD digital delivery during checkout. ${shippingTagSentence}`,
           },
           {
             question: "Which personalized star map format should I choose?",
