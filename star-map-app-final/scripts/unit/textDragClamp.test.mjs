@@ -45,6 +45,19 @@
  * as a fixed point. Authored positions (presets, samples,
  * hydration) never set the flag and are never re-clamped.
  *
+ * Freshness round 2 (gate follow-up on PR #345): the recheck's
+ * eligibility originally excluded every externalRecipe — but
+ * interactive SimplifiedEditor renders through an externalRecipe
+ * DERIVED FROM the store's textBoxes, so its commits set the flag
+ * and nothing consumed it, leaving the spill reachable there. The
+ * guard now keys on the soundness checks themselves (the id
+ * resolves in the store, the display renders that box, and the
+ * rendered position is the stored position) plus the readOnly
+ * gate, and clears the flag on every path that cannot soundly
+ * correct (read-only canvas; id absent from the store or from
+ * the render; a position missing on either side) so the flag can
+ * never spin unconsumed.
+ *
  * Scope, from the same source evidence: the fit bounds ONLY the
  * diamond (mask width at the line's row) and the framed rectangle
  * (frame inner bounds); every other shape is deliberately bounded
@@ -446,4 +459,40 @@ test("wiring: both commit paths flag the box and the text-layer effect re-clamps
     freshRectIndex > recheckStart && clearIndex > recheckStart && writeIndex > freshRectIndex,
     "the corrective branch must clear the flag before its write",
   );
+});
+
+test("wiring: recheck eligibility keys on the soundness checks + readOnly, not on externalRecipe (gate P1, round 2)", () => {
+  const canvas = read("src/components/PreviewCanvas.tsx");
+  // The round-1 blanket exclusion is gone: an externalRecipe whose
+  // boxes ARE the store's (interactive SimplifiedEditor derives its
+  // recipe from the store's textBoxes) must stay eligible, or its
+  // commits set a flag nothing consumes.
+  assert.doesNotMatch(canvas, /recheckId && !readOnly && !externalRecipe/);
+  const recheckStart = canvas.indexOf("const recheckId = pendingShapeRecheckRef.current;");
+  assert.ok(recheckStart >= 0, "the text-layer effect must consume the recheck flag");
+  const block = canvas.slice(recheckStart, recheckStart + 6000);
+  // The entry condition is the flag alone...
+  assert.match(block, /if \(recheckId\) \{/);
+  // ...readOnly still gates the recheck, by clearing the flag
+  // outright: a read-only display is never the store's to correct
+  // (ViewClient; SimplifiedEditor sample mode), and its commit
+  // paths never set the flag in the first place.
+  const readOnlyBranch = block.indexOf("if (readOnly) {");
+  assert.ok(readOnlyBranch >= 0, "the recheck must keep a readOnly branch");
+  const readOnlyClear = block.indexOf("pendingShapeRecheckRef.current = null;", readOnlyBranch);
+  assert.ok(
+    readOnlyClear > readOnlyBranch && readOnlyClear < readOnlyBranch + 600,
+    "the readOnly branch must clear the flag",
+  );
+  // Every path that cannot soundly correct clears the flag too, so
+  // it can never spin unconsumed: id absent from the store or from
+  // the render, or a position missing on either side.
+  assert.match(
+    block,
+    /if \(!stored \|\| !rendered \|\| !stored\.position \|\| !rendered\.position\) \{[\s\S]{0,700}?pendingShapeRecheckRef\.current = null;/,
+  );
+  // And when the checks pass, correction still requires that what
+  // rendered IS the stored position (round-1 pin covers the write).
+  assert.match(block, /rendered\.position\.x === stored\.position\.x/);
+  assert.match(block, /rendered\.position\.y === stored\.position\.y/);
 });

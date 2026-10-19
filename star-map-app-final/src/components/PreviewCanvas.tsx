@@ -402,33 +402,63 @@ export default function PreviewCanvas({
     // lateral slack collapses to zero (a centred line fitted by the
     // fit itself is always contained) or in a regime whose rect is
     // row-independent (fit floor / full size).
+    //
+    // Eligibility is deliberately NOT "no externalRecipe". What
+    // makes the recheck sound is that the bounds just written
+    // describe the STORED position, and the checks below establish
+    // exactly that: the id resolves to a store box, this display
+    // renders that box, and the rendered position IS the stored
+    // position. An externalRecipe whose boxes are the store's own
+    // satisfies all three — interactive SimplifiedEditor derives
+    // its recipe from the store's textBoxes — and needs the recheck
+    // exactly as much as a store-driven canvas; excluding recipes
+    // wholesale left the stale-rect spill reachable there. A
+    // genuinely foreign recipe is only ever displayed read-only
+    // (ViewClient), where the commit paths are readOnly-gated and
+    // never set the flag; the readOnly branch below clears any
+    // outstanding flag regardless. Every path that cannot soundly
+    // correct clears the flag, so it can never spin unconsumed.
     const recheckId = pendingShapeRecheckRef.current;
-    if (recheckId && !readOnly && !externalRecipe) {
-      const rendered = textLayerBoxes.find((box) => box.id === recheckId);
-      const stored = textBoxes.find((box) => box.id === recheckId);
-      if (!stored) {
+    if (recheckId) {
+      if (readOnly) {
+        // A read-only display is not the store's to correct, and
+        // its commit paths never set the flag in the first place.
+        // Clear defensively so an outstanding flag can never linger
+        // across a mode switch on this canvas instance (e.g.
+        // SimplifiedEditor entering sample mode without a remount).
         pendingShapeRecheckRef.current = null;
-      } else if (
-        rendered?.position &&
-        stored.position &&
-        rendered.position.x === stored.position.x &&
-        rendered.position.y === stored.position.y
-      ) {
-        // What was just rendered IS the stored position (no drag
-        // preview substituting another position for this box), so
-        // the fresh bounds are a sound basis for correcting it.
-        // When a preview IS substituting, keep the flag: the render
-        // that follows the preview clearing runs this again.
-        pendingShapeRecheckRef.current = null;
-        const freshRect = textBoundsRef.current.get(recheckId);
-        if (freshRect) {
-          const corrected = clampDragCenter(
-            { x: stored.position.x, y: stored.position.y },
-            freshRect,
-            { width, height }
-          );
-          if (corrected.x !== stored.position.x || corrected.y !== stored.position.y) {
-            updateTextBox(recheckId, { position: corrected });
+      } else {
+        const rendered = textLayerBoxes.find((box) => box.id === recheckId);
+        const stored = textBoxes.find((box) => box.id === recheckId);
+        if (!stored || !rendered || !stored.position || !rendered.position) {
+          // Nothing sound to correct against, and no later render
+          // from this display source will provide it: either the id
+          // is not a store box (the sample-fallback ids a
+          // SimplifiedEditor preview renders from its recipe while
+          // the store is empty — updateTextBox no-ops on them), or
+          // this display does not render the box at the stored
+          // position at all. Clear rather than spin.
+          pendingShapeRecheckRef.current = null;
+        } else if (
+          rendered.position.x === stored.position.x &&
+          rendered.position.y === stored.position.y
+        ) {
+          // What was just rendered IS the stored position (no drag
+          // preview substituting another position for this box), so
+          // the fresh bounds are a sound basis for correcting it.
+          // When a preview IS substituting, keep the flag: the render
+          // that follows the preview clearing runs this again.
+          pendingShapeRecheckRef.current = null;
+          const freshRect = textBoundsRef.current.get(recheckId);
+          if (freshRect) {
+            const corrected = clampDragCenter(
+              { x: stored.position.x, y: stored.position.y },
+              freshRect,
+              { width, height }
+            );
+            if (corrected.x !== stored.position.x || corrected.y !== stored.position.y) {
+              updateTextBox(recheckId, { position: corrected });
+            }
           }
         }
       }
@@ -442,7 +472,6 @@ export default function PreviewCanvas({
     textBoxes,
     updateTextBox,
     readOnly,
-    externalRecipe,
   ]);
 
   useEffect(() => {
