@@ -1,11 +1,7 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, useCallback } from "react";
-import {
-  fetchGeocodeResults,
-  getCachedGeocodeResults,
-  type GeocodeResult,
-} from "@/lib/geocodeSearch";
+import { useEffect, useId, useMemo, useRef, useState, useCallback } from "react";
+import { fetchGeocodeResults, getCachedGeocodeResults, type GeocodeResult } from "@/lib/geocodeSearch";
 import type { PickedPreviewLocation } from "@/lib/previewStartLocation";
 
 type LocationTypeaheadProps = {
@@ -48,6 +44,11 @@ export default function LocationTypeahead({
 }: LocationTypeaheadProps) {
   const listId = useId();
   const [results, setResults] = useState<GeocodeResult[]>([]);
+  // The exact text `results` was loaded for. Results count as current
+  // only while this still equals the field's text (see currentResults
+  // below): editing the text invalidates the previous query's list the
+  // moment it changes, not whenever the next fetch happens to land.
+  const [resultsQuery, setResultsQuery] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -68,6 +69,7 @@ export default function LocationTypeahead({
     // picked: keep the list closed and empty until the visitor edits.
     if (suppressedValueRef.current !== null && value === suppressedValueRef.current) {
       setResults([]);
+      setResultsQuery(null);
       setDropdownOpen(false);
       setError(null);
       setLoading(false);
@@ -76,6 +78,7 @@ export default function LocationTypeahead({
 
     if (value.trim().length < 3) {
       setResults([]);
+      setResultsQuery(null);
       setDropdownOpen(false);
       setError(null);
       return;
@@ -84,6 +87,7 @@ export default function LocationTypeahead({
     const cached = getCachedGeocodeResults(value);
     if (cached) {
       setResults(cached);
+      setResultsQuery(value);
       if (isFocused) setDropdownOpen(true);
       setError(null);
       return;
@@ -103,12 +107,14 @@ export default function LocationTypeahead({
         const data = await fetchGeocodeResults(value, controller.signal);
         if (!mounted) return;
         setResults(data);
+        setResultsQuery(value);
         if (isFocused) setDropdownOpen(true);
       } catch (err) {
         if ((err as Error).name === "AbortError") return;
         if (!mounted) return;
         setError("Could not search that place. Try again.");
         setResults([]);
+        setResultsQuery(value);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -121,10 +127,20 @@ export default function LocationTypeahead({
     };
   }, [value, isFocused]);
 
-  // Reset highlighted index when results change
+  // Only the results loaded for the text currently in the field may be
+  // rendered or picked. While an edit is still debouncing or fetching,
+  // the previous query's results remain in state but are stale: Enter
+  // must fall through to the native submit (name-only, exactly like
+  // free text) instead of picking a place for text no longer typed.
+  const currentResults = useMemo(
+    () => (resultsQuery === value ? results : []),
+    [resultsQuery, value, results]
+  );
+
+  // Reset highlighted index when the current results change
   useEffect(() => {
     setHighlightedIndex(-1);
-  }, [results]);
+  }, [currentResults]);
 
   // Scroll highlighted option into view
   useEffect(() => {
@@ -142,6 +158,7 @@ export default function LocationTypeahead({
       // name must not reopen the suggestions it was picked from.
       suppressedValueRef.current = result.name;
       setResults([]);
+      setResultsQuery(null);
       setDropdownOpen(false);
       setHighlightedIndex(-1);
       setLoading(false);
@@ -176,24 +193,25 @@ export default function LocationTypeahead({
 
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLInputElement>) => {
-      if (!dropdownOpen || results.length === 0) {
-        // No suggestion to pick: leave the event alone so Enter submits
-        // the form, exactly like the previous plain text field.
+      if (!dropdownOpen || currentResults.length === 0) {
+        // No current suggestion to pick (including while a new query's
+        // search is still in flight): leave the event alone so Enter
+        // submits the form, exactly like the previous plain text field.
         return;
       }
 
       switch (event.key) {
         case "ArrowDown":
           event.preventDefault();
-          setHighlightedIndex((prev) => (prev < results.length - 1 ? prev + 1 : 0));
+          setHighlightedIndex((prev) => (prev < currentResults.length - 1 ? prev + 1 : 0));
           break;
         case "ArrowUp":
           event.preventDefault();
-          setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : results.length - 1));
+          setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : currentResults.length - 1));
           break;
         case "Enter":
           event.preventDefault();
-          pickResult(results[highlightedIndex >= 0 ? highlightedIndex : 0]);
+          pickResult(currentResults[highlightedIndex >= 0 ? highlightedIndex : 0]);
           break;
         case "Escape":
           event.preventDefault();
@@ -206,10 +224,15 @@ export default function LocationTypeahead({
           break;
       }
     },
-    [dropdownOpen, results, highlightedIndex, pickResult]
+    [dropdownOpen, currentResults, highlightedIndex, pickResult]
   );
 
-  const hasResults = results.length > 0;
+  const hasResults = currentResults.length > 0;
+  // "No matches" may only report on a search that has completed for the
+  // text currently in the field. During a new query's debounce/fetch
+  // window the tag still names the previous query, so no stale verdict
+  // flashes for text whose search has not finished yet.
+  const showNoMatches = !error && !loading && !hasResults && resultsQuery === value;
 
   return (
     <div className="relative">
@@ -256,18 +279,18 @@ export default function LocationTypeahead({
         </div>
       )}
 
-      {dropdownOpen && (
+      {dropdownOpen && (error || hasResults || showNoMatches) && (
         <div
           id={listId}
           role="listbox"
           className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-black/10 bg-white shadow-lg shadow-black/10"
         >
           {error && <div className="px-3 py-2 text-sm text-rose-600">{error}</div>}
-          {!error && !loading && !hasResults && (
+          {showNoMatches && (
             <div className="px-3 py-2 text-sm text-neutral-600">No matches found. Try another name.</div>
           )}
           {!error &&
-            results.map((result, index) => {
+            currentResults.map((result, index) => {
               const isHighlighted = index === highlightedIndex;
               const isSelected = result.name === selectedName;
               return (
