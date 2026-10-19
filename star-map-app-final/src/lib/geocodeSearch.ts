@@ -64,6 +64,11 @@ function isAdminNoiseSegment(segment: string): boolean {
  * than three remaining segments keep the first two plus the last (the
  * country). A name made only of droppable segments is returned
  * unchanged — shortening must never empty a name out.
+ *
+ * Both drop rules apply only past the first segment: for address
+ * results the leading segment is a house number ("1600, Pennsylvania
+ * Avenue …"), which identifies the place — stripping it on numeric
+ * shape alone would merge different addresses into one label.
  */
 export function shortenGeocodePlaceName(name: string): string {
   const segments = name
@@ -75,7 +80,7 @@ export function shortenGeocodePlaceName(name: string): string {
   const seen = new Set<string>();
   const kept: string[] = [];
   segments.forEach((segment, index) => {
-    if (isPostcodeSegment(segment)) return;
+    if (index > 0 && isPostcodeSegment(segment)) return;
     if (index > 0 && isAdminNoiseSegment(segment)) return;
     const key = segment.toLowerCase();
     if (seen.has(key)) return;

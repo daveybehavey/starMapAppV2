@@ -34,7 +34,7 @@ export function shortenGeocodePlaceName(name) {
   const seen = new Set();
   const kept = [];
   segments.forEach((segment, index) => {
-    if (isPostcodeSegment(segment)) return;
+    if (index > 0 && isPostcodeSegment(segment)) return;
     if (index > 0 && isAdminNoiseSegment(segment)) return;
     const key = segment.toLowerCase();
     if (seen.has(key)) return;

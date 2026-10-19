@@ -47,6 +47,35 @@ test("shortenGeocodePlaceName drops US county and ZIP segments", () => {
   );
 });
 
+test("shortenGeocodePlaceName preserves a leading house number on address results", () => {
+  // Codex P2 on PR #335: LocationSearch supports address searches and
+  // stores result.name, so the leading segment can be a house number.
+  // Stripping it on numeric shape alone ("1600" matches the bare-numeric
+  // postcode pattern) loses the address — and merges 1600/1601 into one
+  // label. Postcode stripping applies only past the first segment,
+  // like the admin-noise rule; the trailing ZIP still drops.
+  assert.equal(
+    shortenGeocodePlaceName(
+      "1600, Pennsylvania Avenue Northwest, Washington, District of Columbia, 20500, United States"
+    ),
+    "1600, Pennsylvania Avenue Northwest, United States"
+  );
+  assert.equal(
+    shortenGeocodePlaceName(
+      "1601, Pennsylvania Avenue Northwest, Washington, District of Columbia, 20500, United States"
+    ),
+    "1601, Pennsylvania Avenue Northwest, United States"
+  );
+  assert.notEqual(
+    shortenGeocodePlaceName(
+      "1600, Pennsylvania Avenue Northwest, Washington, District of Columbia, 20500, United States"
+    ),
+    shortenGeocodePlaceName(
+      "1601, Pennsylvania Avenue Northwest, Washington, District of Columbia, 20500, United States"
+    )
+  );
+});
+
 test("shortenGeocodePlaceName leaves already-short names untouched", () => {
   assert.equal(shortenGeocodePlaceName("Paris, France"), "Paris, France");
   assert.equal(
@@ -87,6 +116,32 @@ test("normalizeGeocodeResults drops exact duplicates (same name, same coordinate
   // coordinates survives.
   assert.equal(results[1].name, "Paris, Texas, United States");
   assert.equal(results[2].name, "Paris, Île-de-France, France");
+});
+
+test("normalizeGeocodeResults keeps different house numbers at one address distinct", () => {
+  // Same street, same coordinates, different house numbers: with the
+  // leading number preserved these are two distinct labels and both
+  // survive dedupe; stripped, they would collapse into a single row.
+  const results = normalizeGeocodeResults([
+    {
+      id: 1,
+      name: "1600, Pennsylvania Avenue Northwest, Washington, District of Columbia, 20500, United States",
+      latitude: 38.8977,
+      longitude: -77.0365,
+    },
+    {
+      id: 2,
+      name: "1601, Pennsylvania Avenue Northwest, Washington, District of Columbia, 20500, United States",
+      latitude: 38.8977,
+      longitude: -77.0365,
+    },
+  ]);
+  assert.deepEqual(
+    results.map((r) => r.id),
+    [1, 2]
+  );
+  assert.equal(results[0].name, "1600, Pennsylvania Avenue Northwest, United States");
+  assert.equal(results[1].name, "1601, Pennsylvania Avenue Northwest, United States");
 });
 
 test("geocode normalization lives in the shared layer both surfaces consume", () => {
