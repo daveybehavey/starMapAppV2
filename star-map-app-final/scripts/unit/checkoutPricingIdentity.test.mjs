@@ -133,6 +133,169 @@ test("(d) wiring: the Stripe idempotency key still derives from the pricing-bear
   );
 });
 
+/**
+ * Long-key bounding (Codex P2 test gap on the fix round, 2026-10-19).
+ *
+ * The Stripe key is NOT the raw `${key}:exp${expires_at}` string the
+ * helpers above compose: the route passes it through
+ * boundStripeIdempotencyKey, which leaves keys <= 200 chars untouched
+ * but collapses longer ones to a 176-char prefix + ":h" + a hash tag
+ * of the FULL string + the length. The short-key pins above therefore
+ * never exercised the path where truncation happens — including the
+ * tail case where the pricing segment sits beyond the retained prefix
+ * and only the hash tag distinguishes the old price from the new one.
+ *
+ * Reachability: boundStripeIdempotencyKey and its tag helper are NOT
+ * exported from route.ts, and route.ts cannot be imported by this
+ * runner (Next.js graph — see header). So the tests below extract the
+ * two function definitions VERBATIM from the route source and
+ * evaluate them: the code under test is the production source text
+ * itself (any production edit changes what runs here), and extraction
+ * fails loudly if the functions are renamed or restructured. The only
+ * mechanical transform is stripping the two TS type annotations from
+ * the signatures. (If Jack later prefers a real import, exporting the
+ * pair from the route or moving them into a lib module is a small
+ * production diff — deliberately out of scope for this test-only fix.)
+ */
+function extractRouteFunction(source, name) {
+  const start = source.indexOf(`function ${name}(`);
+  assert.ok(start >= 0, `route.ts must define ${name} (extraction target)`);
+  let depth = 0;
+  let end = -1;
+  for (let i = source.indexOf("{", start); i < source.length; i += 1) {
+    if (source[i] === "{") depth += 1;
+    else if (source[i] === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        end = i + 1;
+        break;
+      }
+    }
+  }
+  assert.ok(end > start, `could not brace-match ${name} in route.ts`);
+  return source.slice(start, end);
+}
+
+const tagSourceRaw = extractRouteFunction(route, "checkoutEmailIdempotencyTag");
+const boundSourceRaw = extractRouteFunction(route, "boundStripeIdempotencyKey");
+// Drift alarms: if the hash or the bounding shape changes, these pins
+// fail before the behavioural tests below can silently re-pin to it.
+assert.match(tagSourceRaw, /2166136261/, "tag must stay the FNV-1a offset basis");
+assert.match(tagSourceRaw, /16777619/, "tag must stay the FNV-1a prime");
+assert.match(boundSourceRaw, /maxLength = 200/, "bound must keep the 200-char cap");
+assert.match(boundSourceRaw, /slice\(0, maxLength - 24\)/, "bound must keep the 176-char retained prefix");
+assert.match(boundSourceRaw, /key\.length\.toString\(36\)/, "bound must keep the length suffix");
+
+const tagSource = tagSourceRaw.replace("(email: string): string", "(email)");
+const boundSource = boundSourceRaw.replace(
+  "(key: string, maxLength = 200): string",
+  "(key, maxLength = 200)",
+);
+assert.notEqual(tagSource, tagSourceRaw, "tag signature de-annotation must apply");
+assert.notEqual(boundSource, boundSourceRaw, "bound signature de-annotation must apply");
+const { checkoutEmailIdempotencyTag, boundStripeIdempotencyKey } = new Function(
+  `"use strict";\n${tagSource}\n${boundSource}\nreturn { checkoutEmailIdempotencyTag, boundStripeIdempotencyKey };`,
+)();
+
+// The real Stripe-key path: expiry suffix first, then the route's
+// bounding function — unlike stripeKeyFor above, which stays raw.
+const boundedStripeKeyFor = (cacheKey, expiresAt) =>
+  boundStripeIdempotencyKey(stripeKeyFor(cacheKey, expiresAt));
+
+test("(e) long keys: the real bounding keeps short keys untouched and caps long ones at the hash-tagged form", () => {
+  const expiresAt = getCheckoutSessionExpiresAt(1_700_000_100_000);
+  const shortKey = cacheKeyFor(buildCheckoutPricingIdentity([priceIdComponent(NEW_PACK3_PRICE_ID)]));
+  assert.equal(
+    boundedStripeKeyFor(shortKey, expiresAt),
+    stripeKeyFor(shortKey, expiresAt),
+    "a <=200-char key must pass through the bounding unchanged",
+  );
+  const longInput = stripeKeyFor(
+    `${shortKey}:${"m".repeat(160)}`,
+    expiresAt,
+  );
+  assert.ok(longInput.length > 200);
+  const bounded = boundStripeIdempotencyKey(longInput);
+  assert.ok(bounded.length <= 200, "bounded key must respect the 200-char cap");
+  assert.ok(bounded.startsWith(longInput.slice(0, 176)), "bounded key keeps the 176-char prefix");
+  assert.equal(bounded.slice(176, 178), ":h", "bounded key carries the hash-tag marker");
+  assert.ok(
+    bounded.endsWith(longInput.length.toString(36)),
+    "bounded key ends with the full length (base36)",
+  );
+});
+
+test("(e) long keys (long mapId): a price flip still re-keys through the bounding; same price still dedupes", () => {
+  const expiresAt = getCheckoutSessionExpiresAt(1_700_000_100_000);
+  // Real key grammar (checkoutIdempotencyKey + qa segment): the
+  // pricing segment rides in the base and the mapId trails it, so a
+  // long mapId pushes the FULL Stripe input past 200 chars.
+  const longMapId = `map_${"a".repeat(140)}`;
+  const longCacheKeyFor = (pricingIdentity) => `${ORDER_IDENTITY}:${pricingIdentity}:${longMapId}`;
+  const keyA = longCacheKeyFor(buildCheckoutPricingIdentity([priceIdComponent(OLD_PACK3_PRICE_ID)]));
+  const keyB = longCacheKeyFor(buildCheckoutPricingIdentity([priceIdComponent(NEW_PACK3_PRICE_ID)]));
+  assert.ok(
+    stripeKeyFor(keyA, expiresAt).length > 200,
+    "the composed Stripe input must actually exceed the 200-char bound",
+  );
+  const boundedA = boundedStripeKeyFor(keyA, expiresAt);
+  const boundedB = boundedStripeKeyFor(keyB, expiresAt);
+  assert.notEqual(boundedB, boundedA, "post-flip long key must not reuse the pre-flip Stripe key");
+  assert.equal(
+    boundedStripeKeyFor(keyB, expiresAt),
+    boundedB,
+    "same price + same long order must still dedupe after truncation",
+  );
+});
+
+test("(e) long keys (pricing segment beyond the retained prefix): only the hash tag distinguishes the flip", () => {
+  const expiresAt = getCheckoutSessionExpiresAt(1_700_000_100_000);
+  // Every pre-pricing token at the key builder's real caps
+  // (normalizeIdempotencyToken maxLen: merchFamily 32, merchSize 16,
+  // merchColor 16, shipping 8, promo 48, referral 48) plus the email
+  // tag — a maximal-but-legal key whose pricing segment starts past
+  // char 176, so the retained prefixes of the two prices are
+  // byte-identical and the hash tag alone carries the distinction.
+  const emailSegment = `:em${checkoutEmailIdempotencyTag("buyer@example.com")}`;
+  const deepBase = [
+    "checkout:idempotency:url:digital:subscription:poster_unframed:0:0",
+    "f".repeat(32),
+    "s".repeat(16),
+    "c".repeat(16),
+    "u".repeat(8),
+    "p".repeat(48),
+    "r".repeat(48),
+  ].join(":") + emailSegment;
+  const deepCacheKeyFor = (pricingIdentity) => `${deepBase}:${pricingIdentity}:map_deep`;
+  const keyA = deepCacheKeyFor(buildCheckoutPricingIdentity([priceIdComponent(OLD_PACK3_PRICE_ID)]));
+  const keyB = deepCacheKeyFor(buildCheckoutPricingIdentity([priceIdComponent(NEW_PACK3_PRICE_ID)]));
+  const inputA = stripeKeyFor(keyA, expiresAt);
+  const inputB = stripeKeyFor(keyB, expiresAt);
+  assert.ok(inputA.length > 200 && inputB.length > 200, "both inputs must exceed the bound");
+  assert.ok(
+    inputA.indexOf("price:price_") >= 176,
+    "the pricing segment must start beyond the retained 176-char prefix",
+  );
+  assert.equal(
+    inputA.slice(0, 176),
+    inputB.slice(0, 176),
+    "precondition: the retained prefixes are identical — the flip is invisible to the prefix",
+  );
+  const boundedA = boundStripeIdempotencyKey(inputA);
+  const boundedB = boundStripeIdempotencyKey(inputB);
+  assert.equal(boundedA.slice(0, 176), boundedB.slice(0, 176), "bounded prefixes stay identical");
+  assert.notEqual(
+    boundedB,
+    boundedA,
+    "the hash tag over the full string must still distinguish the flipped price",
+  );
+  assert.equal(
+    boundStripeIdempotencyKey(inputB),
+    boundedB,
+    "same price + same deep key must still dedupe to the same bounded key",
+  );
+});
+
 test("(d) resolver drift guard: every configured price source feeds the identity", () => {
   const resolverStart = route.indexOf("function resolveCheckoutPricingIdentity");
   const resolverEnd = route.indexOf("function checkoutIdempotencyKey");
