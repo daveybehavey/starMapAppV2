@@ -150,6 +150,44 @@ test("P1 regression: midnight-crossing probes in Sydney and New York stay on the
   });
 });
 
+test("P2-A regression (Codex repro): spring-forward morning resolves with the offset at the resulting instant", () => {
+  // combineDateTime sampled the zone offset at the entered wall time read
+  // as UTC — still EST on 2026-03-08 — so 03:30 (already EDT) stored
+  // 2026-03-08T08:30:00.000Z and read back as 04:30. The offset is now
+  // re-sampled at the resulting instant (two-pass resolution).
+  const iso = combineDateTime("2026-03-08", "03:30:00", "America/New_York");
+  assert.equal(iso, "2026-03-08T07:30:00.000Z"); // 03:30 EDT = 07:30Z
+  assert.deepEqual(formatDateTimeForLocation(iso, "America/New_York"), {
+    date: "2026-03-08",
+    time: "03:30",
+  });
+});
+
+test("P2-A regression: fall-back morning resolves to the post-transition offset", () => {
+  // The single-pass probe read 2026-11-01T03:30Z as EDT and stored
+  // 07:30Z, which reads back as 02:30 EST. 03:30 that day is EST.
+  const iso = combineDateTime("2026-11-01", "03:30:00", "America/New_York");
+  assert.equal(iso, "2026-11-01T08:30:00.000Z"); // 03:30 EST = 08:30Z
+  assert.deepEqual(formatDateTimeForLocation(iso, "America/New_York"), {
+    date: "2026-11-01",
+    time: "03:30",
+  });
+});
+
+test("P2-B regression: Paris just-after-midnight fields never carry hour 24; a date-only edit stays on the entered date", () => {
+  // 2019-07-13T22:30:00.000Z is 2019-07-14 00:30 in Paris. Engines on
+  // the h24 hour cycle (Node 20's en-CA, per the Codex repro) format
+  // that as time "24:30"; formatDateTimeForLocation normalizes it, so
+  // the fields name the same wall moment on every engine.
+  const fields = formatDateTimeForLocation("2019-07-13T22:30:00.000Z", "Europe/Paris");
+  assert.deepEqual(fields, { date: "2019-07-14", time: "00:30" });
+  // The component's date-only edit path: the new date combined with the
+  // field's timeValue. With "24:30:00" this stored July 16 at 00:30;
+  // with the normalized fields it stores 00:30 Paris on the 15th.
+  const edited = combineDateTime("2019-07-15", `${fields.time}:00`, "Europe/Paris");
+  assert.equal(edited, "2019-07-14T22:30:00.000Z"); // 00:30 CEST on Jul 15 = 22:30Z on Jul 14
+});
+
 test("U07: mobile checklist and unlock copy use the confirmed-place predicate, matching desktop", () => {
   const mobile = readSrc("app/MobileCreate.tsx");
   assert.match(mobile, /label: "Date \+ place", done: hasDate && hasConfirmedLocation/);

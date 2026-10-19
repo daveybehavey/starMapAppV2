@@ -27,7 +27,15 @@ export function formatDateTimeForLocation(dateTime: string, timeZone?: string) {
     const minute = get("minute");
 
     if (!year || !month || !day || !hour || !minute) return null;
-    return { date: `${year}-${month}-${day}`, time: `${hour}:${minute}` };
+    // Engines on the h24 hour cycle (e.g. Node 20's en-CA) report the
+    // first hour of the day as hour 24 — "24:30" — with the day part
+    // already naming that same calendar day. Normalize 24 -> 00 on the
+    // reported date so the pair names one wall moment and `time` stays a
+    // valid HTML time value: consumers feed it into time inputs and
+    // wall-time converters, where an hour of 24 is invalid or rolls the
+    // stored instant into the next day.
+    const normalizedHour = hour === "24" ? "00" : hour;
+    return { date: `${year}-${month}-${day}`, time: `${normalizedHour}:${minute}` };
   } catch {
     // Invalid IANA timezone must not crash render paths that call Intl.
     return null;
