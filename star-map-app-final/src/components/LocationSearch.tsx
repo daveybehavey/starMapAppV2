@@ -220,7 +220,7 @@ export default function LocationSearch({ onLocationChange }: LocationSearchProps
 
   return (
     <div className="space-y-2">
-      <label className="text-sm font-medium text-neutral-800">Location</label>
+      <label className="text-sm font-medium text-white">Location</label>
       <div className="relative">
         <input
           type="text"
@@ -311,9 +311,9 @@ export default function LocationSearch({ onLocationChange }: LocationSearchProps
         </div>
       )}
 
-      <div className="flex items-center gap-2 text-xs text-neutral-600">
+      <div className="flex items-center gap-2 text-xs text-neutral-300">
         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-        Timezone: <span className="font-semibold text-neutral-700">{location.timezone}</span>
+        Timezone: <span className="font-semibold text-white">{location.timezone}</span>
       </div>
 
       <div className="space-y-2">
