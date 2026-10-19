@@ -64,6 +64,8 @@ import { getPaywallCopyVariant, PAYWALL_COPY_EXPERIMENT, type PaywallCopyVariant
 import { PaywallModal } from "@/components/PaywallModal";
 import { PrintAspectMismatchNotice } from "@/components/PrintAspectMismatchNotice";
 import { PrintGiftDecisionPanel } from "@/components/PrintGiftDecisionPanel";
+import MerchSizeGuidePanel from "@/components/MerchSizeGuidePanel";
+import { getMerchSizeGuide } from "@/lib/merchSizeGuide";
 import {
   createHdConsumeToken,
   formatHdExportConsumeFailedMessage,
@@ -3852,6 +3854,11 @@ export function EditorExperience({
                                                 </option>
                                               ))}
                                             </select>
+                                          </div>
+                                        ) : null}
+                                        {getMerchSizeGuide(family.id) ? (
+                                          <div className="sm:col-span-2">
+                                            <MerchSizeGuidePanel family={family} />
                                           </div>
                                         ) : null}
                                       </>
