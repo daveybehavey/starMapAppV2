@@ -111,7 +111,7 @@ test("Christmas banner discount windows (Pacific) cover each promo phase", async
   // never come back. ROW surfaces show "Order early" instead.
   assert.equal("framed_row" in CHRISTMAS_ORDER_BY_DATES, false);
   assert.equal("poster_row" in CHRISTMAS_ORDER_BY_DATES, false);
-  // Mug / greeting card: owner-approved provisional cutoffs (2026-10-18).
+  // Mug / keepsake card: owner-approved provisional cutoffs (2026-10-18).
   assert.equal(CHRISTMAS_ORDER_BY_DATES.mug_us, "2026-12-07");
   assert.equal(CHRISTMAS_ORDER_BY_DATES.mug_ca, "2026-12-08");
   assert.equal(CHRISTMAS_ORDER_BY_DATES.card_us, "2026-12-07");
@@ -271,7 +271,7 @@ test("Christmas order-by table rows derive from CHRISTMAS_ORDER_BY_DATES", async
   const rows = getChristmasOrderByTableRows();
   assert.deepEqual(
     rows.map((row) => row.product),
-    ["Framed print", "Canvas wrap", "Unframed poster", "Mug", "Greeting card", "HD digital download"]
+    ["Framed print", "Canvas wrap", "Unframed poster", "Mug", "Keepsake card", "HD digital download"]
   );
   const byProduct = new Map(rows.map((row) => [row.product, row]));
 
@@ -295,7 +295,7 @@ test("Christmas order-by table rows derive from CHRISTMAS_ORDER_BY_DATES", async
   assert.equal(poster.unitedStates, "Dec 9");
   assert.equal(poster.restOfWorld, "Order early");
 
-  // Mug + greeting card: owner-approved provisional CA Dec 8 / US Dec 7.
+  // Mug + keepsake card: owner-approved provisional CA Dec 8 / US Dec 7.
   // No rest-of-world date is confirmed — the cell must say "Order early",
   // never an invented date.
   const mug = byProduct.get("Mug");
@@ -304,7 +304,7 @@ test("Christmas order-by table rows derive from CHRISTMAS_ORDER_BY_DATES", async
   assert.equal(mug.restOfWorld, "Order early");
   assert.equal(mug.instantNote, null);
 
-  const card = byProduct.get("Greeting card");
+  const card = byProduct.get("Keepsake card");
   assert.equal(card.canada, "Dec 8");
   assert.equal(card.unitedStates, "Dec 7");
   assert.equal(card.restOfWorld, "Order early");
@@ -325,11 +325,36 @@ test("Christmas order-by summary lines carry no rest-of-world dates", async () =
   // so they get the same guarantee as the table: CA/US dates present,
   // rest of world is "order early", never an invented date.
   const lines = getChristmasOrderBySummaryLines();
+  // U05: the bullets lead with the earliest cutoff — mug + keepsake
+  // card — ahead of the framed/poster lines.
   assert.deepEqual(lines, [
+    "Mugs & keepsake cards — earliest cutoff: United States Dec 7 · Canada Dec 8 · rest of world: order early",
     "Framed & canvas: United States Dec 8 · Canada Dec 9 · rest of world: order early",
     "Posters: United States Dec 9 · Canada Dec 10 · rest of world: order early",
   ]);
   assert.equal(/Nov 30|Dec 1(?!0)/.test(lines.join(" ")), false);
+});
+
+test("earliest Christmas cutoff derives from CHRISTMAS_ORDER_BY_DATES (U05)", async () => {
+  const { getEarliestChristmasCutoff, getChristmasBannerContent } = await loadTs(
+    "src/lib/christmasCampaign.ts"
+  );
+
+  // Mug + keepsake card hold the tightest deadlines in both countries.
+  assert.deepEqual(getEarliestChristmasCutoff(), {
+    products: ["Mug", "Keepsake card"],
+    canada: "Dec 8",
+    unitedStates: "Dec 7",
+  });
+
+  // The sitewide banner's order-by summary carries that earliest
+  // cutoff — the loudest surface names the tightest deadline, in the
+  // plain order-by phase and in the promo phases that reuse the line.
+  const at = (ymd) => Date.parse(`${ymd}T20:00:00.000Z`);
+  const orderByPhase = getChristmasBannerContent(at("2026-10-13"), "$9");
+  assert.match(orderByPhase.message, /earliest cutoff: mugs & keepsake cards US Dec 7 · Canada Dec 8/);
+  const earlyPhase = getChristmasBannerContent(at("2026-11-15"), "$9");
+  assert.match(earlyPhase.message, /earliest cutoff: mugs & keepsake cards US Dec 7 · Canada Dec 8/);
 });
 
 test("christmas order-by table wiring: page, component, footer and home links", () => {
@@ -342,8 +367,14 @@ test("christmas order-by table wiring: page, component, footer and home links", 
 
   const component = fs.readFileSync(path.join(ROOT, "src/components/ChristmasOrderByTable.tsx"), "utf8");
   assert.match(component, /getChristmasOrderByTableRows/);
-  assert.match(component, /overflow-x-auto/);
-  assert.match(component, /min-w-\[540px\]/);
+  // U05: no horizontal scroller at any width — small screens get the
+  // per-country stacked blocks (every product × both countries visible
+  // at 360px), the full table renders at sm+ only.
+  assert.equal(/overflow-x-auto|min-w-\[540px\]/.test(component), false);
+  assert.match(component, /data-testid="christmas-order-by-stacked"/);
+  assert.match(component, /sm:hidden/);
+  assert.match(component, /data-testid="christmas-order-by-table"/);
+  assert.match(component, /hidden[\s\S]{0,200}sm:block/);
   // Dates must come from the lib, never hardcoded in the component.
   assert.equal(/Dec (8|9|10)|Nov 30/.test(component), false);
 
