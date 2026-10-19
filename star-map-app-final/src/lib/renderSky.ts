@@ -108,7 +108,7 @@ export const DEFAULT_RECIPE: MapRecipe = {
     showGrid: false,
     showPlanets: true,
     showMoon: true,
-    shapeMask: "circle",
+    shapeMask: "rectangle",
     frameEnabled: true,
     premiumStars: "off",
     premiumPlanets: "off",
@@ -646,7 +646,8 @@ export function buildRecipeFromState(input: {
     location: input.location,
     textBoxes: input.textBoxes,
     selectedStyle: input.selectedStyle,
-    shape: input.shape || (input.renderOptions?.shapeMask as Shape) || "rectangle",
+    shape:
+      input.shape || (input.renderOptions?.shapeMask as Shape) || "rectangle",
     aspectRatio: input.aspectRatio || "square",
     renderOptions: {
       mapLookTier: input.renderOptions?.mapLookTier,
@@ -662,7 +663,11 @@ export function buildRecipeFromState(input: {
       planetEmphasis: input.renderOptions?.planetEmphasis ?? "highlighted",
       showMoon: input.renderOptions?.showMoon ?? true,
       moonSize: input.renderOptions?.moonSize ?? "large",
-      shapeMask: input.renderOptions?.shapeMask ?? "circle",
+      // shapeMask is the legacy name for the same value: it mirrors the
+      // resolved shape field exactly, never a fixed default (fleet U14:
+      // the mask stayed "circle" for every selected shape).
+      shapeMask:
+        input.shape || (input.renderOptions?.shapeMask as Shape) || "rectangle",
       frameEnabled: input.renderOptions?.frameEnabled ?? true,
       backgroundColor: input.renderOptions?.backgroundColor ?? "",
       constellationColor: input.renderOptions?.constellationColor ?? "",

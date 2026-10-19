@@ -509,6 +509,15 @@ export function normalizeEditorDraftData(value: unknown): ValidationResult<Edito
         : null;
   }
 
+  // The shape field is authoritative (it wins in resolveRecipeShape and
+  // in the renderer). A legacy draft can carry a stale shapeMask that
+  // disagrees with it — the pre-fix editor wrote "circle" for every
+  // shape — so sync the mask to the resolved shape on load (fleet U14).
+  const syncedRenderOptions: Partial<RenderOptions> =
+    renderOptions.value.shapeMask && renderOptions.value.shapeMask !== shape
+      ? { ...renderOptions.value, shapeMask: shape }
+      : renderOptions.value;
+
   const sampleDesignLastAutoSynced = normalizeSampleDesignLastAutoSynced(
     hasOwn(value, "sampleDesignLastAutoSynced") ? value.sampleDesignLastAutoSynced : undefined
   );
@@ -533,7 +542,7 @@ export function normalizeEditorDraftData(value: unknown): ValidationResult<Edito
       selectedStyle,
       aspectRatio,
       shape,
-      renderOptions: renderOptions.value,
+      renderOptions: syncedRenderOptions,
       selectedOccasion,
       sampleDesignLastAutoSynced,
       dateTimeIsUntouchedDefault,

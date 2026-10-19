@@ -210,7 +210,7 @@ const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) =
     planetEmphasis: "highlighted",
     showMoon: true,
     moonSize: "large",
-    shapeMask: "circle",
+    shapeMask: "rectangle",
     frameEnabled: true,
     backgroundColor: "",
     constellationColor: "",
@@ -272,7 +272,15 @@ const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) =
     set({ sampleDesignLastAutoSynced: { ...EMPTY_SAMPLE_DESIGN_LAST_AUTO_SYNCED } }),
   setStyle: (selectedStyle) => set({ selectedStyle }),
   setAspectRatio: (aspectRatio) => set({ aspectRatio }),
-  setShape: (shape) => set({ shape }),
+  // renderOptions.shapeMask mirrors the selected shape: legacy readers
+  // (recipe hydration, older drafts) resolve the shape from the mask, so
+  // the two must never disagree (fleet U14: mask stayed "circle" for
+  // every shape while `shape` was correct).
+  setShape: (shape) =>
+    set((state) => ({
+      shape,
+      renderOptions: { ...state.renderOptions, shapeMask: shape },
+    })),
   setRenderOptions: (options) =>
     set((state) => ({ renderOptions: { ...state.renderOptions, ...options } })),
   setPreviewFidelity: (previewFidelity) => set({ previewFidelity }),
