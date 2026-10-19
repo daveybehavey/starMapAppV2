@@ -12,8 +12,10 @@ export type SetupGuideField = "date" | "place";
 
 /**
  * The first incomplete setup field, or null when the setup is complete.
- * `hasPlace` means whatever the surface itself requires for place
- * (MobileCreate: a named place; EditorExperience: a confirmed place).
+ * Both surfaces pass the confirmed-place predicate for `hasPlace`
+ * (hasConfirmedEditorLocation — the same predicate that gates the
+ * reveal), so the guide never disagrees with the unlock it sits on:
+ * a name-only place guides to "place" instead of reading as complete.
  */
 export function getSetupGuideField(input: { hasDate: boolean; hasPlace: boolean }): SetupGuideField | null {
   if (!input.hasDate) return "date";

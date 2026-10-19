@@ -34,6 +34,7 @@ import { useStore } from "@/lib/store";
 import { formatDateTimeForLocation } from "@/lib/dateTime";
 import { syncSampleDesignTextBoxes } from "@/lib/sampleDesignTextSync";
 import { resolveRestoredCustomOccasion } from "@/lib/editorDraft";
+import { hasConfirmedEditorLocation } from "@/lib/editorLocationPrefill";
 import { getSetupGuideField, scrollToSetupField } from "@/lib/setupGuide";
 
 const REVEAL_ANIMATION_MS = 900;
@@ -184,6 +185,11 @@ export function MobileCreate({
   const revealStage = REVEAL_STAGES[revealStageIndex];
   const revealProgress = getRevealProgressPercent(revealStageIndex);
   const hasLocation = Boolean(location.name?.trim());
+  // The reveal gate's own place predicate (useEditorLogic's canReveal):
+  // a named place with confirmed coordinates. The setup guide below uses
+  // this — not the name-only check — so a name-only handoff (date set,
+  // place unconfirmed) guides to "place" instead of dead-ending.
+  const hasConfirmedLocation = hasConfirmedEditorLocation(location);
   const titleText =
     textBoxes.find((box) => box.id === "title")?.text?.trim() ??
     textBoxes[0]?.text?.trim() ??
@@ -467,11 +473,11 @@ export function MobileCreate({
       handleReveal();
       return;
     }
-    const field = getSetupGuideField({ hasDate, hasPlace: hasLocation });
+    const field = getSetupGuideField({ hasDate, hasPlace: hasConfirmedLocation });
     if (field) {
       scrollToSetupField(dateLocationRef.current, field);
     }
-  }, [canReveal, handleReveal, hasDate, hasLocation, isRevealing]);
+  }, [canReveal, handleReveal, hasDate, hasConfirmedLocation, isRevealing]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
