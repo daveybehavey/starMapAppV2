@@ -29,7 +29,8 @@ export default function TermsPage() {
             <h2 className="text-xl font-semibold text-midnight">1. Service Overview</h2>
             <p>
               StarMapCo provides personalized star map previews and paid HD digital downloads, with optional physical
-              print add-ons. Digital purchases unlock immediate download access after payment confirmation.
+              print add-ons and made-to-order merch (stickers, magnets, pin buttons, tees, and hoodies). Digital
+              purchases unlock immediate download access after payment confirmation.
             </p>
           </section>
 
@@ -73,6 +74,13 @@ export default function TermsPage() {
               charges, failed delivery caused by a technical issue on our side, or other billing errors that prevented
               the order from being fulfilled correctly. Print issues (damage or defects) are handled according to the
               shipping and returns policy listed on the site.
+            </p>
+            <p>
+              Merch items (stickers, magnets, pin buttons, tees, and hoodies) are made to order. If a merch item
+              arrives defective, damaged, or different from what was ordered, we will replace it free — contact us
+              within 30 days of delivery. Because merch is made to order, change-of-mind returns are not accepted,
+              and apparel cannot be refunded or exchanged for size: the size ordered is the size produced, so
+              please check the size you select before ordering.
             </p>
           </section>
 

@@ -109,6 +109,23 @@ export default function ShippingPage() {
           </section>
         ) : null}
 
+        <section className="mt-6 space-y-3 text-sm text-neutral-900 sm:text-base">
+          <h2 className="text-xl font-semibold text-midnight">Merch orders</h2>
+          <p>
+            Stickers, magnets, pin buttons, tees, and hoodies are printed merch, made to order by our print
+            partner. Merch is ordered and shipped separately from star map prints, and its shipping cost is
+            calculated at checkout before you pay — the print rates in the table below do not apply to merch.
+          </p>
+          <p>
+            If a merch item arrives defective, damaged, or different from what you ordered, contact us within
+            30 days of delivery — see{" "}
+            <a href="/returns" className="font-semibold text-midnight underline">
+              Returns &amp; Refunds
+            </a>{" "}
+            for how merch replacements work.
+          </p>
+        </section>
+
         <section className="mt-6">
           <h2 className="text-xl font-semibold text-midnight">Physical print countries</h2>
           <div className="relative mt-3">
