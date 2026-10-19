@@ -132,7 +132,7 @@ function parsePrintSkuLabel(rowId: PrintVariant): string {
 function readEnv(): PricingEnv {
   const legacyBase = parseIntEnv("PRICE_CENTS", 900);
   const basePriceCents = parseIntEnv("PRICE_SINGLE_CENTS", legacyBase);
-  const pack3PriceCents = parseIntEnv("PACK3_PRICE_CENTS", 1000);
+  const pack3PriceCents = parseIntEnv("PACK3_PRICE_CENTS", 1900);
   const subscriptionPriceCents = parseIntEnv("SUBSCRIPTION_PRICE_CENTS", 1900);
 
   const currency =

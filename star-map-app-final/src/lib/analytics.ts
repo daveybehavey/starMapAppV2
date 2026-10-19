@@ -80,7 +80,7 @@ function getPublicNumber(name: string, fallback: number) {
 
 const DEFAULT_CURRENCY = (process.env.NEXT_PUBLIC_CURRENCY || "usd").trim().toUpperCase();
 const DIGITAL_SINGLE_CENTS = getPublicNumber("NEXT_PUBLIC_PRICE_SINGLE_CENTS", 900);
-const DIGITAL_PACK3_CENTS = getPublicNumber("NEXT_PUBLIC_PACK3_PRICE_CENTS", 1000);
+const DIGITAL_PACK3_CENTS = getPublicNumber("NEXT_PUBLIC_PACK3_PRICE_CENTS", 1900);
 const DIGITAL_SUBSCRIPTION_CENTS = getPublicNumber("NEXT_PUBLIC_SUBSCRIPTION_PRICE_CENTS", 1900);
 const PRINT_DIGITAL_ADDON_CENTS = getPublicNumber("NEXT_PUBLIC_PRINT_DIGITAL_ADDON_PRICE_CENTS", 700);
 
