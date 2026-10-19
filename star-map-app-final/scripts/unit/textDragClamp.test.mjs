@@ -139,8 +139,8 @@ test("diamond: side drag at a mid row clamps x at the mask edge and leaves y alo
   const { rectWidthPx, rectHeightPx } = SAMPLE.subtitle;
   const result = clampDiamond({ x: 0.98, y: DIAMOND_TEXT_BOX_ROWS.subtitle }, rectWidthPx, rectHeightPx);
   // Band across the subtitle's span at its own row: narrower end row
-  // 0.467 -> half-width 0.407; slack = 0.407 - 0.14546 = 0.26154.
-  near(result.x, 0.76154, "side drag x");
+  // 0.467 -> half-width 0.407; slack = 0.407 - 0.14546 = 0.26154167.
+  near(result.x, 0.76154167, "side drag x");
   assert.equal(result.y, DIAMOND_TEXT_BOX_ROWS.subtitle);
   assertDiamondContained(result, rectWidthPx, rectHeightPx);
 });
