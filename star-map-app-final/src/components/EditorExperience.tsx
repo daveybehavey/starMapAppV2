@@ -3185,7 +3185,7 @@ export function EditorExperience({
                                               onClick={() => setAspectRatio(ratio.id)}
                                               className={`flex flex-col items-center justify-center rounded-lg border px-2 py-2.5 text-xs font-semibold transition hover:-translate-y-[1px] hover:shadow-md ${
                                                 isSelected
-                                                  ? "!text-midnight border-amber-400 bg-gradient-to-br from-amber-500/20 to-amber-600/20 shadow-amber-500/20"
+                                                  ? "!text-midnight border-amber-400 bg-amber-400 shadow-amber-500/20"
                                                   : "border-white/15 bg-white/5 text-white hover:border-amber-400/50"
                                               }`}
                                             >

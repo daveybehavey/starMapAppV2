@@ -1370,7 +1370,7 @@ export function MobileCreate({
                     onClick={() => setAspectRatio(ratio.id)}
                     className={`flex items-center justify-center rounded-lg border px-2 py-2 text-xs font-semibold transition active:scale-95 ${
                       aspectRatio === ratio.id
-                        ? "border-amber-400 bg-gradient-to-br from-amber-500/20 to-amber-600/20 !text-midnight"
+                        ? "border-amber-400 bg-amber-400 !text-midnight"
                         : "border-white/15 bg-white/5 text-white"
                     }`}
                   >
