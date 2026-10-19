@@ -11,4 +11,8 @@ export const PRINT_PROOF_IMAGE_PATHS = {
     src: "/printproof/gift-raw/mug/mug-mockup.jpg",
     fallback: "/printproof/gift-raw/mug/mug-mockup.jpg",
   },
+  card: {
+    src: "/printproof/gift-raw/card/card-mockup.jpg",
+    fallback: "/printproof/gift-raw/card/card-mockup.jpg",
+  },
 } as const;
