@@ -231,3 +231,49 @@ test("a pick publishes name and coordinates together, only after the timezone re
   // the publish is guarded on the pick still being the current value.
   assert.match(pickBody, /if \(suppressedValueRef\.current !== result\.name\) return;/);
 });
+
+test("editing the text invalidates the previous query's suggestions immediately", () => {
+  const typeahead = readSrc("components/LocationTypeahead.tsx");
+
+  // Loaded results are tagged with the exact text they were loaded
+  // for, on both load paths (cache hit and debounced fetch success).
+  assert.match(typeahead, /const \[resultsQuery, setResultsQuery\] = useState<string \| null>\(null\);/);
+  assert.ok(
+    typeahead.split("setResultsQuery(value);").length - 1 >= 2,
+    "both load paths tag their results with the query"
+  );
+
+  // Only the results belonging to the text currently in the field are
+  // ever "current": an edit makes the previous query's list stale at
+  // once, instead of whenever the next fetch happens to land.
+  assert.match(
+    typeahead,
+    /const currentResults = useMemo\(\s*\(\) => \(resultsQuery === value \? results : \[\]\),/
+  );
+
+  // Keyboard handling reads only the current results. With a stale list
+  // live, Enter used to preventDefault and pick the old query's first
+  // result — submitting an untyped place with confirmed coordinates;
+  // now Enter falls through to the native submit in that window.
+  const keydownBody = typeahead.slice(
+    typeahead.indexOf("const handleKeyDown"),
+    typeahead.indexOf("const hasResults")
+  );
+  assert.match(keydownBody, /currentResults\.length === 0/);
+  assert.match(keydownBody, /pickResult\(currentResults\[/);
+  assert.doesNotMatch(keydownBody, /results\.length/);
+  assert.doesNotMatch(keydownBody, /results\[/);
+
+  // Rendering likewise maps the current results only, never the raw
+  // (possibly stale) list.
+  assert.match(typeahead, /currentResults\.map\(\(result, index\)/);
+  assert.doesNotMatch(typeahead, /results\.map\(/);
+
+  // "No matches" reports only on a search that has completed for the
+  // current text — during a new query's debounce/fetch window the tag
+  // still names the previous query, so no stale verdict can flash.
+  assert.match(
+    typeahead,
+    /const showNoMatches = !error && !loading && !hasResults && resultsQuery === value;/
+  );
+});

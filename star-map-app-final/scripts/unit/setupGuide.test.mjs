@@ -46,8 +46,15 @@ test("MobileCreate unlock buttons are guides, not dead disabled controls", () =>
   assert.doesNotMatch(mobile, /disabled=\{!canReveal \|\| isRevealing\}/);
   // Still truly disabled only while a reveal is in flight.
   assert.match(mobile, /disabled=\{isRevealing\}/);
-  // The guide keeps MobileCreate's own completeness semantics (named place).
-  assert.match(mobile, /getSetupGuideField\(\{ hasDate, hasPlace: hasLocation \}\)/);
+  // The guide uses the same confirmed-place predicate as canReveal
+  // (useEditorLogic's hasConfirmedEditorLocation): with the date set and
+  // a name-only place — exactly what a free-typed quick-start handoff
+  // produces — the guide must target "place", not read setup as complete
+  // and leave both guide buttons dead.
+  assert.match(mobile, /import \{ hasConfirmedEditorLocation \} from "@\/lib\/editorLocationPrefill";/);
+  assert.match(mobile, /const hasConfirmedLocation = hasConfirmedEditorLocation\(location\);/);
+  assert.match(mobile, /getSetupGuideField\(\{ hasDate, hasPlace: hasConfirmedLocation \}\)/);
+  assert.doesNotMatch(mobile, /getSetupGuideField\(\{ hasDate, hasPlace: hasLocation \}\)/);
 });
 
 test("EditorExperience unlock button gets the same guide treatment", () => {
