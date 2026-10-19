@@ -58,7 +58,7 @@ export default function SiteTopNav() {
           <Link
             href="/star-map-gallery"
             prefetch={false}
-            className="whitespace-nowrap rounded-full px-2.5 py-1 text-white/85 transition hover:bg-white/10 sm:px-3 sm:py-1.5"
+            className="hidden whitespace-nowrap rounded-full px-2.5 py-1 text-white/85 transition hover:bg-white/10 sm:inline-flex sm:px-3 sm:py-1.5"
           >
             Gallery
           </Link>
@@ -78,7 +78,7 @@ export default function SiteTopNav() {
                 : "whitespace-nowrap rounded-full border border-amber-400/50 bg-amber-400/15 px-2.5 py-1 text-amber-100 transition hover:bg-amber-400/25 sm:px-3 sm:py-1.5"
             }
           >
-            {isHome ? "Create yours" : "Create map"}
+            Create map
           </Link>
         </nav>
       </div>
