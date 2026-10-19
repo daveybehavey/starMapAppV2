@@ -1834,7 +1834,7 @@ export default function DownloadClient() {
                 </select>
                 {posterShippingFootnote ? (
                   <p className="mt-2 text-[11px] text-neutral-300">
-                    Estimated shipping to {shippingCountryLabel}: {posterShippingFootnote}
+                    Estimated shipping to {shippingCountryLabel}: {posterShippingFootnote}.
                   </p>
                 ) : null}
               </div>

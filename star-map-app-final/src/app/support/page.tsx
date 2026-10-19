@@ -162,7 +162,7 @@ export default function SupportPage() {
               <Link className="font-semibold text-midnight underline" href="/returns">
                 Returns &amp; refunds
               </Link>{" "}
-              — eligibility, timelines, and how to start a return.
+              — eligibility, timelines, and how to contact us about damage or defects.
             </li>
             <li>
               <Link className="font-semibold text-midnight underline" href="/privacy">

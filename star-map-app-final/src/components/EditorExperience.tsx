@@ -3514,9 +3514,9 @@ export function EditorExperience({
                           )}
                         {currentPlan !== "subscription" && (
                           <p className="mt-1 text-[11px] text-neutral-300/95">
-                            Pack reminder: each HD click exports the{" "}
-                            <span className="font-semibold text-white">current map only</span>. For multiple
-                            files, create or edit the next map before each download.
+                            Each HD download exports the{" "}
+                            <span className="font-semibold text-white">map currently on screen</span>. Making
+                            more than one file? Finish editing each map before you download it.
                           </p>
                         )}
                         {downloadHint && (

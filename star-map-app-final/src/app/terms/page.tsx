@@ -69,9 +69,10 @@ export default function TermsPage() {
           <section className="space-y-2">
             <h2 className="text-xl font-semibold text-midnight">5. Refunds and Returns</h2>
             <p>
-              Custom digital items are generally non-refundable once unlocked or downloaded, except for technical errors
-              or unprocessed payments. Print issues (damage or defects) are handled according to the shipping and returns
-              policy listed on the site.
+              Custom digital items are generally non-refundable once unlocked or downloaded, except for duplicate
+              charges, failed delivery caused by a technical issue on our side, or other billing errors that prevented
+              the order from being fulfilled correctly. Print issues (damage or defects) are handled according to the
+              shipping and returns policy listed on the site.
             </p>
           </section>
 

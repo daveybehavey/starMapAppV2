@@ -224,7 +224,7 @@ export default function ShopPage() {
             title: getMerchPublicDisplayLabel(stickerFamily),
             detail:
               "Weatherproof kiss-cut stickers from the same map you preview — great add-on gift or laptop keepsake.",
-            price: `${stickerPrice}+ shipping`,
+            price: `${stickerPrice} + shipping`,
             shippingNote: "Pick size in editor · Made to order by our print partner",
             href: "/editor?mode=quick&source=shop-sticker&merch_family=sticker_kisscut",
             cta: "Customize stickers",
@@ -406,7 +406,7 @@ export default function ShopPage() {
                     ) : null}
                     <p className="mt-3 text-lg font-semibold text-midnight">{label}</p>
                     <p className="mt-2 flex-1 text-sm leading-relaxed text-neutral-700">{merchShopTeaser(family.id)}</p>
-                    <p className="mt-3 text-base font-semibold text-amber-800">{priceLine}+ shipping at checkout</p>
+                    <p className="mt-3 text-base font-semibold text-amber-800">{priceLine} + shipping at checkout</p>
                     <Link
                       href={`/editor?mode=quick&source=shop-merch&merch_family=${encodeURIComponent(family.id)}`}
                       prefetch={false}

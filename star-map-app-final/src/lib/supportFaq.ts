@@ -1,5 +1,4 @@
 import {
-  PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS,
   getPrintDeliveryEstimateLine,
   getPrintStandardShippingOnlyLine,
   getPrintUrgentHdUpsellLine,
@@ -19,7 +18,7 @@ export const SUPPORT_FAQ_ITEMS: readonly { id: string; question: string; answer:
   {
     id: "print-timing",
     question: "When will my print ship?",
-    answer: `Prints are made to order. Typical fulfillment time before shipment is ${PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS}, plus standard carrier transit after production. ${getPrintDeliveryEstimateLine()} ${getPrintStandardShippingOnlyLine()} ${getPrintUrgentHdUpsellLine()} See our Shipping policy for country rates; dates are estimates, not guarantees.`,
+    answer: `${getPrintDeliveryEstimateLine()} ${getPrintStandardShippingOnlyLine()} ${getPrintUrgentHdUpsellLine()} See our Shipping policy for country rates.`,
   },
   {
     id: "delivery-estimates",
@@ -41,7 +40,7 @@ export const SUPPORT_FAQ_ITEMS: readonly { id: string; question: string; answer:
     id: "refund-digital",
     question: "Can I get a refund on a digital purchase?",
     answer:
-      "Custom digital items are generally non-refundable once unlocked or downloaded, with limited exceptions (for example duplicate charges or technical failures on our side). The Love-It Guarantee covers print damage/misprints, not change-of-mind digital refunds. See Returns & Refunds and Terms for details.",
+      "Custom digital items are generally non-refundable once unlocked or downloaded, with limited exceptions (for example duplicate charges, failed delivery caused by a technical issue on our side, or other billing errors). The Love-It Guarantee covers print damage/misprints, not change-of-mind digital refunds. See Returns & Refunds and Terms for details.",
   },
   {
     id: "contact",

@@ -64,8 +64,11 @@ test("policy-smoke asserts the 30-day returns claim window (not 7)", () => {
   assert.doesNotMatch(src, /Returns 7-day window/);
 });
 
-test("policy last-updated dates moved for shipping and returns after claim-window change", () => {
+test("policy last-updated dates reflect the latest material change per page", () => {
   const src = readSrc("src/lib/policyMeta.ts");
-  assert.match(src, /shipping:\s*"2026-08-07"/);
-  assert.match(src, /returns:\s*"2026-08-07"/);
+  // History: both moved to 2026-08-07 with the claim-window change (#226).
+  // Shipping copy changed again 2026-08-13 (#236); returns content changed
+  // 2026-10-18 (PR #325) — sweep wave C1 (U21) re-dated both.
+  assert.match(src, /shipping:\s*"2026-08-13"/);
+  assert.match(src, /returns:\s*"2026-10-18"/);
 });
