@@ -20,9 +20,9 @@
  * Selection rule:
  *  1. A press inside a box's EXACT (unpadded) glyph rect always selects
  *     that box — exact glyph hits beat padded ones.
- *  2. Within the same tier, the nearest rect centre wins (stable,
- *     deterministic; ties are impossible at float precision, and the
- *     first-inserted box wins a true tie).
+ *  2. Within the same tier, the nearest rect centre wins. An exact
+ *     distance tie (e.g. two boxes dragged to identical centres) keeps
+ *     the first-inserted box — deterministic, pinned by test.
  *  3. If only padded rects contain the point, the nearest-centre box
  *     wins — the generous touch target is preserved.
  */

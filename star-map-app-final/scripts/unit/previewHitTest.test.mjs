@@ -162,6 +162,25 @@ test("overlapping glyph rects (user-dragged boxes): nearest centre wins within e
   assert.equal(hitTestText(bounds, 160, 115)?.id, "subtitle");
 });
 
+test("desktop padded overlap: gap presses resolve by nearest centre, not insertion order", () => {
+  // At 520px the glyph rects do not overlap (title bottom 231.9,
+  // subtitle top 242.8) but the padded rects do. Under the pre-fix
+  // rule both presses below selected the subtitle (last inserted);
+  // nearest-centre is the intended behaviour at every canvas size.
+  const bounds = boundsFor(520, SAMPLE_DIAMOND);
+  assert.equal(hitTestText(bounds, 260, 233)?.id, "title");
+  assert.equal(hitTestText(bounds, 260, 237)?.id, "subtitle");
+});
+
+test("exact tie (boxes dragged to identical centres): first-inserted box wins", () => {
+  const rect = { x: 60, y: 100, width: 200, height: 20 };
+  const bounds = new Map([
+    ["title", { ...rect }],
+    ["subtitle", { ...rect }],
+  ]);
+  assert.equal(hitTestText(bounds, 160, 110)?.id, "title");
+});
+
 test("wiring: PreviewCanvas uses the shared hit test; padding unchanged", () => {
   const canvas = read("src/components/PreviewCanvas.tsx");
   assert.match(canvas, /import \{ hitTestText \} from "@\/lib\/textHitTest";/);
