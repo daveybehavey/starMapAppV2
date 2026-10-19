@@ -34,6 +34,8 @@ import { useStore } from "@/lib/store";
 import { formatDateTimeForLocation } from "@/lib/dateTime";
 import { syncSampleDesignTextBoxes } from "@/lib/sampleDesignTextSync";
 import { resolveRestoredCustomOccasion } from "@/lib/editorDraft";
+import { hasConfirmedEditorLocation } from "@/lib/editorLocationPrefill";
+import { getSetupGuideField, scrollToSetupField } from "@/lib/setupGuide";
 
 const REVEAL_ANIMATION_MS = 900;
 const DEFAULT_TITLE_TEXT = "our night sky";
@@ -183,6 +185,11 @@ export function MobileCreate({
   const revealStage = REVEAL_STAGES[revealStageIndex];
   const revealProgress = getRevealProgressPercent(revealStageIndex);
   const hasLocation = Boolean(location.name?.trim());
+  // The reveal gate's own place predicate (useEditorLogic's canReveal):
+  // a named place with confirmed coordinates. The setup guide below uses
+  // this — not the name-only check — so a name-only handoff (date set,
+  // place unconfirmed) guides to "place" instead of dead-ending.
+  const hasConfirmedLocation = hasConfirmedEditorLocation(location);
   const titleText =
     textBoxes.find((box) => box.id === "title")?.text?.trim() ??
     textBoxes[0]?.text?.trim() ??
@@ -455,6 +462,22 @@ export function MobileCreate({
       }, 100);
     }, REVEAL_ANIMATION_MS);
   }, [canReveal, isRevealing, setRevealed]);
+
+  // C2: while setup is incomplete the unlock button is a guide, not a
+  // dead disabled control — tapping scrolls to and focuses the first
+  // missing field (date before place). Once complete it reveals exactly
+  // as before; while revealing it stays a real disabled button.
+  const handleRevealButtonPress = useCallback(() => {
+    if (isRevealing) return;
+    if (canReveal) {
+      handleReveal();
+      return;
+    }
+    const field = getSetupGuideField({ hasDate, hasPlace: hasConfirmedLocation });
+    if (field) {
+      scrollToSetupField(dateLocationRef.current, field);
+    }
+  }, [canReveal, handleReveal, hasDate, hasConfirmedLocation, isRevealing]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -916,8 +939,8 @@ export function MobileCreate({
           </section>
           <button
             type="button"
-            onClick={handleReveal}
-            disabled={!canReveal || isRevealing}
+            onClick={handleRevealButtonPress}
+            disabled={isRevealing}
             aria-label={
               isRevealing
                 ? "Revealing your sky"
@@ -928,7 +951,7 @@ export function MobileCreate({
             className={`inline-flex w-full items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-[#0b1a30] ${
               canReveal && !isRevealing
                 ? "bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400"
-                : "cursor-not-allowed bg-neutral-400/60 text-neutral-700 shadow-none"
+                : "bg-neutral-400/60 text-neutral-700 shadow-none"
             }`}
           >
             {isRevealing ? "Revealing your sky..." : canReveal ? "Generate preview" : previewUnlockButtonLabel}
@@ -1597,10 +1620,9 @@ export function MobileCreate({
                   ) : (
                     <button
                       type="button"
-                      onClick={handleReveal}
-                      disabled
+                      onClick={handleRevealButtonPress}
                       aria-label={previewUnlockButtonLabel}
-                      className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-full bg-neutral-400/60 px-4 py-2 text-xs font-semibold text-neutral-700 shadow-none"
+                      className="inline-flex items-center justify-center gap-2 rounded-full bg-neutral-400/60 px-4 py-2 text-xs font-semibold text-neutral-700 shadow-none"
                     >
                       {previewUnlockButtonLabel}
                     </button>

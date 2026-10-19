@@ -99,6 +99,7 @@ import {
   type MerchFamilyId,
 } from "@/lib/merchCatalog";
 import { getRevealProgressPercent, REVEAL_STAGES } from "@/lib/revealExperience";
+import { getSetupGuideField, scrollToSetupField } from "@/lib/setupGuide";
 import { normalizeReferralCode, readStoredReferralCode } from "@/lib/referrals";
 import {
   resolveEditorGiftTrafficIntent,
@@ -1212,6 +1213,34 @@ export function EditorExperience({
       });
     }, REVEAL_ANIMATION_MS);
   }, [canReveal, getPreviewSource, hasDate, isRevealing, paid, renderOptions.visualMode, setRevealed]);
+
+  // C2: while setup is incomplete the unlock button is a guide, not a
+  // dead disabled control — tapping expands the Date & Location card if
+  // needed, then scrolls to and focuses the first missing field (date
+  // before place; an unconfirmed place targets the place field). Once
+  // complete it reveals exactly as before; while revealing it stays a
+  // real disabled button. (handleReveal above keeps its own scroll
+  // fallback for non-button callers.)
+  const handleRevealButtonPress = useCallback(() => {
+    if (isRevealing) return;
+    if (canReveal) {
+      handleReveal();
+      return;
+    }
+    const field = getSetupGuideField({ hasDate, hasPlace: hasConfirmedLocation });
+    if (!field) return;
+    if (collapsedCards.dateLocation) {
+      setCardState({ dateLocation: false });
+    }
+    scrollToSetupField(dateLocationRef.current, field);
+  }, [
+    canReveal,
+    collapsedCards.dateLocation,
+    handleReveal,
+    hasConfirmedLocation,
+    hasDate,
+    isRevealing,
+  ]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -2575,8 +2604,8 @@ export function EditorExperience({
                           {!revealed && (
                             <button
                               type="button"
-                              onClick={handleReveal}
-                              disabled={!canReveal || isRevealing}
+                              onClick={handleRevealButtonPress}
+                              disabled={isRevealing}
                               aria-label={
                                 isRevealing
                                   ? "Revealing your sky"
@@ -2587,7 +2616,7 @@ export function EditorExperience({
                               className={`text-midnight inline-flex w-full items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-semibold shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:ring-2 focus:ring-amber-300 focus:ring-offset-2 focus:ring-offset-[#0b1a30] focus:outline-none ${
                                 canReveal && !isRevealing
                                   ? "bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400"
-                                  : "cursor-not-allowed bg-neutral-400/60 text-neutral-700 shadow-none"
+                                  : "bg-neutral-400/60 text-neutral-700 shadow-none"
                               }`}
                             >
                               {isRevealing

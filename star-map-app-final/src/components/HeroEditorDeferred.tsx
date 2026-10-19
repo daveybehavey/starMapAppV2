@@ -1,11 +1,25 @@
 "use client";
 
-import { type FormEvent, useCallback } from "react";
+import { type FormEvent, useCallback, useState } from "react";
 import { track, trackFunnelStep } from "@/lib/analytics";
 import IOSSafeDateInput from "@/components/IOSSafeDateInput";
+import LocationTypeahead from "@/components/LocationTypeahead";
 import { MOBILE_DATE_HELPER_TEXT, STANDARD_DATE_PLACEHOLDER } from "@/lib/dateInput";
+import { resolvePreviewLocationFields, type PickedPreviewLocation } from "@/lib/previewStartLocation";
 
 export default function HeroEditorDeferred() {
+  const [locationText, setLocationText] = useState("");
+  const [pickedLocation, setPickedLocation] = useState<PickedPreviewLocation | null>(null);
+
+  // Same editor-entry payload contract as PreviewStartForm: a picked
+  // suggestion submits coordinate-resolved; free text stays name-only,
+  // exactly as this form always submitted.
+  const locationFields = resolvePreviewLocationFields({
+    locationText,
+    picked: pickedLocation,
+    defaultCoords: null,
+    initialLocation: "",
+  });
   const handleSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
     const formData = new FormData(event.currentTarget);
     const hasDate = String(formData.get("date") ?? "").trim().length > 0;
@@ -68,20 +82,32 @@ export default function HeroEditorDeferred() {
             <label className="sr-only" htmlFor="hero-location">
               Where was it?
             </label>
-            <input
+            <LocationTypeahead
               id="hero-location"
               name="location"
-              type="text"
+              value={locationText}
+              onValueChange={setLocationText}
+              onPick={setPickedLocation}
               placeholder="City or address"
               autoComplete="address-level2"
-              className="input-glow ios-form-control min-w-0 w-full rounded-lg border border-white/30 bg-white/10 px-3 py-3 text-base text-white placeholder:text-white/40"
+              selectedName={
+                pickedLocation && locationText === pickedLocation.name ? pickedLocation.name : undefined
+              }
+              className="input-glow ios-form-control w-full min-w-0 rounded-lg border border-white/30 bg-white/10 px-3 py-3 text-base text-white placeholder:text-white/40"
             />
           </div>
         </div>
+        {locationFields.lat !== undefined ? (
+          <>
+            <input type="hidden" name="lat" value={locationFields.lat} />
+            <input type="hidden" name="lon" value={locationFields.lon} />
+            <input type="hidden" name="tz" value={locationFields.tz} />
+          </>
+        ) : null}
         <p className="mt-2 text-xs text-white/60">{MOBILE_DATE_HELPER_TEXT}</p>
         <button
           type="submit"
-          className="mt-5 w-full rounded-full bg-amber-400 px-4 py-3 text-sm font-semibold text-midnight shadow-sm transition hover:-translate-y-[1px] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-amber-300"
+          className="text-midnight mt-5 w-full rounded-full bg-amber-400 px-4 py-3 text-sm font-semibold shadow-sm transition hover:-translate-y-[1px] hover:shadow-md focus:ring-2 focus:ring-amber-300 focus:outline-none"
         >
           Preview your map
         </button>

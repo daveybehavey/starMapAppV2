@@ -1,23 +1,14 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, useCallback } from "react";
-import tzLookup from "tz-lookup";
 import { useStore } from "@/lib/store";
 import { useShallow } from "zustand/react/shallow";
-import { LRUCache } from "@/lib/lruCache";
-
-type GeocodeResult = {
-  id: number;
-  name: string;
-  latitude: number;
-  longitude: number;
-  category?: string;
-  type?: string;
-  countryCode?: string;
-  state?: string;
-};
-
-const cache = new LRUCache<string, GeocodeResult[]>(50);
+import {
+  fetchGeocodeResults,
+  getCachedGeocodeResults,
+  type GeocodeResult,
+} from "@/lib/geocodeSearch";
+import { lookupGeocodeTimezone } from "@/lib/geocodeTimezone";
 
 type LocationSearchProps = {
   onLocationChange?: () => void;
@@ -64,8 +55,7 @@ export default function LocationSearch({ onLocationChange }: LocationSearchProps
       return;
     }
 
-    const key = query.trim().toLowerCase();
-    const cached = cache.get(key);
+    const cached = getCachedGeocodeResults(query);
     if (cached) {
       setResults(cached);
       if (isFocused) setDropdownOpen(true);
@@ -84,16 +74,8 @@ export default function LocationSearch({ onLocationChange }: LocationSearchProps
     let mounted = true;
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/geocode?q=${encodeURIComponent(query)}`, {
-          signal: controller.signal,
-        });
-        if (!res.ok) {
-          throw new Error("Search failed");
-        }
-        const data = (await res.json()) as GeocodeResult[];
+        const data = await fetchGeocodeResults(query, controller.signal);
         if (!mounted) return;
-        // Store in cache (LRU eviction handled automatically)
-        cache.set(key, data);
         setResults(data);
         if (isFocused) setDropdownOpen(true);
       } catch (err) {
@@ -115,12 +97,7 @@ export default function LocationSearch({ onLocationChange }: LocationSearchProps
 
   const applyLocation = useCallback((result: GeocodeResult) => {
     const { latitude, longitude } = result;
-    let timezone = location.timezone;
-    try {
-      timezone = tzLookup(latitude, longitude);
-    } catch {
-      timezone = location.timezone || "UTC";
-    }
+    const timezone = lookupGeocodeTimezone(latitude, longitude, location.timezone);
     setLocation({
       name: result.name,
       latitude,
@@ -158,13 +135,12 @@ export default function LocationSearch({ onLocationChange }: LocationSearchProps
 
     try {
       setLoading(true);
-      const res = await fetch(`/api/geocode?q=${encodeURIComponent(trimmed)}`);
-      if (!res.ok) return;
-      const data = (await res.json()) as GeocodeResult[];
+      const data = await fetchGeocodeResults(trimmed);
       if (data.length > 0) {
-        cache.set(trimmed.toLowerCase(), data);
         applyLocation(data[0]);
       }
+    } catch {
+      // Silent re-resolve: keep the previously applied location, as before.
     } finally {
       setLoading(false);
     }
@@ -220,7 +196,7 @@ export default function LocationSearch({ onLocationChange }: LocationSearchProps
       return;
     }
     setLatError(null);
-    const timezone = safeLookupTz(num, location.longitude, location.timezone);
+    const timezone = lookupGeocodeTimezone(num, location.longitude, location.timezone);
     setLocation({ latitude: num, timezone });
     onLocationChange?.();
   };
@@ -233,7 +209,7 @@ export default function LocationSearch({ onLocationChange }: LocationSearchProps
       return;
     }
     setLonError(null);
-    const timezone = safeLookupTz(location.latitude, num, location.timezone);
+    const timezone = lookupGeocodeTimezone(location.latitude, num, location.timezone);
     setLocation({ longitude: num, timezone });
     onLocationChange?.();
   };
@@ -398,12 +374,4 @@ export default function LocationSearch({ onLocationChange }: LocationSearchProps
       </div>
     </div>
   );
-}
-
-function safeLookupTz(lat: number, lon: number, fallback: string) {
-  try {
-    return tzLookup(lat, lon);
-  } catch {
-    return fallback || "UTC";
-  }
 }
