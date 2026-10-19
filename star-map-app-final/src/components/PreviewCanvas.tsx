@@ -10,6 +10,7 @@ import {
   type MapRecipe,
 } from "@/lib/renderSky";
 import { resolveTextFitFrameEnabled } from "@/lib/mapLookTiers";
+import { hitTestText } from "@/lib/textHitTest";
 import { useStore } from "@/lib/store";
 import { useShallow } from "zustand/react/shallow";
 import { useAstronomyWorker } from "@/hooks/useAstronomyWorker";
@@ -757,21 +758,3 @@ function clampPositionToCanvas(
   };
 }
 
-function hitTestText(
-  bounds: Map<string, { x: number; y: number; width: number; height: number }>,
-  x: number,
-  y: number
-) {
-  const padding = 18;
-  for (const [id, rect] of Array.from(bounds.entries()).reverse()) {
-    if (
-      x >= rect.x - padding &&
-      x <= rect.x + rect.width + padding &&
-      y >= rect.y - padding &&
-      y <= rect.y + rect.height + padding
-    ) {
-      return { id, centerX: rect.x + rect.width / 2, centerY: rect.y + rect.height / 2 };
-    }
-  }
-  return null;
-}
