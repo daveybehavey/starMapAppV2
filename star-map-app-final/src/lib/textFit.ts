@@ -151,6 +151,213 @@ export function resolveShapeTextAvailableWidth(layout: TextFitLayout): number {
 }
 
 /* ------------------------------------------------------------------ */
+/* Drag clamp: keep a dragged box inside the shape's safe region     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Layout inputs for clampTextCenterToShape: the same shape/frame
+ * state the render path fits text against, plus the dragged box's
+ * rendered glyph rect (fitted width x fitted fontSize * 1.2 — the
+ * rect drawText records in its bounds map) and the canvas size, all
+ * in pixels (any consistent scale; the editor preview's CSS pixels
+ * are what the drag handlers have).
+ */
+export type TextDragClampLayout = {
+  /** Selected shape id ("rectangle" | "circle" | "heart" | "star" | "diamond"). */
+  shape?: string;
+  /** Whether the gold frame/outline is drawn for this render. */
+  frameEnabled?: boolean;
+  /** The dragged box's rendered glyph-rect width in pixels. */
+  rectWidthPx: number;
+  /** The dragged box's rendered glyph-rect height in pixels. */
+  rectHeightPx: number;
+  /** Canvas width in pixels. */
+  width: number;
+  /** Canvas height in pixels. */
+  height: number;
+};
+
+/**
+ * Clamp a text box's centre (normalized 0..1 — the space editor drag
+ * positions are stored in) so the box's glyph rect stays inside the
+ * shape's print-safe region: the drag-time counterpart of the fit
+ * bound in resolveShapeTextAvailableWidth (fleet PR #17, finding B).
+ *
+ * The fit sizes a line for a CENTRED position — its available width
+ * is the mask's width across the line's own span. A user-dragged box
+ * keeps that fitted size wherever it is dropped, so near a boundary
+ * its rect crosses the line the centred fit was protecting. Clamping
+ * the centre against the same geometry keeps the rendered rect —
+ * fitted width and all — inside the region, and because the clamped
+ * position is the one that gets stored, preview and export stay in
+ * parity by construction (both render the stored position through
+ * the same drawText).
+ *
+ * - Diamond: the mask narrows linearly toward its apexes
+ *   (resolveDiamondHalfWidthAt). The centre's row is first clamped
+ *   so the rect's vertical span stays where the mask is at least as
+ *   wide as the rect: the mask half-width at the span's end rows
+ *   must be >= the rect's half-width, and since the half-width falls
+ *   linearly from the middle, that puts the end rows within
+ *   span * (1 - halfWidth / DIAMOND_MAX_HALF_WIDTH) of the middle.
+ *   The centre column is then clamped to the mask width across the
+ *   clamped span (the narrower end row — the tent function's
+ *   minimum over the span). A rect too wide or tall to fit anywhere
+ *   (its half-width beyond the mask's max, or its span longer than
+ *   the rows that fit its width) is centred on the failing axis: no
+ *   position contains it, and the spill that remains is the fit
+ *   floor's pre-existing bounded spill, not the drag's.
+ * - Rectangle with its frame drawn: the frame's inner bounds, less
+ *   the same padding the fit uses, on both axes. A rect larger than
+ *   the region on an axis is centred on that axis.
+ * - Every other shape (circle, heart, star, ...), and a frameless
+ *   rectangle: the centre is returned unchanged. The fit deliberately
+ *   bounds those shapes by the full canvas only, and their designed
+ *   layouts place text outside the sky shape's chord (the circle
+ *   default title row sits above the disc's narrow top), so treating
+ *   the sky shape as a text bound there would fight the design; the
+ *   canvas clamp the caller already applied remains the only bound.
+ *
+ * Each axis is clamped independently, so a drag slides along a
+ * boundary instead of sticking to it. A centre already inside the
+ * region is returned with its exact input values, so designed
+ * default positions and interior drags are unaffected.
+ */
+export function clampTextCenterToShape(
+  center: { x: number; y: number },
+  layout: TextDragClampLayout,
+): { x: number; y: number } {
+  const {
+    shape,
+    frameEnabled = true,
+    rectWidthPx,
+    rectHeightPx,
+    width,
+    height,
+  } = layout;
+  if (
+    !Number.isFinite(center.x) ||
+    !Number.isFinite(center.y) ||
+    !Number.isFinite(rectWidthPx) ||
+    !Number.isFinite(rectHeightPx) ||
+    !Number.isFinite(width) ||
+    !Number.isFinite(height) ||
+    width <= 0 ||
+    height <= 0 ||
+    rectWidthPx < 0 ||
+    rectHeightPx < 0
+  ) {
+    return center;
+  }
+  const halfWidthNorm = rectWidthPx / (width * 2);
+  const halfHeightNorm = rectHeightPx / (height * 2);
+
+  if (shape === "diamond") {
+    const rowSpan = DIAMOND_APEX_BOTTOM - 0.5;
+    // How far from the middle an end row may sit while the mask
+    // there is still at least as wide as the rect.
+    const maxRowOffset = rowSpan * (1 - halfWidthNorm / DIAMOND_MAX_HALF_WIDTH);
+    let y = center.y;
+    if (maxRowOffset < 0 || halfHeightNorm > maxRowOffset) {
+      y = 0.5;
+    } else {
+      const minY = 0.5 - maxRowOffset + halfHeightNorm;
+      const maxY = 0.5 + maxRowOffset - halfHeightNorm;
+      y = Math.min(maxY, Math.max(minY, y));
+    }
+    const bandHalfWidth = Math.min(
+      resolveDiamondHalfWidthAt(y - halfHeightNorm),
+      resolveDiamondHalfWidthAt(y + halfHeightNorm),
+    );
+    const slack = bandHalfWidth - halfWidthNorm;
+    const x =
+      slack >= 0
+        ? Math.min(0.5 + slack, Math.max(0.5 - slack, center.x))
+        : 0.5;
+    return { x, y };
+  }
+
+  if ((shape === undefined || shape === "rectangle") && frameEnabled) {
+    const insetPx =
+      resolveFrameInsetPx(width, height) + resolveFrameTextFitPaddingPx(width);
+    const clampAxis = (value: number, rectPx: number, sizePx: number) => {
+      const min = (insetPx + rectPx / 2) / sizePx;
+      const max = 1 - min;
+      if (min > max) return 0.5;
+      return Math.min(max, Math.max(min, value));
+    };
+    return {
+      x: clampAxis(center.x, rectWidthPx, width),
+      y: clampAxis(center.y, rectHeightPx, height),
+    };
+  }
+
+  return center;
+}
+
+/* ------------------------------------------------------------------ */
+/* Stored anchor <-> glyph centre conversion (gate P2 on PR #345)    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A stored text position's x is the renderer's drawing ANCHOR, not
+ * the glyph rect's centre: drawText (renderSky.ts) fills the text at
+ * (position.x x canvas width) with ctx.textAlign = box.align, so a
+ * left-aligned glyph spans [anchor, anchor + width] and a
+ * right-aligned one [anchor - width, anchor]. (The y is always the
+ * centre — the baseline is "middle" for every alignment — so only x
+ * ever converts.) clampTextCenterToShape works in centre space, so
+ * any path that feeds it a STORED position, or stores its result,
+ * must convert with the box's alignment and rendered rect width:
+ *
+ *   centre = anchor + width/2 (left) | anchor (centre) | anchor - width/2 (right)
+ *
+ * Without the conversion the clamp both rejects positions whose
+ * glyph is already contained (it judges the anchor as if it were
+ * the centre) and permits anchors whose glyph edge lands outside
+ * the region. Centre-aligned boxes — every designed default —
+ * convert by exactly 0. Degenerate inputs convert by 0 as well, so
+ * callers can apply the pair unconditionally.
+ */
+export function resolveTextAnchorToCenterX(
+  anchorX: number,
+  align: string | undefined,
+  rectWidthPx: number,
+  canvasWidthPx: number,
+): number {
+  return anchorX + textAnchorCenterOffsetX(align, rectWidthPx, canvasWidthPx);
+}
+
+/** Inverse of resolveTextAnchorToCenterX: centre -> stored anchor. */
+export function resolveTextCenterToAnchorX(
+  centerX: number,
+  align: string | undefined,
+  rectWidthPx: number,
+  canvasWidthPx: number,
+): number {
+  return centerX - textAnchorCenterOffsetX(align, rectWidthPx, canvasWidthPx);
+}
+
+function textAnchorCenterOffsetX(
+  align: string | undefined,
+  rectWidthPx: number,
+  canvasWidthPx: number,
+): number {
+  if (
+    !Number.isFinite(rectWidthPx) ||
+    !Number.isFinite(canvasWidthPx) ||
+    canvasWidthPx <= 0 ||
+    rectWidthPx < 0
+  ) {
+    return 0;
+  }
+  const halfWidthNorm = rectWidthPx / (canvasWidthPx * 2);
+  if (align === "left") return halfWidthNorm;
+  if (align === "right") return -halfWidthNorm;
+  return 0;
+}
+
+/* ------------------------------------------------------------------ */
 /* Default text-box rows per shape (fleet PR #16: U14 diamond rows)    */
 /* ------------------------------------------------------------------ */
 

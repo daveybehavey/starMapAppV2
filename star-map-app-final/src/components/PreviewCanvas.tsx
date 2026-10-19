@@ -10,6 +10,11 @@ import {
   type MapRecipe,
 } from "@/lib/renderSky";
 import { resolveTextFitFrameEnabled } from "@/lib/mapLookTiers";
+import {
+  clampTextCenterToShape,
+  resolveTextAnchorToCenterX,
+  resolveTextCenterToAnchorX,
+} from "@/lib/textFit";
 import { hitTestText } from "@/lib/textHitTest";
 import { useStore } from "@/lib/store";
 import { useShallow } from "zustand/react/shallow";
@@ -95,6 +100,23 @@ export default function PreviewCanvas({
   const textBoundsRef = useRef<Map<string, { x: number; y: number; width: number; height: number }>>(
     new Map()
   );
+  // Shape/frame state the drag clamp bounds against, kept in a ref so
+  // the pointer handlers (registered once) always read the current
+  // values. Synced by the effect below once effectiveShape/baseRecipe
+  // exist.
+  const dragShapeLayoutRef = useRef<{ shape?: string; frameEnabled: boolean }>({
+    shape: undefined,
+    frameEnabled: true,
+  });
+  // Id of a box whose position the keyboard nudge or the pointer-up
+  // commit just stored, pending the freshness recheck in the
+  // text-layer effect below. Those paths clamp with the glyph rect
+  // rendered at the box's PREVIOUS row, but the diamond fit is
+  // row-dependent — a box moved toward the wider middle re-renders
+  // wider — so the stored position is re-clamped once the text
+  // layer has rendered bounds FOR that stored position. The effect
+  // clears the flag when the recheck runs.
+  const pendingShapeRecheckRef = useRef<string | null>(null);
   const {
     selectedStyle,
     textBoxes,
@@ -191,6 +213,39 @@ export default function PreviewCanvas({
   // Use external recipe's aspect ratio and shape when provided
   const effectiveAspectRatio = externalRecipe?.aspectRatio ?? aspectRatio;
   const effectiveShape = externalRecipe?.shape ?? shape;
+
+  // Keep the drag clamp's shape/frame inputs current. The frame
+  // derivation is the same one the text layer renders with (below):
+  // a transparent mat draws no frame, so drags must not clamp against
+  // the frame's inset either.
+  useEffect(() => {
+    dragShapeLayoutRef.current = {
+      shape: effectiveShape,
+      frameEnabled: resolveTextFitFrameEnabled("preview", baseRecipe?.renderOptions),
+    };
+  }, [effectiveShape, baseRecipe]);
+
+  // Shape-aware second stage of the drag clamp: clampPositionToCanvas
+  // keeps the glyph rect on the canvas; this keeps it inside the
+  // shape's print-safe region (diamond mask, rectangle frame) using
+  // the rect the latest render recorded — the same rect hit testing
+  // uses. Without a rendered rect there is nothing to bound against,
+  // so the canvas-clamped position stands.
+  const clampDragCenter = (
+    center: { x: number; y: number },
+    rect: { width: number; height: number } | undefined,
+    bounds: Pick<DOMRect, "width" | "height">
+  ) => {
+    if (!rect) return center;
+    return clampTextCenterToShape(center, {
+      shape: dragShapeLayoutRef.current.shape,
+      frameEnabled: dragShapeLayoutRef.current.frameEnabled,
+      rectWidthPx: rect.width,
+      rectHeightPx: rect.height,
+      width: Math.max(bounds.width, 1),
+      height: Math.max(bounds.height, 1),
+    });
+  };
   const skyHeight = useMemo(() => {
     if (dimensions.height > 0) return Math.round(dimensions.height);
     if (dimensions.width > 0) {
@@ -327,7 +382,129 @@ export default function PreviewCanvas({
         });
       }
     }
-  }, [dimensions, textLayerBoxes, activeBox, previewFidelity, isDragging]);
+    // Freshness recheck (independent gate P1 on PR #345): the nudge
+    // and the pointer-up commit clamp a destination with the glyph
+    // rect rendered at the box's PREVIOUS row. On the diamond the
+    // fit is row-dependent (drawText fits a line to the mask width
+    // across its own span), so a box moved toward the wider middle
+    // re-renders WIDER than the rect its position was clamped with,
+    // and the wider rect can spill at the stored position — which is
+    // what export renders. The bounds written by the render above
+    // are the first ones that describe the STORED position, so
+    // re-clamp the just-committed box against them here.
+    //
+    // Termination is structural AND mathematical. Structural: the
+    // flag is cleared before any corrective write, so exactly one
+    // corrective pass runs per commit — the correction re-renders
+    // with the flag already null. Mathematical: one pass lands on a
+    // clamp fixed point, so a second pass would be a no-op anyway.
+    // The rendered rect depends only on the centre row (for every
+    // other shape it is row-independent, so staleness cannot arise
+    // there at all): a correction that keeps the row keeps the rect
+    // and satisfies the clamp for it by construction; a correction
+    // that moves the row does so only toward a band edge, where the
+    // lateral slack collapses to zero (a centred line fitted by the
+    // fit itself is always contained) or in a regime whose rect is
+    // row-independent (fit floor / full size).
+    //
+    // Eligibility is deliberately NOT "no externalRecipe". What
+    // makes the recheck sound is that the bounds just written
+    // describe the STORED position, and the checks below establish
+    // exactly that: the id resolves to a store box, this display
+    // renders that box, and the rendered position IS the stored
+    // position. An externalRecipe whose boxes are the store's own
+    // satisfies all three — interactive SimplifiedEditor derives
+    // its recipe from the store's textBoxes — and needs the recheck
+    // exactly as much as a store-driven canvas; excluding recipes
+    // wholesale left the stale-rect spill reachable there. A
+    // genuinely foreign recipe is only ever displayed read-only
+    // (ViewClient), where the commit paths are readOnly-gated and
+    // never set the flag; the readOnly branch below clears any
+    // outstanding flag regardless. Every path that cannot soundly
+    // correct clears the flag, so it can never spin unconsumed.
+    const recheckId = pendingShapeRecheckRef.current;
+    if (recheckId) {
+      if (readOnly) {
+        // A read-only display is not the store's to correct, and
+        // its commit paths never set the flag in the first place.
+        // Clear defensively so an outstanding flag can never linger
+        // across a mode switch on this canvas instance (e.g.
+        // SimplifiedEditor entering sample mode without a remount).
+        pendingShapeRecheckRef.current = null;
+      } else {
+        const rendered = textLayerBoxes.find((box) => box.id === recheckId);
+        const stored = textBoxes.find((box) => box.id === recheckId);
+        if (!stored || !rendered || !stored.position || !rendered.position) {
+          // Nothing sound to correct against, and no later render
+          // from this display source will provide it: either the id
+          // is not a store box (the sample-fallback ids a
+          // SimplifiedEditor preview renders from its recipe while
+          // the store is empty — updateTextBox no-ops on them), or
+          // this display does not render the box at the stored
+          // position at all. Clear rather than spin.
+          pendingShapeRecheckRef.current = null;
+        } else if (
+          rendered.position.x === stored.position.x &&
+          rendered.position.y === stored.position.y
+        ) {
+          // What was just rendered IS the stored position (no drag
+          // preview substituting another position for this box), so
+          // the fresh bounds are a sound basis for correcting it.
+          // When a preview IS substituting, keep the flag: the render
+          // that follows the preview clearing runs this again.
+          pendingShapeRecheckRef.current = null;
+          const freshRect = textBoundsRef.current.get(recheckId);
+          if (freshRect) {
+            // The stored position.x is the renderer's drawing
+            // ANCHOR, not the glyph centre the shape clamp works
+            // in (gate P2): drawText fills at position.x with
+            // ctx.textAlign = the box's align, so for left/right
+            // alignment anchor and centre differ by half the
+            // rendered width. Convert anchor -> centre before
+            // clamping and centre -> anchor before storing, or
+            // the recheck moves contained aligned boxes and lets
+            // others spill. (The drag, commit and nudge paths
+            // need no conversion: they clamp centres derived
+            // from the bounds rect itself, never the anchor.)
+            const clampedCenter = clampDragCenter(
+              {
+                x: resolveTextAnchorToCenterX(
+                  stored.position.x,
+                  stored.align,
+                  freshRect.width,
+                  width,
+                ),
+                y: stored.position.y,
+              },
+              freshRect,
+              { width, height }
+            );
+            const corrected = {
+              x: resolveTextCenterToAnchorX(
+                clampedCenter.x,
+                stored.align,
+                freshRect.width,
+                width,
+              ),
+              y: clampedCenter.y,
+            };
+            if (corrected.x !== stored.position.x || corrected.y !== stored.position.y) {
+              updateTextBox(recheckId, { position: corrected });
+            }
+          }
+        }
+      }
+    }
+  }, [
+    dimensions,
+    textLayerBoxes,
+    activeBox,
+    previewFidelity,
+    isDragging,
+    textBoxes,
+    updateTextBox,
+    readOnly,
+  ]);
 
   useEffect(() => {
     if (readOnly) return;
@@ -411,7 +588,11 @@ export default function PreviewCanvas({
         const centerX = pending.x - activeDrag.offsetX;
         const centerY = pending.y - activeDrag.offsetY;
         const rect = textBoundsRef.current.get(activeDrag.id);
-        const { x: clampedX, y: clampedY } = clampPositionToCanvas(centerX, centerY, dragBounds, rect);
+        const { x: clampedX, y: clampedY } = clampDragCenter(
+          clampPositionToCanvas(centerX, centerY, dragBounds, rect),
+          rect,
+          dragBounds
+        );
         const snapVertical = Math.abs(clampedX - 0.5) <= SNAP_THRESHOLD;
         const snapHorizontal = Math.abs(clampedY - 0.5) <= SNAP_THRESHOLD;
         const newX = snapVertical ? 0.5 : clampedX;
@@ -460,9 +641,25 @@ export default function PreviewCanvas({
         dragPreviewRef.current &&
         dragPreviewRef.current.id === dragRef.current.id
       ) {
+        // Re-clamp the commit against the glyph rect as rendered at
+        // the preview position: a box whose fitted width changed
+        // mid-drag (its row's fit bound changed) is stored at a
+        // position clamped for the size it rendered at in preview.
+        // That rect still predates the commit's own row whenever
+        // the clamp itself moves the box (and the final preview
+        // frame may not have rendered at all when pointer-up lands
+        // first), so flag the box for the text-layer effect's
+        // post-render recheck — the containment guarantee is final
+        // only once bounds rendered FOR the stored position have
+        // clamped it.
+        const preview = dragPreviewRef.current;
+        const commitRect = textBoundsRef.current.get(dragRef.current.id);
+        const commitBounds = dragBoundsRef.current ?? canvas.getBoundingClientRect();
+        const committed = clampDragCenter(preview, commitRect, commitBounds);
         updateTextBox(dragRef.current.id, {
-          position: { x: dragPreviewRef.current.x, y: dragPreviewRef.current.y },
+          position: { x: committed.x, y: committed.y },
         });
+        pendingShapeRecheckRef.current = dragRef.current.id;
       }
 
       dragRef.current = null;
@@ -505,9 +702,20 @@ export default function PreviewCanvas({
     const fallbackCenterY = clamp(currentBox.position?.y ?? 0.5, 0, 1) * Math.max(bounds.height, 1);
     const centerX = rect ? rect.x + rect.width / 2 : fallbackCenterX;
     const centerY = rect ? rect.y + rect.height / 2 : fallbackCenterY;
-    const { x, y } = clampPositionToCanvas(centerX + deltaX, centerY + deltaY, bounds, rect);
+    const { x, y } = clampDragCenter(
+      clampPositionToCanvas(centerX + deltaX, centerY + deltaY, bounds, rect),
+      rect,
+      bounds
+    );
 
     updateTextBox(activeBox, { position: { x, y } });
+    // Same freshness caveat as the pointer-up commit: the clamp
+    // above used the rect rendered at the box's previous row, and a
+    // nudge toward the diamond's wider middle re-renders the box
+    // wider than that rect. Flag it so the text-layer effect
+    // re-clamps the stored position against the bounds it actually
+    // renders with.
+    pendingShapeRecheckRef.current = activeBox;
     setDragPreviewPosition(null);
     const nextRect = textBoundsRef.current.get(activeBox);
     if (nextRect) setBoxRect(nextRect);
