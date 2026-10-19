@@ -6,6 +6,7 @@ import {
   resolveBrowserTimeZone,
 } from "./dateTime";
 import type { MapLookTier } from "./mapLookTiers";
+import { applyDefaultTextRowsForShape } from "./textFit";
 import type { AspectRatio, Shape } from "./types";
 
 export type StyleId =
@@ -280,6 +281,12 @@ const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) =
     set((state) => ({
       shape,
       renderOptions: { ...state.renderOptions, shapeMask: shape },
+      // Designed boxes still sitting on the previous shape's DEFAULT
+      // rows follow the shape (fleet PR #16: on diamond the standard
+      // rows sit in the apex zones). Boxes the user moved — or that a
+      // preset authored — are user data and stay put; see
+      // applyDefaultTextRowsForShape in textFit.ts.
+      textBoxes: applyDefaultTextRowsForShape(state.textBoxes, shape),
     })),
   setRenderOptions: (options) =>
     set((state) => ({ renderOptions: { ...state.renderOptions, ...options } })),

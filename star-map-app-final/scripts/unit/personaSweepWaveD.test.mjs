@@ -18,6 +18,7 @@ import {
   MIN_TEXT_FIT_SCALE,
   resolveDiamondHalfWidthAt,
   resolveFrameInsetPx,
+  resolveFrameTextFitPaddingPx,
   resolveShapeTextAvailableWidth,
   resolveTextFitScale,
 } from "../../src/lib/textFit.ts";
@@ -63,7 +64,10 @@ test("U06: the frame inset helper is the formula the frame stroke uses", () => {
 test("U06: a framed rectangle fits text inside the frame's inner bounds", () => {
   const layout = { shape: "rectangle", frameEnabled: true, centerYNorm: 0.12, lineHeightPx: 57.6, width: 1200, height: 1200 };
   const available = resolveShapeTextAvailableWidth(layout);
-  assert.equal(available, 1200 - 16 * 2);
+  // Frame inset on both sides, less the U14-fix rider's inner padding
+  // (fleet PR #16 check 1: fitted glyphs touched the frame line); the
+  // padding itself is pinned in personaSweepU14DiamondFix.test.mjs.
+  assert.equal(available, 1200 - (16 + resolveFrameTextFitPaddingPx(1200)) * 2);
   // The fleet's long title: wider than the frame's inner bounds but
   // narrower than the canvas — previously scale 1 (spanning the frame
   // line to the canvas edge), now it shrinks to the inner bounds.
@@ -94,11 +98,11 @@ test("U14: diamond half-width derives from the mask path geometry", () => {
 
 test("U14: diamond text fits the mask width at its own row", () => {
   const base = { shape: "diamond", frameEnabled: true, lineHeightPx: 57.6, width: 1200, height: 1200 };
-  // Title row (default y=0.12): the span reaches y=0.096, where the mask
+  // Title row (the former default y=0.12, pre-U14-fix): the span reaches y=0.096, where the mask
   // is only ~7.2% of the canvas wide — vs the full 1200px the old fit used.
   const titleAvail = resolveShapeTextAvailableWidth({ ...base, centerYNorm: 0.12 });
   assert.ok(Math.abs(titleAvail - 86.4) < 1e-6, `titleAvail=${titleAvail}`);
-  // Dedication row (default y=0.9) is similarly narrow.
+  // Dedication row (the former default y=0.9) is similarly narrow.
   const dedAvail = resolveShapeTextAvailableWidth({ ...base, centerYNorm: 0.9 });
   assert.ok(dedAvail < 150, `dedAvail=${dedAvail}`);
   // Middle row is the widest the mask gets.
@@ -168,8 +172,10 @@ test("U14: the store's shapeMask follows setShape and starts in sync", () => {
   assert.match(source, /shape: "rectangle",[\s\S]*?shapeMask: "rectangle",/);
   assert.match(
     source,
-    /setShape: \(shape\) =>\s*\n?\s*set\(\(state\) => \(\{\s*\n?\s*shape,\s*\n?\s*renderOptions: \{ \.\.\.state\.renderOptions, shapeMask: shape \},\s*\n?\s*\}\)\),/,
+    /setShape: \(shape\) =>\s*\n?\s*set\(\(state\) => \(\{\s*\n?\s*shape,\s*\n?\s*renderOptions: \{ \.\.\.state\.renderOptions, shapeMask: shape \},[\s\S]*?textBoxes: applyDefaultTextRowsForShape\(state\.textBoxes, shape\),\s*\n?\s*\}\)\),/,
   );
+  // The textBoxes term is the U14-fix default-row relocation (fleet
+  // PR #16); its behaviour is pinned in personaSweepU14DiamondFix.test.mjs.
 });
 
 test("U14: no fixed 'circle' mask default remains in recipe/store/sample sources", () => {
@@ -325,11 +331,15 @@ test("frame parity: the flag flips the 400px fit between scale 1 and the frame-i
   assert.equal(framelessWidth, 400);
   assert.equal(resolveTextFitScale(400, framelessWidth), 1);
   // With the flag on (framed, filled mat), the bound is the frame's inner
-  // width and the same line shrinks to 376/400 = 0.94 — the size the
-  // overlay wrongly produced for the transparent-mat recipe before.
+  // width (less the U14-fix rider's padding) and the same line shrinks to
+  // 372/400 = 0.93 — the size the overlay wrongly produced for the
+  // transparent-mat recipe before (376/400 = 0.94 pre-rider).
   const framedWidth = resolveShapeTextAvailableWidth({ ...layout, frameEnabled: true });
-  assert.equal(framedWidth, 400 - resolveFrameInsetPx(400, 400) * 2);
-  assert.equal(resolveTextFitScale(400, framedWidth), 0.94);
+  assert.equal(
+    framedWidth,
+    400 - (resolveFrameInsetPx(400, 400) + resolveFrameTextFitPaddingPx(400)) * 2,
+  );
+  assert.equal(resolveTextFitScale(400, framedWidth), 0.93);
 });
 
 test("frame parity: harness stays locked to mapLookTiers and both call sites use the shared helper", () => {
