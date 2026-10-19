@@ -10,6 +10,7 @@ import {
   type MapRecipe,
 } from "@/lib/renderSky";
 import { resolveTextFitFrameEnabled } from "@/lib/mapLookTiers";
+import { clampTextCenterToShape } from "@/lib/textFit";
 import { hitTestText } from "@/lib/textHitTest";
 import { useStore } from "@/lib/store";
 import { useShallow } from "zustand/react/shallow";
@@ -95,6 +96,14 @@ export default function PreviewCanvas({
   const textBoundsRef = useRef<Map<string, { x: number; y: number; width: number; height: number }>>(
     new Map()
   );
+  // Shape/frame state the drag clamp bounds against, kept in a ref so
+  // the pointer handlers (registered once) always read the current
+  // values. Synced by the effect below once effectiveShape/baseRecipe
+  // exist.
+  const dragShapeLayoutRef = useRef<{ shape?: string; frameEnabled: boolean }>({
+    shape: undefined,
+    frameEnabled: true,
+  });
   const {
     selectedStyle,
     textBoxes,
@@ -191,6 +200,39 @@ export default function PreviewCanvas({
   // Use external recipe's aspect ratio and shape when provided
   const effectiveAspectRatio = externalRecipe?.aspectRatio ?? aspectRatio;
   const effectiveShape = externalRecipe?.shape ?? shape;
+
+  // Keep the drag clamp's shape/frame inputs current. The frame
+  // derivation is the same one the text layer renders with (below):
+  // a transparent mat draws no frame, so drags must not clamp against
+  // the frame's inset either.
+  useEffect(() => {
+    dragShapeLayoutRef.current = {
+      shape: effectiveShape,
+      frameEnabled: resolveTextFitFrameEnabled("preview", baseRecipe?.renderOptions),
+    };
+  }, [effectiveShape, baseRecipe]);
+
+  // Shape-aware second stage of the drag clamp: clampPositionToCanvas
+  // keeps the glyph rect on the canvas; this keeps it inside the
+  // shape's print-safe region (diamond mask, rectangle frame) using
+  // the rect the latest render recorded — the same rect hit testing
+  // uses. Without a rendered rect there is nothing to bound against,
+  // so the canvas-clamped position stands.
+  const clampDragCenter = (
+    center: { x: number; y: number },
+    rect: { width: number; height: number } | undefined,
+    bounds: Pick<DOMRect, "width" | "height">
+  ) => {
+    if (!rect) return center;
+    return clampTextCenterToShape(center, {
+      shape: dragShapeLayoutRef.current.shape,
+      frameEnabled: dragShapeLayoutRef.current.frameEnabled,
+      rectWidthPx: rect.width,
+      rectHeightPx: rect.height,
+      width: Math.max(bounds.width, 1),
+      height: Math.max(bounds.height, 1),
+    });
+  };
   const skyHeight = useMemo(() => {
     if (dimensions.height > 0) return Math.round(dimensions.height);
     if (dimensions.width > 0) {
@@ -411,7 +453,11 @@ export default function PreviewCanvas({
         const centerX = pending.x - activeDrag.offsetX;
         const centerY = pending.y - activeDrag.offsetY;
         const rect = textBoundsRef.current.get(activeDrag.id);
-        const { x: clampedX, y: clampedY } = clampPositionToCanvas(centerX, centerY, dragBounds, rect);
+        const { x: clampedX, y: clampedY } = clampDragCenter(
+          clampPositionToCanvas(centerX, centerY, dragBounds, rect),
+          rect,
+          dragBounds
+        );
         const snapVertical = Math.abs(clampedX - 0.5) <= SNAP_THRESHOLD;
         const snapHorizontal = Math.abs(clampedY - 0.5) <= SNAP_THRESHOLD;
         const newX = snapVertical ? 0.5 : clampedX;
@@ -460,8 +506,16 @@ export default function PreviewCanvas({
         dragPreviewRef.current &&
         dragPreviewRef.current.id === dragRef.current.id
       ) {
+        // Re-clamp the commit against the glyph rect as rendered at
+        // the preview position: a box whose fitted width changed
+        // mid-drag (its row's fit bound changed) is stored at a
+        // position clamped for the size it will actually render at.
+        const preview = dragPreviewRef.current;
+        const commitRect = textBoundsRef.current.get(dragRef.current.id);
+        const commitBounds = dragBoundsRef.current ?? canvas.getBoundingClientRect();
+        const committed = clampDragCenter(preview, commitRect, commitBounds);
         updateTextBox(dragRef.current.id, {
-          position: { x: dragPreviewRef.current.x, y: dragPreviewRef.current.y },
+          position: { x: committed.x, y: committed.y },
         });
       }
 
@@ -505,7 +559,11 @@ export default function PreviewCanvas({
     const fallbackCenterY = clamp(currentBox.position?.y ?? 0.5, 0, 1) * Math.max(bounds.height, 1);
     const centerX = rect ? rect.x + rect.width / 2 : fallbackCenterX;
     const centerY = rect ? rect.y + rect.height / 2 : fallbackCenterY;
-    const { x, y } = clampPositionToCanvas(centerX + deltaX, centerY + deltaY, bounds, rect);
+    const { x, y } = clampDragCenter(
+      clampPositionToCanvas(centerX + deltaX, centerY + deltaY, bounds, rect),
+      rect,
+      bounds
+    );
 
     updateTextBox(activeBox, { position: { x, y } });
     setDragPreviewPosition(null);
