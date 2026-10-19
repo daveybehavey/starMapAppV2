@@ -301,6 +301,8 @@ export default function PreviewCanvas({
       textBoxes: textLayerBoxes,
       pixelRatio,
       textBounds: textBoundsRef.current,
+      shape: effectiveShape,
+      frameEnabled: baseRecipe?.renderOptions?.frameEnabled ?? true,
     });
     if (activeBox) {
       const rect = textBoundsRef.current.get(activeBox);
