@@ -177,3 +177,57 @@ test("timezone lookup stays out of the typeahead's static bundle", () => {
   const editorSearch = readSrc("components/LocationSearch.tsx");
   assert.match(editorSearch, /from "@\/lib\/geocodeTimezone"/);
 });
+
+function pickBodyOf(typeahead) {
+  return typeahead.slice(typeahead.indexOf("const pickResult"), typeahead.indexOf("const handleKeyDown"));
+}
+
+test("a pick suppresses suggestion searches for the picked value until an edit", () => {
+  const typeahead = readSrc("components/LocationTypeahead.tsx");
+  assert.match(typeahead, /const suppressedValueRef = useRef<string \| null>\(null\);/);
+
+  // The pick records the suppression and closes the list itself, rather
+  // than waiting for the search effect to settle.
+  const pickBody = pickBodyOf(typeahead);
+  assert.match(pickBody, /suppressedValueRef\.current = result\.name;/);
+  assert.match(pickBody, /setResults\(\[\]\);/);
+  assert.match(pickBody, /setDropdownOpen\(false\);/);
+
+  // The search effect checks suppression before both paths that could
+  // reopen the dropdown: the cache hit and the debounced fetch.
+  const guardIndex = typeahead.indexOf("value === suppressedValueRef.current");
+  assert.ok(guardIndex > -1, "search effect guards on the suppressed value");
+  assert.ok(guardIndex < typeahead.indexOf("const cached = getCachedGeocodeResults(value);"));
+  assert.ok(guardIndex < typeahead.indexOf("fetchGeocodeResults(value, controller.signal)"));
+
+  // A manual edit clears the suppression. A pick never flows through
+  // onChange, so it cannot clear its own.
+  const changeBody = typeahead.slice(typeahead.indexOf("onChange={(event)"), typeahead.indexOf("onBlur"));
+  assert.match(changeBody, /suppressedValueRef\.current = null;/);
+});
+
+test("a pick publishes name and coordinates together, only after the timezone resolves", () => {
+  const typeahead = readSrc("components/LocationTypeahead.tsx");
+  const pickBody = pickBodyOf(typeahead);
+
+  // Exactly one publish site for the picked name and one for the picked
+  // place, both after the dynamic timezone import: neither can land
+  // ahead of the resolution and open a name-only submit window.
+  assert.equal(pickBody.split("onValueChange(result.name)").length - 1, 1);
+  assert.equal(pickBody.split("onPick({").length - 1, 1);
+  const importIndex = pickBody.indexOf('import("@/lib/geocodeTimezone")');
+  const publishNameIndex = pickBody.indexOf("onValueChange(result.name)");
+  const publishPickIndex = pickBody.indexOf("onPick({");
+  assert.ok(importIndex > -1);
+  assert.ok(publishNameIndex > importIndex, "the name publishes only after the lookup starts resolving");
+  assert.ok(publishPickIndex > publishNameIndex, "name and coordinates publish in the same step");
+
+  // The import-failure path funnels into the same atomic publish with
+  // the UTC fallback instead of publishing separately.
+  assert.match(pickBody, /\.catch\(\(\) => "UTC"\)/);
+  assert.ok(pickBody.indexOf('.catch(() => "UTC")') < publishPickIndex);
+
+  // A late resolution never clobbers text typed while it was in flight:
+  // the publish is guarded on the pick still being the current value.
+  assert.match(pickBody, /if \(suppressedValueRef\.current !== result\.name\) return;/);
+});
