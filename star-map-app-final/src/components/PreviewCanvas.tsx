@@ -104,6 +104,15 @@ export default function PreviewCanvas({
     shape: undefined,
     frameEnabled: true,
   });
+  // Id of a box whose position the keyboard nudge or the pointer-up
+  // commit just stored, pending the freshness recheck in the
+  // text-layer effect below. Those paths clamp with the glyph rect
+  // rendered at the box's PREVIOUS row, but the diamond fit is
+  // row-dependent — a box moved toward the wider middle re-renders
+  // wider — so the stored position is re-clamped once the text
+  // layer has rendered bounds FOR that stored position. The effect
+  // clears the flag when the recheck runs.
+  const pendingShapeRecheckRef = useRef<string | null>(null);
   const {
     selectedStyle,
     textBoxes,
@@ -369,7 +378,72 @@ export default function PreviewCanvas({
         });
       }
     }
-  }, [dimensions, textLayerBoxes, activeBox, previewFidelity, isDragging]);
+    // Freshness recheck (independent gate P1 on PR #345): the nudge
+    // and the pointer-up commit clamp a destination with the glyph
+    // rect rendered at the box's PREVIOUS row. On the diamond the
+    // fit is row-dependent (drawText fits a line to the mask width
+    // across its own span), so a box moved toward the wider middle
+    // re-renders WIDER than the rect its position was clamped with,
+    // and the wider rect can spill at the stored position — which is
+    // what export renders. The bounds written by the render above
+    // are the first ones that describe the STORED position, so
+    // re-clamp the just-committed box against them here.
+    //
+    // Termination is structural AND mathematical. Structural: the
+    // flag is cleared before any corrective write, so exactly one
+    // corrective pass runs per commit — the correction re-renders
+    // with the flag already null. Mathematical: one pass lands on a
+    // clamp fixed point, so a second pass would be a no-op anyway.
+    // The rendered rect depends only on the centre row (for every
+    // other shape it is row-independent, so staleness cannot arise
+    // there at all): a correction that keeps the row keeps the rect
+    // and satisfies the clamp for it by construction; a correction
+    // that moves the row does so only toward a band edge, where the
+    // lateral slack collapses to zero (a centred line fitted by the
+    // fit itself is always contained) or in a regime whose rect is
+    // row-independent (fit floor / full size).
+    const recheckId = pendingShapeRecheckRef.current;
+    if (recheckId && !readOnly && !externalRecipe) {
+      const rendered = textLayerBoxes.find((box) => box.id === recheckId);
+      const stored = textBoxes.find((box) => box.id === recheckId);
+      if (!stored) {
+        pendingShapeRecheckRef.current = null;
+      } else if (
+        rendered?.position &&
+        stored.position &&
+        rendered.position.x === stored.position.x &&
+        rendered.position.y === stored.position.y
+      ) {
+        // What was just rendered IS the stored position (no drag
+        // preview substituting another position for this box), so
+        // the fresh bounds are a sound basis for correcting it.
+        // When a preview IS substituting, keep the flag: the render
+        // that follows the preview clearing runs this again.
+        pendingShapeRecheckRef.current = null;
+        const freshRect = textBoundsRef.current.get(recheckId);
+        if (freshRect) {
+          const corrected = clampDragCenter(
+            { x: stored.position.x, y: stored.position.y },
+            freshRect,
+            { width, height }
+          );
+          if (corrected.x !== stored.position.x || corrected.y !== stored.position.y) {
+            updateTextBox(recheckId, { position: corrected });
+          }
+        }
+      }
+    }
+  }, [
+    dimensions,
+    textLayerBoxes,
+    activeBox,
+    previewFidelity,
+    isDragging,
+    textBoxes,
+    updateTextBox,
+    readOnly,
+    externalRecipe,
+  ]);
 
   useEffect(() => {
     if (readOnly) return;
@@ -509,7 +583,14 @@ export default function PreviewCanvas({
         // Re-clamp the commit against the glyph rect as rendered at
         // the preview position: a box whose fitted width changed
         // mid-drag (its row's fit bound changed) is stored at a
-        // position clamped for the size it will actually render at.
+        // position clamped for the size it rendered at in preview.
+        // That rect still predates the commit's own row whenever
+        // the clamp itself moves the box (and the final preview
+        // frame may not have rendered at all when pointer-up lands
+        // first), so flag the box for the text-layer effect's
+        // post-render recheck — the containment guarantee is final
+        // only once bounds rendered FOR the stored position have
+        // clamped it.
         const preview = dragPreviewRef.current;
         const commitRect = textBoundsRef.current.get(dragRef.current.id);
         const commitBounds = dragBoundsRef.current ?? canvas.getBoundingClientRect();
@@ -517,6 +598,7 @@ export default function PreviewCanvas({
         updateTextBox(dragRef.current.id, {
           position: { x: committed.x, y: committed.y },
         });
+        pendingShapeRecheckRef.current = dragRef.current.id;
       }
 
       dragRef.current = null;
@@ -566,6 +648,13 @@ export default function PreviewCanvas({
     );
 
     updateTextBox(activeBox, { position: { x, y } });
+    // Same freshness caveat as the pointer-up commit: the clamp
+    // above used the rect rendered at the box's previous row, and a
+    // nudge toward the diamond's wider middle re-renders the box
+    // wider than that rect. Flag it so the text-layer effect
+    // re-clamps the stored position against the bounds it actually
+    // renders with.
+    pendingShapeRecheckRef.current = activeBox;
     setDragPreviewPosition(null);
     const nextRect = textBoundsRef.current.get(activeBox);
     if (nextRect) setBoxRect(nextRect);
