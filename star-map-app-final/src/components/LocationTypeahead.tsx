@@ -55,8 +55,25 @@ export default function LocationTypeahead({
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const controllerRef = useRef<AbortController | null>(null);
   const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  // The exact text of the most recent pick. While the field still holds
+  // it, searches stay suppressed (see the effect below); any manual edit
+  // clears it (see the input's onChange).
+  const suppressedValueRef = useRef<string | null>(null);
 
   useEffect(() => {
+    // A just-picked value re-enters this effect as `value`, and the
+    // cache-hit and fetch-success paths below would reopen the dropdown
+    // while the input is still focused — Enter would then pick another
+    // suggestion instead of submitting the form. A picked place stays
+    // picked: keep the list closed and empty until the visitor edits.
+    if (suppressedValueRef.current !== null && value === suppressedValueRef.current) {
+      setResults([]);
+      setDropdownOpen(false);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
     if (value.trim().length < 3) {
       setResults([]);
       setDropdownOpen(false);
@@ -121,28 +138,38 @@ export default function LocationTypeahead({
 
   const pickResult = useCallback(
     (result: GeocodeResult) => {
-      onValueChange(result.name);
+      // Close the list for good (until the next manual edit): the picked
+      // name must not reopen the suggestions it was picked from.
+      suppressedValueRef.current = result.name;
+      setResults([]);
       setDropdownOpen(false);
       setHighlightedIndex(-1);
-      // Resolve the timezone lazily: tz-lookup is a large dataset and this
-      // field also renders in the homepage hero, whose bundle is kept lean
-      // on purpose. The pick still lands within the same interaction; the
-      // editor's own parse falls back to UTC if a tz were ever missing.
+      setLoading(false);
+      // Resolve the timezone lazily — tz-lookup is a large dataset and
+      // this field also renders in the homepage hero, whose bundle is
+      // kept lean on purpose — and publish the pick only once it has
+      // resolved: the name and its coordinates land together, atomically.
+      // Publishing the name first (the previous shape) opened a window
+      // where a fast submit sent the picked name while the hidden
+      // lat/lon/tz fields still reflected the previous pick (or none).
+      // The import-failure path funnels into the same publish with the
+      // UTC fallback, so it is atomic too.
       void import("@/lib/geocodeTimezone")
-        .then(({ lookupGeocodeTimezone }) => {
+        .then(({ lookupGeocodeTimezone }) =>
+          lookupGeocodeTimezone(result.latitude, result.longitude, "UTC")
+        )
+        .catch(() => "UTC")
+        .then((timezone) => {
+          // The visitor kept typing while the lookup resolved: their
+          // edit already cleared the suppression, so this pick no longer
+          // applies — never clobber the newer text with it.
+          if (suppressedValueRef.current !== result.name) return;
+          onValueChange(result.name);
           onPick({
             name: result.name,
             latitude: result.latitude,
             longitude: result.longitude,
-            timezone: lookupGeocodeTimezone(result.latitude, result.longitude, "UTC"),
-          });
-        })
-        .catch(() => {
-          onPick({
-            name: result.name,
-            latitude: result.latitude,
-            longitude: result.longitude,
-            timezone: "UTC",
+            timezone,
           });
         });
     },
@@ -196,7 +223,15 @@ export default function LocationTypeahead({
         placeholder={placeholder}
         autoComplete={autoComplete}
         onChange={(event) => {
-          onValueChange(event.currentTarget.value);
+          const nextValue = event.currentTarget.value;
+          // Any manual edit ends the post-pick suppression: the visitor
+          // is searching again, so suggestions may reopen for the new
+          // text. (A pick also flows through onValueChange, but not
+          // through onChange, so it never clears its own suppression.)
+          if (nextValue !== suppressedValueRef.current) {
+            suppressedValueRef.current = null;
+          }
+          onValueChange(nextValue);
           setDropdownOpen(true);
         }}
         onBlur={() => {
