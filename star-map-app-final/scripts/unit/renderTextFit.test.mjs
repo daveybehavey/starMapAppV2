@@ -57,8 +57,12 @@ test("degenerate measurements never scale", () => {
   assert.equal(resolveFittedFontSize(0, 1800, 1200), 0);
 });
 
-test("wiring: drawText fits each box against the canvas width", () => {
+test("wiring: drawText fits each box against the shape-aware available width", () => {
   const source = read("src/lib/renderSky.ts");
   assert.match(source, /from "\.\/textFit"/);
-  assert.match(source, /resolveTextFitScale\(measuredWidth, width\)/);
+  // Wave D (U06/U14): the fit bound is no longer the raw canvas width —
+  // it is resolveShapeTextAvailableWidth (frame inset / diamond mask),
+  // asserted behaviourally in personaSweepWaveD.test.mjs.
+  assert.match(source, /resolveTextFitScale\(measuredWidth, availableWidth\)/);
+  assert.match(source, /resolveShapeTextAvailableWidth\(\{/);
 });
