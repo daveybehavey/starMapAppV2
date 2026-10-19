@@ -80,7 +80,7 @@ export const PRINT_CATALOG = [
     printfulVariantEnv: "PRINTFUL_VARIANT_ID_CARD_4X6",
     shippingProfile: "poster_unframed",
     includesFrame: false,
-    labelFallback: "Greeting card (4×6)",
+    labelFallback: "Keepsake card (4×6)",
     priceFallbackCents: 1900,
     priceEnv: "PRINT_CARD_4X6_PRICE_CENTS",
     publicPriceEnv: "NEXT_PUBLIC_PRINT_CARD_4X6_PRICE_CENTS",

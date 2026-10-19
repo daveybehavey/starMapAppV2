@@ -2016,7 +2016,7 @@ export function EditorExperience({
                       : reason === "card_print_asset_failed"
                         ? "We couldn't prepare the greeting card artwork. Please try checkout again."
                         : reason === "missing_card_print_asset"
-                          ? "Greeting card artwork is missing. Please reopen checkout and try again."
+                          ? "Keepsake card artwork is missing. Please reopen checkout and try again."
                           : reason === "missing_shipping_country"
                             ? "Select your shipping country to continue with print checkout."
                             : reason === "print_shipping_country_invalid"
