@@ -32,7 +32,7 @@ export function getPaywallPrintCheckoutPresentation(
       ? "free shipping"
       : formatPrintShippingEstimate(row.variant, printShippingCountry ?? null, "shipping");
     // Bundle rows (print + add-on) lead with the bundle TOTAL, matching the
-    // marketing pages' bundle lines (e.g. "$106.00 framed + HD · free
+    // marketing pages' bundle lines (e.g. "$106.00 USD framed + HD · free
     // shipping" from getFramedHdBundlePriceLine); the headline names the
     // components. Single-product rows keep the product price + shipping
     // estimate construction used sitewide.

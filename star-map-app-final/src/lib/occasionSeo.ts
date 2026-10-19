@@ -1,7 +1,7 @@
 import type { SeoOccasion } from "@/data/seoOccasions";
 
 const DEFAULT_DESCRIPTION_SUFFIX =
-  "Start with a free preview, then choose framed + HD digital (free shipping at $100+), unframed poster, or instant HD delivery.";
+  "Start with a free preview, then choose framed + HD digital (free shipping at $100+ USD), unframed poster, or instant HD delivery.";
 
 export function getOccasionSeoTitle(occasion: SeoOccasion): string {
   if (occasion.seoTitle?.trim()) return occasion.seoTitle.trim();

@@ -42,7 +42,7 @@ const breadcrumbs = [
 
 const anniversaryTitle = "Anniversary Star Map Gift | Your Night Sky | StarMapCo";
 const anniversaryDescription =
-  "The exact sky from your first date, wedding or engagement night. Free preview, no account. HD from $9; framed + HD with free shipping.";
+  "The exact sky from your first date, wedding or engagement night. Free preview, no account. HD from $9 USD; framed + HD with free shipping.";
 
 export const metadata: Metadata = {
   title: anniversaryTitle,

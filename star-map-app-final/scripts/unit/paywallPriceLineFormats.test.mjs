@@ -2,8 +2,9 @@
  * U17 + U16(b) (persona sweep 2026-10-19): editor/paywall price-line formats.
  *
  * Bundle rows lead with the bundle TOTAL in the marketing pages' style
- * ("$106.00 · free shipping"); single-product rows keep the sitewide
- * "$X + $Y shipping" construction. The shipping footnote drops the internal
+ * ("$106.00 USD · free shipping" — every price names its currency since
+ * sweep U03); single-product rows keep the sitewide "$X + $Y shipping"
+ * construction. The shipping footnote drops the internal
  * "Poster tiers" wording and leaves sentence punctuation to render sites
  * (the old trailing period doubled up in the desktop editor: "..").
  */
@@ -24,26 +25,26 @@ function readSrc(relativePath) {
 test("editor bundle rows state the total, not a price-plus-add-on string", () => {
   assert.equal(
     paywallSecondaryLine({ variant: "poster_framed", includeDigitalAddOn: true, includeCardAddOn: false }),
-    "$106.00 · free shipping",
+    "$106.00 USD · free shipping",
   );
   assert.equal(
     paywallSecondaryLine({ variant: "poster_framed", includeDigitalAddOn: false, includeCardAddOn: true }),
-    "$118.00 · free shipping",
+    "$118.00 USD · free shipping",
   );
 });
 
 test("editor single-product rows keep product price + shipping estimate", () => {
   assert.equal(
     paywallSecondaryLine({ variant: "poster_framed", includeDigitalAddOn: false, includeCardAddOn: false }),
-    "$99.00 + $10.70 shipping",
+    "$99.00 USD + $10.70 USD shipping",
   );
   assert.equal(
     paywallSecondaryLine({ variant: "poster_unframed", includeDigitalAddOn: false, includeCardAddOn: false }),
-    "$49.00 + $5.33 shipping",
+    "$49.00 USD + $5.33 USD shipping",
   );
   assert.equal(
     paywallSecondaryLine({ variant: "canvas_wrap", includeDigitalAddOn: false, includeCardAddOn: false }),
-    "$59.00 + $10.70 shipping",
+    "$59.00 USD + $10.70 USD shipping",
   );
 });
 
@@ -59,7 +60,7 @@ test("paywall presentation composes bundle rows from the merchandise subtotal", 
 
 test("shipping footnote is customer-clean, jargon-free, and unpunctuated", () => {
   const footnote = formatPosterShippingFootnote("CA");
-  assert.equal(footnote, "framed print $10.70 shipping, unframed poster $5.33 shipping");
+  assert.equal(footnote, "framed print $10.70 USD shipping, unframed poster $5.33 USD shipping");
   assert.doesNotMatch(footnote, /tiers/i);
   assert.doesNotMatch(footnote, /\.$/);
   assert.equal(formatPosterShippingFootnote(null), null);

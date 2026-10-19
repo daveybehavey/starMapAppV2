@@ -317,7 +317,7 @@ export default function PersonalizedStarMapPage() {
             </h3>
             <p>
               The premium gift route is framed print so it arrives ready to display, often paired with HD
-              digital for a keepsake file. Orders at $100+ qualify for free shipping. Add{" "}
+              digital for a keepsake file. Orders at $100+ USD qualify for free shipping. Add{" "}
               <Link
                 href="/shop#merch-addons"
                 prefetch={false}
@@ -358,7 +358,7 @@ export default function PersonalizedStarMapPage() {
           {
             question: "Which personalized star map format should I choose?",
             answer:
-              "The premium gift route is framed print so it arrives ready to display, often with HD digital included. Orders at $100+ qualify for free shipping. Custom kiss-cut stickers from the same map work well as a small add-on gift.",
+              "The premium gift route is framed print so it arrives ready to display, often with HD digital included. Orders at $100+ USD qualify for free shipping. Custom kiss-cut stickers from the same map work well as a small add-on gift.",
           },
         ]}
       />
