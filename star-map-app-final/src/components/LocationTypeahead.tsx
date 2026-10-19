@@ -155,9 +155,7 @@ export default function LocationTypeahead({
       // The import-failure path funnels into the same publish with the
       // UTC fallback, so it is atomic too.
       void import("@/lib/geocodeTimezone")
-        .then(({ lookupGeocodeTimezone }) =>
-          lookupGeocodeTimezone(result.latitude, result.longitude, "UTC")
-        )
+        .then(({ lookupGeocodeTimezone }) => lookupGeocodeTimezone(result.latitude, result.longitude, "UTC"))
         .catch(() => "UTC")
         .then((timezone) => {
           // The visitor kept typing while the lookup resolved: their
