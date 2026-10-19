@@ -84,7 +84,7 @@ export default function GiftFormatRoadmapModule({ sourcePrefix }: GiftFormatRoad
             Bundle-only add-ons
           </p>
           <ul className="mt-2 space-y-1 text-sm text-neutral-800">
-            <li>Greeting card</li>
+            <li>Keepsake card</li>
             <li>Small accessory items</li>
           </ul>
           <p className="mt-3 text-xs text-neutral-700">

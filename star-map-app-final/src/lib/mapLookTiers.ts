@@ -318,6 +318,23 @@ export function resolveTransparentMat(
   return renderOptions?.transparentBackground ?? false;
 }
 
+/**
+ * The frame flag the text-fit pass must use — the one derivation shared by
+ * the full renderer (renderStarMap's drawText call) and the editor's text
+ * overlay (PreviewCanvas), so the two can never disagree: the gold frame
+ * only bounds text when it actually renders, i.e. the frame switch is on
+ * AND the mat is not transparent. A transparent (minimal) mat draws no
+ * frame, so fitting text against the frame's inset there would shrink
+ * editor text below the size the full render produces.
+ */
+export function resolveTextFitFrameEnabled(
+  purpose: ExportMatPurpose,
+  renderOptions?: Partial<RenderOptions>,
+): boolean {
+  const showFrame = renderOptions?.frameEnabled ?? true;
+  return showFrame && !resolveTransparentMat(purpose, renderOptions);
+}
+
 export function applyMapLookTier(tier: MapLookTier, styleId: StyleId): Partial<RenderOptions> {
   if (tier === "custom") {
     return { mapLookTier: "custom", transparentBackground: false };

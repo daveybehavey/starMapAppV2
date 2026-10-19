@@ -2016,7 +2016,7 @@ export function EditorExperience({
                       : reason === "card_print_asset_failed"
                         ? "We couldn't prepare the greeting card artwork. Please try checkout again."
                         : reason === "missing_card_print_asset"
-                          ? "Greeting card artwork is missing. Please reopen checkout and try again."
+                          ? "Keepsake card artwork is missing. Please reopen checkout and try again."
                           : reason === "missing_shipping_country"
                             ? "Select your shipping country to continue with print checkout."
                             : reason === "print_shipping_country_invalid"
@@ -3106,7 +3106,12 @@ export function EditorExperience({
                                               }}
                                               className={`flex flex-col items-center justify-center rounded-lg border px-2 py-3 text-xs font-semibold transition hover:-translate-y-[1px] hover:shadow-md ${
                                                 isSelected
-                                                  ? "!text-midnight border-amber-400 bg-gradient-to-br from-amber-500/20 to-amber-600/20 shadow-amber-500/20"
+                                                  ? // Solid gold fill: midnight text on the old
+                                                    // amber-500/20-over-navy composite measured
+                                                    // ~1.55:1 (fleet U13); solid amber-400 with
+                                                    // midnight text is ~11:1 and matches the
+                                                    // design system's gold-fill/ink-text pair.
+                                                    "!text-midnight border-amber-400 bg-amber-400 shadow-amber-500/20"
                                                   : "border-white/15 bg-white/5 text-white hover:border-amber-400/50"
                                               }`}
                                             >
@@ -3118,7 +3123,11 @@ export function EditorExperience({
                                               </span>
                                               <span className="text-[10px]">{shapeOption.label}</span>
                                               {isPremium && (
-                                                <span className="mt-0.5 text-[9px] text-amber-400">
+                                                <span
+                                                  className={`mt-0.5 text-[9px] ${
+                                                    isSelected ? "text-midnight/70" : "text-amber-400"
+                                                  }`}
+                                                >
                                                   HD only
                                                 </span>
                                               )}
@@ -3176,7 +3185,7 @@ export function EditorExperience({
                                               onClick={() => setAspectRatio(ratio.id)}
                                               className={`flex flex-col items-center justify-center rounded-lg border px-2 py-2.5 text-xs font-semibold transition hover:-translate-y-[1px] hover:shadow-md ${
                                                 isSelected
-                                                  ? "!text-midnight border-amber-400 bg-gradient-to-br from-amber-500/20 to-amber-600/20 shadow-amber-500/20"
+                                                  ? "!text-midnight border-amber-400 bg-amber-400 shadow-amber-500/20"
                                                   : "border-white/15 bg-white/5 text-white hover:border-amber-400/50"
                                               }`}
                                             >

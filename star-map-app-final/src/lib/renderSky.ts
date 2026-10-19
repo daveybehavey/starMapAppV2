@@ -6,11 +6,17 @@ import type { AspectRatio, Shape } from "@/lib/types";
 import { FONT_STACKS } from "@/lib/fonts";
 import { formatDateTimeForLocation } from "@/lib/dateTime";
 import { adjustColor, parseHexColor, parseRgbColor, toRgba } from "@/lib/colorUtils";
-import { resolveTextFitScale } from "./textFit";
+import {
+  resolveFrameInsetPx,
+  resolveShapeTextAvailableWidth,
+  resolveTextFitScale,
+  type TextFitLayout,
+} from "./textFit";
 import {
   getStarDensityTuning,
   resolveMapLookTier,
   resolvePrintSafeInset,
+  resolveTextFitFrameEnabled,
   resolveTransparentMat,
   shouldApplyPolishFinish,
   shouldUseFlatSkyBackground,
@@ -108,7 +114,7 @@ export const DEFAULT_RECIPE: MapRecipe = {
     showGrid: false,
     showPlanets: true,
     showMoon: true,
-    shapeMask: "circle",
+    shapeMask: "rectangle",
     frameEnabled: true,
     premiumStars: "off",
     premiumPlanets: "off",
@@ -523,7 +529,10 @@ export function renderStarMap({
     if (printSafeInset > 0) {
       applyPrintSafeTransform(ctx, width, targetHeight, printSafeInset);
     }
-    drawText(ctx, width, targetHeight, recipe.textBoxes, textBounds, scale);
+    drawText(ctx, width, targetHeight, recipe.textBoxes, textBounds, scale, {
+      shape: shapeName,
+      frameEnabled: resolveTextFitFrameEnabled(matPurpose, recipe.renderOptions),
+    });
     ctx.restore();
   } else if (textBounds) {
     textBounds.clear();
@@ -548,6 +557,8 @@ export function renderStarMapTextLayer({
   textBoxes,
   pixelRatio = 1,
   textBounds,
+  shape,
+  frameEnabled,
 }: {
   canvas: CanvasLike;
   width: number;
@@ -555,6 +566,10 @@ export function renderStarMapTextLayer({
   textBoxes: TextBox[];
   pixelRatio?: number;
   textBounds?: Map<string, { x: number; y: number; width: number; height: number }>;
+  /** Editor text overlay: pass the live shape/frame so the overlay's fit
+   * (and the drag bounds derived from it) matches the export render. */
+  shape?: string;
+  frameEnabled?: boolean;
 }) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
@@ -576,7 +591,7 @@ export function renderStarMapTextLayer({
   ctx.save();
   ctx.scale(pixelRatio, pixelRatio);
   const scale = width / BASE_CANVAS_WIDTH;
-  drawText(ctx, width, height, textBoxes, textBounds, scale);
+  drawText(ctx, width, height, textBoxes, textBounds, scale, { shape, frameEnabled });
   ctx.restore();
 }
 
@@ -646,7 +661,8 @@ export function buildRecipeFromState(input: {
     location: input.location,
     textBoxes: input.textBoxes,
     selectedStyle: input.selectedStyle,
-    shape: input.shape || (input.renderOptions?.shapeMask as Shape) || "rectangle",
+    shape:
+      input.shape || (input.renderOptions?.shapeMask as Shape) || "rectangle",
     aspectRatio: input.aspectRatio || "square",
     renderOptions: {
       mapLookTier: input.renderOptions?.mapLookTier,
@@ -662,7 +678,11 @@ export function buildRecipeFromState(input: {
       planetEmphasis: input.renderOptions?.planetEmphasis ?? "highlighted",
       showMoon: input.renderOptions?.showMoon ?? true,
       moonSize: input.renderOptions?.moonSize ?? "large",
-      shapeMask: input.renderOptions?.shapeMask ?? "circle",
+      // shapeMask is the legacy name for the same value: it mirrors the
+      // resolved shape field exactly, never a fixed default (fleet U14:
+      // the mask stayed "circle" for every selected shape).
+      shapeMask:
+        input.shape || (input.renderOptions?.shapeMask as Shape) || "rectangle",
       frameEnabled: input.renderOptions?.frameEnabled ?? true,
       backgroundColor: input.renderOptions?.backgroundColor ?? "",
       constellationColor: input.renderOptions?.constellationColor ?? "",
@@ -749,9 +769,11 @@ function drawBackground(
     ctx.restore();
   }
 
-  // Rectangle border using theme accent color
+  // Rectangle border using theme accent color. The inset comes from
+  // textFit.ts so the text fit-to-width bound (drawText) is derived from
+  // the same constant this stroke uses — one source of truth (fleet U06).
   if (showFrame && (!shape || shape === "rectangle")) {
-    const inset = Math.max(8, Math.min(16, Math.floor(Math.min(width, height) * 0.03)));
+    const inset = resolveFrameInsetPx(width, height);
     ctx.strokeStyle = palette.accent;
     ctx.lineWidth = 3 * scale;
     ctx.globalAlpha = 0.8;
@@ -1316,6 +1338,7 @@ function drawText(
   textBoxes: TextBox[],
   bounds?: Map<string, { x: number; y: number; width: number; height: number }>,
   scale = 1,
+  textLayout?: Pick<TextFitLayout, "shape" | "frameEnabled">,
 ) {
   if (bounds) bounds.clear();
 
@@ -1331,7 +1354,29 @@ function drawText(
     // that already fit get a fit scale of exactly 1 and the identical font
     // string, so their rendering is unchanged.
     const measuredWidth = getCachedTextWidth(ctx, box.text, baseFont);
-    const fitScale = resolveTextFitScale(measuredWidth, width);
+    // The canvas edge is not the bound: fitted lines must stay inside
+    // the design's own boundary — the gold frame line on a framed
+    // rectangle (fleet U06), the mask's width at the line's own row on a
+    // diamond (fleet U14). The line's centre row is resolved with the
+    // unfitted height first; resolveShapeTextAvailableWidth measures the
+    // span with that same unfitted height, so the bound is conservative.
+    const provisional = resolveTextCenterNormalized(
+      box.position,
+      index,
+      measuredWidth,
+      baseFontSize * 1.2,
+      width,
+      height,
+    );
+    const availableWidth = resolveShapeTextAvailableWidth({
+      shape: textLayout?.shape,
+      frameEnabled: textLayout?.frameEnabled ?? true,
+      centerYNorm: provisional.y,
+      lineHeightPx: baseFontSize * 1.2,
+      width,
+      height,
+    });
+    const fitScale = resolveTextFitScale(measuredWidth, availableWidth);
     const fontSize = baseFontSize * fitScale;
     const font =
       fitScale < 1 ? `${weight} ${fontSize}px ${FONT_STACKS[box.fontFamily]}` : baseFont;

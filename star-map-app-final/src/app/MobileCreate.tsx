@@ -1308,20 +1308,36 @@ export function MobileCreate({
             <section className="rounded-xl border border-white/10 bg-white/5 p-3">
               <h3 className="text-xs font-semibold text-white mb-2">Shape</h3>
               <div className="grid grid-cols-4 gap-2">
-                {shapes.map((shapeOption) => (
-                  <button
-                    key={shapeOption.id}
-                    type="button"
-                    onClick={() => setShape(shapeOption.id)}
-                    className={`flex flex-col items-center justify-center rounded-lg border px-2 py-3 text-xs font-semibold transition active:scale-95 ${
-                      shape === shapeOption.id
-                        ? "border-amber-400 bg-gradient-to-br from-amber-500/20 to-amber-600/20 !text-midnight"
-                        : "border-white/15 bg-white/5 text-white"
-                    }`}
-                  >
-                    {shapeOption.label}
-                  </button>
-                ))}
+                {shapes.map((shapeOption) => {
+                  // Same premium set and badge as the desktop picker
+                  // (fleet U13: mobile tiles showed no "HD only" badge).
+                  const isPremium =
+                    shapeOption.id !== "rectangle" && shapeOption.id !== "circle";
+                  const isSelected = shape === shapeOption.id;
+                  return (
+                    <button
+                      key={shapeOption.id}
+                      type="button"
+                      onClick={() => setShape(shapeOption.id)}
+                      className={`flex flex-col items-center justify-center rounded-lg border px-2 py-3 text-xs font-semibold transition active:scale-95 ${
+                        isSelected
+                          ? "border-amber-400 bg-amber-400 !text-midnight"
+                          : "border-white/15 bg-white/5 text-white"
+                      }`}
+                    >
+                      {shapeOption.label}
+                      {isPremium && (
+                        <span
+                          className={`mt-0.5 text-[9px] ${
+                            isSelected ? "text-midnight/70" : "text-amber-400"
+                          }`}
+                        >
+                          HD only
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
               {shape !== "rectangle" && (
                 <div className="mt-2 space-y-1">
@@ -1354,7 +1370,7 @@ export function MobileCreate({
                     onClick={() => setAspectRatio(ratio.id)}
                     className={`flex items-center justify-center rounded-lg border px-2 py-2 text-xs font-semibold transition active:scale-95 ${
                       aspectRatio === ratio.id
-                        ? "border-amber-400 bg-gradient-to-br from-amber-500/20 to-amber-600/20 !text-midnight"
+                        ? "border-amber-400 bg-amber-400 !text-midnight"
                         : "border-white/15 bg-white/5 text-white"
                     }`}
                   >

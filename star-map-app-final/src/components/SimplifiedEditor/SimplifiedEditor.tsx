@@ -107,7 +107,7 @@ const SAMPLE_RECIPE: MapRecipe = {
     planetEmphasis: "normal",
     showMoon: true,
     moonSize: "normal",
-    shapeMask: "circle",
+    shapeMask: "rectangle",
     frameEnabled: true,
   },
 };
