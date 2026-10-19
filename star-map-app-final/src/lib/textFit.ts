@@ -96,7 +96,10 @@ export type TextFitLayout = {
  *   default top row gets the narrow width of that row, not the wide
  *   middle. The span is measured with the UNfitted line height, which
  *   overstates the fitted line's span and therefore understates the
- *   width: the error is on the safe side.
+ *   width: the error is on the safe side. A span crossing an apex has
+ *   zero mask width; that real-geometry zero is clamped to a 1px bound
+ *   (see the branch) so the fit resolves to the shrink floor rather
+ *   than the fit helper's unmeasurable-input full size.
  * - Every other shape (and a frameless rectangle): the full canvas
  *   width, i.e. the pre-existing P01 behaviour, unchanged.
  */
@@ -109,7 +112,16 @@ export function resolveShapeTextAvailableWidth(layout: TextFitLayout): number {
     const halfSpanNorm = Math.max(0, lineHeightPx) / 2 / height;
     const topHalf = resolveDiamondHalfWidthAt(centerYNorm - halfSpanNorm);
     const bottomHalf = resolveDiamondHalfWidthAt(centerYNorm + halfSpanNorm);
-    return Math.min(topHalf, bottomHalf) * 2 * width;
+    // The mask narrows to zero width at its apexes, so a line whose span
+    // crosses an apex legitimately has NO room — that zero is a real
+    // measurement, not a measurement failure. Clamp to the same 1px
+    // minimum the frame branch below uses: resolveTextFitScale reserves
+    // a non-positive available width for "unmeasurable" and answers
+    // scale 1 (full size), which would double the line exactly where
+    // the mask is narrowest. At a 1px bound the fit lands on the
+    // MIN_TEXT_FIT_SCALE floor instead, continuous with the rows just
+    // inside the apex.
+    return Math.max(1, Math.min(topHalf, bottomHalf) * 2 * width);
   }
   if ((shape === undefined || shape === "rectangle") && frameEnabled) {
     return Math.max(1, width - resolveFrameInsetPx(width, height) * 2);

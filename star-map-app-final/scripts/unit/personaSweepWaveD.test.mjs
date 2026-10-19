@@ -15,6 +15,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
+  MIN_TEXT_FIT_SCALE,
   resolveDiamondHalfWidthAt,
   resolveFrameInsetPx,
   resolveShapeTextAvailableWidth,
@@ -103,6 +104,31 @@ test("U14: diamond text fits the mask width at its own row", () => {
   // instead of being drawn across the apex at full size.
   assert.ok(resolveTextFitScale(340, titleAvail) < 1);
   assert.equal(resolveTextFitScale(340, 1200), 1); // old behaviour
+});
+
+test("U14: diamond text at the apex stays at the shrink floor — no full-size jump (Codex P2)", () => {
+  const base = { shape: "diamond", frameEnabled: true, lineHeightPx: 57.6, width: 1200, height: 1200 };
+  const line = 340;
+  // Codex's exact example: at y=0.10 the line's span still touches mask
+  // on both rows (bound ~38px) and the fit floors at 0.5. At y=0.08 the
+  // span crosses the top apex (y=0.06), so the raw mask width across
+  // the span is zero — real geometry reporting no room. That must floor
+  // too, not jump back to full size (scale 1) as it did when the zero
+  // flowed into resolveTextFitScale's unmeasurable-input guard.
+  const at010 = resolveTextFitScale(line, resolveShapeTextAvailableWidth({ ...base, centerYNorm: 0.1 }));
+  const at008 = resolveTextFitScale(line, resolveShapeTextAvailableWidth({ ...base, centerYNorm: 0.08 }));
+  assert.equal(at010, MIN_TEXT_FIT_SCALE);
+  assert.equal(at008, MIN_TEXT_FIT_SCALE);
+  assert.equal(at008, at010); // continuous across the apex — no jump
+  // The zero from geometry is clamped to the 1px bound at the source…
+  assert.equal(resolveDiamondHalfWidthAt(0.056), 0); // raw geometry is still zero there
+  assert.equal(resolveShapeTextAvailableWidth({ ...base, centerYNorm: 0.08 }), 1);
+  // …while the shared helper's degenerate-input contract is untouched:
+  // a zero bound arriving as "no measurement" still never scales.
+  assert.equal(resolveTextFitScale(1200, 0), 1);
+  // A line dragged fully past either apex stays floored as well.
+  assert.equal(resolveTextFitScale(line, resolveShapeTextAvailableWidth({ ...base, centerYNorm: 0.03 })), MIN_TEXT_FIT_SCALE);
+  assert.equal(resolveTextFitScale(line, resolveShapeTextAvailableWidth({ ...base, centerYNorm: 0.97 })), MIN_TEXT_FIT_SCALE);
 });
 
 test("U14: draft normalization syncs a stale shapeMask to the shape field", () => {
