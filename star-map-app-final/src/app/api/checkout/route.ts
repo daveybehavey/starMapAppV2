@@ -34,7 +34,19 @@ import { getGeoDigitalSinglePrice, getRequestCountry } from "@/lib/geoPricing";
 import { evaluatePrintMarginForCheckout } from "@/lib/printMargin";
 import { applyPrintFreeShippingToCheckout } from "@/lib/printFreeShipping";
 import { parsePrintVariant } from "@/lib/printCatalog";
-import { isMerchFamilyId, type MerchFamilyId } from "@/lib/merchCatalog";
+import {
+  getMerchCheckoutPriceCents,
+  getMerchFamily,
+  getMerchStripePriceId,
+  isMerchFamilyId,
+  type MerchFamilyId,
+} from "@/lib/merchCatalog";
+import {
+  buildCheckoutPricingIdentity,
+  priceDataComponent,
+  priceIdComponent,
+  type CheckoutPriceComponent,
+} from "@/lib/checkoutPricingIdentity";
 import {
   MerchCheckoutError,
   applyMerchCheckoutMetadata,
@@ -663,6 +675,89 @@ function boundStripeIdempotencyKey(key: string, maxLength = 200): string {
   return `${key.slice(0, maxLength - 24)}:h${checkoutEmailIdempotencyTag(key)}${key.length.toString(36)}`;
 }
 
+/**
+ * The pricing identity of what createCheckoutSession will charge for
+ * this order, resolved from the same sources with the same preference
+ * order it uses to build its line items: the configured Stripe Price
+ * ID when one is set, otherwise the price_data tier (currency +
+ * amount); a geo-priced digital single resolves to its geo price_data.
+ * Appended to the idempotency key (see checkoutPricingIdentity.ts) so
+ * a pricing change can never reuse a cached checkout URL or a Stripe
+ * idempotency key minted at the old price, while same-price retries
+ * still dedupe to the same key. MUST track the line-item construction
+ * in createCheckoutSession.
+ */
+function resolveCheckoutPricingIdentity(input: {
+  plan: CheckoutPlan;
+  orderType: CheckoutOrderType;
+  printVariant?: PrintVariant;
+  includeDigitalAddOn?: boolean;
+  includeCardAddOn?: boolean;
+  merchFamily?: MerchFamilyId;
+  clientCountry?: string | null;
+}): string {
+  const isPrintOrder = parseOrderType(input.orderType) === "print";
+  const components: CheckoutPriceComponent[] = [];
+  if (!isPrintOrder) {
+    const tier = getPricingTiers()[input.plan];
+    const geoDigitalSingle =
+      input.plan === "single" ? getGeoDigitalSinglePrice(input.clientCountry) : null;
+    if (geoDigitalSingle?.amountCents) {
+      components.push(priceDataComponent(tier.currency, geoDigitalSingle.amountCents));
+    } else {
+      const priceId = stripePriceIds[input.plan]?.trim();
+      components.push(
+        priceId ? priceIdComponent(priceId) : priceDataComponent(tier.currency, tier.amountCents),
+      );
+    }
+    return buildCheckoutPricingIdentity(components);
+  }
+  const normalizedPrintVariant = parsePrintVariant(input.printVariant);
+  if (input.merchFamily) {
+    const family = getMerchFamily(input.merchFamily);
+    const priceId = getMerchStripePriceId(family);
+    components.push(
+      priceId
+        ? priceIdComponent(priceId)
+        : priceDataComponent("usd", getMerchCheckoutPriceCents(family)),
+    );
+    return buildCheckoutPricingIdentity(components);
+  }
+  const printTiers = getPrintPricingTiers();
+  const printTier = printTiers[normalizedPrintVariant];
+  const printPriceId = stripePrintVariantPriceIds[normalizedPrintVariant]?.trim();
+  components.push(
+    printPriceId
+      ? priceIdComponent(printPriceId)
+      : priceDataComponent(printTier.currency, printTier.amountCents),
+  );
+  if (input.includeDigitalAddOn) {
+    const addOnTier = getPrintDigitalAddOnPrice();
+    const addOnPriceId = stripePrintDigitalAddOnPriceId?.trim();
+    components.push(
+      addOnPriceId
+        ? priceIdComponent(addOnPriceId)
+        : priceDataComponent(addOnTier.currency, addOnTier.amountCents),
+    );
+  }
+  // Mirror createCheckoutSession: the card add-on is charged only for
+  // framed posters without the digital add-on (merch handled above).
+  if (
+    input.includeCardAddOn &&
+    normalizedPrintVariant === "poster_framed" &&
+    !input.includeDigitalAddOn
+  ) {
+    const cardTier = printTiers.card_4x6;
+    const cardPriceId = stripePrintVariantPriceIds.card_4x6?.trim();
+    components.push(
+      cardPriceId
+        ? priceIdComponent(cardPriceId)
+        : priceDataComponent(cardTier.currency, cardTier.amountCents),
+    );
+  }
+  return buildCheckoutPricingIdentity(components);
+}
+
 function checkoutIdempotencyKey(input: {
   mapId?: string;
   plan: CheckoutPlan;
@@ -679,6 +774,8 @@ function checkoutIdempotencyKey(input: {
   qaContext?: QaRequestContext | null;
   androidAppMode?: boolean;
   customerEmail?: string | null;
+  /** Effective pricing identity (resolveCheckoutPricingIdentity); scopes the key to the charged price. */
+  pricingIdentity?: string;
 }) {
   const mapId = typeof input.mapId === "string" ? input.mapId.trim() : "";
   if (!mapId) return null;
@@ -694,7 +791,8 @@ function checkoutIdempotencyKey(input: {
   const promo = normalizeIdempotencyToken(input.promoCode, 48);
   const referral = normalizeIdempotencyToken(input.referralCode, 48);
   const emailSegment = input.customerEmail ? `:em${checkoutEmailIdempotencyTag(input.customerEmail)}` : "";
-  const baseWithoutMapId = `${CHECKOUT_IDEMPOTENCY_PREFIX}${orderType}:${plan}:${printVariant}:${includeDigitalAddOn}:${includeCardAddOn}:${merchFamily}:${merchSize}:${merchColor}:${shipping}:${promo}:${referral}${emailSegment}${input.androidAppMode ? ":app-android" : ""}`;
+  const pricingSegment = input.pricingIdentity ? `:${input.pricingIdentity}` : "";
+  const baseWithoutMapId = `${CHECKOUT_IDEMPOTENCY_PREFIX}${orderType}:${plan}:${printVariant}:${includeDigitalAddOn}:${includeCardAddOn}:${merchFamily}:${merchSize}:${merchColor}:${shipping}:${promo}:${referral}${emailSegment}${input.androidAppMode ? ":app-android" : ""}${pricingSegment}`;
   return appendCheckoutIdempotencyQaSegment(baseWithoutMapId, input.qaContext, mapId);
 }
 
@@ -1869,6 +1967,15 @@ export async function POST(req: NextRequest) {
       plan,
     });
 
+    const pricingIdentity = resolveCheckoutPricingIdentity({
+      plan,
+      orderType,
+      printVariant,
+      includeDigitalAddOn,
+      includeCardAddOn,
+      merchFamily,
+      clientCountry,
+    });
     const idempotencyKey = checkoutIdempotencyKey({
       mapId,
       plan,
@@ -1885,6 +1992,7 @@ export async function POST(req: NextRequest) {
       qaContext,
       androidAppMode,
       customerEmail: customerEmail ?? null,
+      pricingIdentity,
     });
     if (idempotencyKey) {
       const existingUrl = await kv.get<string>(idempotencyKey);

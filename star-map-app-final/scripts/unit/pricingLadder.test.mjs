@@ -85,9 +85,15 @@ test("checkout keeps the Stripe Price-ID preference for pack3 (production charge
   assert.match(route, /effectivePlan === "pack3" \? "HD Star Map Export Credits \(3\)"/);
 });
 
-test("wrangler.toml still configures a pack3 Stripe Price ID (the gate Jack sequences)", () => {
+test("wrangler.toml configures the exact pack3 Stripe Price ID for the $19 ladder", () => {
   const wrangler = readApp("wrangler.toml");
-  assert.match(wrangler, /^STRIPE_PRICE_ID_PACK3 = "price_[^"]+"/m);
+  // Pinned to the exact ID on purpose: the price object is a deliberate
+  // rollout artifact — created for this ladder change and verified
+  // against Stripe on 2026-10-19 ($19.00 USD, one-time, same product as
+  // the retired $10 price). A silent repoint would change what buyers
+  // are charged while every other pin still passed; if the price is
+  // ever repointed deliberately, update this pin in the same change.
+  assert.match(wrangler, /^STRIPE_PRICE_ID_PACK3 = "price_1USLXuLWqD0o9865w9H6msaa"/m);
   // Display-side pack env must NOT be pinned in wrangler.toml: the code
   // default is the single source for display, so the two flip together.
   assert.doesNotMatch(wrangler, /^PACK3_PRICE_CENTS =/m);
