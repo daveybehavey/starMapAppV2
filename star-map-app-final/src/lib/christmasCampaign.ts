@@ -34,7 +34,7 @@ export const CHRISTMAS_ORDER_BY_DATES: Record<ChristmasCutoffKey, string> = {
   framed_ca: "2026-12-09",
   poster_us: "2026-12-09",
   poster_ca: "2026-12-10",
-  // Mug + greeting card: owner-approved provisional cutoffs (2026-10-18).
+  // Mug + keepsake card: owner-approved provisional cutoffs (2026-10-18).
   // No rest-of-world date is confirmed for either — the order-by table
   // shows "Order early" there instead of inventing one.
   mug_us: "2026-12-07",
@@ -71,8 +71,24 @@ const DIGITAL_LAST_MINUTE_END = "2026-12-25";
 /** Boxing Day only (Dec 26): XMAS15 returns for prints; Dec 27+ is off-season. */
 const BOXING_DAY = "2026-12-26";
 
-const ORDER_BY_BANNER_LINE =
-  "Order by these dates for Christmas delivery — framed/canvas: US Dec 8 · Canada Dec 9 · rest of world: order early. Posters: US Dec 9 · Canada Dec 10 · rest of world: order early.";
+/**
+ * The sitewide banner's order-by summary. Built from
+ * CHRISTMAS_ORDER_BY_DATES (never hard-coded dates) and leads with the
+ * earliest cutoff across all products — today the mug and keepsake
+ * card (US Dec 7 · Canada Dec 8) — because the loudest surface on the
+ * site must carry the tightest deadline (persona sweep U05: the banner
+ * previously named only framed/canvas and posters, so the earliest
+ * cutoffs lived only inside the order-by table).
+ */
+function getOrderByBannerLine(): string {
+  const earliest = getEarliestChristmasCutoff();
+  return (
+    `Order by these dates for Christmas delivery — earliest cutoff: ${getEarliestCutoffLabel()} ` +
+    `US ${earliest.unitedStates} · Canada ${earliest.canada}. ` +
+    `Framed/canvas: US ${formatOrderByDisplayDate("framed_us")} · Canada ${formatOrderByDisplayDate("framed_ca")} · rest of world: order early. ` +
+    `Posters: US ${formatOrderByDisplayDate("poster_us")} · Canada ${formatOrderByDisplayDate("poster_ca")} · rest of world: order early.`
+  );
+}
 
 function parseYmd(ymd: string): { y: number; m: number; d: number } {
   const [y, m, d] = ymd.split("-").map((part) => Number(part));
@@ -178,7 +194,7 @@ export function getChristmasBannerContent(
   if (phase === "xmas15_early" && CHRISTMAS_PROMO_PUBLICITY) {
     return {
       phase,
-      message: `15% off prints with code ${CHRISTMAS_PROMO.xmas15.code}. ${ORDER_BY_BANNER_LINE}`,
+      message: `15% off prints with code ${CHRISTMAS_PROMO.xmas15.code}. ${getOrderByBannerLine()}`,
       ctaHref: "/christmas-star-map-gift",
       ctaLabel: "Shop Christmas prints",
       promoCode: CHRISTMAS_PROMO.xmas15.code,
@@ -228,7 +244,7 @@ export function getChristmasBannerContent(
   if (phase === "xmas15_last_call" && CHRISTMAS_PROMO_PUBLICITY) {
     return {
       phase,
-      message: `Last call: 15% off prints with ${CHRISTMAS_PROMO.xmas15.code}. ${ORDER_BY_BANNER_LINE}`,
+      message: `Last call: 15% off prints with ${CHRISTMAS_PROMO.xmas15.code}. ${getOrderByBannerLine()}`,
       ctaHref: "/christmas-star-map-gift",
       ctaLabel: "Shop Christmas prints",
       promoCode: CHRISTMAS_PROMO.xmas15.code,
@@ -240,7 +256,7 @@ export function getChristmasBannerContent(
   // Also the fallback for the promo phases when CHRISTMAS_PROMO_PUBLICITY is off.
   return {
     phase,
-    message: ORDER_BY_BANNER_LINE,
+    message: getOrderByBannerLine(),
     ctaHref: "/christmas-star-map-gift",
     ctaLabel: "Christmas star map gifts",
   };
@@ -376,14 +392,6 @@ export function getChristmasPromoCodesFaqAnswer(): string {
   return "No. Seasonal codes apply to prints only. HD digital is excluded from those promotions.";
 }
 
-/** Exported for tests / landing page display. */
-export function getChristmasOrderBySummaryLines(): string[] {
-  return [
-    "Framed & canvas: United States Dec 8 · Canada Dec 9 · rest of world: order early",
-    "Posters: United States Dec 9 · Canada Dec 10 · rest of world: order early",
-  ];
-}
-
 export type ChristmasOrderByTableRow = {
   product: string;
   /** Display date (e.g. "Dec 9") per region; null only on the instant row. */
@@ -418,55 +426,135 @@ function formatOrderByDisplayDate(key: ChristmasCutoffKey): string {
 const REST_OF_WORLD_UNCONFIRMED_LABEL = "Order early";
 
 /**
+ * The physical products' order-by dates, as (Canada, US) cutoff-key
+ * pairs — the one place product names meet CHRISTMAS_ORDER_BY_DATES.
+ * Canvas has no cutoff key of its own: it ships on the framed profile
+ * (see printCatalog `canvas_wrap`) and shares the framed dates. The
+ * card is named "Keepsake card" — the register the rest of the site
+ * uses (the "Framed + keepsake card" bundle naming in printCatalog).
+ */
+const ORDER_BY_PRODUCT_CUTOFFS: ReadonlyArray<{
+  product: string;
+  canadaKey: ChristmasCutoffKey;
+  unitedStatesKey: ChristmasCutoffKey;
+}> = [
+  { product: "Framed print", canadaKey: "framed_ca", unitedStatesKey: "framed_us" },
+  { product: "Canvas wrap", canadaKey: "framed_ca", unitedStatesKey: "framed_us" },
+  { product: "Unframed poster", canadaKey: "poster_ca", unitedStatesKey: "poster_us" },
+  { product: "Mug", canadaKey: "mug_ca", unitedStatesKey: "mug_us" },
+  { product: "Keepsake card", canadaKey: "card_ca", unitedStatesKey: "card_us" },
+];
+
+export type ChristmasEarliestCutoff = {
+  /** Products tied at the earliest date in either country, in table order. */
+  products: string[];
+  /** Display dates (e.g. "Dec 8") of the earliest Canada / US cutoffs. */
+  canada: string;
+  unitedStates: string;
+};
+
+/**
+ * The earliest Christmas order-by cutoff across every physical
+ * product, derived from CHRISTMAS_ORDER_BY_DATES. Today that is the
+ * mug and the keepsake card (Canada Dec 8 · US Dec 7) — the deadlines
+ * the banner and the landing bullets lead with (persona sweep U05).
+ */
+export function getEarliestChristmasCutoff(): ChristmasEarliestCutoff {
+  // The cutoff table is never empty, so seeding from its first entry is safe.
+  let earliestCanadaKey = ORDER_BY_PRODUCT_CUTOFFS[0].canadaKey;
+  let earliestUnitedStatesKey = ORDER_BY_PRODUCT_CUTOFFS[0].unitedStatesKey;
+  for (const entry of ORDER_BY_PRODUCT_CUTOFFS) {
+    if (CHRISTMAS_ORDER_BY_DATES[entry.canadaKey] < CHRISTMAS_ORDER_BY_DATES[earliestCanadaKey]) {
+      earliestCanadaKey = entry.canadaKey;
+    }
+    if (
+      CHRISTMAS_ORDER_BY_DATES[entry.unitedStatesKey] <
+      CHRISTMAS_ORDER_BY_DATES[earliestUnitedStatesKey]
+    ) {
+      earliestUnitedStatesKey = entry.unitedStatesKey;
+    }
+  }
+
+  const products: string[] = [];
+  for (const entry of ORDER_BY_PRODUCT_CUTOFFS) {
+    const tied =
+      CHRISTMAS_ORDER_BY_DATES[entry.canadaKey] === CHRISTMAS_ORDER_BY_DATES[earliestCanadaKey] ||
+      CHRISTMAS_ORDER_BY_DATES[entry.unitedStatesKey] ===
+        CHRISTMAS_ORDER_BY_DATES[earliestUnitedStatesKey];
+    if (tied && !products.includes(entry.product)) products.push(entry.product);
+  }
+
+  return {
+    products,
+    canada: formatOrderByDisplayDate(earliestCanadaKey),
+    unitedStates: formatOrderByDisplayDate(earliestUnitedStatesKey),
+  };
+}
+
+/** Lowercase plural label per table product, for prose ("mugs & keepsake cards"). */
+const EARLIEST_CUTOFF_LABEL_PARTS: Record<string, string> = {
+  "Framed print": "framed prints",
+  "Canvas wrap": "canvas wraps",
+  "Unframed poster": "posters",
+  Mug: "mugs",
+  "Keepsake card": "keepsake cards",
+};
+
+function getEarliestCutoffLabel(): string {
+  const parts = getEarliestChristmasCutoff().products.map(
+    (product) => EARLIEST_CUTOFF_LABEL_PARTS[product] ?? product.toLowerCase()
+  );
+  if (parts.length <= 1) return parts[0] ?? "";
+  return `${parts.slice(0, -1).join(", ")} & ${parts[parts.length - 1]}`;
+}
+
+/**
+ * Exported for tests / landing page display. These lines feed the
+ * landing-page bullets above the order-by table AND the "What are the
+ * Christmas order-by dates?" FAQ, so they lead with the earliest
+ * cutoff (persona sweep U05) and stay derived from
+ * CHRISTMAS_ORDER_BY_DATES like everything else.
+ */
+export function getChristmasOrderBySummaryLines(): string[] {
+  const earliest = getEarliestChristmasCutoff();
+  const earliestLabel = getEarliestCutoffLabel();
+  const capitalizedEarliestLabel =
+    earliestLabel.charAt(0).toUpperCase() + earliestLabel.slice(1);
+  const line = (label: string, unitedStatesKey: ChristmasCutoffKey, canadaKey: ChristmasCutoffKey) =>
+    `${label}: United States ${formatOrderByDisplayDate(unitedStatesKey)} · Canada ${formatOrderByDisplayDate(canadaKey)} · rest of world: order early`;
+  return [
+    `${capitalizedEarliestLabel} — earliest cutoff: United States ${earliest.unitedStates} · Canada ${earliest.canada} · rest of world: order early`,
+    line("Framed & canvas", "framed_us", "framed_ca"),
+    line("Posters", "poster_us", "poster_ca"),
+  ];
+}
+
+/**
  * Rows for the Christmas order-by table, derived from
  * CHRISTMAS_ORDER_BY_DATES so the table can never drift from the banner,
- * the landing summary lines, or the FAQ. Canvas has no cutoff key of its
- * own: it ships on the framed profile (see printCatalog `canvas_wrap`)
- * and shares the framed dates, exactly as the summary lines present it.
- * Mug and greeting card use the owner-approved provisional cutoffs
- * (Canada Dec 8 · US Dec 7, approved 2026-10-18). No rest-of-world date
- * is confirmed for ANY product — Printful publishes holiday deadlines
- * per destination country only — so every rest-of-world cell reads
- * "Order early" rather than an invented date.
+ * the landing summary lines, or the FAQ. Mug and keepsake card use the
+ * owner-approved provisional cutoffs (Canada Dec 8 · US Dec 7, approved
+ * 2026-10-18). No rest-of-world date is confirmed for ANY product —
+ * Printful publishes holiday deadlines per destination country only —
+ * so every rest-of-world cell reads "Order early" rather than an
+ * invented date.
  */
 export function getChristmasOrderByTableRows(): ChristmasOrderByTableRow[] {
-  const framed = {
-    canada: formatOrderByDisplayDate("framed_ca"),
-    unitedStates: formatOrderByDisplayDate("framed_us"),
+  const rows: ChristmasOrderByTableRow[] = ORDER_BY_PRODUCT_CUTOFFS.map((entry) => ({
+    product: entry.product,
+    canada: formatOrderByDisplayDate(entry.canadaKey),
+    unitedStates: formatOrderByDisplayDate(entry.unitedStatesKey),
     restOfWorld: REST_OF_WORLD_UNCONFIRMED_LABEL,
-  };
-  return [
-    { product: "Framed print", ...framed, instantNote: null },
-    { product: "Canvas wrap", ...framed, instantNote: null },
-    {
-      product: "Unframed poster",
-      canada: formatOrderByDisplayDate("poster_ca"),
-      unitedStates: formatOrderByDisplayDate("poster_us"),
-      restOfWorld: REST_OF_WORLD_UNCONFIRMED_LABEL,
-      instantNote: null,
-    },
-    {
-      product: "Mug",
-      canada: formatOrderByDisplayDate("mug_ca"),
-      unitedStates: formatOrderByDisplayDate("mug_us"),
-      restOfWorld: REST_OF_WORLD_UNCONFIRMED_LABEL,
-      instantNote: null,
-    },
-    {
-      product: "Greeting card",
-      canada: formatOrderByDisplayDate("card_ca"),
-      unitedStates: formatOrderByDisplayDate("card_us"),
-      restOfWorld: REST_OF_WORLD_UNCONFIRMED_LABEL,
-      instantNote: null,
-    },
-    {
-      product: "HD digital download",
-      canada: null,
-      unitedStates: null,
-      restOfWorld: null,
-      instantNote: "Order any time — delivered instantly",
-    },
-  ];
+    instantNote: null,
+  }));
+  rows.push({
+    product: "HD digital download",
+    canada: null,
+    unitedStates: null,
+    restOfWorld: null,
+    instantNote: "Order any time — delivered instantly",
+  });
+  return rows;
 }
 
 export function isChristmasLandingInSeason(nowMs: number = Date.now()): boolean {
