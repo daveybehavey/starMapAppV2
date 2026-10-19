@@ -37,18 +37,18 @@ test("framed + card bundle subtotal clears the free-shipping threshold", () => {
 
 test("framed + card bundle price line states the total with free shipping", () => {
   const line = getFramedCardBundlePriceLine();
-  assert.equal(line, "$118.00 framed + card · free shipping");
+  assert.equal(line, "$118.00 USD framed + card · free shipping");
   assert.doesNotMatch(line, /\+ shipping/);
 });
 
 test("framed + card bundle line drops the free-shipping claim when the bundle does not qualify", () => {
   const line = getFramedCardBundlePriceLine(20000);
-  assert.equal(line, "$118.00 framed + card");
+  assert.equal(line, "$118.00 USD framed + card");
   assert.doesNotMatch(line, /free shipping/i);
 });
 
 test("framed + HD bundle price line is unchanged (regression)", () => {
-  assert.equal(getFramedHdBundlePriceLine(), "$106.00 framed + HD · free shipping");
+  assert.equal(getFramedHdBundlePriceLine(), "$106.00 USD framed + HD · free shipping");
 });
 
 test("ladder composes the framed_card line from the bundle helper, not the framed tier alone", () => {

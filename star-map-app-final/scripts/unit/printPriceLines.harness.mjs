@@ -1,5 +1,7 @@
 /**
  * Keep in sync with:
+ * - src/lib/pricing.ts (formatPrice — incl. the currency-code suffix,
+ *   sweep U03: every rendered price names its currency, "$49.00 USD")
  * - src/lib/printCheckoutConfig.ts
  *   (getFramedHdBundlePriceLine, getFramedCardBundlePriceLine)
  * - src/lib/paywallPrintCheckout.ts
@@ -15,8 +17,15 @@
  * unframed profile 533; canvas ships on the framed profile).
  */
 
-export function formatPrice(cents) {
-  return `$${(cents / 100).toFixed(2)}`;
+export function formatPrice(cents, currency = "USD") {
+  const code = (currency || "USD").toUpperCase();
+  const formatted = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: code,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(cents / 100);
+  return `${formatted} ${code}`;
 }
 
 export const TIER_CENTS = {

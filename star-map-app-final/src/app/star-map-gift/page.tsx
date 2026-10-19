@@ -24,7 +24,7 @@ const ogImage = `${siteUrl}/custom-star-map-anniversary.webp`;
 const pageTitle =
   "Personalized Star Map Gift — The Exact Night Sky From Your Special Date | StarMapCo";
 const pageDescription =
-  "Create a personalized star map of the exact night sky from a wedding, anniversary, or the night you met. Free preview, HD digital from $9, framed prints from $99.";
+  "Create a personalized star map of the exact night sky from a wedding, anniversary, or the night you met. Free preview, HD digital from $9 USD, framed prints from $99 USD.";
 const breadcrumbs = [
   { href: "/", label: "Home" },
   { href: "/star-map-gift", label: "Star map gift" },
