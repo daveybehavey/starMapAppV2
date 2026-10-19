@@ -21,10 +21,16 @@ type DeliveryFormatModuleProps = {
 
 export default function DeliveryFormatModule({
   heading = "Choose the delivery format that fits the moment",
-  intro = "You only build the map once. After preview, the recommended presentation is framed + HD for a ready-to-hang gift plus instant digital — with free standard shipping on qualifying $100+ orders.",
+  intro,
   sourcePrefix = "delivery-format",
   location,
 }: DeliveryFormatModuleProps) {
+  const freeShippingShortTag = getPrintFreeShippingShortTag();
+  const resolvedIntro =
+    intro ??
+    `You only build the map once. After preview, the recommended presentation is framed + HD for a ready-to-hang gift plus instant digital${
+      freeShippingShortTag ? ` — ${freeShippingShortTag}` : ""
+    }.`;
   const printCheckoutEnabled = /^(1|true|yes)$/i.test(
     (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim()
   );
@@ -70,7 +76,7 @@ export default function DeliveryFormatModule({
     <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
       <div className="space-y-2">
         <h2 className="text-midnight text-lg font-semibold">{heading}</h2>
-        <p className="text-sm text-neutral-800 sm:text-base">{intro}</p>
+        <p className="text-sm text-neutral-800 sm:text-base">{resolvedIntro}</p>
       </div>
 
       <div className={`grid gap-3 ${printCheckoutEnabled ? "md:grid-cols-3" : "md:grid-cols-1"}`}>

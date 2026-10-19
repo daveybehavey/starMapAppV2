@@ -10,7 +10,7 @@ import ProductSchema from "@/components/ProductSchema";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
 import { getInstantHdHeroHref, getInstantHdPriceLine } from "@/lib/digitalGiftCheckout";
-import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import { getPrintFreeShippingShortTag, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import { getPricingTiers, getPrintPricingTiers } from "@/lib/pricing";
 import type { Metadata } from "next";
 
@@ -65,6 +65,9 @@ export const metadata: Metadata = {
 
 export default function StarMapGeneratorPage() {
   const shippingDisclosure = getPrintShippingDisclosure();
+  const freeShippingShortTag = getPrintFreeShippingShortTag();
+  // The first module intro carries the full disclosure; later mentions use the short tag.
+  const shippingTagSentence = freeShippingShortTag ? `${freeShippingShortTag}.` : shippingDisclosure;
   const instantHref = getInstantHdHeroHref("star-map-generator-hero-instant");
   const instantPrice = getInstantHdPriceLine();
   const tiers = getPricingTiers();
@@ -294,7 +297,7 @@ export default function StarMapGeneratorPage() {
 
       <FramedProofSection
         heading="The same generated map can become a framed gift"
-        intro={`This is the part most generator pages skip. After preview, the same design can move into framed checkout, unframed checkout, or HD digital delivery without rebuilding the map. ${shippingDisclosure}`}
+        intro={`This is the part most generator pages skip. After preview, the same design can move into framed checkout, unframed checkout, or HD digital delivery without rebuilding the map. ${shippingTagSentence}`}
         sourcePrefix="generator-proof"
       />
 

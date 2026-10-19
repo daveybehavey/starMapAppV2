@@ -132,11 +132,6 @@ export function buildSitemapEntries(options: BuildSitemapOptions): MetadataRoute
       priority: 0.85,
     },
     {
-      url: `${baseUrl}/personalized-star-map`,
-      changeFrequency: "monthly",
-      priority: 0.85,
-    },
-    {
       url: `${baseUrl}/best-personalized-star-map-gift`,
       changeFrequency: "monthly",
       priority: 0.7,

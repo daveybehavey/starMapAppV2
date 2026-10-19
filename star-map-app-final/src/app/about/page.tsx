@@ -20,6 +20,14 @@ export const metadata: Metadata = {
     description: aboutDescription,
     url: `${siteUrl}/about`,
     siteName: "StarMapCo",
+    images: [
+      {
+        url: `${siteUrl}/custom-star-map-anniversary.webp`,
+        width: 1200,
+        height: 630,
+        alt: "Custom star map preview from StarMapCo",
+      },
+    ],
     type: "website",
   },
 };

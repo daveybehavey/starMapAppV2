@@ -13,6 +13,7 @@ import {
   formatPrintPriceWithShipping,
   getPrintProductionReviewDisclosure,
   getPrintProductionReviewTrustPoint,
+  getPrintFreeShippingShortTag,
   getPrintShippingDisclosure,
 } from "@/lib/printCheckoutConfig";
 import { FRAMED_HD_RECOMMENDED_BADGE } from "@/lib/moneyPageGiftCheckout";
@@ -47,6 +48,9 @@ export const metadata: Metadata = {
 
 export default function StarMapPosterPage() {
   const shippingDisclosure = getPrintShippingDisclosure();
+  const freeShippingShortTag = getPrintFreeShippingShortTag();
+  // Secondary mentions use the short tag; the full disclosure is carried once by PurchaseTrustPanel.
+  const shippingTagSentence = freeShippingShortTag ? `${freeShippingShortTag}.` : shippingDisclosure;
   const productionReviewDisclosure = getPrintProductionReviewDisclosure();
   const productionReviewTrustPoint = getPrintProductionReviewTrustPoint();
   const profile = getBusinessProfile();
@@ -62,7 +66,7 @@ export default function StarMapPosterPage() {
   const faqItems = [
     {
       question: "Is this a physical star map poster?",
-      answer: `Yes. After preview, you can choose an unframed poster or framed print from the same approved design. ${shippingDisclosure}`,
+      answer: `Yes. After preview, you can choose an unframed poster or framed print from the same approved design. ${shippingTagSentence}`,
     },
     {
       question: "Which route is recommended for gifting?",
@@ -399,13 +403,13 @@ export default function StarMapPosterPage() {
 
       <DeliveryFormatModule
         heading="Choose the physical format after preview"
-        intro={`Preview the artwork first, then decide whether this moment should arrive as an unframed poster or a ready-to-hang framed print. ${shippingDisclosure}`}
+        intro={`Preview the artwork first, then decide whether this moment should arrive as an unframed poster or a ready-to-hang framed print. ${shippingTagSentence}`}
         sourcePrefix="poster-format"
       />
 
       <FramedProofSection
         heading="Poster design on screen, framed result on the wall"
-        intro={`Use the poster layout to approve the composition, then move into physical checkout if you want the finished piece to arrive ready to gift or display. ${shippingDisclosure}`}
+        intro={`Use the poster layout to approve the composition, then move into physical checkout if you want the finished piece to arrive ready to gift or display. ${shippingTagSentence}`}
         sourcePrefix="poster-proof"
       />
       <PhysicalProductGallerySection
