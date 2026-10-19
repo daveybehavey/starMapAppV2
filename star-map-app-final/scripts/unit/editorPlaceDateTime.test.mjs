@@ -117,6 +117,39 @@ test("U12: an emptied date field restores the stored date at blur; typed entries
   assert.match(input, /resolveDateInputBlurValue\(/);
 });
 
+test("P1 regression (Codex repro): a Paris probe landing on midnight stays on the entered date", () => {
+  // combineDateTime probes the zone offset with the entered wall fields
+  // read as UTC; 2019-07-14T22:00Z is 2019-07-15 00:00 in Paris. Engines
+  // whose parts formatter reports that midnight as hour 24 with the day
+  // already advanced made Date.UTC count the day twice, returning
+  // 2019-07-13T20:00:00.000Z — one day early. The converter normalizes
+  // hour 24 -> 0 (as dateTime.ts's zoned helper already did).
+  const iso = combineDateTime("2019-07-14", "22:00:00", "Europe/Paris");
+  assert.equal(iso, "2019-07-14T20:00:00.000Z"); // 22:00 CEST = 20:00Z
+  assert.deepEqual(formatDateTimeForLocation(iso, "Europe/Paris"), {
+    date: "2019-07-14",
+    time: "22:00",
+  });
+});
+
+test("P1 regression: midnight-crossing probes in Sydney and New York stay on the entered date", () => {
+  // 2019-07-14T14:00Z is 2019-07-15 00:00 in Sydney (AEST, UTC+10).
+  const sydneyIso = combineDateTime("2019-07-14", "14:00:00", "Australia/Sydney");
+  assert.equal(sydneyIso, "2019-07-14T04:00:00.000Z"); // 14:00 AEST = 04:00Z
+  assert.deepEqual(formatDateTimeForLocation(sydneyIso, "Australia/Sydney"), {
+    date: "2019-07-14",
+    time: "14:00",
+  });
+
+  // 2019-07-14T04:00Z is 2019-07-14 00:00 in New York (EDT, UTC-4).
+  const newYorkIso = combineDateTime("2019-07-14", "04:00:00", "America/New_York");
+  assert.equal(newYorkIso, "2019-07-14T08:00:00.000Z"); // 04:00 EDT = 08:00Z
+  assert.deepEqual(formatDateTimeForLocation(newYorkIso, "America/New_York"), {
+    date: "2019-07-14",
+    time: "04:00",
+  });
+});
+
 test("U07: mobile checklist and unlock copy use the confirmed-place predicate, matching desktop", () => {
   const mobile = readSrc("app/MobileCreate.tsx");
   assert.match(mobile, /label: "Date \+ place", done: hasDate && hasConfirmedLocation/);

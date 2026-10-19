@@ -152,7 +152,11 @@ export function combineDateTime(date: string, time: string, timezone?: string, f
     const localYear = Number(parts.find((p) => p.type === "year")?.value);
     const localMonth = Number(parts.find((p) => p.type === "month")?.value);
     const localDay = Number(parts.find((p) => p.type === "day")?.value);
-    const localHour = Number(parts.find((p) => p.type === "hour")?.value);
+    const localHourPart = Number(parts.find((p) => p.type === "hour")?.value);
+    // Some engines report midnight as hour 24 with the day already
+    // advanced; normalize it (as dateTime.ts's zoned helper does) or
+    // Date.UTC counts the day twice and the instant lands a day early.
+    const localHour = localHourPart === 24 ? 0 : localHourPart;
     const localMinute = Number(parts.find((p) => p.type === "minute")?.value);
 
     const localMs = Date.UTC(localYear, localMonth - 1, localDay, localHour, localMinute, 0);
