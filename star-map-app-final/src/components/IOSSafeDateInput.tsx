@@ -10,6 +10,7 @@ import {
   getDateInputPlaceholder,
   isValidIsoDateInput,
   normalizeFlexibleDateInput,
+  resolveDateInputBlurValue,
 } from "@/lib/dateInput";
 
 type IOSSafeDateInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type">;
@@ -69,9 +70,16 @@ export default function IOSSafeDateInput(props: IOSSafeDateInputProps) {
   const handleBlur = (event: FocusEvent<HTMLInputElement>) => {
     if (useTextFallback) {
       const normalized = normalizeFlexibleDateInput(event.currentTarget.value.trim());
-      setTextValue(normalized);
-      event.currentTarget.value = normalized;
-      const valid = !normalized || isValidIsoDateInput(normalized);
+      // U12: an emptied field restores the controlled (stored) date at blur
+      // instead of sitting blank while the editor still holds — and uses —
+      // that date, matching the controlled desktop input.
+      const settled = resolveDateInputBlurValue(
+        normalized,
+        typeof valueProp === "string" ? valueProp : undefined,
+      );
+      setTextValue(settled);
+      event.currentTarget.value = settled;
+      const valid = !settled || isValidIsoDateInput(settled);
       event.currentTarget.setCustomValidity(valid ? "" : DATE_INPUT_ERROR_MESSAGE);
       setIsInvalid(!valid);
     }

@@ -2544,7 +2544,11 @@ export function EditorExperience({
                         {!collapsedCards.dateLocation && (
                           <div className="grid gap-2 md:grid-cols-2">
                             <LocationSearch onLocationChange={handleLocationChange} />
-                            <DateTimeControls dateTime={dateTime} onChange={handleDateTimeChange} />
+                            <DateTimeControls
+                              dateTime={dateTime}
+                              onChange={handleDateTimeChange}
+                              timezone={location.timezone}
+                            />
                           </div>
                         )}
                       </section>

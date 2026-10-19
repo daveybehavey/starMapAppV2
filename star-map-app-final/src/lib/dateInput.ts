@@ -72,6 +72,19 @@ export function normalizeFlexibleDateInput(value: string) {
   return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6)}`;
 }
 
+/**
+ * The value a text-fallback date field settles on at blur. A typed entry
+ * (valid or partial) stays as typed; an EMPTIED field restores the
+ * controlled value, so the field never sits blank while a date is stored —
+ * the native desktop date input is controlled by the stored value and
+ * behaves the same way. Returns "" only when there is no controlled value
+ * to restore (uncontrolled usage).
+ */
+export function resolveDateInputBlurValue(normalized: string, controlledValue?: string) {
+  if (normalized) return normalized;
+  return controlledValue ?? "";
+}
+
 export function formatDateInput(date: Date) {
   if (!Number.isFinite(date.getTime())) return "";
   const y = date.getFullYear();

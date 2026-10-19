@@ -11,6 +11,7 @@ import {
   isValidIsoDateInput,
   toISODate,
 } from "@/lib/dateInput";
+import { formatDateTimeForLocation } from "@/lib/dateTime";
 
 type Props = {
   dateTime: string;
@@ -20,8 +21,13 @@ type Props = {
 
 export default function DateTimeControls({ dateTime, onChange, timezone }: Props) {
   const selectedDate = useMemo(() => new Date(dateTime), [dateTime]);
-  const dateValue = formatDateInput(selectedDate);
-  const timeValue = formatTimeInput(selectedDate);
+  // U01: the fields read and write wall-clock time AT THE PLACE (the
+  // location's timezone), not the visitor's device timezone — a Sydney map
+  // shows the Sydney date, and typing 21:00 for Paris stores 21:00 in Paris.
+  const { dateValue, timeValue } = useMemo(
+    () => getDateTimeInputValues(dateTime, timezone, selectedDate),
+    [dateTime, timezone, selectedDate],
+  );
   const timezoneLabel = timezone || "UTC";
   const localPreview = useMemo(
     () => formatLocalPreview(selectedDate, timezoneLabel),
@@ -88,6 +94,24 @@ function formatTimeInput(date: Date) {
   const m = String(date.getMinutes()).padStart(2, "0");
   const s = String(date.getSeconds()).padStart(2, "0");
   return `${h}:${m}:${s}`;
+}
+
+/**
+ * Field values for the stored instant: the calendar date and wall time in
+ * the place's timezone when one is known (same contract as
+ * SimplifiedEditor's getDateTimeInputValues). Falls back to device-local
+ * fields when no timezone is supplied or the zone cannot resolve the
+ * instant. Purely presentational — the stored instant is never rewritten
+ * here; onChange only fires from the field handlers above.
+ */
+function getDateTimeInputValues(dateTime: string, timezone: string | undefined, parsed: Date) {
+  if (timezone) {
+    const byTimezone = formatDateTimeForLocation(dateTime, timezone);
+    if (byTimezone) {
+      return { dateValue: byTimezone.date, timeValue: `${byTimezone.time}:00` };
+    }
+  }
+  return { dateValue: formatDateInput(parsed), timeValue: formatTimeInput(parsed) };
 }
 
 function formatLocalPreview(date: Date, timezone: string) {
