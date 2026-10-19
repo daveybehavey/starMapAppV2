@@ -16,6 +16,7 @@ import {
   getStarDensityTuning,
   resolveMapLookTier,
   resolvePrintSafeInset,
+  resolveTextFitFrameEnabled,
   resolveTransparentMat,
   shouldApplyPolishFinish,
   shouldUseFlatSkyBackground,
@@ -530,7 +531,7 @@ export function renderStarMap({
     }
     drawText(ctx, width, targetHeight, recipe.textBoxes, textBounds, scale, {
       shape: shapeName,
-      frameEnabled: showFrame && !transparentMat,
+      frameEnabled: resolveTextFitFrameEnabled(matPurpose, recipe.renderOptions),
     });
     ctx.restore();
   } else if (textBounds) {

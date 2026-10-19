@@ -22,6 +22,10 @@ import {
   resolveTextFitScale,
 } from "../../src/lib/textFit.ts";
 import { normalizeEditorDraftData } from "../../src/lib/editorDraft.ts";
+import {
+  resolveTextFitFrameEnabled,
+  resolveTransparentMat,
+} from "./textFitFrameParity.harness.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), "utf8");
@@ -268,4 +272,88 @@ test("Rider: remaining display copy says Keepsake card; GA4 item name deliberate
   // Not display copy: the analytics taxonomy label stays (renaming it
   // would split GA4 item history).
   assert.match(read("src/lib/analytics.ts"), /card_4x6: "Star Map Greeting Card"/);
+});
+
+/* ---------- U06 follow-up: transparent-mat frame parity (Codex round 2) ---------- */
+
+test("frame parity: a transparent mat disables the text-fit frame even with the frame switch on", () => {
+  // The Minimal tier bakes transparentBackground into the recipe; turning
+  // Frame Border on afterwards yields {transparentBackground: true,
+  // frameEnabled: true}. The full renderer draws no frame over a
+  // transparent mat, so its text-fit frame flag is false.
+  const minimalFrameOn = { transparentBackground: true, frameEnabled: true };
+  assert.equal(resolveTransparentMat("preview", minimalFrameOn), true);
+  assert.equal(resolveTextFitFrameEnabled("preview", minimalFrameOn), false);
+});
+
+test("frame parity: a framed non-transparent recipe keeps the text-fit frame", () => {
+  assert.equal(resolveTextFitFrameEnabled("preview", { frameEnabled: true }), true);
+  assert.equal(
+    resolveTextFitFrameEnabled("preview", { frameEnabled: true, transparentBackground: false }),
+    true,
+  );
+  // Defaults: no render options at all still means frame on, mat filled.
+  assert.equal(resolveTextFitFrameEnabled("preview", undefined), true);
+  // Frame switched off wins regardless of the mat.
+  assert.equal(resolveTextFitFrameEnabled("preview", { frameEnabled: false }), false);
+  assert.equal(
+    resolveTextFitFrameEnabled("preview", { frameEnabled: false, transparentBackground: false }),
+    false,
+  );
+  // Print purpose never has a transparent mat, so the frame flag follows
+  // the frame switch alone.
+  assert.equal(
+    resolveTextFitFrameEnabled("print", { frameEnabled: true, transparentBackground: true }),
+    true,
+  );
+});
+
+test("frame parity: the flag flips the 400px fit between scale 1 and the frame-inset scale", () => {
+  // Codex's example: a 400px-wide line on a 400px canvas. With the flag
+  // off (transparent mat), the fit bound is the full canvas width and the
+  // line renders at scale 1 in both the overlay and the full renderer.
+  const layout = {
+    shape: "rectangle",
+    centerYNorm: 0.12,
+    lineHeightPx: 57.6,
+    width: 400,
+    height: 400,
+  };
+  const minimalFrameOn = { transparentBackground: true, frameEnabled: true };
+  const overlayFlag = resolveTextFitFrameEnabled("preview", minimalFrameOn);
+  const framelessWidth = resolveShapeTextAvailableWidth({ ...layout, frameEnabled: overlayFlag });
+  assert.equal(framelessWidth, 400);
+  assert.equal(resolveTextFitScale(400, framelessWidth), 1);
+  // With the flag on (framed, filled mat), the bound is the frame's inner
+  // width and the same line shrinks to 376/400 = 0.94 — the size the
+  // overlay wrongly produced for the transparent-mat recipe before.
+  const framedWidth = resolveShapeTextAvailableWidth({ ...layout, frameEnabled: true });
+  assert.equal(framedWidth, 400 - resolveFrameInsetPx(400, 400) * 2);
+  assert.equal(resolveTextFitScale(400, framedWidth), 0.94);
+});
+
+test("frame parity: harness stays locked to mapLookTiers and both call sites use the shared helper", () => {
+  const lib = read("src/lib/mapLookTiers.ts");
+  assert.match(lib, /export function resolveTextFitFrameEnabled\(/);
+  assert.match(lib, /const showFrame = renderOptions\?\.frameEnabled \?\? true;/);
+  assert.match(lib, /return showFrame && !resolveTransparentMat\(purpose, renderOptions\);/);
+  const harness = read("scripts/unit/textFitFrameParity.harness.mjs");
+  assert.match(harness, /return renderOptions\?\.transparentBackground \?\? false;/);
+  assert.match(harness, /return showFrame && !resolveTransparentMat\(purpose, renderOptions\);/);
+
+  const sky = read("src/lib/renderSky.ts");
+  assert.match(sky, /resolveTextFitFrameEnabled,\n\s+resolveTransparentMat,/);
+  assert.match(
+    sky,
+    /frameEnabled: resolveTextFitFrameEnabled\(matPurpose, recipe\.renderOptions\),/,
+  );
+
+  const preview = read("src/components/PreviewCanvas.tsx");
+  assert.match(preview, /import \{ resolveTextFitFrameEnabled \} from "@\/lib\/mapLookTiers";/);
+  assert.match(
+    preview,
+    /frameEnabled: resolveTextFitFrameEnabled\("preview", baseRecipe\?\.renderOptions\),/,
+  );
+  // The pre-fix overlay expression (frame switch only, no mat term) is gone.
+  assert.ok(!preview.includes("baseRecipe?.renderOptions?.frameEnabled ?? true"));
 });

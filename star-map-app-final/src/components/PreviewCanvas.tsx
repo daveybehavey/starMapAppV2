@@ -9,6 +9,7 @@ import {
   clamp,
   type MapRecipe,
 } from "@/lib/renderSky";
+import { resolveTextFitFrameEnabled } from "@/lib/mapLookTiers";
 import { useStore } from "@/lib/store";
 import { useShallow } from "zustand/react/shallow";
 import { useAstronomyWorker } from "@/hooks/useAstronomyWorker";
@@ -302,7 +303,11 @@ export default function PreviewCanvas({
       pixelRatio,
       textBounds: textBoundsRef.current,
       shape: effectiveShape,
-      frameEnabled: baseRecipe?.renderOptions?.frameEnabled ?? true,
+      // Same derivation renderStarMap feeds its own drawText call (the
+      // base render above runs with the default "preview" mat purpose):
+      // a transparent mat draws no frame, so the overlay must not fit
+      // text against the frame's inset either.
+      frameEnabled: resolveTextFitFrameEnabled("preview", baseRecipe?.renderOptions),
     });
     if (activeBox) {
       const rect = textBoundsRef.current.get(activeBox);
