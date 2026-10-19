@@ -207,8 +207,11 @@ function zonedWallTimeToUtcDate(
 /**
  * Parse a YYYY-MM-DD editor query date into an ISO instant.
  *
- * - With `timeZone`: noon on that calendar date in the resolved city timezone
- *   (prevents browser/city TZ skew from shifting the intended calendar day).
+ * - With `timeZone`: the evening default (21:00 — EVENING_DEFAULT_TIME) on
+ *   that calendar date in the resolved city timezone, so a date-only
+ *   quick-start lands on the same 9 PM wall time a fresh editor defaults
+ *   to. The result is verified against the requested calendar date in that
+ *   zone (prevents browser/city TZ skew from shifting the intended day).
  * - Without `timeZone`: preserves legacy browser-local noon behavior for
  *   generic/non-city name-only handoffs.
  */
@@ -229,7 +232,8 @@ export function parseCalendarDateParamToIso(
     return parsed.toISOString();
   }
 
-  const zoned = zonedWallTimeToUtcDate(year, month, day, 12, 0, resolvedZone);
+  const [eveningHour, eveningMinute] = EVENING_DEFAULT_TIME.split(":").map(Number);
+  const zoned = zonedWallTimeToUtcDate(year, month, day, eveningHour, eveningMinute, resolvedZone);
   if (!zoned) return null;
 
   const formatted = formatDateTimeForLocation(zoned.toISOString(), resolvedZone);
