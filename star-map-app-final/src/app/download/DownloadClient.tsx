@@ -1671,11 +1671,21 @@ export default function DownloadClient() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold text-white sm:text-xl">Your star map</h2>
-              <p className="mt-1 text-xs text-neutral-300">This preview matches your final HD file.</p>
+              <p className="mt-1 text-xs text-neutral-300">
+                {status === "not-paid"
+                  ? "Your preview appears here once your access is verified."
+                  : "This preview matches your final HD file."}
+              </p>
             </div>
-            <span className="rounded-full border border-emerald-300/50 bg-emerald-500/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-100">
-              HD ready
-            </span>
+            {/* The HD-ready badge asserts a verified, rendered file: it is
+                only true once access is verified (paid). An unverified
+                visitor previously saw it next to a perpetual "Rendering
+                your preview…" spinner — a contradictory state (fleet U08). */}
+            {paid ? (
+              <span className="rounded-full border border-emerald-300/50 bg-emerald-500/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-100">
+                HD ready
+              </span>
+            ) : null}
           </div>
           <div className="mt-4 overflow-hidden rounded-2xl border border-white/12 bg-[#0b0f24]/95 shadow-inner">
             <div className="relative w-full" style={{ aspectRatio: previewAspect }}>
@@ -1688,6 +1698,20 @@ export default function DownloadClient() {
                   className="object-contain p-2"
                   sizes="(max-width: 1024px) 100vw, 768px"
                 />
+              ) : status === "not-paid" ? (
+                <div className="flex h-full w-full items-center justify-center px-6">
+                  <p className="max-w-sm text-center text-xs leading-relaxed text-neutral-300">
+                    Access not verified yet — reopen your secure success link, or restore access
+                    below with the email you used at checkout, and your preview will appear here.
+                  </p>
+                </div>
+              ) : status === "no-draft" ? (
+                <div className="flex h-full w-full items-center justify-center px-6">
+                  <p className="max-w-sm text-center text-xs leading-relaxed text-neutral-300">
+                    No map is saved on this device yet — open the editor to create or reload your
+                    map, then return here to preview and download it.
+                  </p>
+                </div>
               ) : (
                 <div className="flex h-full w-full items-center justify-center">
                   <div className="flex flex-col items-center gap-3 text-xs text-neutral-300">
