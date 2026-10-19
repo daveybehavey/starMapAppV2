@@ -1,6 +1,7 @@
 import {
   buildPrintEditorCheckoutHref,
   formatPrintPriceWithShipping,
+  getFramedCardBundlePriceLine,
   getFramedHdBundlePriceLine,
 } from "@/lib/printCheckoutConfig";
 import { buildDigitalEditorCheckoutHref } from "@/lib/digitalGiftCheckout";
@@ -29,7 +30,6 @@ export function buildGiftFormatTiers(
     printTiers.poster_unframed.amountCents,
     printTiers.poster_unframed.currency,
   );
-  const cardPrice = formatPrice(printTiers.card_4x6.amountCents, printTiers.card_4x6.currency);
   const canvasPrice = formatPrintPriceWithShipping(
     printTiers.canvas_wrap.amountCents,
     printTiers.canvas_wrap.currency,
@@ -74,7 +74,7 @@ export function buildGiftFormatTiers(
     {
       id: "framed_card",
       label: "Framed + keepsake card",
-      priceLine: `${formatPrintPriceWithShipping(printTiers.poster_framed.amountCents, printTiers.poster_framed.currency)} + ${cardPrice} card`,
+      priceLine: getFramedCardBundlePriceLine(),
       detail: "Main wall gift plus a small 4×6 card from the same map.",
       href: buildPrintEditorCheckoutHref({
         source: `${sourcePrefix}-framed-card`,

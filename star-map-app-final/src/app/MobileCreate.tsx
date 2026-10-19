@@ -1735,7 +1735,7 @@ export function MobileCreate({
                     </select>
                     {printShippingCountry && posterShippingFootnote ? (
                       <p className="mt-1 text-[10px] text-amber-100/80">
-                        Estimated shipping to {getPrintShippingCountryLabel(printShippingCountry)}: {posterShippingFootnote}
+                        Estimated shipping to {getPrintShippingCountryLabel(printShippingCountry)}: {posterShippingFootnote}.
                       </p>
                     ) : null}
                     <PrintGiftDecisionPanel

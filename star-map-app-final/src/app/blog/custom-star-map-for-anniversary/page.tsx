@@ -297,8 +297,10 @@ export default function AnniversaryPostPage() {
                 50th, and beyond.
               </li>
               <li>
-                <strong>What size star map should I choose?</strong> A3 or 18x24 inches are common display sizes, depending
-                on where you plan to display it.
+                <strong>What size star map should I choose?</strong> Our framed print is 14×14 inches and our unframed
+                poster is 18×18 inches — both square formats, so choose by your space and whether you want it ready to
+                hang. If you pick the HD digital download instead, you can print it locally at whatever size suits your
+                frame.
               </li>
               <li>
                 <strong>Can I order a digital version?</strong> Many providers offer digital downloads for

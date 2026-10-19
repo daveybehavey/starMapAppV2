@@ -5,9 +5,16 @@
  */
 export const POLICY_LAST_UPDATED_ISO = {
   privacy: "2026-08-08",
-  terms: "2026-03-16",
-  shipping: "2026-08-07",
-  returns: "2026-08-07",
+  // Terms content changed 2026-06-20 (delivery-timing clarification) without
+  // the date moving; the 2026-10-18 digital-refund exception harmonisation
+  // is the latest material change.
+  terms: "2026-10-18",
+  // Shipping copy changed 2026-08-13 (#236 transit wording) after the
+  // 2026-08-07 claim-window update; later edits were presentational only.
+  shipping: "2026-08-13",
+  // Returns content harmonised with the Love-It Guarantee line 2026-10-18
+  // (PR #325) after the 2026-08-07 claim-window update.
+  returns: "2026-10-18",
 } as const;
 
 export type PolicyPageKey = keyof typeof POLICY_LAST_UPDATED_ISO;

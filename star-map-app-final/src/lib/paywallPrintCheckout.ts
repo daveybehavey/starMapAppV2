@@ -1,7 +1,7 @@
 import type { PaywallPrintCheckoutRow } from "@/lib/printCatalog";
 import type { PrintVariant } from "@/lib/printCatalog";
 import { PAYWALL_PRINT_CHECKOUT_ROWS } from "@/lib/printCatalog";
-import { formatPrice, getPrintDigitalAddOnPrice, getPrintPricingTiers } from "@/lib/pricing";
+import { formatPrice, getPrintPricingTiers } from "@/lib/pricing";
 import { formatPrintShippingEstimate } from "@/lib/printfulShipping";
 import {
   getPrintMerchandiseSubtotalCents,
@@ -18,11 +18,6 @@ export function getPaywallPrintCheckoutPresentation(
   printShippingCountry: string | null | undefined,
 ): PaywallPrintCheckoutPresentationRow[] {
   const tiers = getPrintPricingTiers();
-  const addon = getPrintDigitalAddOnPrice();
-  const digitalAddonLabel = formatPrice(addon.amountCents, addon.currency);
-
-  const cardTier = tiers.card_4x6;
-  const cardAddonLabel = formatPrice(cardTier.amountCents, cardTier.currency);
 
   return PAYWALL_PRINT_CHECKOUT_ROWS.map((row, index) => {
     const tier = tiers[row.variant];
@@ -36,10 +31,15 @@ export function getPaywallPrintCheckoutPresentation(
     const shippingLabel = qualifiesForPrintFreeShipping(merchandiseSubtotalCents)
       ? "free shipping"
       : formatPrintShippingEstimate(row.variant, printShippingCountry ?? null, "shipping");
-    const parts = [productPrice, shippingLabel];
-    if (row.includeDigitalAddOn) parts.push(digitalAddonLabel);
-    if (row.includeCardAddOn) parts.push(cardAddonLabel);
-    const secondaryLine = parts.join(" + ");
+    // Bundle rows (print + add-on) lead with the bundle TOTAL, matching the
+    // marketing pages' bundle lines (e.g. "$106.00 framed + HD · free
+    // shipping" from getFramedHdBundlePriceLine); the headline names the
+    // components. Single-product rows keep the product price + shipping
+    // estimate construction used sitewide.
+    const isBundleRow = Boolean(row.includeDigitalAddOn || row.includeCardAddOn);
+    const secondaryLine = isBundleRow
+      ? `${formatPrice(merchandiseSubtotalCents, tier.currency)} · ${shippingLabel}`
+      : [productPrice, shippingLabel].join(" + ");
     return { ...row, index, headline, secondaryLine };
   });
 }
@@ -79,7 +79,8 @@ export function formatPosterShippingFootnote(printShippingCountry: string | null
   if (!printShippingCountry) return null;
   const framed = formatPrintShippingEstimate("poster_framed", printShippingCountry);
   const unframed = formatPrintShippingEstimate("poster_unframed", printShippingCountry);
-  return `Poster tiers — framed ${framed}, unframed ${unframed}.`;
+  // No trailing period: render sites add their own sentence punctuation.
+  return `framed print ${framed}, unframed poster ${unframed}`;
 }
 
 /** Desktop editor print panel — multi-column grid */

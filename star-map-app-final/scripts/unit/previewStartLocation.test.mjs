@@ -277,3 +277,17 @@ test("editing the text invalidates the previous query's suggestions immediately"
     /const showNoMatches = !error && !loading && !hasResults && resultsQuery === value;/
   );
 });
+
+test("U11: homepage hero blocks an empty submit with the quick-start message", () => {
+  const hero = readSrc("components/HeroEditorDeferred.tsx");
+  // Same copy and treatment as PreviewStartForm: prevent the native GET,
+  // show the message, and only track a submit that actually goes through.
+  assert.match(hero, /Enter date and location first\./);
+  assert.match(hero, /role="alert"/);
+  const guardAt = hero.indexOf('setValidationMessage("Enter date and location first.")');
+  const trackAt = hero.indexOf('track("hero_preview_submit"');
+  assert.ok(guardAt >= 0, "hero validation guard missing");
+  assert.ok(trackAt > guardAt, "hero must validate before tracking the submit");
+  const submitBody = hero.slice(hero.indexOf("const handleSubmit"), hero.indexOf("const handleFramedPathClick"));
+  assert.match(submitBody, /if \(!hasDate \|\| !hasLocation\) \{\s*event\.preventDefault\(\);/);
+});

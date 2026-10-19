@@ -10,6 +10,7 @@ import { resolvePreviewLocationFields, type PickedPreviewLocation } from "@/lib/
 export default function HeroEditorDeferred() {
   const [locationText, setLocationText] = useState("");
   const [pickedLocation, setPickedLocation] = useState<PickedPreviewLocation | null>(null);
+  const [validationMessage, setValidationMessage] = useState<string | null>(null);
 
   // Same editor-entry payload contract as PreviewStartForm: a picked
   // suggestion submits coordinate-resolved; free text stays name-only,
@@ -25,6 +26,16 @@ export default function HeroEditorDeferred() {
     const hasDate = String(formData.get("date") ?? "").trim().length > 0;
     const hasLocation = String(formData.get("location") ?? "").trim().length > 0;
 
+    // Same guard as PreviewStartForm: without a date the editor would
+    // silently fall back to today, which is rarely the moment the visitor
+    // meant to capture. Block the submit and say what's missing instead.
+    if (!hasDate || !hasLocation) {
+      event.preventDefault();
+      setValidationMessage("Enter date and location first.");
+      return;
+    }
+
+    setValidationMessage(null);
     track("hero_preview_submit", {
       source: "home-hero",
       hasDate,
@@ -105,6 +116,11 @@ export default function HeroEditorDeferred() {
           </>
         ) : null}
         <p className="mt-2 text-xs text-white/60">{MOBILE_DATE_HELPER_TEXT}</p>
+        {validationMessage ? (
+          <p className="mt-2 text-sm font-semibold text-amber-200" role="alert">
+            {validationMessage}
+          </p>
+        ) : null}
         <button
           type="submit"
           className="text-midnight mt-5 w-full rounded-full bg-amber-400 px-4 py-3 text-sm font-semibold shadow-sm transition hover:-translate-y-[1px] hover:shadow-md focus:ring-2 focus:ring-amber-300 focus:outline-none"

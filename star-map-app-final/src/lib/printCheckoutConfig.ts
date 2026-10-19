@@ -129,4 +129,25 @@ export function getFramedHdBundlePriceLine(): string {
   return `${total} framed + HD digital`;
 }
 
+/**
+ * Framed + keepsake card bundle line. Shipping is judged on the BUNDLE
+ * subtotal (framed + card), matching checkout: `paywallPrintCheckout` /
+ * `applyPrintFreeShippingToCheckout` waive shipping when the combined
+ * merchandise subtotal clears the threshold, so the card bundle qualifies
+ * even though the framed tier alone does not.
+ */
+export function getFramedCardBundlePriceLine(): string {
+  const tiers = getPrintPricingTiers();
+  const currency = tiers.poster_framed.currency;
+  const subtotal = getPrintMerchandiseSubtotalCents({
+    variant: "poster_framed",
+    includeCardAddOn: true,
+  });
+  const total = formatPrice(subtotal, currency);
+  if (qualifiesForPrintFreeShipping(subtotal)) {
+    return `${total} framed + card · free shipping`;
+  }
+  return `${total} framed + card`;
+}
+
 export { getPrintFreeShippingOfferLine, getPrintFreeShippingShortTag } from "@/lib/printFreeShipping";
