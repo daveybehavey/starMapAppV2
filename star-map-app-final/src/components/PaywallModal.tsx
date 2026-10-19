@@ -736,7 +736,7 @@ export function PaywallModal({
                   </span>
                 </div>
                 <p className="text-xs text-neutral-700">
-                  Unlimited HD exports for ongoing use • cancel anytime
+                  Unlimited HD exports • made for 3+ maps a month • cancel anytime
                 </p>
               </div>
               <div className="text-right text-sm font-semibold text-amber-900">
