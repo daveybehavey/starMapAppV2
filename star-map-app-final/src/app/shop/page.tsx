@@ -67,7 +67,7 @@ function merchShopImage(id: MerchFamilyId): { src: string; alt: string } | null 
     case "pins_set":
       return {
         src: "/printproof/gift-raw/pins/pins-printful.jpg",
-        alt: "Pin button with an example star map design on the front — your own map is printed to order",
+        alt: "Set of pin buttons with an example star map design — your own map is printed to order",
       };
     case "tee_unisex_bc3001":
       return {
@@ -140,9 +140,6 @@ export default function ShopPage() {
     (printTiers.mug_11oz.currency || "USD").toUpperCase(),
   );
 
-  const stickerFamily = merchFamilies.find((f) => f.id === "sticker_kisscut");
-  const stickerPrice = stickerFamily ? formatPrice(getMerchPublicDisplayPriceCents(stickerFamily), "USD") : null;
-
   const productCards = [
     {
       key: "framed",
@@ -191,7 +188,7 @@ export default function ShopPage() {
       imageSrc: "/printproof/gift-raw/mug/mug-printful.jpg",
       alt: "Black glossy mug (11 oz) with an example star map design — your own map is printed to order",
       title: printTiers.mug_11oz.label,
-      detail: "Everyday merch gift — not the wedding hero, but great for birthdays and desk gifts.",
+      detail: "Your star map on a black glossy 11 oz mug — an everyday gift for birthdays, anniversaries, and desk-side coffee.",
       price: mugPrice,
       shippingNote: PRINT_NEUTRAL_SHIPPING_CARD_NOTE,
       href: "/editor?mode=quick&source=shop-mug&checkout=print&print_variant=mug_11oz",
@@ -215,25 +212,9 @@ export default function ShopPage() {
         "mt-auto inline-flex justify-center rounded-full bg-midnight px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-midnight/90",
       darkCard: true,
     },
-    ...(stickerFamily && stickerPrice
-      ? [
-          {
-            key: "stickers",
-            imageSrc: "/printproof/gift-raw/sticker/sticker-printful.jpg",
-            alt: "Kiss-cut vinyl sticker with an example star map design — your own map is printed to order",
-            title: getMerchPublicDisplayLabel(stickerFamily),
-            detail:
-              "Weatherproof kiss-cut stickers from the same map you preview — great add-on gift or laptop keepsake.",
-            price: `${stickerPrice} + shipping`,
-            shippingNote: "Pick size in editor · Made to order by our print partner",
-            href: "/editor?mode=quick&source=shop-sticker&merch_family=sticker_kisscut",
-            cta: "Customize stickers",
-            ctaClass:
-              "mt-auto inline-flex justify-center rounded-full bg-midnight px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-midnight/90",
-            darkCard: false,
-          },
-        ]
-      : []),
+    // Kiss-cut stickers are sold in the "Stickers & small merch" section
+    // below (the canonical merch home) — they are deliberately not repeated
+    // in this print/digital grid (persona sweep U18).
   ] as const;
 
   return (

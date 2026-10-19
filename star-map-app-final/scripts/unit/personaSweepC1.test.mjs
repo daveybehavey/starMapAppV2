@@ -31,9 +31,11 @@ test("U16a: editor HD export note is customer language, not internal jargon", ()
 // U17: /shop shipping suffixes use the prints' spaced construction.
 test("U17: shop merch prices use the same spaced shipping suffix as prints", () => {
   const shop = readSrc("app/shop/page.tsx");
-  assert.doesNotMatch(shop, /\$\{stickerPrice\}\+ shipping/);
-  assert.doesNotMatch(shop, /\{priceLine\}\+ shipping/);
-  assert.match(shop, /\$\{stickerPrice\} \+ shipping/);
+  // U18 removed the grid sticker card that carried `${stickerPrice}`
+  // (stickers are listed once, in the merch section), so the spaced-
+  // suffix rule is pinned on the merch price line that remains — and on
+  // the absence of any unspaced `+ shipping` concatenation.
+  assert.doesNotMatch(shop, /\}\+ shipping/);
   assert.match(shop, /\{priceLine\} \+ shipping at checkout/);
 });
 
