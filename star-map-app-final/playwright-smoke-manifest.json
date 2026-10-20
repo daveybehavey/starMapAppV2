@@ -26,7 +26,8 @@
         "tests/export-functionality.spec.ts",
         "tests/api-route-regressions.spec.ts",
         "tests/checkout-security.spec.ts",
-        "tests/premium-rendering.spec.ts"
+        "tests/premium-rendering.spec.ts",
+        "tests/sticky-cta-dock-measurement.spec.ts"
       ]
     }
   ],
