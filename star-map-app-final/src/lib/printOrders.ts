@@ -56,6 +56,21 @@ export type PrintOrderRecord = {
   printConfirmationMessageId?: string;
   printConfirmationError?: string;
   shippingNotificationSentAt?: number;
+  /**
+   * When the package_shipped fact was first observed (ms epoch). Persisted
+   * independently of the shipping-notification email outcome (see
+   * shippingNotifications.ts) because the review-request engine anchors its
+   * physical due window to the shipment fact, not to an email side effect.
+   * First-write-wins: a reshipment never resets the clock.
+   */
+  shippedAt?: number;
+  /**
+   * Buyer marked the order as a gift at checkout. Review requests are never
+   * sent for gift orders. The checkout writer lands in a follow-up PR; until
+   * then the field is absent (treated as non-gift) and engine activation is
+   * gated on the writer existing (see reviewRequests.ts).
+   */
+  isGift?: boolean;
   shippingNotificationProvider?: "resend";
   shippingNotificationTrackingNumber?: string;
   shippingNotificationMessageId?: string;

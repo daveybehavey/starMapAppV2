@@ -28,6 +28,13 @@ export type StripeSessionEntitlement = {
   orderType?: CheckoutOrderType;
   printVariant?: PrintVariant;
   includesDigitalAddOn?: boolean;
+  /**
+   * Buyer marked the order as a gift at checkout. Review requests are never
+   * sent for gift orders. The checkout writer lands in a follow-up PR; until
+   * then the field is absent (treated as non-gift) and engine activation is
+   * gated on the writer existing (see reviewRequests.ts).
+   */
+  isGift?: boolean;
   claimToken?: string;
   lastConsumeToken?: string;
   lastConsumeRemaining?: number;

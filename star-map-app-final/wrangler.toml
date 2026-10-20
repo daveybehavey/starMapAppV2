@@ -14,6 +14,14 @@ routes = [
   { pattern = "www.starmapco.ca/*", zone_name = "starmapco.ca" },
 ]
 
+# Review-request engine (T1): 15-minute tick drives the scheduled handler in
+# cloudflare-worker.ts. The engine is INERT unless REVIEW_REQUESTS_ENABLED is
+# set to "true" in the dashboard at activation time — deliberately NOT a
+# [vars] entry (binding budget, and activation must stay an explicit owner
+# action rather than a code deploy).
+[triggers]
+crons = ["*/15 * * * *"]
+
 [assets]
 directory = ".open-next/assets"
 binding = "ASSETS"
@@ -144,6 +152,16 @@ class_name = "PrintOrderAuthorityDO"
 [[migrations]]
 tag = "v1-print-order-authority"
 new_sqlite_classes = ["PrintOrderAuthorityDO"]
+
+# Per-session review-request ledger (claim/send state machine). DO bindings
+# are not text bindings and do not count toward the 128 text-binding cap.
+[[durable_objects.bindings]]
+name = "REVIEW_REQUEST_LEDGER"
+class_name = "ReviewRequestLedgerDO"
+
+[[migrations]]
+tag = "v2-review-request-ledger"
+new_sqlite_classes = ["ReviewRequestLedgerDO"]
 
 # Persist Worker console logs in Cloudflare dashboard (Workers Logs).
 # Logging in checkout is structured and excludes PII/secrets; see checkoutResilience.ts.
