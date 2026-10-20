@@ -164,6 +164,7 @@ for (const deviceName of DEVICE_NAMES) {
             Array.from(document.querySelectorAll("body *")).some(
               (el) => window.getComputedStyle(el).position === "sticky",
             ),
+          undefined,
           { timeout: 15_000 },
         )
         .catch(() => undefined);
