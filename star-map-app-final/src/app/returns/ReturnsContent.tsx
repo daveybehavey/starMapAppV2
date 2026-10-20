@@ -50,11 +50,11 @@ export default function ReturnsContent() {
         </section>
 
         <section>
-          <h2 className="text-xl font-semibold text-midnight">Merch (stickers, magnets, pins, and apparel)</h2>
+          <h2 className="text-xl font-semibold text-midnight">Merch (stickers, magnets, pins, apparel, and mugs)</h2>
           <p className="mt-2">
-            Merch items — kiss-cut stickers, die-cut magnets, pin buttons, tees, and hoodies — are made to order
-            after checkout, just like prints. If a merch item arrives defective, damaged, or different from what
-            you ordered, contact{" "}
+            Merch items — kiss-cut stickers, die-cut magnets, pin buttons, tees, hoodies, and star map mugs — are
+            made to order after checkout, just like prints. If a merch item arrives defective, damaged, or
+            different from what you ordered, contact{" "}
             <a className="font-semibold text-midnight underline" href={`mailto:${profile.email}`}>
               {profile.email}
             </a>{" "}

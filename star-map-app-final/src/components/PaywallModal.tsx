@@ -35,6 +35,7 @@ import { CheckoutLegalNotice } from "@/components/CheckoutLegalNotice";
 import {
   DIGITAL_CHECKOUT_SUPPORT_LINE,
   LOVE_IT_GUARANTEE_LINE,
+  MERCH_POLICY_LINE,
 } from "@/lib/loveItGuarantee";
 import { normalizeCheckoutCustomerEmail } from "@/lib/checkoutCustomerEmail";
 import {
@@ -649,7 +650,7 @@ export function PaywallModal({
                         })}
                       </p>
                       <p className="mt-0.5 px-1 text-[10px] leading-snug text-amber-100/75">
-                        {LOVE_IT_GUARANTEE_LINE}
+                        {row.variant === "mug_11oz" ? MERCH_POLICY_LINE : LOVE_IT_GUARANTEE_LINE}
                       </p>
                     </div>
                   ))}

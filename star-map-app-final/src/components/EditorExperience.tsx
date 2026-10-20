@@ -100,6 +100,7 @@ import {
   listMerchFamiliesEnabledForPublicUi,
   type MerchFamilyId,
 } from "@/lib/merchCatalog";
+import { MERCH_POLICY_LINE } from "@/lib/loveItGuarantee";
 import { getRevealProgressPercent, REVEAL_STAGES } from "@/lib/revealExperience";
 import { getSetupGuideField, scrollToSetupField } from "@/lib/setupGuide";
 import { normalizeReferralCode, readStoredReferralCode } from "@/lib/referrals";
@@ -3900,6 +3901,9 @@ export function EditorExperience({
                                     ? "Opening secure checkout..."
                                     : "Checkout selected merch"}
                                 </button>
+                                <p className="mt-2 text-[10px] leading-snug text-amber-100/75">
+                                  {MERCH_POLICY_LINE}
+                                </p>
                               </div>
                             ) : null}
                             {checkoutError && (
