@@ -38,6 +38,16 @@ test("M05: /returns and the support FAQ name the mug in merch coverage", () => {
   assert.match(faq, /Merch \(stickers, magnets, pin buttons, tees, hoodies, and star map mugs\)/);
 });
 
+test("M06: /shipping rate table names the currency via the shared formatPrice", () => {
+  const shipping = read("../../src/app/shipping/page.tsx");
+  assert.match(shipping, /import \{ formatPrice \} from "@\/lib\/pricing";/);
+  assert.match(shipping, /return formatPrice\(Math\.round\(amount \* 100\), "USD"\);/);
+  assert.ok(
+    !shipping.includes('style: "currency"'),
+    "the shipping page must not format amounts with its own bare-$ Intl formatter",
+  );
+});
+
 test("M04: merch-led editor landing names the requested product", () => {
   const editor = read("../../src/components/EditorExperience.tsx");
   // The requested family resolves from the merch_family param against the
