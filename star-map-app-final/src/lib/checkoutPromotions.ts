@@ -82,7 +82,7 @@ export function selectCheckoutPromotion(input: {
   return { source: "none" };
 }
 
-type FulfillableSessionLike = {
+export type FulfillableSessionLike = {
   mode?: string | null;
   payment_status?: string | null;
   amount_total?: number | null;
@@ -122,6 +122,54 @@ export function isFulfillableCheckoutPayment(session: FulfillableSessionLike): b
 }
 
 export { sessionHasAppliedDiscount };
+
+export type PrintRetryPaymentGateResult =
+  | { allowed: true }
+  | {
+      allowed: false;
+      reason: "payment_not_fulfillable" | "payment_verification_unavailable";
+    };
+
+/**
+ * Payment gate for the operator print-order retry path
+ * (POST /api/print/orders/retry). Lives beside isFulfillableCheckoutPayment
+ * because it is that predicate's enforcement wrapper for the one fulfillment
+ * path the webhook gate cannot reach.
+ *
+ * The webhook's fulfillment pass only queues a print order when the payment
+ * is fulfillable, and checkout.session.async_payment_failed finalizes a
+ * still-pending record as failed so "no later path can submit it". The
+ * retry route was that later path: it decided purely from the persisted
+ * record (amount + margin) and never consulted payment state, so a record
+ * whose async payment failed — finalized with terminalEventType explicitly
+ * null, which yields no authority terminal evidence and does not trip the
+ * legacy-absent-field guard — fell through every check and could be
+ * submitted to the provider unpaid.
+ *
+ * Fail-closed: a session that cannot be retrieved proves nothing about
+ * payment, so it denies as "payment_verification_unavailable" and the
+ * caller mutates no state, leaving the operator free to re-drive the retry
+ * once verification works. Paid orders and $0-with-discount comp orders
+ * stay retryable exactly as the webhook would fulfill them.
+ */
+export async function evaluatePrintRetryPaymentGate(input: {
+  sessionId: string;
+  retrieveSession: (sessionId: string) => Promise<FulfillableSessionLike | null>;
+}): Promise<PrintRetryPaymentGateResult> {
+  let session: FulfillableSessionLike | null = null;
+  try {
+    session = await input.retrieveSession(input.sessionId);
+  } catch {
+    session = null;
+  }
+  if (!session) {
+    return { allowed: false, reason: "payment_verification_unavailable" };
+  }
+  if (!isFulfillableCheckoutPayment(session)) {
+    return { allowed: false, reason: "payment_not_fulfillable" };
+  }
+  return { allowed: true };
+}
 
 /**
  * Discount entries as returned on Checkout Sessions (IDs or expanded objects).
