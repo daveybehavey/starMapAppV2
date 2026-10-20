@@ -11,6 +11,7 @@ import {
   isValidIsoDateInput,
   normalizeFlexibleDateInput,
   resolveDateInputBlurValue,
+  shouldNotifyDateInputBlurValue,
 } from "@/lib/dateInput";
 
 type IOSSafeDateInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type">;
@@ -40,7 +41,9 @@ export default function IOSSafeDateInput(props: IOSSafeDateInputProps) {
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     if (useTextFallback) {
-      const normalized = normalizeFlexibleDateInput(event.currentTarget.value.trim());
+      const normalized = normalizeFlexibleDateInput(event.currentTarget.value.trim(), {
+        whileTyping: true,
+      });
       setTextValue(normalized);
       if (event.currentTarget.value !== normalized) {
         event.currentTarget.value = normalized;
@@ -56,7 +59,9 @@ export default function IOSSafeDateInput(props: IOSSafeDateInputProps) {
   const handleInput = (event: FormEvent<HTMLInputElement>) => {
     if (!useTextFallback) return;
     const target = event.currentTarget;
-    const normalized = normalizeFlexibleDateInput(target.value.trim());
+    const normalized = normalizeFlexibleDateInput(target.value.trim(), {
+      whileTyping: true,
+    });
     if (target.value !== normalized) {
       target.value = normalized;
     }
@@ -69,7 +74,8 @@ export default function IOSSafeDateInput(props: IOSSafeDateInputProps) {
 
   const handleBlur = (event: FocusEvent<HTMLInputElement>) => {
     if (useTextFallback) {
-      const normalized = normalizeFlexibleDateInput(event.currentTarget.value.trim());
+      const valueBeforeBlur = event.currentTarget.value;
+      const normalized = normalizeFlexibleDateInput(valueBeforeBlur.trim());
       // U12: an emptied field restores the controlled (stored) date at blur
       // instead of sitting blank while the editor still holds — and uses —
       // that date, matching the controlled desktop input.
@@ -82,6 +88,13 @@ export default function IOSSafeDateInput(props: IOSSafeDateInputProps) {
       const valid = !settled || isValidIsoDateInput(settled);
       event.currentTarget.setCustomValidity(valid ? "" : DATE_INPUT_ERROR_MESSAGE);
       setIsInvalid(!valid);
+      // Consumers reject the as-typed value while it is not a complete ISO
+      // date, so a date that only becomes valid when blur pads it
+      // (2019-07-4 -> 2019-07-04) would never reach their stored state —
+      // notify the settled value (already in the event) as a change.
+      if (shouldNotifyDateInputBlurValue(valueBeforeBlur, settled)) {
+        onChange?.(event);
+      }
     }
     onBlur?.(event);
   };

@@ -38,7 +38,10 @@ export function isValidIsoDateInput(value: string) {
   );
 }
 
-export function normalizeFlexibleDateInput(value: string) {
+export function normalizeFlexibleDateInput(
+  value: string,
+  options?: { whileTyping?: boolean },
+) {
   const trimmed = value.trim();
   if (!trimmed) return "";
 
@@ -46,7 +49,16 @@ export function normalizeFlexibleDateInput(value: string) {
   if (yearFirst) {
     const [, y, m, d] = yearFirst;
     const candidate = `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
-    if (isValidIsoDateInput(candidate)) return candidate;
+    if (isValidIsoDateInput(candidate)) {
+      // While typing, the day is the trailing segment: a lone digit may be
+      // the first half of a two-digit day, so padding it would complete the
+      // field with the WRONG date (2019-07-1 -> 2019-07-01) and the real
+      // second digit would then be lost. Leave the day as typed; padding
+      // settles at blur. The month is closed by its separator, so padding
+      // it is safe. (The month-first branch below needs no such guard: its
+      // trailing segment is the 4-digit year, which cannot match partially.)
+      return options?.whileTyping ? `${y}-${m.padStart(2, "0")}-${d}` : candidate;
+    }
   }
 
   const monthFirst = /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/.exec(trimmed);
@@ -83,6 +95,21 @@ export function normalizeFlexibleDateInput(value: string) {
 export function resolveDateInputBlurValue(normalized: string, controlledValue?: string) {
   if (normalized) return normalized;
   return controlledValue ?? "";
+}
+
+/**
+ * Whether the value a text-fallback field settles on at blur must be
+ * notified to consumers via onChange. Typing handlers notify with the
+ * as-typed value, which consumers reject while it is not a complete ISO
+ * date; when blur settling pads a settled entry into a valid date
+ * (2019-07-4 -> 2019-07-04), that settled date would otherwise never
+ * reach the stored state and the display would silently diverge from
+ * it. An unchanged value needs no notice, and an invalid settled value
+ * is not notified (the field shows its error instead).
+ */
+export function shouldNotifyDateInputBlurValue(valueBeforeBlur: string, settled: string) {
+  if (settled === valueBeforeBlur) return false;
+  return !settled || isValidIsoDateInput(settled);
 }
 
 export function formatDateInput(date: Date) {
