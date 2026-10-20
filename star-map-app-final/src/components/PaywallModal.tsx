@@ -22,7 +22,6 @@ import {
   getPrintFreeShippingOfferLine,
 } from "@/lib/printCheckoutConfig";
 import { getPrintShippingCountryLabel, getPrintShippingCountryOptions, PRINT_SHIPPING_COUNTRY_PLACEHOLDER_LABEL } from "@/lib/printfulShipping";
-import { PAYWALL_PRINT_CHECKOUT_ROWS } from "@/lib/printCatalog";
 import {
   formatPosterShippingFootnote,
   getPaywallPrintCheckoutPresentation,
@@ -304,17 +303,20 @@ export function PaywallModal({
     trackViewItemList({
       itemListId: listId,
       itemListName: activeIntent === "print" ? "Paywall print options" : "Paywall print upsell",
-      items: PAYWALL_PRINT_CHECKOUT_ROWS.filter((row) => !inAppMode || !row.includeDigitalAddOn).map((row, index) => ({
+      // Impressions must mirror the rows actually rendered (printRows) —
+      // since M03 the offer set can prepend the shopper's selected variant
+      // (e.g. the mug), and selection events report the presentation index.
+      items: printRows.map((row) => ({
         plan: "single",
         orderType: "print" as const,
         printVariant: row.variant,
         includeDigitalAddOn: row.includeDigitalAddOn,
         includeCardAddOn: row.includeCardAddOn,
-        index,
+        index: row.index,
       })),
     });
     viewedListsRef.current.add(listId);
-  }, [activeIntent, hasPrintOptions, appMode]);
+  }, [activeIntent, hasPrintOptions, appMode, printRows]);
 
   const handleDigitalCheckoutClick = (plan: CheckoutPlan) => {
     trackSelectItem({
