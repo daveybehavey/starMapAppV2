@@ -29,9 +29,9 @@ function readSrc(relativePath) {
 
 test("U09: /returns carries a merch section — made to order, free replacement for defects", () => {
   const returns = readSrc("app/returns/ReturnsContent.tsx");
-  assert.match(returns, /Merch \(stickers, magnets, pins, and apparel\)/);
-  assert.match(returns, /Merch items — kiss-cut stickers, die-cut magnets, pin buttons, tees, and hoodies — are made to order/);
-  assert.match(returns, /arrives defective, damaged, or different from what\s+you ordered/);
+  assert.match(returns, /Merch \(stickers, magnets, pins, apparel, and mugs\)/);
+  assert.match(returns, /Merch items — kiss-cut stickers, die-cut magnets, pin buttons, tees, hoodies, and star map mugs — are\s+made to order/);
+  assert.match(returns, /arrives defective, damaged, or\s+different from what\s+you ordered/);
   assert.match(returns, /within 30 days of delivery with photos and order details, and we will replace it free/);
   assert.match(returns, /change-of-mind returns are not\s+accepted on merch/);
 });
@@ -44,7 +44,7 @@ test("U09: /returns states the wrong-size rule plainly (no refunds or exchanges 
 
 test("U09: the /returns merch section does not borrow the print-scoped Love-It Guarantee", () => {
   const returns = readSrc("app/returns/ReturnsContent.tsx");
-  const start = returns.indexOf("Merch (stickers, magnets, pins, and apparel)");
+  const start = returns.indexOf("Merch (stickers, magnets, pins, apparel, and mugs)");
   const end = returns.indexOf("International shipping charges");
   assert.ok(start > 0 && end > start);
   const merchSection = returns.slice(start, end);
