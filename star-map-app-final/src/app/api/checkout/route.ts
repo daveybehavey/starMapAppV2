@@ -90,6 +90,7 @@ import {
   shouldAttemptPromotionsConsent,
 } from "@/lib/stripeConsentCollection";
 import { evaluateCheckoutSkyGuard } from "@/lib/checkoutSkyGuard";
+import { CHECKOUT_GIFT_METADATA_KEY } from "@/lib/checkoutGiftFlag";
 
 export const runtime = "nodejs";
 
@@ -808,6 +809,8 @@ async function createCheckoutSession(input: {
   printVariant?: PrintVariant;
   includeDigitalAddOn?: boolean;
   includeCardAddOn?: boolean;
+  /** Buyer marked the order as a gift (editor checkbox). Metadata-only: never priced, never in the idempotency key. */
+  isGift?: boolean;
   shippingCountry?: string;
   clientCountry?: string | null;
   /** Optional pre-checkout email for Stripe recovery emails (`customer_email`). */
@@ -848,6 +851,7 @@ async function createCheckoutSession(input: {
     checkoutSource,
     checkoutHandoff = "missing",
     idempotencyKey,
+    isGift = false,
     merchFamily,
     merchOptions,
     qaContext = { enabled: false, source: null, status: "absent" },
@@ -933,6 +937,9 @@ async function createCheckoutSession(input: {
   const normalizedCheckoutSource = normalizeIdempotencyToken(checkoutSource, 48);
   if (normalizedCheckoutSource) metadata.checkout_source = normalizedCheckoutSource;
   metadata.checkout_handoff = checkoutHandoff === "browser" ? "browser" : "missing";
+  // Gift orders are excluded from review asks (T1). Metadata-only: the flag
+  // never touches amounts, line items, or the idempotency/cache key.
+  if (isGift) metadata[CHECKOUT_GIFT_METADATA_KEY] = "true";
   if (mapId) metadata.map_id = mapId;
   if (isPrintOrder) {
     metadata.print_variant = normalizedPrintVariant;
@@ -1741,6 +1748,7 @@ export async function POST(req: NextRequest) {
     let mapId: string | undefined;
     let includeDigitalAddOn = false;
     let includeCardAddOn = false;
+    let isGift = false;
     let merchFamily: MerchFamilyId | undefined;
     let merchSize: string | undefined;
     let merchColor: string | undefined;
@@ -1761,6 +1769,7 @@ export async function POST(req: NextRequest) {
         printVariant?: PrintVariant;
         includeDigitalAddOn?: boolean;
         includeCardAddOn?: boolean;
+        isGift?: boolean;
         merchFamily?: string;
         merchOptions?: { size?: string; color?: string };
         printAssetId?: string;
@@ -1782,6 +1791,7 @@ export async function POST(req: NextRequest) {
       printVariant = parsePrintVariant(body?.printVariant);
       includeDigitalAddOn = parseBoolean(body?.includeDigitalAddOn, false);
       includeCardAddOn = parseBoolean(body?.includeCardAddOn, false);
+      isGift = parseBoolean(body?.isGift, false);
       if (body?.merchFamily && isMerchFamilyId(body.merchFamily.trim())) {
         merchFamily = body.merchFamily.trim() as MerchFamilyId;
       }
@@ -2051,6 +2061,7 @@ export async function POST(req: NextRequest) {
       checkoutSource: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
       checkoutHandoff,
       idempotencyKey: idempotencyKey ?? undefined,
+      isGift,
       merchFamily,
       merchOptions: merchFamily ? { size: merchSize, color: merchColor } : undefined,
       qaContext,

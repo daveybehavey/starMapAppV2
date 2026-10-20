@@ -30,9 +30,9 @@ export type StripeSessionEntitlement = {
   includesDigitalAddOn?: boolean;
   /**
    * Buyer marked the order as a gift at checkout. Review requests are never
-   * sent for gift orders. The checkout writer lands in a follow-up PR; until
-   * then the field is absent (treated as non-gift) and engine activation is
-   * gated on the writer existing (see reviewRequests.ts).
+   * sent for gift orders. Written by the Stripe webhook from the checkout
+   * session's `is_gift` metadata (see checkoutGiftFlag.ts); absent means
+   * non-gift, which is also how pre-flag orders read.
    */
   isGift?: boolean;
   claimToken?: string;

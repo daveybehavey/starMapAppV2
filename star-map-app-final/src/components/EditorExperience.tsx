@@ -494,6 +494,8 @@ export function EditorExperience({
     () => queryReferralCode ?? readStoredReferralCode(),
     [queryReferralCode]
   );
+  /** "This is a gift" (T1): checkout entry points pass this into startCheckout. */
+  const [isGiftOrder, setIsGiftOrder] = useState(false);
   const getPreviewSource = useCallback(() => {
     if (typeof window === "undefined") return null;
     try {
@@ -1504,6 +1506,7 @@ export function EditorExperience({
         merchOptions?: { size?: string; color?: string };
         includeDigitalAddOn?: boolean;
         includeCardAddOn?: boolean;
+        isGift?: boolean;
         customerEmail?: string;
       }
     ) => {
@@ -1526,6 +1529,7 @@ export function EditorExperience({
       );
       const includeDigitalAddOn = Boolean(options?.includeDigitalAddOn);
       const includeCardAddOn = Boolean(options?.includeCardAddOn);
+      const isGift = Boolean(options?.isGift);
       const recipeForCheckout = buildRecipeFromState({
         dateTime,
         location,
@@ -1606,6 +1610,7 @@ export function EditorExperience({
           merchOptions?: { size?: string; color?: string };
           includeDigitalAddOn?: boolean;
           includeCardAddOn?: boolean;
+          isGift?: boolean;
           printAssetId?: string;
           cardPrintAssetId?: string;
           recipeFingerprint?: string;
@@ -1618,6 +1623,7 @@ export function EditorExperience({
         if (promoCode) checkoutPayload.promoCode = promoCode;
         if (referralCode) checkoutPayload.referralCode = referralCode;
         if (options?.customerEmail) checkoutPayload.customerEmail = options.customerEmail;
+        if (isGift) checkoutPayload.isGift = true;
         if (orderType === "print") {
           if (!printShippingCountry) {
             throw new Error("missing_shipping_country");
@@ -2090,6 +2096,7 @@ export function EditorExperience({
       variant: PrintVariant;
       includeDigitalAddOn: boolean;
       includeCardAddOn?: boolean;
+      isGift?: boolean;
       customerEmail?: string;
       source: "editor_print_panel" | "paywall_modal" | "mobile_preview" | "preview_primary_print_cta";
     }) => {
@@ -2105,6 +2112,7 @@ export function EditorExperience({
         printVariant: options.variant,
         includeDigitalAddOn: options.includeDigitalAddOn,
         includeCardAddOn: options.includeCardAddOn,
+        isGift: options.isGift,
         customerEmail: options.customerEmail,
       });
     },
@@ -2124,11 +2132,12 @@ export function EditorExperience({
         // keep a stable printVariant for legacy paths; backend switches to merch via merchFamily.
         printVariant: "poster_framed",
         includeDigitalAddOn: false,
+        isGift: isGiftOrder,
         merchFamily: options.family,
         merchOptions: { size: options.size, color: options.color },
       });
     },
-    [startCheckout]
+    [startCheckout, isGiftOrder]
   );
 
   const handleShare = useCallback(async () => {
@@ -3705,6 +3714,18 @@ export function EditorExperience({
                                 compact
                               />
                             </div>
+                            <label className="mt-3 flex cursor-pointer items-center gap-2 text-xs text-amber-100/90">
+                              <input
+                                type="checkbox"
+                                checked={isGiftOrder}
+                                onChange={(event) => setIsGiftOrder(event.target.checked)}
+                                className="h-4 w-4 shrink-0 accent-amber-300"
+                              />
+                              <span>
+                                <span className="font-semibold text-amber-100">This is a gift</span>{" "}
+                                — we won&apos;t email you a review request for this order.
+                              </span>
+                            </label>
                             <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                               {printCheckoutRows.map((row) => (
                                 <button
@@ -3716,6 +3737,7 @@ export function EditorExperience({
                                       variant: row.variant,
                                       includeDigitalAddOn: row.includeDigitalAddOn,
                                       includeCardAddOn: row.includeCardAddOn,
+                                      isGift: isGiftOrder,
                                     })
                                   }
                                   disabled={checkoutInFlight || !printShippingCountry}
@@ -3955,6 +3977,7 @@ export function EditorExperience({
                         variant: options.variant,
                         includeDigitalAddOn: options.includeDigitalAddOn,
                         includeCardAddOn: options.includeCardAddOn,
+                        isGift: isGiftOrder,
                       });
                     }
                   : undefined
@@ -3992,9 +4015,11 @@ export function EditorExperience({
               showReferralHint={Boolean(getCheckoutReferralCode())}
               promoCode={editorPromoCode}
               onPromoCodeChange={persistPromoCode}
+              isGift={isGiftOrder}
+              onIsGiftChange={setIsGiftOrder}
               onStartCheckout={(plan, options) => {
                 setPaywallIntent("digital");
-                void startCheckout(plan, { customerEmail: options?.customerEmail });
+                void startCheckout(plan, { customerEmail: options?.customerEmail, isGift: isGiftOrder });
               }}
               onCheckoutFallback={
                 checkoutFallbackOffer === "digital_single"
@@ -4017,6 +4042,7 @@ export function EditorExperience({
                         variant: options.variant,
                         includeDigitalAddOn: options.includeDigitalAddOn,
                         includeCardAddOn: options.includeCardAddOn,
+                        isGift: isGiftOrder,
                         customerEmail: options.customerEmail,
                       });
                     }
