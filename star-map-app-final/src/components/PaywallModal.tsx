@@ -306,7 +306,9 @@ export function PaywallModal({
       // Impressions must mirror the rows actually rendered (printRows) —
       // since M03 the offer set can prepend the shopper's selected variant
       // (e.g. the mug), and selection events report the presentation index.
-      items: printRows.map((row) => ({
+      // The inAppMode filter keeps the app-mode rule: no digital add-on
+      // impressions when running as the Android app.
+      items: printRows.filter((row) => !inAppMode || !row.includeDigitalAddOn).map((row) => ({
         plan: "single",
         orderType: "print" as const,
         printVariant: row.variant,

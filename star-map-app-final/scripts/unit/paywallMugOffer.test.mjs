@@ -69,7 +69,7 @@ test("wiring: presentation delegates to the resolver and both call sites pass th
   // Codex P2 on PR #352: impression tracking must use the same resolved
   // rows as rendering, not the static base constant, or the mug gets no
   // impression and every later row's index misaligns with selection.
-  assert.match(modal, /items: printRows\.map\(\(row\) => \(\{/);
+  assert.match(modal, /items: printRows\.filter\(\(row\) => !inAppMode \|\| !row\.includeDigitalAddOn\)\.map\(\(row\) => \(\{/);
   assert.ok(!modal.includes("PAYWALL_PRINT_CHECKOUT_ROWS"), "PaywallModal must not rebuild offers from the static constant");
 
   const editor = read("../../src/components/EditorExperience.tsx");
