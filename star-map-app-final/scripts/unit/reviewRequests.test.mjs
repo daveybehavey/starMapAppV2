@@ -653,6 +653,50 @@ test("tick: per-tick send budget caps at 50 and the remainder goes next tick", a
   assert.equal(recipients.size, REVIEW_MAX_SENDS_PER_TICK + 10);
 });
 
+test("tick: physical sends re-check entitlement revocation (PR #348 Codex P2)", async () => {
+  // Shipped, then refunded: the webhook revokes the entitlement only.
+  const store = createFakeStore({
+    [sessionKey("cs_live_refunded")]: digitalEntitlement({
+      orderType: "print",
+      paid: false,
+      revoked: true,
+    }),
+    "print:order:cs_live_refunded": printRecord({ sessionId: "cs_live_refunded" }),
+    // Entitlement record entirely absent: also fails closed.
+    "print:order:cs_live_noent": printRecord({ sessionId: "cs_live_noent" }),
+  });
+  const ledger = createFakeLedger();
+  const sender = createFakeSender();
+  const summary = await runReviewRequestTick(
+    tickDeps(store, ledger, sender, enabledConfig({ physicalEnabled: true })),
+  );
+  assert.equal(summary.sent, 0);
+  assert.equal(summary.skips.revoked, 2);
+  assert.equal(sender.calls.length, 0);
+  assert.equal(ledger.rows.size, 0);
+});
+
+test("tick: digital volume cannot starve the physical scan (PR #348 Codex P2)", async () => {
+  const initial = { "print:order:cs_live_starved": printRecord({ sessionId: "cs_live_starved" }) };
+  initial[sessionKey("cs_live_starved")] = digitalEntitlement({ orderType: "print" });
+  // 500 pending digital records consume the entire per-population budget.
+  for (let i = 0; i < 500; i += 1) {
+    initial[sessionKey(`cs_live_filler_${i}`)] = digitalEntitlement({
+      created: Math.floor((NOW - 60 * 60 * 1000) / 1000),
+    });
+  }
+  const store = createFakeStore(initial);
+  const ledger = createFakeLedger();
+  const sender = createFakeSender();
+  const summary = await runReviewRequestTick(
+    tickDeps(store, ledger, sender, enabledConfig({ physicalEnabled: true })),
+  );
+  assert.equal(summary.scannedDigital, 500);
+  assert.equal(summary.scannedPhysical, 1);
+  assert.equal(summary.sent, 1);
+  assert.equal(sender.calls[0].tags.kind, "physical");
+});
+
 test("tick: scan cursor persists mid-traversal and wraps to null at the end", async () => {
   const initial = {};
   for (let i = 0; i < 25; i += 1) {

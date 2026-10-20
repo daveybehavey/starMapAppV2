@@ -59,11 +59,13 @@ export const REVIEW_DIGITAL_MAX_AGE_MS = 14 * DAY_MS;
 export const REVIEW_PHYSICAL_DELAY_MS = 7 * DAY_MS;
 export const REVIEW_PHYSICAL_MAX_AGE_MS = 21 * DAY_MS;
 
-/** Per-tick budgets (design §7 + critique P2: bounded work, persisted cursors). */
+/** Per-tick budgets (design §7 + critique P2: bounded work, persisted cursors).
+ * The get budget is PER POPULATION: a shared counter let a large digital
+ * population starve the physical scan entirely (PR #348 Codex P2). */
 export const REVIEW_MAX_SENDS_PER_TICK = 50;
 export const REVIEW_SCAN_MAX_PAGES_PER_POPULATION = 10;
 export const REVIEW_SCAN_PAGE_SIZE = 100;
-export const REVIEW_SCAN_MAX_GETS_PER_TICK = 500;
+export const REVIEW_SCAN_MAX_GETS_PER_POPULATION = 500;
 
 /** Anchor sanity bounds (critique P3.1): reject corrupt/future timestamps. */
 const ANCHOR_MIN_MS = Date.UTC(2023, 0, 1);
@@ -405,7 +407,6 @@ export async function runReviewRequestTick(deps: ReviewEngineDeps): Promise<Revi
     return summary;
   }
 
-  let getsUsed = 0;
   const candidates: DueCandidate[] = [];
 
   const scanPopulation = async (
@@ -414,6 +415,7 @@ export async function runReviewRequestTick(deps: ReviewEngineDeps): Promise<Revi
     classify: (recordKey: string) => Promise<ReviewClassification>,
     counterKey: "scannedDigital" | "scannedPhysical",
   ): Promise<void> => {
+    let getsUsed = 0;
     const cursorRow = await store.getJson<{ cursor: string | null }>(cursorKey).catch(() => null);
     let cursor: string | undefined = cursorRow?.cursor ?? undefined;
     for (let page = 0; page < REVIEW_SCAN_MAX_PAGES_PER_POPULATION; page += 1) {
@@ -426,7 +428,7 @@ export async function runReviewRequestTick(deps: ReviewEngineDeps): Promise<Revi
       }
       let budgetExhausted = false;
       for (const name of listing.names) {
-        if (getsUsed >= REVIEW_SCAN_MAX_GETS_PER_TICK) {
+        if (getsUsed >= REVIEW_SCAN_MAX_GETS_PER_POPULATION) {
           budgetExhausted = true;
           break;
         }
@@ -531,6 +533,23 @@ export async function runReviewRequestTick(deps: ReviewEngineDeps): Promise<Revi
           summary.skips[fresh.reason] = (summary.skips[fresh.reason] ?? 0) + 1;
         }
         continue;
+      }
+
+      if (candidate.kind === "physical") {
+        // Refund/revocation state lives on the ENTITLEMENT, not the print
+        // record: the Stripe webhook's revoke path updates only
+        // stripe:session:<id> and never marks the print record failed
+        // (PR #348 Codex P2). A shipped-but-refunded order must never be
+        // asked, so physical sends re-check the entitlement here — the
+        // send-time enforcement point, same as suppression below. A missing
+        // entitlement fails closed: fulfillment implies one exists.
+        const entitlement = await store.getJson<StripeSessionEntitlement>(
+          `${DIGITAL_PREFIX}${sessionId}`,
+        );
+        if (!entitlement || entitlement.revoked === true || entitlement.paid !== true) {
+          summary.skips.revoked = (summary.skips.revoked ?? 0) + 1;
+          continue;
+        }
       }
 
       // Already-asked fast path (one ledger row per session, forever).
