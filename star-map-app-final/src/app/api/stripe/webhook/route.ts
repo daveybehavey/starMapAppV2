@@ -1407,6 +1407,149 @@ async function handleExpiredCheckoutSession(
   return { retryable };
 }
 
+/**
+ * Shared fulfillment pass for a settled-or-completed checkout session.
+ *
+ * Runs the discount gate, then the payment-gated grants (markSessionPaid and
+ * applyReferralReward self-gate on isFulfillableCheckoutPayment) and the print
+ * queue. The print queue is payment-gated here as well: an async payment
+ * method completes checkout with payment_status "unpaid", and manufacturing
+ * the order before settlement would ship against a payment that can still
+ * fail. Settlement re-enters through checkout.session.async_payment_succeeded,
+ * which runs this same pass once the session is fulfillable; queuePrintOrder
+ * no-ops on a record already "sent", so the pair queues exactly one order.
+ *
+ * Persists the terminal event dedupe exactly like the completed handler
+ * always has; returns retryable=true when Stripe must redeliver instead.
+ */
+async function processCheckoutFulfillment(
+  session: Stripe.Checkout.Session,
+  eventDedupeKey: string,
+): Promise<{ retryable: boolean }> {
+  let fulfilledSession = session;
+  try {
+    // digital_comp must not entitle print/pack3/subscription (hosted-page bypass).
+    // Pinned Stripe API carries applied discounts in total_details.breakdown —
+    // hydrate when the event payload lacks that expansion before running the gate.
+    if (
+      stripe &&
+      sessionHasAppliedDiscount(fulfilledSession) &&
+      !fulfilledSession.total_details?.breakdown
+    ) {
+      fulfilledSession = await stripe.checkout.sessions.retrieve(fulfilledSession.id, {
+        expand: ["total_details.breakdown"],
+      });
+    }
+    const orderType = getOrderType(fulfilledSession);
+    const hasDigitalAddOn = includesDigitalAddOn(fulfilledSession);
+    const plan = getPlan(fulfilledSession, orderType, hasDigitalAddOn);
+    let skipEntitlementGrants = false;
+    let skipPrintOrder = false;
+    if (stripe) {
+      const discountGate = await evaluateCheckoutSessionDiscountFulfillment({
+        session: fulfilledSession,
+        orderType,
+        plan,
+        lookup: createStripeCouponLookup(stripe),
+      });
+      if (!discountGate.ok) {
+        if (isDiscountFulfillmentRetryable(discountGate)) {
+          // Transient coupon lookup / unresolved discount — do not finalize
+          // dedupe so Stripe redelivers; never grant on an unresolved gate.
+          console.warn(
+            `Discount coupon resolution retryable for session ${fulfilledSession.id}: ${discountGate.reason}`,
+          );
+          return { retryable: true };
+        }
+        skipEntitlementGrants = true;
+        skipPrintOrder = true;
+        console.warn(
+          `Skipping paid entitlement grants and print queue for session ${fulfilledSession.id}: ${discountGate.reason}`,
+        );
+      }
+    }
+    const paymentFulfillable = isFulfillableCheckoutPayment(fulfilledSession);
+    if (!skipEntitlementGrants) {
+      await markSessionPaid(fulfilledSession);
+    }
+    if (!skipPrintOrder && paymentFulfillable) {
+      await queuePrintOrder(fulfilledSession);
+    } else if (!skipPrintOrder && orderType === "print") {
+      console.info("print_order_deferred_until_payment_settles", {
+        sessionId: fulfilledSession.id,
+        paymentStatus: fulfilledSession.payment_status,
+      });
+    }
+    if (!skipEntitlementGrants) {
+      await applyReferralReward(fulfilledSession);
+    }
+  } catch (error) {
+    // Unretainable / deleted durable print-order state must fail closed and
+    // finalize the Stripe event — retrying would remint retention and risk a
+    // duplicate provider order. True KV outages remain Stripe-retryable.
+    if (isPrintOrderUnretainableError(error)) {
+      console.error("Print order unretainable; finalizing webhook without provider retry", {
+        sessionId: session.id,
+        reason: error.reason,
+      });
+      // Must persist event dedupe before treating this as terminal. If dedupe
+      // cannot be written, return retryable 503 — provider reconcile (v1/v2)
+      // prevents a second order if the provider already accepted.
+      const deduped = await persistWebhookEventDedupe(eventDedupeKey, {
+        reason: "print_order_unretainable",
+      });
+      return { retryable: !deduped };
+    }
+    // Durable print-order persistence failure must not finalize dedupe — Stripe
+    // redelivery must be able to queue the paid order again.
+    if (isPrintOrderAuthorityBindError(error)) {
+      // Provider accepted but DO bind unread/conflicted — Stripe must retry; do not finalize dedupe.
+      console.error("Print order authority bind failed after provider accept; Stripe event remains retryable", {
+        sessionId: session.id,
+        reason: error.reason,
+      });
+      return { retryable: true };
+    }
+    if (isDurableKvPersistenceError(error)) {
+      return { retryable: true };
+    }
+    throw error;
+  }
+  const deduped = await persistWebhookEventDedupe(eventDedupeKey);
+  return { retryable: !deduped };
+}
+
+/**
+ * checkout.session.async_payment_failed: the async payment never settled, so
+ * the completed handler granted nothing and queued nothing (every grant is
+ * payment-gated). Defensively finalize any print record still "pending"
+ * (e.g. queued before payment gating existed) so no later path can submit
+ * it. A record already "sent" is with the provider — log only.
+ */
+async function finalizeAsyncPaymentFailed(session: Stripe.Checkout.Session) {
+  if (!session.id) return;
+  console.info("checkout_session_async_payment_failed", { sessionId: session.id });
+  if (getOrderType(session) !== "print") return;
+  const existing = await kv.get<PrintOrderRecord>(printOrderKey(session.id));
+  if (!existing) return;
+  if (existing.status === "sent") {
+    console.warn("async_payment_failed for already-submitted print order", {
+      sessionId: session.id,
+    });
+    return;
+  }
+  if (existing.status !== "pending") return;
+  assertPrintOrderRetained(
+    await persistPrintOrderRecord(session.id, {
+      ...existing,
+      status: "failed",
+      error: "async_payment_failed",
+      // Not a provider terminal event — clear any stale terminal provenance.
+      terminalEventType: null,
+    }),
+  );
+}
+
 export async function POST(req: Request) {
   if (!stripe || !webhookSecret) {
     return NextResponse.json({ error: "Stripe webhook not configured" }, { status: 500 });
@@ -1429,13 +1572,20 @@ export async function POST(req: Request) {
   const eventDedupeKey = ENTITLEMENT_KV.stripeWebhookEvent(event.id);
   const isExpiredCheckoutEvent = event.type === "checkout.session.expired";
   const isCompletedCheckoutEvent = event.type === "checkout.session.completed";
+  const isAsyncPaymentSucceededEvent = event.type === "checkout.session.async_payment_succeeded";
+  const isAsyncPaymentFailedEvent = event.type === "checkout.session.async_payment_failed";
   // Defer dedupe finalization for events whose critical side effects must remain
   // Stripe-retryable when durable persistence fails mid-handling.
-  const deferDedupeUntilSuccess = isExpiredCheckoutEvent || isCompletedCheckoutEvent;
+  const deferDedupeUntilSuccess =
+    isExpiredCheckoutEvent ||
+    isCompletedCheckoutEvent ||
+    isAsyncPaymentSucceededEvent ||
+    isAsyncPaymentFailedEvent;
 
   // Unrelated Stripe event types keep pre-processing dedupe.
-  // checkout.session.expired / checkout.session.completed finalize dedupe only after
-  // successful handling so retryable durable failures remain eligible for redelivery.
+  // checkout.session.expired / checkout.session.completed / the async-payment
+  // settlement events finalize dedupe only after successful handling so
+  // retryable durable failures remain eligible for redelivery.
   if (!deferDedupeUntilSuccess) {
     const dedupeCount = await kv.incr(eventDedupeKey, 1, {
       ex: WEBHOOK_EVENT_DEDUPE_TTL_SECONDS,
@@ -1452,103 +1602,42 @@ export async function POST(req: Request) {
 
   let expiredRecoveryRetryable = false;
   let completedCheckoutRetryable = false;
+  let asyncPaymentFailedRetryable = false;
 
   switch (event.type) {
     case "checkout.session.completed": {
-      let session = event.data.object as Stripe.Checkout.Session;
+      const session = event.data.object as Stripe.Checkout.Session;
+      const { retryable } = await processCheckoutFulfillment(session, eventDedupeKey);
+      if (retryable) {
+        completedCheckoutRetryable = true;
+      }
+      break;
+    }
+    case "checkout.session.async_payment_succeeded": {
+      // Settlement of an async payment method. The completed event already ran
+      // with payment_status "unpaid" and every grant stayed payment-gated off;
+      // run the same fulfillment pass now that the session is fulfillable.
+      const session = event.data.object as Stripe.Checkout.Session;
+      const { retryable } = await processCheckoutFulfillment(session, eventDedupeKey);
+      if (retryable) {
+        completedCheckoutRetryable = true;
+      }
+      break;
+    }
+    case "checkout.session.async_payment_failed": {
+      const session = event.data.object as Stripe.Checkout.Session;
       try {
-        // digital_comp must not entitle print/pack3/subscription (hosted-page bypass).
-        // Pinned Stripe API carries applied discounts in total_details.breakdown —
-        // hydrate when the event payload lacks that expansion before running the gate.
-        if (
-          stripe &&
-          sessionHasAppliedDiscount(session) &&
-          !session.total_details?.breakdown
-        ) {
-          session = await stripe.checkout.sessions.retrieve(session.id, {
-            expand: ["total_details.breakdown"],
-          });
-        }
-        const orderType = getOrderType(session);
-        const hasDigitalAddOn = includesDigitalAddOn(session);
-        const plan = getPlan(session, orderType, hasDigitalAddOn);
-        let skipEntitlementGrants = false;
-        let skipPrintOrder = false;
-        if (stripe) {
-          const discountGate = await evaluateCheckoutSessionDiscountFulfillment({
-            session,
-            orderType,
-            plan,
-            lookup: createStripeCouponLookup(stripe),
-          });
-          if (!discountGate.ok) {
-            if (isDiscountFulfillmentRetryable(discountGate)) {
-              // Transient coupon lookup / unresolved discount — do not finalize
-              // dedupe so Stripe redelivers; never grant on an unresolved gate.
-              console.warn(
-                `Discount coupon resolution retryable for session ${session.id}: ${discountGate.reason}`,
-              );
-              completedCheckoutRetryable = true;
-              break;
-            }
-            skipEntitlementGrants = true;
-            skipPrintOrder = true;
-            console.warn(
-              `Skipping paid entitlement grants and print queue for session ${session.id}: ${discountGate.reason}`,
-            );
-          }
-        }
-        if (!skipEntitlementGrants) {
-          await markSessionPaid(session);
-        }
-        if (!skipPrintOrder) {
-          await queuePrintOrder(session);
-        }
-        if (!skipEntitlementGrants) {
-          await applyReferralReward(session);
+        await finalizeAsyncPaymentFailed(session);
+        const deduped = await persistWebhookEventDedupe(eventDedupeKey);
+        if (!deduped) {
+          asyncPaymentFailedRetryable = true;
         }
       } catch (error) {
-        // Unretainable / deleted durable print-order state must fail closed and
-        // finalize the Stripe event — retrying would remint retention and risk a
-        // duplicate provider order. True KV outages remain Stripe-retryable.
-        if (isPrintOrderUnretainableError(error)) {
-          console.error("Print order unretainable; finalizing webhook without provider retry", {
-            sessionId: session.id,
-            reason: error.reason,
-          });
-          // Must persist event dedupe before treating this as terminal. If dedupe
-          // cannot be written, return retryable 503 — provider reconcile (v1/v2)
-          // prevents a second order if the provider already accepted.
-          const deduped = await persistWebhookEventDedupe(eventDedupeKey, {
-            reason: "print_order_unretainable",
-          });
-          if (!deduped) {
-            completedCheckoutRetryable = true;
-          }
-          break;
-        }
-        // Durable print-order persistence failure must not finalize dedupe — Stripe
-        // redelivery must be able to queue the paid order again.
-        if (isPrintOrderAuthorityBindError(error)) {
-          // Provider accepted but DO bind unread/conflicted — Stripe must retry; do not finalize dedupe.
-          console.error("Print order authority bind failed after provider accept; Stripe event remains retryable", {
-            sessionId: session.id,
-            reason: error.reason,
-          });
-          completedCheckoutRetryable = true;
-          break;
-        }
         if (isDurableKvPersistenceError(error)) {
-          completedCheckoutRetryable = true;
+          asyncPaymentFailedRetryable = true;
           break;
         }
         throw error;
-      }
-      {
-        const deduped = await persistWebhookEventDedupe(eventDedupeKey);
-        if (!deduped) {
-          completedCheckoutRetryable = true;
-        }
       }
       break;
     }
@@ -1627,12 +1716,14 @@ export async function POST(req: Request) {
       break;
   }
 
-  if (expiredRecoveryRetryable || completedCheckoutRetryable) {
+  if (expiredRecoveryRetryable || completedCheckoutRetryable || asyncPaymentFailedRetryable) {
     return NextResponse.json(
       {
         error: completedCheckoutRetryable
           ? "print_order_queue_retryable"
-          : "checkout_recovery_retryable",
+          : asyncPaymentFailedRetryable
+            ? "async_payment_failed_finalize_retryable"
+            : "checkout_recovery_retryable",
       },
       { status: 503 },
     );

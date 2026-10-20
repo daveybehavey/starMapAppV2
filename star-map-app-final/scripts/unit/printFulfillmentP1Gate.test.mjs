@@ -30,11 +30,12 @@ test("P1-A: provider accepted → unretainable sent → event dedupe persisted b
     reason: "print_order_unretainable",
   });
 
-  // Production: unretainable catch must write dedupe before break; soft post-sent throws.
+  // Production: unretainable catch must write dedupe before the fulfillment
+  // pass returns; soft post-sent throws.
   assert.match(webhookSource, /persistWebhookEventDedupe/);
   assert.match(
     webhookSource,
-    /isPrintOrderUnretainableError\(error\)[\s\S]*?persistWebhookEventDedupe\(eventDedupeKey[\s\S]*?break;/,
+    /isPrintOrderUnretainableError\(error\)[\s\S]*?persistWebhookEventDedupe\(eventDedupeKey[\s\S]*?return \{ retryable: !deduped \};/,
   );
   assert.match(
     webhookSource,
@@ -53,14 +54,21 @@ test("P1-B: event dedupe write fails → handler does not silently finalize as s
   assert.equal(outcome.finalized, false);
   assert.equal(outcome.retryable, true);
 
+  // Unretainable path: dedupe persisted inside the fulfillment pass; a failed
+  // write makes the pass return retryable instead of silently finalizing.
   assert.match(
     webhookSource,
-    /persistWebhookEventDedupe\(eventDedupeKey[\s\S]*?if \(!deduped\) \{\s*completedCheckoutRetryable = true;/,
+    /const deduped = await persistWebhookEventDedupe\(eventDedupeKey, \{\s*reason: "print_order_unretainable",\s*\}\);\s*return \{ retryable: !deduped \};/,
   );
-  // Successful path also refuses silent finalize when dedupe write fails.
+  // Successful path also refuses silent finalize when dedupe write fails:
+  // the pass returns retryable and the completed case maps it to the 503 flag.
   assert.match(
     webhookSource,
-    /const deduped = await persistWebhookEventDedupe\(eventDedupeKey\);\s*if \(!deduped\) \{\s*completedCheckoutRetryable = true;/,
+    /const deduped = await persistWebhookEventDedupe\(eventDedupeKey\);\s*return \{ retryable: !deduped \};/,
+  );
+  assert.match(
+    webhookSource,
+    /const \{ retryable \} = await processCheckoutFulfillment\(session, eventDedupeKey\);\s*if \(retryable\) \{\s*completedCheckoutRetryable = true;/,
   );
 });
 
