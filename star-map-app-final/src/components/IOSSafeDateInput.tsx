@@ -40,7 +40,9 @@ export default function IOSSafeDateInput(props: IOSSafeDateInputProps) {
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     if (useTextFallback) {
-      const normalized = normalizeFlexibleDateInput(event.currentTarget.value.trim());
+      const normalized = normalizeFlexibleDateInput(event.currentTarget.value.trim(), {
+        whileTyping: true,
+      });
       setTextValue(normalized);
       if (event.currentTarget.value !== normalized) {
         event.currentTarget.value = normalized;
@@ -56,7 +58,9 @@ export default function IOSSafeDateInput(props: IOSSafeDateInputProps) {
   const handleInput = (event: FormEvent<HTMLInputElement>) => {
     if (!useTextFallback) return;
     const target = event.currentTarget;
-    const normalized = normalizeFlexibleDateInput(target.value.trim());
+    const normalized = normalizeFlexibleDateInput(target.value.trim(), {
+      whileTyping: true,
+    });
     if (target.value !== normalized) {
       target.value = normalized;
     }
