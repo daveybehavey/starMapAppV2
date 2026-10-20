@@ -160,6 +160,37 @@ export const PAYWALL_PRINT_CHECKOUT_ROWS: readonly PaywallPrintCheckoutRow[] = [
   },
 ] as const;
 
+/**
+ * Offer set for the paywall dialog + editor print panels.
+ *
+ * The base rows are deliberately posters + canvas only (the mug stays
+ * shop-led until pilot proof). But a shopper who ARRIVES with a specific
+ * variant selected — the shop's "Customize mug" routes to the editor with
+ * print_variant=mug_11oz — must be able to buy that variant: before this
+ * resolver existed, the offer set ignored the selected variant entirely,
+ * so the mug dialog showed framed/poster/canvas buttons and no mug button
+ * at all (fleet walk Oct 2026, M03). Prepend a plain row for the preferred
+ * variant when the base set doesn't already offer it.
+ *
+ * card_4x6 is excluded: it is only ever sold as an add-on to a framed
+ * order (includeCardAddOn), never as a standalone purchase.
+ */
+export function resolvePaywallOfferRows(
+  preferredVariant?: PrintVariant | string | null,
+): readonly PaywallPrintCheckoutRow[] {
+  if (
+    !preferredVariant ||
+    preferredVariant === "card_4x6" ||
+    !isPrintVariant(preferredVariant) ||
+    PAYWALL_PRINT_CHECKOUT_ROWS.some(
+      (row) => row.variant === preferredVariant && !row.includeDigitalAddOn && !row.includeCardAddOn,
+    )
+  ) {
+    return PAYWALL_PRINT_CHECKOUT_ROWS;
+  }
+  return [{ variant: preferredVariant, includeDigitalAddOn: false }, ...PAYWALL_PRINT_CHECKOUT_ROWS];
+}
+
 export type PrintShippingProfile = "poster_unframed" | "poster_framed";
 
 export function getPrintShippingProfile(variant: PrintVariant): PrintShippingProfile {

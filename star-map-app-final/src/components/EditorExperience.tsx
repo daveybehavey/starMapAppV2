@@ -570,9 +570,9 @@ export function EditorExperience({
   // Google Play app mode: prints only, never a digital add-on row.
   const androidAppMode = useAndroidAppMode();
   const printCheckoutRows = useMemo(() => {
-    const rows = getPaywallPrintCheckoutPresentation(printShippingCountry);
+    const rows = getPaywallPrintCheckoutPresentation(printShippingCountry, preferredPrintVariant);
     return androidAppMode ? rows.filter((row) => !row.includeDigitalAddOn) : rows;
-  }, [printShippingCountry, androidAppMode]);
+  }, [printShippingCountry, androidAppMode, preferredPrintVariant]);
   const activeMapLookTier = useMemo(
     () => resolveMapLookTier(renderOptions, selectedStyle),
     [renderOptions, selectedStyle]

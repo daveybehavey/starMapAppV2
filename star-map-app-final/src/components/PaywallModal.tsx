@@ -194,10 +194,10 @@ export function PaywallModal({
   );
   const printRows = useMemo(
     () => {
-      const rows = getPaywallPrintCheckoutPresentation(printShippingCountry);
+      const rows = getPaywallPrintCheckoutPresentation(printShippingCountry, preferredPrintVariant);
       return appMode ? rows.filter((row) => !row.includeDigitalAddOn) : rows;
     },
-    [printShippingCountry, appMode]
+    [printShippingCountry, appMode, preferredPrintVariant]
   );
 
   const posterShippingFootnote = useMemo(

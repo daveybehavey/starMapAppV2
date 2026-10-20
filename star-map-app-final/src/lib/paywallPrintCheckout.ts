@@ -1,6 +1,6 @@
 import type { PaywallPrintCheckoutRow } from "@/lib/printCatalog";
 import type { PrintVariant } from "@/lib/printCatalog";
-import { PAYWALL_PRINT_CHECKOUT_ROWS } from "@/lib/printCatalog";
+import { resolvePaywallOfferRows } from "@/lib/printCatalog";
 import { formatPrice, getPrintPricingTiers } from "@/lib/pricing";
 import { formatPrintShippingEstimate } from "@/lib/printfulShipping";
 import {
@@ -16,10 +16,16 @@ export type PaywallPrintCheckoutPresentationRow = PaywallPrintCheckoutRow & {
 
 export function getPaywallPrintCheckoutPresentation(
   printShippingCountry: string | null | undefined,
+  preferredVariant?: PrintVariant | string | null,
 ): PaywallPrintCheckoutPresentationRow[] {
   const tiers = getPrintPricingTiers();
 
-  return PAYWALL_PRINT_CHECKOUT_ROWS.map((row, index) => {
+  // Offer set follows the shopper's selected variant (see
+  // resolvePaywallOfferRows in printCatalog.ts — M03: a mug-led shopper
+  // gets a mug row; the base posters + canvas set is otherwise unchanged).
+  const offerRows = resolvePaywallOfferRows(preferredVariant);
+
+  return offerRows.map((row, index) => {
     const tier = tiers[row.variant];
     const headline = row.headline ?? tier.label;
     const productPrice = formatPrice(tier.amountCents, tier.currency);
