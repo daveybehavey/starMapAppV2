@@ -182,7 +182,7 @@ test("Christmas banner discount windows (Pacific) cover each promo phase", async
   // Dec 27 onward → hidden (off-season)
   const dec27 = at("2026-12-27");
   assert.equal(resolveChristmasBannerPhase(dec27), "hidden");
-  assert.equal(getChristmasBannerContent(dec27), null);
+  assert.equal(getChristmasBannerContent(dec27, "$9"), null);
 });
 
 test("Christmas cyber monday and boxing day phases (boundaries + copy)", async () => {
@@ -235,20 +235,20 @@ test("Christmas cyber monday and boxing day phases (boundaries + copy)", async (
   // meaningful), lock the flag off, then compose everything the page
   // would show for Dec 26 (the pitch renders only when the flag is true)
   // and assert no trace of the stale pitch or Christmas-delivery framing.
-  assert.match(getChristmasDigitalPitchLine(), /December 25/);
+  assert.match(getChristmasDigitalPitchLine("$9"), /December 25/);
   assert.equal(landing.showDigitalPitch, false);
   const dec26VisibleCopy = [
     content.message,
     landing.heading,
     landing.discountLine ?? "",
-    landing.showDigitalPitch ? getChristmasDigitalPitchLine() : "",
+    landing.showDigitalPitch ? getChristmasDigitalPitchLine("$9") : "",
   ].join("\n");
   assert.equal(/December 25/.test(dec26VisibleCopy), false);
   assert.equal(/Christmas delivery|last-minute gift/i.test(dec26VisibleCopy), false);
 
   // Dec 27 onward is off-season.
   assert.equal(resolveChristmasBannerPhase(at("2026-12-27")), "hidden");
-  assert.equal(getChristmasBannerContent(at("2026-12-27")), null);
+  assert.equal(getChristmasBannerContent(at("2026-12-27"), "$9"), null);
 });
 
 test("Christmas promo publicity flag defaults on; FAQ answer names the codes", async () => {

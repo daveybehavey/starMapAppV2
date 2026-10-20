@@ -175,9 +175,13 @@ export type ChristmasBannerContent = {
   promoPercent?: number;
 };
 
+// instantHdPriceLabel is a required parameter on the helpers below: every
+// caller passes a currency-coded label (production callers pass
+// getInstantHdPriceLine()), so there is no bare-"$9" fallback that could
+// drift from the formatPrice convention.
 export function getChristmasBannerContent(
   nowMs: number = Date.now(),
-  instantHdPriceLabel = "$9"
+  instantHdPriceLabel: string
 ): ChristmasBannerContent | null {
   const phase = resolveChristmasBannerPhase(nowMs);
   if (phase === "hidden") return null;
@@ -567,6 +571,6 @@ export function __christmasDatePartsForTests(ymd: string) {
   return parseYmd(ymd);
 }
 
-export function getChristmasDigitalPitchLine(instantHdPriceLabel = "$9"): string {
+export function getChristmasDigitalPitchLine(instantHdPriceLabel: string): string {
   return `Missed the print window? The ${instantHdPriceLabel} instant HD file is a last-minute gift through December 25 — ready to send the same day.`;
 }

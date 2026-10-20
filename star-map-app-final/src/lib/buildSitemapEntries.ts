@@ -29,7 +29,8 @@ export type BuildSitemapOptions = {
  * Build sitemap entries with honest lastModified values only.
  *
  * - Blog posts: each post's `date`
- * - Static indexable blog routes: fixed content dates on those entries
+ * - Static indexable blog routes: fixed content dates where a truthful date
+ *   is recorded (the Valentine's route records none, so it omits lastModified)
  * - Policy pages: `POLICY_LAST_UPDATED_ISO` from policyMeta
  * - Marketing, hub, location, and occasion URLs: omit lastModified (no generation-time "now")
  */
@@ -41,7 +42,6 @@ export function buildSitemapEntries(options: BuildSitemapOptions): MetadataRoute
   const staticIndexableBlogRoutes: MetadataRoute.Sitemap = [
     {
       url: `${baseUrl}/blog/valentines-day-star-map`,
-      lastModified: "2025-02-01",
       changeFrequency: "monthly",
       priority: 0.6,
     },

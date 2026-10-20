@@ -107,7 +107,7 @@ test("Christmas order-by banner never renders 'Order by for'", async () => {
   );
   for (const day of ["2026-10-15", "2026-11-15", "2026-12-05"]) {
     const nowMs = resolveChristmasCampaignNowMs({ override: day });
-    const content = getChristmasBannerContent(nowMs);
+    const content = getChristmasBannerContent(nowMs, "$9");
     if (!content?.message.includes("Order by")) continue;
     assert.match(content.message, /Order by these dates for Christmas delivery/i);
     assert.doesNotMatch(content.message, /Order by for Christmas/i);

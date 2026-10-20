@@ -7,41 +7,54 @@ import { formatPrintPriceWithShipping, isUsOnlyPrintCheckout } from "@/lib/print
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 const homepageDescription =
   "Create a personalized star map for any date and location — preview the exact night sky for free, then order a framed print, unframed poster, or instant HD digital download. Perfect for anniversaries, weddings, and birthdays.";
+const homepageDescriptionDigitalOnly =
+  "Create a personalized star map for any date and location — preview the exact night sky for free, then order an instant HD digital download. Perfect for anniversaries, weddings, and birthdays.";
 
-export const metadata: Metadata = {
-  title: "Custom Star Map — Preview Free, Print or Download | StarMapCo",
-  description: homepageDescription,
-  keywords: [
-    "custom star map",
-    "star map gift",
-    "constellation map",
-    "personalized star map",
-    "star map by date",
-    "star map anniversary gift",
-  ],
-  alternates: { canonical: `${siteUrl}/` },
-  openGraph: {
+function isPrintCheckoutEnabled(): boolean {
+  return /^(1|true|yes)$/i.test(
+    (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
+  );
+}
+
+export function generateMetadata(): Metadata {
+  const description = isPrintCheckoutEnabled()
+    ? homepageDescription
+    : homepageDescriptionDigitalOnly;
+  return {
     title: "Custom Star Map — Preview Free, Print or Download | StarMapCo",
-    description: homepageDescription,
-    url: `${siteUrl}/`,
-    siteName: "StarMapCo",
-    images: [
-      {
-        url: `${siteUrl}/custom-star-map-anniversary.webp`,
-        width: 1200,
-        height: 630,
-        alt: "Custom star map preview from StarMapCo",
-      },
+    description,
+    keywords: [
+      "custom star map",
+      "star map gift",
+      "constellation map",
+      "personalized star map",
+      "star map by date",
+      "star map anniversary gift",
     ],
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Custom Star Map — Preview Free, Print or Download | StarMapCo",
-    description: homepageDescription,
-    images: [`${siteUrl}/custom-star-map-anniversary.webp`],
-  },
-};
+    alternates: { canonical: `${siteUrl}/` },
+    openGraph: {
+      title: "Custom Star Map — Preview Free, Print or Download | StarMapCo",
+      description,
+      url: `${siteUrl}/`,
+      siteName: "StarMapCo",
+      images: [
+        {
+          url: `${siteUrl}/custom-star-map-anniversary.webp`,
+          width: 1200,
+          height: 630,
+          alt: "Custom star map preview from StarMapCo",
+        },
+      ],
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: "Custom Star Map — Preview Free, Print or Download | StarMapCo",
+      description,
+      images: [`${siteUrl}/custom-star-map-anniversary.webp`],
+    },
+  };
+}
 
 type HomePageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -51,9 +64,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const resolvedSearchParams = (await searchParams) ?? {};
   const tiers = getPricingTiers();
   const printTiers = getPrintPricingTiers();
-  const printCheckoutEnabled = /^(1|true|yes)$/i.test(
-    (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim(),
-  );
+  const printCheckoutEnabled = isPrintCheckoutEnabled();
   const priceLabel = formatPrice(
     tiers.single.amountCents,
     (tiers.single.currency || "USD").toUpperCase()
@@ -104,8 +115,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       {
         "@type": "Product",
         name: "Custom Star Map",
-        description:
-          "Personalized star map generator for special dates and locations with a free live preview, framed print, unframed poster, and HD digital delivery.",
+        description: printCheckoutEnabled
+          ? "Personalized star map generator for special dates and locations with a free live preview, framed print, unframed poster, and HD digital delivery."
+          : "Personalized star map generator for special dates and locations with a free live preview and HD digital delivery.",
         brand: { "@type": "Brand", name: "StarMapCo" },
         image: [`${siteUrl}/custom-star-map-anniversary.webp`],
         category: "Personalized gifts",

@@ -23,7 +23,6 @@ export const metadata: Metadata = {
     description,
     url: "https://starmapco.com/blog/valentines-day-star-map",
     type: "article",
-    publishedTime: "2025-02-01",
     images: [{ url: ogImage, width: 1200, height: 630 }],
   },
   twitter: {
@@ -40,8 +39,6 @@ export default function ValentinesStarMapPage() {
     "@type": "Article",
     headline: title,
     description,
-    datePublished: "2025-02-01",
-    dateModified: "2025-02-01",
     author: { "@type": "Organization", name: "StarMapCo" },
     image: ogImage,
     publisher: {

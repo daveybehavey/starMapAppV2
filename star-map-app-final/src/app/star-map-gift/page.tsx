@@ -106,7 +106,7 @@ export default function StarMapGiftPage() {
             printVariant: "poster_framed",
             plan: "print_framed",
             tone: "recommended",
-            detail: "Ready-to-hang framed presentation with instant HD.",
+            detail: "Ready-to-hang framed presentation.",
           },
           {
             label: "Preview unframed print",
