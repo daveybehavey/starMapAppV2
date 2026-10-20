@@ -777,6 +777,8 @@ function checkoutIdempotencyKey(input: {
   customerEmail?: string | null;
   /** Effective pricing identity (resolveCheckoutPricingIdentity); scopes the key to the charged price. */
   pricingIdentity?: string;
+  /** Gift flag; scopes the key so a toggled gift checkbox can never reuse the other flavour's session. */
+  isGift?: boolean;
 }) {
   const mapId = typeof input.mapId === "string" ? input.mapId.trim() : "";
   if (!mapId) return null;
@@ -793,7 +795,14 @@ function checkoutIdempotencyKey(input: {
   const referral = normalizeIdempotencyToken(input.referralCode, 48);
   const emailSegment = input.customerEmail ? `:em${checkoutEmailIdempotencyTag(input.customerEmail)}` : "";
   const pricingSegment = input.pricingIdentity ? `:${input.pricingIdentity}` : "";
-  const baseWithoutMapId = `${CHECKOUT_IDEMPOTENCY_PREFIX}${orderType}:${plan}:${printVariant}:${includeDigitalAddOn}:${includeCardAddOn}:${merchFamily}:${merchSize}:${merchColor}:${shipping}:${promo}:${referral}${emailSegment}${input.androidAppMode ? ":app-android" : ""}${pricingSegment}`;
+  // Gift segment (G-dot recheck on PR #349): the flag changes what the
+  // session MEANS — its metadata suppresses every review ask — so like
+  // the price it is part of the reuse identity, appended after the
+  // pricing segment. Absent for non-gift, so non-gift keys stay
+  // byte-identical to before; gift and non-gift can never share a
+  // cached URL or a Stripe idempotency key in either direction.
+  const giftSegment = input.isGift ? ":gift" : "";
+  const baseWithoutMapId = `${CHECKOUT_IDEMPOTENCY_PREFIX}${orderType}:${plan}:${printVariant}:${includeDigitalAddOn}:${includeCardAddOn}:${merchFamily}:${merchSize}:${merchColor}:${shipping}:${promo}:${referral}${emailSegment}${input.androidAppMode ? ":app-android" : ""}${pricingSegment}${giftSegment}`;
   return appendCheckoutIdempotencyQaSegment(baseWithoutMapId, input.qaContext, mapId);
 }
 
@@ -809,7 +818,7 @@ async function createCheckoutSession(input: {
   printVariant?: PrintVariant;
   includeDigitalAddOn?: boolean;
   includeCardAddOn?: boolean;
-  /** Buyer marked the order as a gift (editor checkbox). Metadata-only: never priced, never in the idempotency key. */
+  /** Buyer marked the order as a gift (editor checkbox). Never priced; carried in the checkout reuse identity (gift segment) so a toggled checkbox cannot reuse the wrong session. */
   isGift?: boolean;
   shippingCountry?: string;
   clientCountry?: string | null;
@@ -2002,6 +2011,7 @@ export async function POST(req: NextRequest) {
       qaContext,
       androidAppMode,
       customerEmail: customerEmail ?? null,
+      isGift,
       pricingIdentity,
     });
     if (idempotencyKey) {

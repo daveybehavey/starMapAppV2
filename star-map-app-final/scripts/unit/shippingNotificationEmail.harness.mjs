@@ -38,13 +38,12 @@ export function renderShippingNotificationEmail(data) {
   const trackingNumber = data.trackingNumber || "9400111899223344556677";
   const subject = "Your StarMapCo order is on its way — tracking inside";
   const reviewText = renderShippingReviewTextBlock();
-  const reviewHtml = renderShippingReviewHtmlBlock();
+  const reviewHtml = data.isGift ? "" : renderShippingReviewHtmlBlock();
   const text = [
     `Tracking number: ${trackingNumber}`,
     "Track package: https://example.com/track",
     "",
-    reviewText,
-    "",
+    ...(data.isGift ? [] : [reviewText, ""]),
     "— The StarMapCo team",
   ].join("\n");
   const html = `<html><body><h1>Shipped</h1><p>Tracking ${trackingNumber}</p>${reviewHtml}<p>Thanks for choosing StarMapCo</p></body></html>`;

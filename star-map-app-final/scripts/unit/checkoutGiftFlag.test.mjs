@@ -28,6 +28,13 @@ import {
   giftFlagForRecord,
   isGiftFromSessionMetadata,
 } from "../../src/lib/checkoutGiftFlag.ts";
+import {
+  buildCheckoutPricingIdentity,
+  priceDataComponent,
+  priceIdComponent,
+} from "../../src/lib/checkoutPricingIdentity.ts";
+import { parsePrintVariant } from "../../src/lib/printCatalog.ts";
+import { appendCheckoutIdempotencyQaSegment } from "../../src/lib/qaSession.mjs";
 
 const { classifyDigitalEntitlement, classifyPrintRecord } = await import(
   "../../src/lib/reviewRequests.ts"
@@ -144,7 +151,13 @@ test("wiring: checkout route writes the metadata only from the POST body's isGif
   assert.match(route, /from "@\/lib\/checkoutGiftFlag"/);
 });
 
-test("wiring: the gift flag never enters the pricing identity or the idempotency/cache key", () => {
+test("wiring: the gift flag scopes the reuse identity — the key, never the pricing identity", () => {
+  // G-dot recheck on PR #349 (fix round): the original design kept the
+  // flag out of the key entirely, so a request differing only in the
+  // gift tick reused the other flavour's cached URL / Stripe key. The
+  // flag now appends a gift segment to the reuse identity — while the
+  // PRICING identity (what is charged) stays exactly as PR #343 built
+  // it: the flag is never priced and never enters the resolver.
   const route = read("src/app/api/checkout/route.ts");
   const pricingIdentity = route.slice(
     route.indexOf("function resolveCheckoutPricingIdentity"),
@@ -157,8 +170,13 @@ test("wiring: the gift flag never enters the pricing identity or the idempotency
   assert.ok(pricingIdentity.length > 0 && idempotencyKey.length > 0);
   assert.equal(pricingIdentity.includes("isGift"), false);
   assert.equal(pricingIdentity.includes("is_gift"), false);
-  assert.equal(idempotencyKey.includes("isGift"), false);
-  assert.equal(idempotencyKey.includes("is_gift"), false);
+  // Key builder: a typed gift input, a segment that exists only when
+  // the box is ticked, appended after the (unchanged) pricing segment.
+  assert.match(idempotencyKey, /isGift\?: boolean;/);
+  assert.match(idempotencyKey, /const giftSegment = input\.isGift \? ":gift" : "";/);
+  assert.match(idempotencyKey, /\$\{pricingSegment\}\$\{giftSegment\}`/);
+  // The single call site threads the parsed flag into the builder.
+  assert.match(route, /customerEmail: customerEmail \?\? null,\s*isGift,\s*pricingIdentity,/);
 });
 
 test("wiring: both webhook writers stamp the record from session metadata via the shared helper", () => {
@@ -193,4 +211,128 @@ test("wiring: digital fallback checkouts preserve the gift selection (Codex P2, 
     !editor.includes('startCheckout("single");'),
     'no bare startCheckout("single") calls may remain — they drop the gift flag',
   );
+});
+
+/**
+ * Behavioural pins for the reuse identity, against the route's REAL key
+ * builder extracted verbatim from source (route.ts cannot be imported
+ * by the plain-Node runner — the pattern from
+ * checkoutPricingIdentity.test.mjs). The two lib helpers the builder
+ * calls are imported for real; the route-local helpers are extracted
+ * with it, so the code under test is the production source text and
+ * extraction fails loudly if any of it is renamed or restructured.
+ */
+const routeSource = read("src/app/api/checkout/route.ts");
+
+function extractRouteFunction(source, name) {
+  const start = source.indexOf(`function ${name}(`);
+  assert.ok(start >= 0, `route.ts must define ${name} (extraction target)`);
+  let depth = 0;
+  let end = -1;
+  for (let i = source.indexOf("{", start); i < source.length; i += 1) {
+    if (source[i] === "{") depth += 1;
+    else if (source[i] === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        end = i + 1;
+        break;
+      }
+    }
+  }
+  assert.ok(end > start, `could not brace-match ${name} in route.ts`);
+  return source.slice(start, end);
+}
+
+function extractKeyBuilder(source) {
+  const start = source.indexOf("function checkoutIdempotencyKey(");
+  assert.ok(start >= 0, "route.ts must define checkoutIdempotencyKey (extraction target)");
+  // The parameter is an inline object type, so the naive first-{ would
+  // land inside the TYPE, not the body: skip to the signature's
+  // closing ") {" first, then brace-match the body from there.
+  const sigClose = source.indexOf(") {", start);
+  assert.ok(sigClose > start, "could not find the key builder's body opening");
+  const bodyOpen = sigClose + 2;
+  let depth = 0;
+  let end = -1;
+  for (let i = bodyOpen; i < source.length; i += 1) {
+    if (source[i] === "{") depth += 1;
+    else if (source[i] === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        end = i + 1;
+        break;
+      }
+    }
+  }
+  assert.ok(end > bodyOpen, "could not brace-match the key builder's body");
+  return `function checkoutIdempotencyKey(input) ${source.slice(bodyOpen, end)}`;
+}
+
+const prefixMatch = routeSource.match(/const CHECKOUT_IDEMPOTENCY_PREFIX = "([^"]+)";/);
+assert.ok(prefixMatch, "route.ts must define CHECKOUT_IDEMPOTENCY_PREFIX");
+assert.equal(prefixMatch[1], "checkout:idempotency:url:", "key prefix drift alarm");
+
+const normalizeRaw = extractRouteFunction(routeSource, "normalizeIdempotencyToken");
+const normalizeSrc = normalizeRaw.replace("(raw: unknown, maxLen = 64)", "(raw, maxLen = 64)");
+assert.notEqual(normalizeSrc, normalizeRaw, "normalize signature de-annotation must apply");
+const tagRaw = extractRouteFunction(routeSource, "checkoutEmailIdempotencyTag");
+const tagSrc = tagRaw.replace("(email: string): string", "(email)");
+assert.notEqual(tagSrc, tagRaw, "tag signature de-annotation must apply");
+const builderSrc = extractKeyBuilder(routeSource);
+assert.match(builderSrc, /input\.isGift \? ":gift" : ""/, "extracted builder must carry the gift segment");
+
+const { checkoutIdempotencyKey } = new Function(
+  "parsePrintVariant",
+  "appendCheckoutIdempotencyQaSegment",
+  `"use strict";\n${prefixMatch[0]}\n${normalizeSrc}\n${tagSrc}\n${builderSrc}\nreturn { checkoutIdempotencyKey };`,
+)(parsePrintVariant, appendCheckoutIdempotencyQaSegment);
+
+const PACK3_PRICING_IDENTITY = buildCheckoutPricingIdentity([
+  priceIdComponent("price_1USLXuLWqD0o9865w9H6msaa"),
+]);
+const DIGITAL_ORDER_IDENTITY = "checkout:idempotency:url:digital:pack3:poster_framed:0:0::::::";
+
+test("reuse identity (behavioural): a gift tick re-keys the checkout; the same tick dedupes", () => {
+  const input = {
+    mapId: "map_abc123",
+    plan: "pack3",
+    orderType: "digital",
+    pricingIdentity: PACK3_PRICING_IDENTITY,
+  };
+  const nonGift = checkoutIdempotencyKey({ ...input });
+  const gift = checkoutIdempotencyKey({ ...input, isGift: true });
+  // Byte-exact composition: a non-gift key is IDENTICAL to the pre-flag
+  // grammar (the PR #343 key with the mapId appended) — the gift
+  // segment is absent for non-gift, not zeroed in.
+  assert.equal(nonGift, `${DIGITAL_ORDER_IDENTITY}:${PACK3_PRICING_IDENTITY}:map_abc123`);
+  assert.equal(gift, `${DIGITAL_ORDER_IDENTITY}:${PACK3_PRICING_IDENTITY}:gift:map_abc123`);
+  assert.notEqual(gift, nonGift, "toggling the gift checkbox must not reuse the other flavour's session");
+  // Retries with the SAME tick still dedupe — in both flavours.
+  assert.equal(checkoutIdempotencyKey({ ...input, isGift: true }), gift);
+  assert.equal(checkoutIdempotencyKey({ ...input, isGift: false }), nonGift);
+  // The Stripe idempotency key derives from this key (route:
+  // `${key}:exp${expires_at}`, then bounded), so it differs too.
+  const stripeFor = (key) => `${key}:exp1700007200`;
+  assert.notEqual(stripeFor(gift), stripeFor(nonGift));
+});
+
+test("reuse identity (behavioural): print orders — the price segment stays byte-identical, gift rides after it", () => {
+  const pricingIdentity = buildCheckoutPricingIdentity([
+    priceIdComponent("price_print_a"),
+    priceDataComponent("usd", 700),
+  ]);
+  assert.equal(pricingIdentity, "price:price_print_a+pd:usd:700");
+  const input = {
+    mapId: "map_print1",
+    plan: "print",
+    orderType: "print",
+    printVariant: "poster_framed",
+    includeDigitalAddOn: true,
+    pricingIdentity,
+  };
+  const nonGift = checkoutIdempotencyKey({ ...input });
+  const gift = checkoutIdempotencyKey({ ...input, isGift: true });
+  assert.ok(nonGift.endsWith(`:${pricingIdentity}:map_print1`), "non-gift print key unchanged");
+  assert.equal(gift, `${nonGift.slice(0, -":map_print1".length)}:gift:map_print1`);
+  assert.notEqual(gift, nonGift);
 });

@@ -159,6 +159,10 @@ export async function sendShippingNotification(
         ? { from: input.estimatedDeliveryFrom ?? null, to: input.estimatedDeliveryTo ?? null }
         : null,
     productLabel: pickProductLabel(record, input.productLabel ?? null),
+    // The record's stamped gift flag (webhook, from checkout metadata):
+    // gift orders were promised no review ask, so the shipping email
+    // suppresses its review blocks for them.
+    isGift: record.isGift === true,
     shippingAddress: extractRecipientFromRecord(record),
     orderReference: record.printfulOrderId ? `#${record.printfulOrderId}` : null,
     supportEmail: process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim() || "support@starmapco.com",

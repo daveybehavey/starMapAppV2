@@ -66,8 +66,9 @@ test("app-mode checkouts use their own idempotency cache key", () => {
   const src = read("src/app/api/checkout/route.ts");
   assert.match(src, /androidAppMode\?: boolean;/);
   // The pricing segment (PR #343 fix round) is appended after the app-mode
-  // segment; the app-mode segment itself is unchanged.
-  assert.match(src, /\$\{input\.androidAppMode \? ":app-android" : ""\}\$\{pricingSegment\}`/);
+  // segment; the app-mode segment itself is unchanged. (The PR #349 fix
+  // round later appended a gift segment after the pricing segment.)
+  assert.match(src, /\$\{input\.androidAppMode \? ":app-android" : ""\}\$\{pricingSegment\}\$\{giftSegment\}`/);
   const post = src.slice(src.indexOf("export async function POST"));
   const keyCall = post.slice(post.indexOf("checkoutIdempotencyKey({"), post.indexOf("kv.get<string>(idempotencyKey)"));
   assert.match(keyCall, /androidAppMode,/);
