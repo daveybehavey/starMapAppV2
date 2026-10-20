@@ -19,6 +19,20 @@ export type ResendEmailInput = {
   from?: string;
   replyTo?: string;
   tags?: Record<string, string>;
+  /**
+   * Per-message email headers, sent in the Resend payload's `headers` field
+   * (e.g. List-Unsubscribe). These are MESSAGE headers, not HTTP headers —
+   * callers cannot influence Authorization/Content-Type through this field.
+   */
+  headers?: Record<string, string>;
+  /**
+   * Provider idempotency key, sent as the HTTP `Idempotency-Key` header so
+   * provider-side retries of the same logical send are deduplicated (24h).
+   * Deliberately no `scheduled_at` support: send timing is owned by the
+   * caller's own scheduling (e.g. the review-request tick), never delegated
+   * to the provider.
+   */
+  idempotencyKey?: string;
 };
 
 export type ResendSendResult =
@@ -79,15 +93,24 @@ export async function sendResendEmail(input: ResendEmailInput): Promise<ResendSe
   if (input.tags) {
     body.tags = Object.entries(input.tags).map(([name, value]) => ({ name, value }));
   }
+  if (input.headers && Object.keys(input.headers).length > 0) {
+    body.headers = input.headers;
+  }
+
+  const httpHeaders: Record<string, string> = {
+    Authorization: `Bearer ${apiKey}`,
+    "Content-Type": "application/json",
+  };
+  const idempotencyKey = input.idempotencyKey?.trim();
+  if (idempotencyKey) {
+    httpHeaders["Idempotency-Key"] = idempotencyKey;
+  }
 
   let response: Response;
   try {
     response = await fetch(RESEND_ENDPOINT, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
+      headers: httpHeaders,
       body: JSON.stringify(body),
     });
   } catch (error) {

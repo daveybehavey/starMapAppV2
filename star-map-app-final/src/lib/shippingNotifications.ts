@@ -103,31 +103,50 @@ export async function sendShippingNotification(
   if (!trackingNumber) {
     return { ok: false, status: "skipped", reason: "tracking_number_missing" };
   }
-  if (!isResendConfigured()) {
-    return { ok: false, status: "skipped", reason: "resend_not_configured" };
-  }
 
   const key = printOrderKey(sessionId);
-  const record = (await kv.get<ExtendedPrintOrderRecord>(key)) as ExtendedPrintOrderRecord | null;
-  if (!record) {
+  const loadedRecord = (await kv.get<ExtendedPrintOrderRecord>(key)) as ExtendedPrintOrderRecord | null;
+  if (!loadedRecord) {
     return { ok: false, status: "skipped", reason: "order_not_found" };
   }
 
-  const customerEmail = record.customerEmail?.trim();
+  const customerEmail = loadedRecord.customerEmail?.trim();
   if (!customerEmail) {
     return { ok: false, status: "skipped", reason: "customer_email_missing" };
   }
 
   if (
-    record.shippingNotificationSentAt &&
-    record.shippingNotificationTrackingNumber === trackingNumber
+    loadedRecord.shippingNotificationSentAt &&
+    loadedRecord.shippingNotificationTrackingNumber === trackingNumber
   ) {
     return {
       ok: true,
       status: "already_sent",
       provider: "resend",
-      messageId: record.shippingNotificationMessageId ?? null,
+      messageId: loadedRecord.shippingNotificationMessageId ?? null,
     };
+  }
+
+  // Persist the shipment FACT (shippedAt) before — and independently of —
+  // the notification email outcome. The review-request engine anchors its
+  // physical due window to this fact; anchoring it to email success would
+  // let a Resend outage or missing config silently erase orders from the
+  // review population (Codex design critique, P1). First-write-wins: a
+  // reshipment with a new tracking number never resets the clock.
+  let record = loadedRecord;
+  if (!record.shippedAt) {
+    const anchored: ExtendedPrintOrderRecord = { ...record, shippedAt: Date.now() };
+    const anchorResult = await persistPrintOrderRecord(sessionId, anchored);
+    if (anchorResult.outcome !== "persisted") {
+      // Fail closed before any email side effect, per the record-retention
+      // posture used elsewhere in this codebase (AG-086).
+      return { ok: false, status: "skipped", reason: "print_order_unretainable" };
+    }
+    record = anchored;
+  }
+
+  if (!isResendConfigured()) {
+    return { ok: false, status: "skipped", reason: "resend_not_configured" };
   }
 
   const rendered = renderShippingNotificationEmail({
