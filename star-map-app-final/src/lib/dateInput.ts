@@ -97,6 +97,21 @@ export function resolveDateInputBlurValue(normalized: string, controlledValue?: 
   return controlledValue ?? "";
 }
 
+/**
+ * Whether the value a text-fallback field settles on at blur must be
+ * notified to consumers via onChange. Typing handlers notify with the
+ * as-typed value, which consumers reject while it is not a complete ISO
+ * date; when blur settling pads a settled entry into a valid date
+ * (2019-07-4 -> 2019-07-04), that settled date would otherwise never
+ * reach the stored state and the display would silently diverge from
+ * it. An unchanged value needs no notice, and an invalid settled value
+ * is not notified (the field shows its error instead).
+ */
+export function shouldNotifyDateInputBlurValue(valueBeforeBlur: string, settled: string) {
+  if (settled === valueBeforeBlur) return false;
+  return !settled || isValidIsoDateInput(settled);
+}
+
 export function formatDateInput(date: Date) {
   if (!Number.isFinite(date.getTime())) return "";
   const y = date.getFullYear();

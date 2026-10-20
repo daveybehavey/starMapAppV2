@@ -18,7 +18,11 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { normalizeFlexibleDateInput } from "../../src/lib/dateInput.ts";
+import {
+  isValidIsoDateInput,
+  normalizeFlexibleDateInput,
+  shouldNotifyDateInputBlurValue,
+} from "../../src/lib/dateInput.ts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const TYPING = { whileTyping: true };
@@ -99,6 +103,33 @@ test("complete and invalid values are untouched by typing mode", () => {
   assert.equal(normalizeFlexibleDateInput("", TYPING), "");
 });
 
+test("a date that only becomes valid at blur settling is notified to consumers", () => {
+  // The Codex P2 on PR #347: consumers (DateTimeControls, SimplifiedEditor)
+  // reject any onChange value that isValidIsoDateInput refuses, so the
+  // as-typed 2019-07-4 never reaches their stored state. Blur settling
+  // pads it to a valid date — that settled value must be notified, or the
+  // displayed date silently diverges from the stored one.
+  const asTyped = normalizeFlexibleDateInput("2019-7-4", TYPING);
+  assert.equal(asTyped, "2019-07-4");
+  assert.equal(isValidIsoDateInput(asTyped), false); // why consumers rejected it
+  const settled = normalizeFlexibleDateInput(asTyped);
+  assert.equal(settled, "2019-07-04");
+  assert.equal(isValidIsoDateInput(settled), true); // what consumers accept
+  assert.equal(shouldNotifyDateInputBlurValue(asTyped, settled), true);
+});
+
+test("blur notification fires only for a changed, valid settled value", () => {
+  // Unchanged at blur (the ordinary two-digit typing flow): no notice.
+  assert.equal(shouldNotifyDateInputBlurValue("2019-07-14", "2019-07-14"), false);
+  // Invalid settled value: not notified; the field shows its error instead.
+  assert.equal(shouldNotifyDateInputBlurValue("2019-04-3", "2019-04-31"), false);
+  // U12 emptied-field restore: the settled (stored) date is re-notified;
+  // controlled consumers already hold it, so the notice is a no-op there.
+  assert.equal(shouldNotifyDateInputBlurValue("", "2026-10-19"), true);
+  // Nothing typed, nothing controlled: nothing to notify.
+  assert.equal(shouldNotifyDateInputBlurValue("", ""), false);
+});
+
 test("IOSSafeDateInput uses typing normalization on input/change and full normalization on blur", () => {
   const input = fs.readFileSync(
     path.join(ROOT, "src/components/IOSSafeDateInput.tsx"),
@@ -107,5 +138,8 @@ test("IOSSafeDateInput uses typing normalization on input/change and full normal
   assert.equal((input.match(/whileTyping: true/g) ?? []).length, 2);
   const blurBlock = input.slice(input.indexOf("const handleBlur"));
   assert.doesNotMatch(blurBlock, /whileTyping/);
-  assert.match(blurBlock, /normalizeFlexibleDateInput\(event\.currentTarget\.value\.trim\(\)\)/);
+  assert.match(blurBlock, /normalizeFlexibleDateInput\(valueBeforeBlur\.trim\(\)\)/);
+  // Blur settling propagates the settled date to consumers.
+  assert.match(blurBlock, /shouldNotifyDateInputBlurValue\(valueBeforeBlur, settled\)/);
+  assert.match(blurBlock, /onChange\?\.\(event\)/);
 });
