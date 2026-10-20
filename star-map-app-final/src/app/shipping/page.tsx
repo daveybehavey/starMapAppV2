@@ -5,6 +5,7 @@ import { PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS, getPrintStandardShippingOnlyLine
 import { buildPolicyLastUpdatedLine } from "@/lib/policyMeta";
 import { getPrintAllowedCountries, getPrintProductionReviewDisclosure } from "@/lib/printCheckoutConfig";
 import { getPrintFreeShippingOfferLine, getPrintFreeShippingQualifyingHint } from "@/lib/printFreeShipping";
+import { formatPrice } from "@/lib/pricing";
 import { getPrintfulShippingRate, getPrintShippingCountryLabel } from "@/lib/printfulShipping";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://starmapco.com";
@@ -44,11 +45,10 @@ type ShippingRow = {
 
 function formatUsd(amount?: number | null) {
   if (typeof amount !== "number" || !Number.isFinite(amount)) return "N/A";
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-  }).format(amount);
+  // Route through the shared formatPrice convention (PR #341): every
+  // customer-facing amount names its currency ("$4.62 USD"), never a
+  // bare "$" whose currency a CA shopper has to guess.
+  return formatPrice(Math.round(amount * 100), "USD");
 }
 
 function buildShippingRows(): ShippingRow[] {

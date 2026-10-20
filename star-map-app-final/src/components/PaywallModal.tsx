@@ -22,7 +22,6 @@ import {
   getPrintFreeShippingOfferLine,
 } from "@/lib/printCheckoutConfig";
 import { getPrintShippingCountryLabel, getPrintShippingCountryOptions, PRINT_SHIPPING_COUNTRY_PLACEHOLDER_LABEL } from "@/lib/printfulShipping";
-import { PAYWALL_PRINT_CHECKOUT_ROWS } from "@/lib/printCatalog";
 import {
   formatPosterShippingFootnote,
   getPaywallPrintCheckoutPresentation,
@@ -35,6 +34,7 @@ import { CheckoutLegalNotice } from "@/components/CheckoutLegalNotice";
 import {
   DIGITAL_CHECKOUT_SUPPORT_LINE,
   LOVE_IT_GUARANTEE_LINE,
+  MERCH_POLICY_LINE,
 } from "@/lib/loveItGuarantee";
 import { normalizeCheckoutCustomerEmail } from "@/lib/checkoutCustomerEmail";
 import {
@@ -194,10 +194,10 @@ export function PaywallModal({
   );
   const printRows = useMemo(
     () => {
-      const rows = getPaywallPrintCheckoutPresentation(printShippingCountry);
+      const rows = getPaywallPrintCheckoutPresentation(printShippingCountry, preferredPrintVariant);
       return appMode ? rows.filter((row) => !row.includeDigitalAddOn) : rows;
     },
-    [printShippingCountry, appMode]
+    [printShippingCountry, appMode, preferredPrintVariant]
   );
 
   const posterShippingFootnote = useMemo(
@@ -303,17 +303,22 @@ export function PaywallModal({
     trackViewItemList({
       itemListId: listId,
       itemListName: activeIntent === "print" ? "Paywall print options" : "Paywall print upsell",
-      items: PAYWALL_PRINT_CHECKOUT_ROWS.filter((row) => !inAppMode || !row.includeDigitalAddOn).map((row, index) => ({
+      // Impressions must mirror the rows actually rendered (printRows) —
+      // since M03 the offer set can prepend the shopper's selected variant
+      // (e.g. the mug), and selection events report the presentation index.
+      // The inAppMode filter keeps the app-mode rule: no digital add-on
+      // impressions when running as the Android app.
+      items: printRows.filter((row) => !inAppMode || !row.includeDigitalAddOn).map((row) => ({
         plan: "single",
         orderType: "print" as const,
         printVariant: row.variant,
         includeDigitalAddOn: row.includeDigitalAddOn,
         includeCardAddOn: row.includeCardAddOn,
-        index,
+        index: row.index,
       })),
     });
     viewedListsRef.current.add(listId);
-  }, [activeIntent, hasPrintOptions, appMode]);
+  }, [activeIntent, hasPrintOptions, appMode, printRows]);
 
   const handleDigitalCheckoutClick = (plan: CheckoutPlan) => {
     trackSelectItem({
@@ -649,7 +654,7 @@ export function PaywallModal({
                         })}
                       </p>
                       <p className="mt-0.5 px-1 text-[10px] leading-snug text-amber-100/75">
-                        {LOVE_IT_GUARANTEE_LINE}
+                        {row.variant === "mug_11oz" ? MERCH_POLICY_LINE : LOVE_IT_GUARANTEE_LINE}
                       </p>
                     </div>
                   ))}

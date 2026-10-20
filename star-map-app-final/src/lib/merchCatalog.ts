@@ -180,28 +180,77 @@ export function getMerchFamily(id: MerchFamilyId): MerchFamily {
   return found;
 }
 
+/**
+ * Public env access for merch — LITERAL KEYS ONLY (read before adding reads).
+ *
+ * Next.js inlines only literal `process.env.NEXT_PUBLIC_*` member expressions
+ * into client bundles. A computed read (a bracket lookup with a variable
+ * key) is not inlined: in the browser it resolves against an effectively empty env object
+ * and silently yields undefined, while the server still sees the real value.
+ * That asymmetry shipped merch unpurchasable in Oct 2026 — /shop cards
+ * rendered server-side from real flags while the browser editor resolved
+ * zero enabled families and ignored the merch_family URL param entirely.
+ *
+ * Every NEXT_PUBLIC_* merch value is therefore read through the literal maps
+ * below — one literal member expression per key, keyed by family id. The
+ * per-family `enabledPublicEnv` / `publicLabelEnv` / `publicPriceEnv` fields
+ * above stay as documentation of which key configures each family; a unit
+ * pin asserts the maps cover exactly those keys.
+ *
+ * Server-only values are deliberately NOT in these maps: Stripe price ids
+ * (getMerchStripePriceId) and COGS (lib/merchMargin.ts) are read only in API
+ * routes where process.env is the real runtime env, so computed reads are
+ * correct there.
+ */
+const MERCH_BETA_PUBLIC_ENV: string | undefined = process.env.NEXT_PUBLIC_MERCH_BETA_ENABLED;
+
+const MERCH_FAMILY_ENABLED_PUBLIC_ENV: Record<MerchFamilyId, string | undefined> = {
+  sticker_kisscut: process.env.NEXT_PUBLIC_MERCH_STICKERS_ENABLED,
+  magnet_diecut: process.env.NEXT_PUBLIC_MERCH_MAGNETS_ENABLED,
+  pins_set: process.env.NEXT_PUBLIC_MERCH_PINS_ENABLED,
+  tee_unisex_bc3001: process.env.NEXT_PUBLIC_MERCH_TEE_ENABLED,
+  hoodie_unisex_g18500: process.env.NEXT_PUBLIC_MERCH_HOODIE_ENABLED,
+};
+
+const MERCH_FAMILY_LABEL_PUBLIC_ENV: Record<MerchFamilyId, string | undefined> = {
+  sticker_kisscut: process.env.NEXT_PUBLIC_MERCH_STICKERS_LABEL,
+  magnet_diecut: process.env.NEXT_PUBLIC_MERCH_MAGNETS_LABEL,
+  pins_set: process.env.NEXT_PUBLIC_MERCH_PINS_LABEL,
+  tee_unisex_bc3001: process.env.NEXT_PUBLIC_MERCH_TEE_LABEL,
+  hoodie_unisex_g18500: process.env.NEXT_PUBLIC_MERCH_HOODIE_LABEL,
+};
+
+const MERCH_FAMILY_PRICE_PUBLIC_ENV: Record<MerchFamilyId, string | undefined> = {
+  sticker_kisscut: process.env.NEXT_PUBLIC_MERCH_STICKERS_PRICE_CENTS,
+  magnet_diecut: process.env.NEXT_PUBLIC_MERCH_MAGNETS_PRICE_CENTS,
+  pins_set: process.env.NEXT_PUBLIC_MERCH_PINS_PRICE_CENTS,
+  tee_unisex_bc3001: process.env.NEXT_PUBLIC_MERCH_TEE_PRICE_CENTS,
+  hoodie_unisex_g18500: process.env.NEXT_PUBLIC_MERCH_HOODIE_PRICE_CENTS,
+};
+
 /** Beta gate + per-family public toggles (shop, editor, post-purchase links). */
 export function isMerchPublicBetaEnabled(): boolean {
-  return /^(1|true|yes)$/i.test((process.env.NEXT_PUBLIC_MERCH_BETA_ENABLED || "").trim());
+  return /^(1|true|yes)$/i.test((MERCH_BETA_PUBLIC_ENV || "").trim());
 }
 
 export function listMerchFamiliesEnabledForPublicUi(): MerchFamily[] {
   if (!isMerchPublicBetaEnabled()) return [];
-  return MERCH_FAMILIES.filter((family) => isMerchFamilyEnvEnabled(family.enabledPublicEnv));
+  return MERCH_FAMILIES.filter((family) => isMerchFamilyEnvEnabled(family.id));
 }
 
-function isMerchFamilyEnvEnabled(envKey: string): boolean {
-  return /^(1|true|yes)$/i.test((process.env[envKey] || "").trim());
+function isMerchFamilyEnvEnabled(familyId: MerchFamilyId): boolean {
+  return /^(1|true|yes)$/i.test((MERCH_FAMILY_ENABLED_PUBLIC_ENV[familyId] || "").trim());
 }
 
 /** Server checkout gate — must match public UI flags. */
 export function isMerchFamilyEnabledForCheckout(familyId: MerchFamilyId): boolean {
   if (!isMerchPublicBetaEnabled()) return false;
-  const family = getMerchFamily(familyId);
-  return isMerchFamilyEnvEnabled(family.enabledPublicEnv);
+  return isMerchFamilyEnvEnabled(familyId);
 }
 
 export function getMerchStripePriceId(family: MerchFamily): string | undefined {
+  // Server-only (checkout route): process.env is the real runtime env here,
+  // so the computed read is correct and this key must never move client-side.
   const raw = process.env[family.stripePriceEnv]?.trim();
   return raw || undefined;
 }
@@ -211,12 +260,12 @@ export function getMerchCheckoutPriceCents(family: MerchFamily): number {
 }
 
 export function getMerchPublicDisplayLabel(family: MerchFamily): string {
-  const raw = process.env[family.publicLabelEnv]?.trim();
+  const raw = MERCH_FAMILY_LABEL_PUBLIC_ENV[family.id]?.trim();
   return raw || family.labelFallback;
 }
 
 export function getMerchPublicDisplayPriceCents(family: MerchFamily): number {
-  const raw = process.env[family.publicPriceEnv]?.trim();
+  const raw = MERCH_FAMILY_PRICE_PUBLIC_ENV[family.id]?.trim();
   const parsed = raw ? Number.parseInt(raw, 10) : NaN;
   if (Number.isFinite(parsed) && parsed > 0) return parsed;
   return family.priceFallbackCents;

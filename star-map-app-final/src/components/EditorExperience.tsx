@@ -100,6 +100,7 @@ import {
   listMerchFamiliesEnabledForPublicUi,
   type MerchFamilyId,
 } from "@/lib/merchCatalog";
+import { MERCH_POLICY_LINE } from "@/lib/loveItGuarantee";
 import { getRevealProgressPercent, REVEAL_STAGES } from "@/lib/revealExperience";
 import { getSetupGuideField, scrollToSetupField } from "@/lib/setupGuide";
 import { normalizeReferralCode, readStoredReferralCode } from "@/lib/referrals";
@@ -411,6 +412,15 @@ export function EditorExperience({
   const queryReferralCode = normalizeReferralCode(searchParams.get("ref"));
   const mapIdFromQuery = useMemo(() => parseMapIdParam(searchParams.get("map_id")), [searchParams]);
   const merchFamilyFromQuery = searchParams.get("merch_family");
+  // M04: a merch-led landing (shop card click) must name the product the
+  // shopper chose — the generic print line never mentions it. Only a
+  // merch_family param that resolves to an enabled family counts;
+  // selectedMerchFamily alone always has a default, even for print entries.
+  const requestedMerchFamily = useMemo(() => {
+    const id = merchFamilyFromQuery?.trim();
+    if (!id || !isMerchFamilyId(id)) return null;
+    return enabledMerchFamilies.find((f) => f.id === id) ?? null;
+  }, [merchFamilyFromQuery, enabledMerchFamilies]);
   const revealStage = REVEAL_STAGES[revealStageIndex];
   const revealProgress = getRevealProgressPercent(revealStageIndex);
   const setPrintShippingCountryValue = useCallback(
@@ -570,9 +580,9 @@ export function EditorExperience({
   // Google Play app mode: prints only, never a digital add-on row.
   const androidAppMode = useAndroidAppMode();
   const printCheckoutRows = useMemo(() => {
-    const rows = getPaywallPrintCheckoutPresentation(printShippingCountry);
+    const rows = getPaywallPrintCheckoutPresentation(printShippingCountry, preferredPrintVariant);
     return androidAppMode ? rows.filter((row) => !row.includeDigitalAddOn) : rows;
-  }, [printShippingCountry, androidAppMode]);
+  }, [printShippingCountry, androidAppMode, preferredPrintVariant]);
   const activeMapLookTier = useMemo(
     () => resolveMapLookTier(renderOptions, selectedStyle),
     [renderOptions, selectedStyle]
@@ -3377,7 +3387,9 @@ export function EditorExperience({
                               )}
                               {canReveal && printCheckoutEnabled && (
                                 <p className="text-[11px] text-amber-100/90">
-                                  Printed and framed options unlock after preview.
+                                  {requestedMerchFamily
+                                    ? `Designing your ${requestedMerchFamily.label.toLowerCase()} — checkout unlocks right after the preview.`
+                                    : "Printed and framed options unlock after preview."}
                                 </p>
                               )}
                             </div>
@@ -3889,6 +3901,9 @@ export function EditorExperience({
                                     ? "Opening secure checkout..."
                                     : "Checkout selected merch"}
                                 </button>
+                                <p className="mt-2 text-[10px] leading-snug text-amber-100/75">
+                                  {MERCH_POLICY_LINE}
+                                </p>
                               </div>
                             ) : null}
                             {checkoutError && (

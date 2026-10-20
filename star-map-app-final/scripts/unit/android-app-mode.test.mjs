@@ -135,7 +135,7 @@ test("paywall does not record digital impressions in app mode", () => {
   const src = read("src/components/PaywallModal.tsx");
   assert.match(src, /const inAppMode = appMode \|\| isAndroidAppModeClient\(\);/);
   assert.match(src, /if \(!inAppMode && !viewedListsRef\.current\.has\("paywall_digital_options"\)\)/);
-  assert.match(src, /PAYWALL_PRINT_CHECKOUT_ROWS\.filter\(\(row\) => !inAppMode \|\| !row\.includeDigitalAddOn\)/);
+  assert.match(src, /printRows\.filter\(\(row\) => !inAppMode \|\| !row\.includeDigitalAddOn\)/);
 });
 
 test("app-mode print paywall copy and ladders never advertise the digital add-on", () => {

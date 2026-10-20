@@ -40,7 +40,7 @@ export const SUPPORT_FAQ_ITEMS: readonly { id: string; question: string; answer:
     id: "merch-damaged",
     question: "My merch arrived damaged or wrong. What should I do?",
     answer:
-      "Merch (stickers, magnets, pin buttons, tees, and hoodies) is made to order. If an item arrives defective, damaged, or different from what you ordered, email us within 30 days of delivery with photos and your order details and we will replace it free. See our Returns & Refunds policy for details.",
+      "Merch (stickers, magnets, pin buttons, tees, hoodies, and star map mugs) is made to order. If an item arrives defective, damaged, or different from what you ordered, email us within 30 days of delivery with photos and your order details and we will replace it free. See our Returns & Refunds policy for details.",
   },
   {
     id: "merch-wrong-size",

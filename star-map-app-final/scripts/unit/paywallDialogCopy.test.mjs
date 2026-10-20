@@ -95,9 +95,11 @@ test("PaywallModal keeps Love-It reprint under print options and digital support
   );
 
   const digitalPanelStart = src.indexOf('id="paywall-tab-panel-digital"');
-  const printLoveIt = src.indexOf("{LOVE_IT_GUARANTEE_LINE}");
-  const digitalLoveIt = src.indexOf("{LOVE_IT_GUARANTEE_LINE}", digitalPanelStart);
-  assert.ok(printLoveIt > 0 && printLoveIt < digitalPanelStart, "Love-It line should appear in print panel");
+  // Print rows carry the Love-It line; the mug row (merch terms, M05)
+  // switches to MERCH_POLICY_LINE. Both live in the print panel only.
+  const printPolicy = src.indexOf('row.variant === "mug_11oz" ? MERCH_POLICY_LINE : LOVE_IT_GUARANTEE_LINE');
+  const digitalLoveIt = src.indexOf("LOVE_IT_GUARANTEE_LINE", digitalPanelStart);
+  assert.ok(printPolicy > 0 && printPolicy < digitalPanelStart, "Love-It line should appear in print panel");
   assert.equal(digitalLoveIt, -1, "Love-It reprint line must not appear under digital options");
 });
 
