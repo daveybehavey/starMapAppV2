@@ -126,7 +126,9 @@ test("no sitemap entry lastModified equals generation time; blog keeps post date
         `blog entry ${slug} must keep post.date as lastModified`
       );
     } else if (slug === "valentines-day-star-map") {
-      assert.equal(normalizeLastModified(entry.lastModified), "2025-02-01");
+      // No truthful content date is recorded for this static route (the old
+      // 2025-02-01 stamp predates the business), so it omits lastModified.
+      assert.equal(normalizeLastModified(entry.lastModified), undefined);
     }
   }
 

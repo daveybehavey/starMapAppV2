@@ -2,7 +2,6 @@
  * Date-driven Christmas 2026 campaign copy and visibility (America/Los_Angeles).
  * Cutoffs are buffered order-by dates; discount codes apply to prints only (not HD digital).
  */
-import { formatPrice, getPricingInfo } from "@/lib/pricing";
 
 export type ChristmasBannerPhase =
   | "order_by"
@@ -176,19 +175,13 @@ export type ChristmasBannerContent = {
   promoPercent?: number;
 };
 
-/**
- * Default instant-HD price label for callers that don't pass one. Mirrors
- * getInstantHdPriceLine() (digitalGiftCheckout) so the fallback carries its
- * currency code like every other customer-facing price, instead of a bare "$9".
- */
-function defaultInstantHdPriceLabel(): string {
-  const pricing = getPricingInfo();
-  return formatPrice(pricing.activeAmountCents, pricing.currency);
-}
-
+// instantHdPriceLabel is a required parameter on the helpers below: every
+// caller passes a currency-coded label (production callers pass
+// getInstantHdPriceLine()), so there is no bare-"$9" fallback that could
+// drift from the formatPrice convention.
 export function getChristmasBannerContent(
   nowMs: number = Date.now(),
-  instantHdPriceLabel = defaultInstantHdPriceLabel()
+  instantHdPriceLabel: string
 ): ChristmasBannerContent | null {
   const phase = resolveChristmasBannerPhase(nowMs);
   if (phase === "hidden") return null;
@@ -578,8 +571,6 @@ export function __christmasDatePartsForTests(ymd: string) {
   return parseYmd(ymd);
 }
 
-export function getChristmasDigitalPitchLine(
-  instantHdPriceLabel = defaultInstantHdPriceLabel()
-): string {
+export function getChristmasDigitalPitchLine(instantHdPriceLabel: string): string {
   return `Missed the print window? The ${instantHdPriceLabel} instant HD file is a last-minute gift through December 25 — ready to send the same day.`;
 }

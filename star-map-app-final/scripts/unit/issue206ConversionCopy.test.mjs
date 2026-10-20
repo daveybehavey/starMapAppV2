@@ -492,7 +492,7 @@ const DATE_COHORT_NEGATIVE_FIXTURES = [
   "Decisions get clearer once the wording is settled",
   "You can finish a preview in under five minutes",
   "What makes this wedding gift meaningful",
-  "Ready-to-hang framed presentation with instant HD.",
+  "Ready-to-hang framed presentation.",
   "Framed is the ready-to-display gift option",
   "framed is the ready-to-hang choice",
   "framed print is the recommended presentation",
@@ -1107,7 +1107,7 @@ test("birthday and night-sky money pages no longer claim product popularity", ()
   assert.doesNotMatch(gift, PRODUCT_POPULARITY_PATTERN);
   assert.doesNotMatch(gift, STRONGEST_PRODUCT_OPTION_PATTERN);
   assert.match(gift, /related gift formats/);
-  assert.match(gift, /Ready-to-hang framed presentation with instant HD/);
+  assert.match(gift, /Ready-to-hang framed presentation/);
 
   // Preserve navigation editorial labels; date-cohort soft claims are removed.
   assert.match(readSrc("app/anniversary/page.tsx"), /are all solid options/);
