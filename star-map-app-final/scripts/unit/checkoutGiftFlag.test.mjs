@@ -178,3 +178,19 @@ test("wiring: editor sends isGift in the checkout payload and offers the checkbo
   assert.match(modal, /onIsGiftChange/);
   assert.match(modal, /This is a gift/);
 });
+
+test("wiring: digital fallback checkouts preserve the gift selection (Codex P2, PR #349)", () => {
+  // Both "digital_single" fallback handlers (inline editor + paywall modal)
+  // must thread the checkbox state through; a bare startCheckout("single")
+  // would silently reset the flag to false while the box stays ticked.
+  const editor = read("src/components/EditorExperience.tsx");
+  assert.equal(
+    editor.split('startCheckout("single", { isGift: isGiftOrder })').length - 1,
+    2,
+    "both digital fallback handlers must pass the gift flag",
+  );
+  assert.ok(
+    !editor.includes('startCheckout("single");'),
+    'no bare startCheckout("single") calls may remain — they drop the gift flag',
+  );
+});

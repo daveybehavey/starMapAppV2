@@ -3926,7 +3926,7 @@ export function EditorExperience({
                                         fallback: "digital_single",
                                         source: "editor_inline",
                                       });
-                                      void startCheckout("single");
+                                      void startCheckout("single", { isGift: isGiftOrder });
                                     }}
                                     className="w-full rounded-full border border-amber-200/60 bg-amber-400/20 px-3 py-1.5 text-[11px] font-semibold text-amber-50 transition hover:bg-amber-400/30 disabled:cursor-not-allowed disabled:opacity-70"
                                   >
@@ -4030,7 +4030,7 @@ export function EditorExperience({
                         fallback: "digital_single",
                         source: "paywall_modal",
                       });
-                      void startCheckout("single");
+                      void startCheckout("single", { isGift: isGiftOrder });
                     }
                   : undefined
               }
