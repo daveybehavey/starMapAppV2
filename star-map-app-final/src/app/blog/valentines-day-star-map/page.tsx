@@ -40,8 +40,6 @@ export default function ValentinesStarMapPage() {
     "@type": "Article",
     headline: title,
     description,
-    datePublished: "2025-02-01",
-    dateModified: "2025-02-01",
     author: { "@type": "Organization", name: "StarMapCo" },
     image: ogImage,
     publisher: {
