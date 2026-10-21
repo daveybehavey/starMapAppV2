@@ -19,7 +19,10 @@ test("M05: merch policy line carries the merch terms and shows at the purchase s
   assert.match(policy, /No change-of-mind returns, and no refunds or exchanges for size on apparel/);
 
   const editor = read("../../src/components/EditorExperience.tsx");
-  assert.match(editor, /\{MERCH_POLICY_LINE\}/, "editor merch panel shows the merch policy at the checkout step");
+  assert.match(editor, /<MerchPurchasePanel/, "editor renders the shared merch panel at the checkout step");
+
+  const panel = read("../../src/components/MerchPurchasePanel.tsx");
+  assert.match(panel, /\{MERCH_POLICY_LINE\}/, "merch panel shows the merch policy at the checkout step");
 
   const modal = read("../../src/components/PaywallModal.tsx");
   assert.match(

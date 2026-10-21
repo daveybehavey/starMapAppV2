@@ -26,6 +26,8 @@ import {
 } from "@/lib/paywallPrintCheckout";
 import { getPrintShippingCountryLabel, getPrintShippingCountryOptions, PRINT_SHIPPING_COUNTRY_PLACEHOLDER_LABEL } from "@/lib/printfulShipping";
 import { PrintAspectMismatchNotice } from "@/components/PrintAspectMismatchNotice";
+import { MerchPurchasePanel } from "@/components/MerchPurchasePanel";
+import type { MerchFamily, MerchFamilyId } from "@/lib/merchCatalog";
 import { PrintGiftDecisionPanel } from "@/components/PrintGiftDecisionPanel";
 import { getRevealProgressPercent, REVEAL_STAGES } from "@/lib/revealExperience";
 import { useEditorLogic } from "@/hooks/useEditorLogic";
@@ -62,6 +64,16 @@ interface MobileCreateProps {
     includeDigitalAddOn: boolean;
     includeCardAddOn?: boolean;
   }) => void;
+  merchFamilies?: readonly MerchFamily[];
+  selectedMerchFamily?: MerchFamilyId;
+  selectedMerchSize?: string;
+  selectedMerchColor?: string;
+  onMerchFamilyChange?: (family: MerchFamilyId) => void;
+  onMerchSizeChange?: (size: string) => void;
+  onMerchColorChange?: (color: string) => void;
+  onStartMerchCheckout?: (options: { family: MerchFamilyId; size?: string; color?: string }) => void;
+  merchCheckoutInFlight?: boolean;
+  requestedMerchFamilyLabel?: string | null;
   onIntensityPaywall?: () => void;
 }
 
@@ -83,6 +95,16 @@ export function MobileCreate({
   onPrintShippingCountryChange,
   printCheckoutInFlight = false,
   onStartPrintCheckout,
+  merchFamilies = [],
+  selectedMerchFamily,
+  selectedMerchSize = "",
+  selectedMerchColor = "",
+  onMerchFamilyChange,
+  onMerchSizeChange,
+  onMerchColorChange,
+  onStartMerchCheckout,
+  merchCheckoutInFlight = false,
+  requestedMerchFamilyLabel = null,
   onIntensityPaywall,
 }: MobileCreateProps) {
   // Use shared editor logic hook
@@ -1660,7 +1682,9 @@ export function MobileCreate({
                   </p>
                   {printCheckoutEnabled && (
                     <p className="text-[10px] text-amber-100/90">
-                      Printed and framed options unlock after preview.
+                      {requestedMerchFamilyLabel
+                        ? `Designing your ${requestedMerchFamilyLabel.toLowerCase()} — checkout unlocks right after the preview.`
+                        : "Printed and framed options unlock after preview."}
                     </p>
                   )}
                 </div>
@@ -1845,6 +1869,26 @@ export function MobileCreate({
                 </div>
               </div>
             )}
+
+            {merchFamilies.length > 0 &&
+            selectedMerchFamily &&
+            onMerchFamilyChange &&
+            onMerchSizeChange &&
+            onMerchColorChange &&
+            onStartMerchCheckout ? (
+              <MerchPurchasePanel
+                families={merchFamilies}
+                familyId={selectedMerchFamily}
+                size={selectedMerchSize}
+                color={selectedMerchColor}
+                onFamilyChange={onMerchFamilyChange}
+                onSizeChange={onMerchSizeChange}
+                onColorChange={onMerchColorChange}
+                onCheckout={onStartMerchCheckout}
+                checkoutInFlight={merchCheckoutInFlight}
+                shippingCountryMissing={!printShippingCountry}
+              />
+            ) : null}
 
             <div className="flex flex-col gap-2">
               <div className="flex gap-2">

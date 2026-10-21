@@ -88,11 +88,16 @@ test("the tee guide has no sleeve column; the hoodie guide does", () => {
 });
 
 test("editor size-pick step wires the size guide panel for guided families only", () => {
+  // The wiring lives in the shared MerchPurchasePanel (rendered by both the
+  // desktop editor and MobileCreate); the editor-level render is pinned too.
   const editor = readFileSync(new URL("../../src/components/EditorExperience.tsx", import.meta.url), "utf8");
-  assert.match(editor, /import MerchSizeGuidePanel from "@\/components\/MerchSizeGuidePanel";/);
-  assert.match(editor, /import \{ getMerchSizeGuide \} from "@\/lib\/merchSizeGuide";/);
-  assert.match(editor, /getMerchSizeGuide\(family\.id\) \? \(/);
-  assert.match(editor, /<MerchSizeGuidePanel family=\{family\} \/>/);
+  assert.match(editor, /<MerchPurchasePanel/);
+
+  const purchasePanel = readFileSync(new URL("../../src/components/MerchPurchasePanel.tsx", import.meta.url), "utf8");
+  assert.match(purchasePanel, /import MerchSizeGuidePanel from "@\/components\/MerchSizeGuidePanel";/);
+  assert.match(purchasePanel, /import \{ getMerchSizeGuide \} from "@\/lib\/merchSizeGuide";/);
+  assert.match(purchasePanel, /getMerchSizeGuide\(family\.id\) \? \(/);
+  assert.match(purchasePanel, /<MerchSizeGuidePanel family=\{family\} \/>/);
 
   const panel = readFileSync(new URL("../../src/components/MerchSizeGuidePanel.tsx", import.meta.url), "utf8");
   // Non-apparel families render nothing: the panel bails out on a null guide.
