@@ -48,6 +48,12 @@ export type ShippingNotificationData = {
   orderReference?: string | null;
   supportEmail?: string | null;
   siteUrl?: string | null;
+  /**
+   * Gift order (the print record's stamped flag): the buyer was promised
+   * "we won't email you a review request for this order", so the review
+   * blocks are suppressed in both the text and HTML renders.
+   */
+  isGift?: boolean | null;
 };
 
 export type RenderedShippingEmail = {
@@ -160,8 +166,7 @@ export function renderShippingNotificationEmail(data: ShippingNotificationData):
     "",
     "Tracking can take up to 48 hours to start updating after a label is created — that's normal.",
     "",
-    renderShippingReviewTextBlock(),
-    "",
+    ...(data.isGift ? [] : [renderShippingReviewTextBlock(), ""]),
     `If anything looks off, reply to this email or write to ${supportEmail}.`,
     "",
     "— The StarMapCo team",
@@ -199,7 +204,7 @@ export function renderShippingNotificationEmail(data: ShippingNotificationData):
     </p>
     ${renderInfoCard("Tracking details", trackingCardBody, { marginTop: "24px" })}
     ${addressCard}
-    ${renderShippingReviewHtmlBlock()}
+    ${data.isGift ? "" : renderShippingReviewHtmlBlock()}
     <p style="margin:24px 0 0;font-size:14px;line-height:1.65;color:#ffffff;">
       Thanks for choosing StarMapCo,<br />
       <span style="color:#94a3b8;">The StarMapCo team</span>

@@ -63,3 +63,45 @@ test("shippingNotificationEmail.ts source includes review block helpers and both
   assert.match(source, /Review us on Trustpilot/);
   assert.doesNotMatch(source, /subject\s*=\s*`[^`]*review/i);
 });
+
+test("gift orders: the shipping email carries no review ask (the checkbox promise)", () => {
+  // The editor's gift checkbox promises "we won't email you a review
+  // request for this order" — the shipping email's review blocks must
+  // not fire for gift orders (G-dot recheck on PR #349).
+  const rendered = renderShippingNotificationEmail({
+    trackingNumber: "9400111899223344556677",
+    isGift: true,
+  });
+  for (const body of [rendered.text, rendered.html]) {
+    assert.doesNotMatch(body, /Review us on Google/);
+    assert.doesNotMatch(body, /Review us on Trustpilot/);
+    assert.doesNotMatch(body, /g\.page\/r\/CVMm_3hOFgRTEAI/);
+    assert.doesNotMatch(body, /trustpilot\.com\/review/);
+    assert.doesNotMatch(body, /short review helps other gift-givers/);
+  }
+  // The shipping content itself is untouched.
+  assert.equal(rendered.subject, "Your StarMapCo order is on its way — tracking inside");
+  assert.match(rendered.text, /Tracking number: 9400111899223344556677/);
+  assert.match(rendered.text, /— The StarMapCo team/);
+});
+
+test("non-gift shipping email is unchanged by the flag field (byte-equivalent)", () => {
+  const implicit = renderShippingNotificationEmail({
+    trackingNumber: "9400111899223344556677",
+  });
+  const explicitFalse = renderShippingNotificationEmail({
+    trackingNumber: "9400111899223344556677",
+    isGift: false,
+  });
+  assert.deepEqual(explicitFalse, implicit);
+  assert.match(implicit.text, /Review us on Google/);
+  assert.match(implicit.html, /Review us on Trustpilot/);
+});
+
+test("source: the real renderer gates both review blocks on the gift flag, and the sender passes the record's flag", () => {
+  const source = fs.readFileSync(SOURCE_PATH, "utf8");
+  assert.match(source, /\.\.\.\(data\.isGift \? \[\] : \[renderShippingReviewTextBlock\(\), ""\]\)/);
+  assert.match(source, /\$\{data\.isGift \? "" : renderShippingReviewHtmlBlock\(\)\}/);
+  const sender = fs.readFileSync(path.join(ROOT, "src/lib/shippingNotifications.ts"), "utf8");
+  assert.match(sender, /isGift: record\.isGift === true,/);
+});

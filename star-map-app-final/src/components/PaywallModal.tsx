@@ -85,6 +85,9 @@ type Props = {
   /** Saved / typed checkout promo code (print codes + digital_comp comps). */
   promoCode?: string;
   onPromoCodeChange?: (code: string) => void;
+  /** "This is a gift" (T1), controlled by the editor like the promo code. */
+  isGift?: boolean;
+  onIsGiftChange?: (isGift: boolean) => void;
   onStartCheckout: (plan: CheckoutPlan, options?: { customerEmail?: string }) => void;
   onCheckoutFallback?: () => void;
   onStartPrintCheckout?: (options: {
@@ -141,6 +144,8 @@ export function PaywallModal({
   showReferralHint = false,
   promoCode = "",
   onPromoCodeChange,
+  isGift = false,
+  onIsGiftChange,
   onStartCheckout,
   onCheckoutFallback,
   onStartPrintCheckout,
@@ -477,6 +482,21 @@ export function PaywallModal({
                 : "Valid codes for one-time HD apply at checkout. Packs and subscriptions do not accept promo codes."}
             </p>
           </div>
+        ) : null}
+
+        {onIsGiftChange && !appMode ? (
+          <label className="mt-3 flex cursor-pointer items-center gap-2 text-xs text-neutral-700">
+            <input
+              type="checkbox"
+              checked={isGift}
+              onChange={(event) => onIsGiftChange(event.target.checked)}
+              className="h-4 w-4 shrink-0 accent-[#0b1a30]"
+            />
+            <span>
+              <span className="font-semibold text-neutral-900">This is a gift</span> — we won&apos;t
+              email you a review request for this order.
+            </span>
+          </label>
         ) : null}
 
         {hasPrintOptions && !appMode && (

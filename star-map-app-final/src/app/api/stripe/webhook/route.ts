@@ -29,6 +29,7 @@ import {
   resolvePrintOrderCreatedAt,
   type PrintOrderRecord,
 } from "@/lib/printOrders";
+import { giftFlagForRecord } from "@/lib/checkoutGiftFlag";
 import { recordCheckoutExpiredOnce, recordPaymentVerifiedOnce } from "@/lib/funnel";
 import { sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
 import { extendPrintAssetTtlForFulfillment } from "@/lib/printAssetFulfillment";
@@ -140,6 +141,7 @@ type SessionRecord = {
   orderType?: CheckoutOrderType;
   printVariant?: PrintVariant;
   includesDigitalAddOn?: boolean;
+  isGift?: boolean;
   printAssetId?: string;
   referralCode?: string;
   referrerSessionId?: string;
@@ -379,6 +381,7 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
     orderType,
     printVariant,
     includesDigitalAddOn: hasDigitalAddOn,
+    isGift: giftFlagForRecord(session.metadata),
     printAssetId,
     referralCode: normalizeReferralCode(session.metadata?.referral_code) ?? undefined,
     referrerSessionId:
@@ -869,6 +872,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     merchColor: getMerchColor(session),
     includesDigitalAddOn: includesDigitalAddOn(session),
     includesCardAddOn: includesCardAddOn(session),
+    isGift: giftFlagForRecord(session.metadata),
     printAssetId: getPrintAssetId(session),
     cardPrintAssetId: getPrintCardAssetId(session),
     amountTotal: session.amount_total,

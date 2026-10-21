@@ -118,7 +118,11 @@ test("(c) expiry bucketing is unchanged: 5-minute buckets, 2-hour TTL", () => {
 
 test("(d) wiring: the key builder appends the pricing segment and the handler supplies it", () => {
   assert.match(route, /pricingSegment = input\.pricingIdentity \? `:\$\{input\.pricingIdentity\}` : ""/);
-  assert.match(route, /\$\{pricingSegment\}`;/, "the segment must land in the cache-key base");
+  // PR #349 fix round appended a gift segment AFTER the pricing segment
+  // (G-dot recheck: the gift flag belongs to the reuse identity). The
+  // pricing segment's own content and position are unchanged — the key
+  // base now ends pricing-then-gift.
+  assert.match(route, /\$\{pricingSegment\}\$\{giftSegment\}`;/, "the pricing segment (then the gift segment) must land in the cache-key base");
   // Exactly one key-builder call site, and it receives the identity
   // resolved with the request's client country (geo pricing input).
   assert.equal([...route.matchAll(/checkoutIdempotencyKey\(\{/g)].length, 1);
