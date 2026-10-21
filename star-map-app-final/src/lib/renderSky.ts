@@ -4,7 +4,6 @@ import type { LocationState, RenderOptions, StyleId, TextBox } from "@/lib/store
 import { SHAPE_PATHS } from "@/lib/shapes";
 import type { AspectRatio, Shape } from "@/lib/types";
 import { FONT_STACKS } from "@/lib/fonts";
-import { formatDateTimeForLocation } from "@/lib/dateTime";
 import { adjustColor, parseHexColor, parseRgbColor, toRgba } from "@/lib/colorUtils";
 import {
   resolveFrameInsetPx,
@@ -622,16 +621,15 @@ export function computeSky(recipe: MapRecipe, width: number, height: number): Vi
   const cached = skyCache.get(cacheKey);
   if (cached) return cached;
 
-  const formatted = formatDateTimeForLocation(recipe.datetimeISO, recipe.location.timezone);
-  if (!formatted) return null;
+  // E-1: render the stored instant exactly — never rebuild it from
+  // wall-clock fields (see astronomy.computeVisibleStars).
+  if (!Number.isFinite(new Date(recipe.datetimeISO).getTime())) return null;
 
   const sky = computeVisibleStars(
     {
-      date: formatted.date,
-      time: formatted.time,
+      datetimeISO: recipe.datetimeISO,
       lat: recipe.location.latitude,
       lon: recipe.location.longitude,
-      timezone: recipe.location.timezone,
       bortle: DEFAULT_BORTLE,
       showConstellations: recipe.renderOptions?.constellationLines !== "off",
     },
@@ -1265,10 +1263,9 @@ function drawMilkyWayBand(
 }
 
 function computeGalacticBandAngle(recipe: MapRecipe, width: number, height: number) {
-  const formatted = formatDateTimeForLocation(recipe.datetimeISO, recipe.location.timezone);
-  if (!formatted) return null;
-  const date = toUTCDateFromLocal(formatted.date, formatted.time, recipe.location.timezone);
-  if (!date) return null;
+  // E-1: same instant contract as computeSky — consume the stored instant.
+  const date = new Date(recipe.datetimeISO);
+  if (!Number.isFinite(date.getTime())) return null;
   const observer = new Observer(recipe.location.latitude, recipe.location.longitude, 0);
 
   const gc = projectRaDec(17.761, -28.94, date, observer, width, height);
