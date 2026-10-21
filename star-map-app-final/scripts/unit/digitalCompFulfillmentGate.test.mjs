@@ -528,22 +528,24 @@ test("webhook and verify routes wire the shared fulfillment discount gate", () =
   assert.match(webhook, /skipPrintOrder/);
   assert.match(webhook, /Skipping paid entitlement grants and print queue/);
   assert.match(webhook, /if \(!skipEntitlementGrants\) \{\s*await markSessionPaid/);
-  assert.match(webhook, /if \(!skipPrintOrder\) \{\s*await queuePrintOrder/);
+  assert.match(webhook, /if \(!skipPrintOrder && paymentFulfillable\) \{\s*await queuePrintOrder\(fulfilledSession\)/);
   assert.match(webhook, /if \(!skipEntitlementGrants\) \{\s*await applyReferralReward/);
 
-  const completedCase = webhook.slice(
-    webhook.indexOf('case "checkout.session.completed"'),
-    webhook.indexOf('case "checkout.session.expired"'),
+  // The fulfillment body lives in processCheckoutFulfillment (shared by
+  // completed + async_payment_succeeded); the completed case delegates to it.
+  const fulfillmentPass = webhook.slice(
+    webhook.indexOf("async function processCheckoutFulfillment"),
+    webhook.indexOf("export async function POST"),
   );
-  // Retryable unresolved path must break before dedupe finalize.
+  // Retryable unresolved path must return before dedupe finalize.
   assert.match(
-    completedCase,
-    /isDiscountFulfillmentRetryable\(discountGate\)[\s\S]*?completedCheckoutRetryable = true[\s\S]*?break;/,
+    fulfillmentPass,
+    /isDiscountFulfillmentRetryable\(discountGate\)[\s\S]*?return \{ retryable: true \};/,
   );
   assert.ok(
-    completedCase.indexOf("completedCheckoutRetryable = true") <
-      completedCase.indexOf("persistWebhookEventDedupe(eventDedupeKey)"),
-    "retryable discount path must not reach unconditional dedupe finalize before break",
+    fulfillmentPass.indexOf("return { retryable: true }") <
+      fulfillmentPass.indexOf("persistWebhookEventDedupe(eventDedupeKey)"),
+    "retryable discount path must not reach unconditional dedupe finalize",
   );
 
   assert.match(verify, /evaluateCheckoutSessionDiscountFulfillment/);

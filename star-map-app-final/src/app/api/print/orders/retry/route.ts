@@ -23,6 +23,7 @@ import {
 } from "@/lib/printOrders";
 import { sendPrintOrderApprovalAlert, sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
 import { bindAcceptedPrintfulIdentityThenReview } from "@/lib/printFulfillmentPostSubmit";
+import { evaluatePrintRetryPaymentGate } from "@/lib/checkoutPromotions";
 import { extendPrintAssetTtlForFulfillment } from "@/lib/printAssetFulfillment";
 import { sendPrintOrderConfirmation } from "@/lib/printOrderConfirmation";
 import {
@@ -273,6 +274,44 @@ async function postRetryPrintOrder(req: NextRequest) {
       console.warn("Print confirmation email failed on already_sent retry", { sessionId, error });
     });
     return NextResponse.json({ ok: true, status: "already_sent", order: sanitizePrintOrderForOperatorResponse(existing) });
+  }
+
+  // Payment gate (parity with the webhook fulfillment pass): this path must
+  // never submit an order whose checkout payment failed or never settled.
+  // The persisted record carries no payment state, and a record finalized by
+  // async_payment_failed (terminalEventType explicitly null) yields no
+  // authority terminal evidence, so neither the lifecycle checks above nor
+  // the amount/margin checks below can catch it. Verify against the live
+  // session with the webhook's own predicate; fail closed, mutate nothing.
+  const paymentGate = await evaluatePrintRetryPaymentGate({
+    sessionId,
+    retrieveSession: async (id) => {
+      if (!stripe) return null;
+      try {
+        return await stripe.checkout.sessions.retrieve(id, {
+          expand: ["total_details.breakdown"],
+        });
+      } catch {
+        return null;
+      }
+    },
+  });
+  if (!paymentGate.allowed) {
+    if (paymentGate.reason === "payment_not_fulfillable") {
+      console.warn("print_retry_blocked_payment_not_fulfillable", { sessionId });
+      return NextResponse.json(
+        {
+          ok: false,
+          error: paymentGate.reason,
+          order: sanitizePrintOrderForOperatorResponse(existing),
+        },
+        { status: 409 },
+      );
+    }
+    return NextResponse.json(
+      { ok: false, error: paymentGate.reason },
+      { status: 503 },
+    );
   }
 
   const hydrated = await hydrateOrderRecipientData(existing);

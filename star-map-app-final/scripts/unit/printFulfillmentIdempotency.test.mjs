@@ -86,9 +86,13 @@ test("B: malformed durable record → provider creation blocked (fail closed)", 
   assert.match(webhookSource, /isPrintOrderUnretainableError\(error\)/);
   assert.match(webhookSource, /finalizing webhook without provider retry/);
   assert.match(webhookSource, /persistWebhookEventDedupe/);
+  // The fulfillment pass (processCheckoutFulfillment) owns the catch chain:
+  // unretainable -> persist dedupe -> retryable only if that write failed;
+  // durable KV failure -> retryable. The completed case maps retryable to
+  // completedCheckoutRetryable (pinned in printPaymentGate.test.mjs).
   assert.match(
     webhookSource,
-    /isPrintOrderUnretainableError\(error\)[\s\S]*?persistWebhookEventDedupe\(eventDedupeKey[\s\S]*?(?:completedCheckoutRetryable\s*=\s*true;[\s\S]*?)?break;[\s\S]*?isDurableKvPersistenceError\(error\)[\s\S]*?completedCheckoutRetryable\s*=\s*true/,
+    /isPrintOrderUnretainableError\(error\)[\s\S]*?persistWebhookEventDedupe\(eventDedupeKey[\s\S]*?return \{ retryable: !deduped \};[\s\S]*?isDurableKvPersistenceError\(error\)[\s\S]*?return \{ retryable: true \};/,
   );
 });
 

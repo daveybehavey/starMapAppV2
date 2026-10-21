@@ -72,18 +72,20 @@ test("source: checkout.session.completed defers dedupe until after durable queue
   assert.match(webhookSource, /if \(!deferDedupeUntilSuccess\)/);
   assert.match(
     webhookSource,
-    /await queuePrintOrder\(session\);[\s\S]*?persistWebhookEventDedupe\(eventDedupeKey/,
+    /await queuePrintOrder\(fulfilledSession\);[\s\S]*?persistWebhookEventDedupe\(eventDedupeKey/,
   );
-  // Dedupe set for completed happens after successful handling, not before queuePrintOrder.
-  const completedCase = webhookSource.slice(
-    webhookSource.indexOf('case "checkout.session.completed"'),
-    webhookSource.indexOf('case "checkout.session.expired"'),
+  // Dedupe set for completed happens after successful handling, not before
+  // queuePrintOrder — inside processCheckoutFulfillment, which the completed
+  // case delegates to.
+  const fulfillmentPass = webhookSource.slice(
+    webhookSource.indexOf("async function processCheckoutFulfillment"),
+    webhookSource.indexOf("export async function POST"),
   );
-  assert.match(completedCase, /queuePrintOrder\(session\)/);
-  assert.match(completedCase, /persistWebhookEventDedupe\(eventDedupeKey/);
+  assert.match(fulfillmentPass, /queuePrintOrder\(fulfilledSession\)/);
+  assert.match(fulfillmentPass, /persistWebhookEventDedupe\(eventDedupeKey\)/);
   assert.ok(
-    completedCase.indexOf("queuePrintOrder(session)") <
-      completedCase.indexOf("persistWebhookEventDedupe(eventDedupeKey)"),
+    fulfillmentPass.indexOf("queuePrintOrder(fulfilledSession)") <
+      fulfillmentPass.indexOf("persistWebhookEventDedupe(eventDedupeKey)"),
     "dedupe finalize must follow queuePrintOrder",
   );
   // Helper must actually write the KV dedupe key (not a no-op).
