@@ -343,8 +343,15 @@ test("wiring: PreviewCanvas applies the shape clamp after the canvas clamp — d
     /dragShapeLayoutRef\.current = \{\s*shape: effectiveShape,\s*frameEnabled: resolveTextFitFrameEnabled\("preview", baseRecipe\?\.renderOptions\),\s*\};/,
   );
   // The position PreviewCanvas commits still comes only from the
-  // clamped pipeline (no second position writer appeared).
-  assert.match(canvas, /updateTextBox\(dragRef\.current\.id, \{\s*position: \{ x: committed\.x, y: committed\.y \},\s*\}\);/);
+  // clamped pipeline (no second position writer appeared) — since
+  // E-3, with the clamped CENTRE converted to the stored alignment
+  // anchor via resolveTextCenterToAnchorX on the way in (the
+  // pre-E-3 verbatim store of the centre is pinned as absent, and
+  // the conversion itself is pinned, in textAnchorPersist.test.mjs).
+  assert.match(
+    canvas,
+    /updateTextBox\(dragRef\.current\.id, \{\s*position: \{\s*x: resolveTextCenterToAnchorX\(\s*committed\.x,/,
+  );
 });
 
 test("geometry: the clamp reuses the fit's own diamond/frame sources, not a second implementation", () => {
