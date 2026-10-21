@@ -7,10 +7,10 @@ import { useShallow } from "zustand/react/shallow";
 import {
   buildRecipeFromState,
   renderStarMap,
-  getExportDimensions,
   formatDateTimeForLocation,
   type MapRecipe,
 } from "@/lib/renderSky";
+import { getExportDimensions } from "@/lib/aspectRatio";
 import { buildStarMapDownloadFilename } from "@/lib/downloadFilename";
 import type { StyleId } from "@/lib/store";
 import type { Shape } from "@/lib/types";

@@ -8,9 +8,9 @@ import {
   aspectRatioToNumber,
   buildRecipeFromState,
   formatDateTimeForLocation,
-  getExportDimensions,
   renderStarMap,
 } from "@/lib/renderSky";
+import { getExportDimensions } from "@/lib/aspectRatio";
 
 import { buildStarMapDownloadFilename } from "@/lib/downloadFilename";
 import {
