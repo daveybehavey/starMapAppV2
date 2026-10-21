@@ -3882,6 +3882,7 @@ export function EditorExperience({
               onMerchColorChange={setSelectedMerchColor}
               onStartMerchCheckout={startMerchCheckout}
               merchCheckoutInFlight={checkoutInFlight}
+              merchCheckoutError={checkoutError}
               requestedMerchFamilyLabel={requestedMerchFamily?.label ?? null}
               onIntensityPaywall={() => {
                 setPaywallIntent("digital");

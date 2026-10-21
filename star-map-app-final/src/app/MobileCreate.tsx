@@ -73,6 +73,7 @@ interface MobileCreateProps {
   onMerchColorChange?: (color: string) => void;
   onStartMerchCheckout?: (options: { family: MerchFamilyId; size?: string; color?: string }) => void;
   merchCheckoutInFlight?: boolean;
+  merchCheckoutError?: string | null;
   requestedMerchFamilyLabel?: string | null;
   onIntensityPaywall?: () => void;
 }
@@ -104,6 +105,7 @@ export function MobileCreate({
   onMerchColorChange,
   onStartMerchCheckout,
   merchCheckoutInFlight = false,
+  merchCheckoutError = null,
   requestedMerchFamilyLabel = null,
   onIntensityPaywall,
 }: MobileCreateProps) {
@@ -1870,7 +1872,8 @@ export function MobileCreate({
               </div>
             )}
 
-            {merchFamilies.length > 0 &&
+            {printCheckoutEnabled &&
+            merchFamilies.length > 0 &&
             selectedMerchFamily &&
             onMerchFamilyChange &&
             onMerchSizeChange &&
@@ -1887,6 +1890,7 @@ export function MobileCreate({
                 onCheckout={onStartMerchCheckout}
                 checkoutInFlight={merchCheckoutInFlight}
                 shippingCountryMissing={!printShippingCountry}
+                checkoutError={merchCheckoutError}
               />
             ) : null}
 

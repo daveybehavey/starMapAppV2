@@ -22,6 +22,7 @@ export type MerchPurchasePanelProps = {
   onCheckout: (options: { family: MerchFamilyId; size?: string; color?: string }) => void;
   checkoutInFlight: boolean;
   shippingCountryMissing: boolean;
+  checkoutError?: string | null;
 };
 
 export function MerchPurchasePanel({
@@ -35,6 +36,7 @@ export function MerchPurchasePanel({
   onCheckout,
   checkoutInFlight,
   shippingCountryMissing,
+  checkoutError,
 }: MerchPurchasePanelProps) {
   const family = families.find((f) => f.id === familyId) ?? null;
   return (
@@ -142,6 +144,9 @@ export function MerchPurchasePanel({
       >
         {checkoutInFlight ? "Opening secure checkout..." : "Checkout selected merch"}
       </button>
+      {checkoutError ? (
+        <p className="mt-2 text-[11px] font-semibold text-rose-200">{checkoutError}</p>
+      ) : null}
       <p className="mt-2 text-[10px] leading-snug text-amber-100/75">{MERCH_POLICY_LINE}</p>
     </div>
   );

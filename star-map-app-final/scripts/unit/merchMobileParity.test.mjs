@@ -26,6 +26,8 @@ test("parity: the shared merch panel carries the full purchase path", () => {
   assert.match(panel, /getMerchSizeGuide/, "panel gates the size guide per family");
   assert.match(panel, /\{MERCH_POLICY_LINE\}/, "panel shows the merch policy line");
   assert.match(panel, /onCheckout/, "panel checks out via the shared callback");
+  assert.match(panel, /checkoutError\?: string \| null/, "panel accepts an optional checkout error");
+  assert.match(panel, /\{checkoutError \? \(/, "panel renders a passed checkout error");
 });
 
 test("parity: desktop editor renders the shared panel (no inline duplicate)", () => {
@@ -46,4 +48,17 @@ test("parity: MobileCreate renders the shared panel and names a merch-led produc
   assert.match(mobile, /import \{ MerchPurchasePanel \}/, "MobileCreate imports the shared panel");
   assert.match(mobile, /<MerchPurchasePanel/, "MobileCreate renders the shared panel");
   assert.match(mobile, /Designing your \$\{requestedMerchFamilyLabel\.toLowerCase\(\)\}/, "merch-led landings name the product on mobile");
+});
+
+test("parity: mobile merch panel honors the print-checkout gate and surfaces checkout errors", () => {
+  const editor = read("../../src/components/EditorExperience.tsx");
+  const mobile = read("../../src/app/MobileCreate.tsx");
+  assert.match(editor, /merchCheckoutError=\{checkoutError\}/, "EditorExperience passes its checkout error into MobileCreate");
+  assert.match(mobile, /merchCheckoutError\?: string \| null/, "MobileCreate accepts the merch checkout error");
+  assert.match(mobile, /checkoutError=\{merchCheckoutError\}/, "MobileCreate forwards the error to the shared merch panel");
+  assert.match(
+    mobile,
+    /printCheckoutEnabled &&\s+merchFamilies\.length > 0/,
+    "mobile merch panel stays hidden while print checkout is disabled"
+  );
 });
