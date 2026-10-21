@@ -7,12 +7,11 @@ import { useShallow } from "zustand/react/shallow";
 import {
   buildRecipeFromState,
   renderStarMap,
-  aspectRatioToNumber,
+  getExportDimensions,
   formatDateTimeForLocation,
   type MapRecipe,
 } from "@/lib/renderSky";
 import { buildStarMapDownloadFilename } from "@/lib/downloadFilename";
-import { getShapeData } from "@/lib/shapeUtils";
 import type { StyleId } from "@/lib/store";
 import type { Shape } from "@/lib/types";
 import { applyStyleDefaults } from "@/lib/styleDefaults";
@@ -480,19 +479,9 @@ export function SimplifiedEditor() {
         renderOptions,
       });
       const width = mode === "hd" ? 6000 : 1200;
-      const shapeData = await getShapeData(recipe.shape).catch(() => null);
-      let ratio: number;
-      if (shapeData) {
-        if (shapeData.viewBox.height === 0) {
-          console.warn("Invalid shape viewBox height");
-          ratio = aspectRatioToNumber(recipe.aspectRatio);
-        } else {
-          ratio = shapeData.viewBox.width / shapeData.viewBox.height;
-        }
-      } else {
-        ratio = aspectRatioToNumber(recipe.aspectRatio);
-      }
-      const height = Math.max(1, Math.round(width / ratio));
+      // Export dimensions come from the selected aspect ratio only (E-2):
+      // the shape SVG viewBoxes are all square and must not size exports.
+      const { height } = getExportDimensions(width, recipe.aspectRatio);
       const canvas = document.createElement("canvas");
       const watermark = mode !== "hd";
       const premium = premiumOverride ?? paid;

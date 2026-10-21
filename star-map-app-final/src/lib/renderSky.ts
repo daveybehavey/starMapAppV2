@@ -134,6 +134,27 @@ export function aspectRatioToNumber(aspect: AspectRatio): number {
   }
 }
 
+/**
+ * Canvas dimensions for an export rendered at a given ladder width.
+ *
+ * Height derives ONLY from the design's selected aspect ratio — never from
+ * the shape mask's SVG viewBox: every shipped shape viewBox is square
+ * ("0 0 100 100"), so viewBox-derived heights silently squared every
+ * heart/circle/star/diamond export (E-2) while the preview and rectangle
+ * exports used the selected aspect. The renderer scales the shape path to
+ * whatever canvas it is given (buildShapeClip), so the canvas aspect is
+ * the design's aspect, full stop. Every export surface (downloads,
+ * checkout print asset, share image, simplified editor, download page)
+ * must size through here so the paths cannot drift apart again.
+ */
+export function getExportDimensions(
+  width: number,
+  aspectRatio: AspectRatio,
+): { width: number; height: number } {
+  const height = Math.max(1, Math.round(width / aspectRatioToNumber(aspectRatio)));
+  return { width, height };
+}
+
 /** Scale sky + typography inward on print exports to keep content inside trim zone. */
 function applyPrintSafeTransform(
   ctx: CanvasRenderingContext2D,
