@@ -53,7 +53,15 @@ export type StarHorizontal = {
 };
 
 export type VisibleStarParams = {
-  date: string;
+  /**
+   * Exact stored instant (ISO 8601). When present, the sky is computed for
+   * this instant directly — never reconstructed from wall-clock fields,
+   * which cannot represent DST transition windows or the fold hour (E-1).
+   * Takes precedence over date/time/timezone.
+   */
+  datetimeISO?: string;
+  /** Wall-clock date (YYYY-MM-DD) in `timezone` — genuine wall-time input only. */
+  date?: string;
   time?: string;
   lat: number;
   lon: number;
@@ -74,11 +82,15 @@ export const toUTCDateFromLocal = (dateStr: string, timeStr: string, timezone: s
   const hour = clamp(hourRaw, 0, 23);
   const minute = clamp(minuteRaw, 0, 59);
 
-  // Parse as local time in the specified timezone, then convert to UTC
-  // CRITICAL: Calculate offset at the ACTUAL target time to handle DST correctly
+  // Parse as local time in the specified timezone, then convert to UTC.
+  // CONTRACT: genuine wall-time input only (a user picking a date + time).
+  // The offset is sampled once at a probe, so on DST transition days a wall
+  // time can resolve an hour off, and the fold hour's two occurrences cannot
+  // be distinguished at all — the wall fields have already destroyed that
+  // information. Never use this to rebuild a stored instant for rendering;
+  // pass the instant itself (VisibleStarParams.datetimeISO) instead.
   try {
     // Create a test date at the target time to get the offset for THAT specific moment
-    // This handles DST transitions correctly because we check the actual time
     const testDate = new Date(Date.UTC(yearRaw, monthRaw - 1, dayRaw, hour, minute, 0));
     const formatter = new Intl.DateTimeFormat("en-US", {
       timeZone: timezone,
@@ -121,10 +133,13 @@ import { LRUCache } from "./lruCache";
 const astronomyCache = new LRUCache<string, VisibleSky>(50);
 
 function createAstronomyCacheKey(params: VisibleStarParams, width: number, height: number): string {
-  const time = params.time?.trim() || "00:00";
-  const timezone = params.timezone || "UTC";
   const bortle = params.bortle ?? 4.5;
   const showConst = params.showConstellations ?? false;
+  if (params.datetimeISO) {
+    return `iso:${params.datetimeISO}|${params.lat}|${params.lon}|${bortle}|${width}|${height}|${showConst}`;
+  }
+  const time = params.time?.trim() || "00:00";
+  const timezone = params.timezone || "UTC";
   return `${params.date}|${time}|${timezone}|${params.lat}|${params.lon}|${bortle}|${width}|${height}|${showConst}`;
 }
 
@@ -138,9 +153,19 @@ export function computeVisibleStars(
   const cached = astronomyCache.get(cacheKey);
   if (cached) return cached;
 
-  const time = params.time?.trim() || "00:00";
-  const timezone = params.timezone || "UTC";
-  const date = toUTCDateFromLocal(params.date, time, timezone);
+  // E-1: a stored instant is consumed exactly. Reconstructing it from
+  // wall-clock fields in the location zone loses an hour around DST
+  // transitions and cannot name the fold hour's second occurrence at all.
+  // The wall-field path remains only for genuine wall-time inputs.
+  let date: Date | null = null;
+  if (params.datetimeISO) {
+    const parsed = new Date(params.datetimeISO);
+    date = Number.isFinite(parsed.getTime()) ? parsed : null;
+  } else if (params.date) {
+    const time = params.time?.trim() || "00:00";
+    const timezone = params.timezone || "UTC";
+    date = toUTCDateFromLocal(params.date, time, timezone);
+  }
   if (!date || Number.isNaN(date.getTime())) {
     return { stars: [], planets: [], moon: null, constellations: [] };
   }

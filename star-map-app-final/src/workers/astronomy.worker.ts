@@ -1,7 +1,6 @@
 /// <reference lib="webworker" />
 
 import { computeVisibleStars } from "@/lib/astronomy";
-import { formatDateTimeForLocation } from "@/lib/dateTime";
 import type { AstronomyWorkerRequest, AstronomyWorkerResponse } from "@/lib/astronomyWorkerTypes";
 
 const workerScope: DedicatedWorkerGlobalScope = self as unknown as DedicatedWorkerGlobalScope;
@@ -9,8 +8,9 @@ const workerScope: DedicatedWorkerGlobalScope = self as unknown as DedicatedWork
 workerScope.onmessage = (event: MessageEvent<AstronomyWorkerRequest>) => {
   const { id, dateTime, location, width, height, showConstellations } = event.data;
   try {
-    const formatted = formatDateTimeForLocation(dateTime, location.timezone);
-    if (!formatted) {
+    // E-1: the request carries the exact stored instant — compute from it
+    // directly instead of rebuilding it from wall-clock fields.
+    if (!Number.isFinite(new Date(dateTime).getTime())) {
       const response: AstronomyWorkerResponse = { id, sky: null };
       workerScope.postMessage(response);
       return;
@@ -18,11 +18,9 @@ workerScope.onmessage = (event: MessageEvent<AstronomyWorkerRequest>) => {
 
     const sky = computeVisibleStars(
       {
-        date: formatted.date,
-        time: formatted.time,
+        datetimeISO: dateTime,
         lat: location.latitude,
         lon: location.longitude,
-        timezone: location.timezone,
         bortle: 4.5,
         showConstellations,
       },

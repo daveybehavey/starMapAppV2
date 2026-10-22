@@ -53,3 +53,20 @@ export async function resolve(specifier, context, nextResolve) {
   }
   return nextResolve(specifier, context);
 }
+
+/**
+ * Load hook: serve `.json` imports directly. Plain-Node ESM requires an
+ * import attribute (`with { type: "json" }`) that src files cannot carry
+ * (they are written for the bundler), so any src module importing catalog
+ * JSON (e.g. lib/astronomy.ts → data/stars.json) fails to load in the unit
+ * runner without this. Only `.json` URLs are intercepted; everything else
+ * defers to the default loader. No previously-loadable graph changes:
+ * a JSON import without an attribute never loaded before this hook.
+ */
+export async function load(url, context, nextLoad) {
+  if (url.endsWith(".json")) {
+    const source = fs.readFileSync(fileURLToPath(url), "utf8");
+    return { format: "json", source, shortCircuit: true };
+  }
+  return nextLoad(url, context);
+}
