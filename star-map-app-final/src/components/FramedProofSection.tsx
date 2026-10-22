@@ -13,6 +13,7 @@ import {
 } from "@/lib/printCheckoutConfig";
 import { PRINT_NEUTRAL_SHIPPING_CARD_NOTE } from "@/lib/printfulShipping";
 import { HOME_MOCKUPS } from "@/lib/homeMockups";
+import { isDigitalClaim } from "@/components/PurchaseTrustPanel";
 import { formatPrice, getPrintDigitalAddOnPrice, getPrintPricingTiers } from "@/lib/pricing";
 
 type FramedProofSectionProps = {
@@ -102,7 +103,19 @@ export default function FramedProofSection({
               Framed in real spaces
             </p>
             <h2 className="text-midnight text-xl font-semibold">{heading}</h2>
-            <p className="text-sm text-neutral-800 sm:text-base">{intro}</p>
+            <p className="text-sm text-neutral-800 sm:text-base">
+              {isDigitalClaim(intro) ? (
+                <>
+                  <span data-digital-offer>{intro}</span>
+                  <span data-app-only>
+                    Design the map in preview first, then choose framed for the premium gift route or unframed to keep
+                    the physical total lower.
+                  </span>
+                </>
+              ) : (
+                intro
+              )}
+            </p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3">
@@ -146,7 +159,7 @@ export default function FramedProofSection({
               {getPrintFreeShippingShortTag() ?? shippingDisclosure}
             </li>
             <li className="brand-light-card rounded-2xl px-4 py-3">{getPrintPhysicalOrderSummaryLine()}</li>
-            <li className="brand-light-card rounded-2xl px-4 py-3">
+            <li data-digital-offer className="brand-light-card rounded-2xl px-4 py-3">
               The same approved map can stay digital, ship unframed, or arrive framed without rebuilding the
               design.
             </li>

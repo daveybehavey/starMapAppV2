@@ -259,7 +259,8 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
               Need the full comparison?
             </p>
             <p className="mt-1 text-xs text-neutral-300">
-              Compare live <span data-digital-offer>digital, </span>framed, and unframed routes before you enter checkout.
+              Compare live <span data-digital-offer>digital, framed, and</span>
+              <span data-app-only>framed and</span> unframed routes before you enter checkout.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
