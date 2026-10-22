@@ -26,6 +26,23 @@ npm run qa:live-critical
 
 Prefer WSL for production releases when possible (`docs/TIER0_VALIDATION.md`).
 
+### Cloudflare Workers Builds (git integration)
+
+Pushes also build automatically in Cloudflare: the production trigger builds `main` and deploys `star-map-final`; other branches get preview builds. The authoritative build/deploy commands and build variables live **only** in the dashboard (Workers & Pages → `star-map-final` → Settings → Builds) — if they are ever changed there, mirror the new values here in the same change. The build stage is reproducible locally at any commit (verified 2026-10-22 at both `5a0ec33e` and `c8d037ab`, no secrets). Use the repo's own wrapper — it loads the `[vars]` from `wrangler.toml` into the build environment (`buildEnvWithWranglerVars` in `scripts/opennext-cloudflare.mjs`, the same wrapper `deploy-production.yml` uses via `deploy:inner`); calling `next build` / the OpenNext CLI directly does **not** load `[vars]` and does not faithfully reproduce the build:
+
+```bash
+npm ci
+node scripts/opennext-cloudflare.mjs build   # [vars]-loaded Next build + OpenNext bundle
+```
+
+**Production build failure playbook** (worked example: 2026-10-22, builds `db518f25-2436-4763-9ce7-4f013d07ee8a` and `16dff48b-80e5-4ec1-af0e-9014af2143e8` failed while PR preview builds of the same trees passed; root cause was Cloudflare's official "Workers API Latency" incident, 15:33–16:15Z, which specifically degraded *deploying a script* — the code and repo config were exonerated by the local builds above):
+
+1. **Check https://www.cloudflarestatus.com first** for a Workers / Workers API incident covering the failure window, before touching code or config. A failed build produces no Worker version, so the failure is in the build/upload stage, not the app.
+2. Reproduce the build locally at the exact commit (commands above). Green locally + green PR preview = the tree is not the problem.
+3. Retry the production build once from the dashboard (Deployments → View build history → failed build → Retry). A pass after a platform incident closes the case.
+4. If the retry also fails, the build log is the evidence of record: dashboard → the failed build → copy the failing step and first error lines. The program's read-only Cloudflare API token **cannot** read Builds data (every `/builds/...` endpoint returns 403), so do not burn time trying to fetch logs via API.
+5. Only after a post-incident retry fails with a log in hand: suspect dashboard-side state (build cache — clear it in Settings → Builds; build variables/secrets) or the deploy step's R2 incremental-cache population.
+
 ## Quick verification (local / CI)
 
 | Command                          | Purpose                                                                              |
