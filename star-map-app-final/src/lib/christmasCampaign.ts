@@ -31,7 +31,13 @@ export const CHRISTMAS_ORDER_BY_DATES: Record<ChristmasCutoffKey, string> = {
   // poster Dec 1 figures previously here appear in no Printful
   // source). Every rest-of-world cell shows "Order early" instead.
   framed_us: "2026-12-08",
-  framed_ca: "2026-12-09",
+  // framed_ca tightened Dec 9 → Dec 3 (decision 2026-10-22): Printful
+  // fulfilment runs 2–5 business days and Canada delivery 3–10 business
+  // days, so a Dec 9 order can land after Christmas; a Dec 3 order's
+  // worst case lands Dec 24. Canvas has no cutoff key of its own and
+  // shares this value (see ORDER_BY_PRODUCT_CUTOFFS), so the canvas
+  // Canada order-by date moves with it.
+  framed_ca: "2026-12-03",
   poster_us: "2026-12-09",
   poster_ca: "2026-12-10",
   // Mug + keepsake card: owner-approved provisional cutoffs (2026-10-18).
@@ -74,11 +80,11 @@ const BOXING_DAY = "2026-12-26";
 /**
  * The sitewide banner's order-by summary. Built from
  * CHRISTMAS_ORDER_BY_DATES (never hard-coded dates) and leads with the
- * earliest cutoff across all products — today the mug and keepsake
- * card (US Dec 7 · Canada Dec 8) — because the loudest surface on the
- * site must carry the tightest deadline (persona sweep U05: the banner
- * previously named only framed/canvas and posters, so the earliest
- * cutoffs lived only inside the order-by table).
+ * earliest cutoff per country — today framed/canvas in Canada (Dec 3)
+ * and the mug and keepsake card in the US (Dec 7) — because the loudest
+ * surface on the site must carry the tightest deadline (persona sweep
+ * U05: the banner previously named only framed/canvas and posters, so
+ * the earliest cutoffs lived only inside the order-by table).
  */
 function getOrderByBannerLine(): string {
   const earliest = getEarliestChristmasCutoff();
@@ -460,8 +466,9 @@ export type ChristmasEarliestCutoff = {
 /**
  * The earliest Christmas order-by cutoff across every physical
  * product, derived from CHRISTMAS_ORDER_BY_DATES. Today that is the
- * mug and the keepsake card (Canada Dec 8 · US Dec 7) — the deadlines
- * the banner and the landing bullets lead with (persona sweep U05).
+ * framed print and canvas wrap in Canada (Dec 3) and the mug and
+ * keepsake card in the US (Dec 7) — the deadlines the banner and the
+ * landing bullets lead with (persona sweep U05).
  */
 export function getEarliestChristmasCutoff(): ChristmasEarliestCutoff {
   // The cutoff table is never empty, so seeding from its first entry is safe.
