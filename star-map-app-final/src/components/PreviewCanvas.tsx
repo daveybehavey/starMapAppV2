@@ -164,12 +164,38 @@ export default function PreviewCanvas({
   const debouncedLocation = useDebounce(location, 150);
   const effectiveTextBoxes = useMemo(() => {
     if (!dragPreviewPosition) return textBoxes;
-    return textBoxes.map((box) =>
-      box.id === dragPreviewPosition.id
-        ? { ...box, position: { x: dragPreviewPosition.x, y: dragPreviewPosition.y } }
-        : box
-    );
-  }, [dragPreviewPosition, textBoxes]);
+    return textBoxes.map((box) => {
+      if (box.id !== dragPreviewPosition.id) return box;
+      // dragPreviewPosition is the glyph CENTRE (the pointer grabs
+      // the glyph by its centre and both drag clamps work in centre
+      // space), but box.position.x is the renderer's alignment
+      // ANCHOR — convert centre -> anchor with the box's align and
+      // rendered width before substituting, or the preview itself
+      // draws a left-aligned glyph half a width right of the
+      // pointer (right: mirrored). The width comes from boxRect:
+      // the dragged box's rendered rect, which the pointer handlers
+      // set at drag start and refresh on every move frame from the
+      // same bounds the drag clamp uses. Only its WIDTH feeds the
+      // conversion (the fit can widen the glyph when its row
+      // changes mid-drag; the next move frame's refresh corrects
+      // with the new width, and the commit + recheck guarantee the
+      // stored position). Before any rect exists, the helper
+      // converts by 0 (degenerate = identity). y is a centre in
+      // both spaces (baseline "middle") and never converts.
+      return {
+        ...box,
+        position: {
+          x: resolveTextCenterToAnchorX(
+            dragPreviewPosition.x,
+            box.align,
+            boxRect?.width ?? 0,
+            dimensions.width,
+          ),
+          y: dragPreviewPosition.y,
+        },
+      };
+    });
+  }, [dragPreviewPosition, textBoxes, dimensions.width, boxRect]);
 
   const textLayerBoxes = useMemo(
     () => (externalRecipe ? externalRecipe.textBoxes : effectiveTextBoxes),
@@ -464,8 +490,11 @@ export default function PreviewCanvas({
             // clamping and centre -> anchor before storing, or
             // the recheck moves contained aligned boxes and lets
             // others spill. (The drag, commit and nudge paths
-            // need no conversion: they clamp centres derived
-            // from the bounds rect itself, never the anchor.)
+            // clamp centres derived from the bounds rect itself,
+            // so their CLAMPS need no conversion — but all three
+            // convert centre -> anchor before PERSISTING, since
+            // what they store is this same anchor field. E-3 was
+            // exactly that missing conversion.)
             const clampedCenter = clampDragCenter(
               {
                 x: resolveTextAnchorToCenterX(
@@ -656,8 +685,35 @@ export default function PreviewCanvas({
         const commitRect = textBoundsRef.current.get(dragRef.current.id);
         const commitBounds = dragBoundsRef.current ?? canvas.getBoundingClientRect();
         const committed = clampDragCenter(preview, commitRect, commitBounds);
+        // `committed` is the glyph CENTRE (both drag clamps work
+        // in centre space); the store's position.x is the
+        // renderer's alignment ANCHOR. Convert centre -> anchor
+        // with the box's align and the commit rect's width before
+        // persisting, or the stored value renders a left-aligned
+        // glyph half a width right of the drop point (right:
+        // mirrored) — and the post-render recheck cannot repair
+        // it, because its anchor -> centre -> clamp -> anchor
+        // round trip is the identity on a wrongly stored centre.
+        // The align is read from the store directly: this handler
+        // is registered once and its closure's textBoxes snapshot
+        // is not the dragged box's current row. commitRect is the
+        // rect rendered at the preview position — the same rect
+        // the clamp just used, so the width matches the size the
+        // position was clamped for (the recheck handles any later
+        // row-fit change). y is a centre in both spaces.
+        const commitBox = useStore
+          .getState()
+          .textBoxes.find((box) => box.id === dragRef.current?.id);
         updateTextBox(dragRef.current.id, {
-          position: { x: committed.x, y: committed.y },
+          position: {
+            x: resolveTextCenterToAnchorX(
+              committed.x,
+              commitBox?.align,
+              commitRect?.width ?? 0,
+              commitBounds.width,
+            ),
+            y: committed.y,
+          },
         });
         pendingShapeRecheckRef.current = dragRef.current.id;
       }
@@ -698,7 +754,24 @@ export default function PreviewCanvas({
     const currentBox = textBoxes.find((box) => box.id === activeBox);
     if (!currentBox) return;
 
-    const fallbackCenterX = clamp(currentBox.position?.x ?? 0.5, 0, 1) * Math.max(bounds.width, 1);
+    // The nudge math works in glyph-CENTRE space. With no rendered
+    // rect to take the centre from, derive it from the stored
+    // position — which is the alignment ANCHOR, not a centre — via
+    // resolveTextAnchorToCenterX. Without a rect there is no width
+    // to convert with, so this reduces to the identity today; it
+    // states the semantics explicitly instead of reading the
+    // anchor as if it were a centre.
+    const fallbackCenterX =
+      clamp(
+        resolveTextAnchorToCenterX(
+          currentBox.position?.x ?? 0.5,
+          currentBox.align,
+          0,
+          Math.max(bounds.width, 1),
+        ),
+        0,
+        1,
+      ) * Math.max(bounds.width, 1);
     const fallbackCenterY = clamp(currentBox.position?.y ?? 0.5, 0, 1) * Math.max(bounds.height, 1);
     const centerX = rect ? rect.x + rect.width / 2 : fallbackCenterX;
     const centerY = rect ? rect.y + rect.height / 2 : fallbackCenterY;
@@ -708,7 +781,16 @@ export default function PreviewCanvas({
       bounds
     );
 
-    updateTextBox(activeBox, { position: { x, y } });
+    // {x, y} is the clamped glyph CENTRE; the store's position.x
+    // is the renderer's alignment ANCHOR — convert before
+    // persisting (same defect and fix as the pointer-up commit),
+    // with the rect the clamp just used. y never converts.
+    updateTextBox(activeBox, {
+      position: {
+        x: resolveTextCenterToAnchorX(x, currentBox.align, rect?.width ?? 0, bounds.width),
+        y,
+      },
+    });
     // Same freshness caveat as the pointer-up commit: the clamp
     // above used the rect rendered at the box's previous row, and a
     // nudge toward the diamond's wider middle re-renders the box
