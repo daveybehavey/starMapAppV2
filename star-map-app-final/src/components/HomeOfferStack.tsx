@@ -102,7 +102,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
               HD file unlocks immediately after payment with no shipping wait.
             </p>
             <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-neutral-200">
-              <li>Up to 6000x6000 PNG</li>
+              <li>6000px wide PNG — up to 6000x9000 by format</li>
               <li>No watermark on paid export</li>
               <li>Great for local print shops</li>
               <li>No shipping required</li>

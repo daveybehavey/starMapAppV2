@@ -1036,7 +1036,7 @@ async function createCheckoutSession(input: {
                 unit_amount: digitalAddOnTier.amountCents,
                 product_data: {
                   name: "HD Digital Download Add-on",
-                  description: "6000×6000px digital file delivered instantly after payment",
+                  description: "6000px-wide digital file (up to 6000×9000 by format) delivered instantly after payment",
                   images: [`${siteUrl}/custom-star-map-anniversary.webp`],
                 },
               },
@@ -1085,7 +1085,7 @@ async function createCheckoutSession(input: {
               product_data: {
                 name: "HD Star Map Download",
                 description:
-                  "Print-ready 6000×6000px star map • No watermark • Instant download • Perfect for framing",
+                  "Print-ready 6000px-wide star map (up to 6000×9000 by format) • No watermark • Instant download • Perfect for framing",
                 images: [`${siteUrl}/custom-star-map-anniversary.webp`],
               },
             },
@@ -1112,7 +1112,7 @@ async function createCheckoutSession(input: {
                       description:
                         effectivePlan === "pack3"
                           ? "3 HD export credits for your map versions • No watermark • Instant unlock"
-                          : "Print-ready 6000×6000px star map • No watermark • Instant download • Perfect for framing",
+                          : "Print-ready 6000px-wide star map (up to 6000×9000 by format) • No watermark • Instant download • Perfect for framing",
                       images: [`${siteUrl}/custom-star-map-anniversary.webp`],
                     },
                   },

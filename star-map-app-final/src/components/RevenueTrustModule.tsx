@@ -62,7 +62,7 @@ export default function RevenueTrustModule({
         <div className="brand-light-card-accent rounded-2xl p-4">
           <p className="text-sm font-semibold text-midnight">Print-ready quality</p>
           <p className="mt-1 text-xs text-neutral-700">
-            Exports up to 6000x6000 PNG so stars and text stay sharp in print, including large poster sizes.
+            Exports are 6000px wide — up to 6000x9000 depending on format — so stars and text stay sharp in print, including large poster sizes.
           </p>
         </div>
         <div className="brand-light-card-accent rounded-2xl p-4">

@@ -62,7 +62,7 @@ const faqItems = [
   {
     question: "Is the HD file high enough quality to print locally?",
     answer:
-      "Yes. Paid exports are high resolution (up to 6000×6000) and designed for poster-quality local printing or professional print shops.",
+      "Yes. Paid exports are high resolution — 6000px wide, up to 6000×9000 depending on format — and designed for poster-quality local printing or professional print shops.",
   },
   {
     question: "Who is instant HD best for?",

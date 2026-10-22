@@ -57,7 +57,7 @@ export function buildHomeFaqItems(input: { single: string; framed: string; unfra
     {
       id: "accuracy",
       q: "How accurate are StarMapCo star maps?",
-      a: "StarMapCo uses real date, time, timezone, and location inputs, then calculates the sky with astronomy-engine and bundled star catalog data.",
+      a: "StarMapCo uses real date, time, timezone, and location inputs, then calculates the sky with astronomy-engine and bundled star catalog data — including the Moon's phase and the five visible planets, placed exactly as they appeared that night.",
     },
     {
       id: "data-sources",
@@ -67,7 +67,7 @@ export function buildHomeFaqItems(input: { single: string; framed: string; unfra
     {
       id: "customize",
       q: "Can I customize text, styles, and shapes?",
-      a: "Yes—add titles, subtitles, or dedications; choose from four styles (Navy & Gold, Vintage Engraving, Parchment Scroll, Midnight Minimal) and five shapes (Rectangle free; Heart, Circle, Star, and Diamond premium), plus visual modes and constellation options.",
+      a: "Yes—add titles, subtitles, or dedications; choose from four styles (Navy & Gold, Vintage Engraving, Parchment Scroll, Midnight Minimal) and five shapes (Rectangle free; Heart, Circle, Star, and Diamond premium), plus visual modes, constellation lines and labels, an optional celestial grid, and a technical ring carrying your date and location. You can also place the Moon — drawn with the phase it showed that night — and the five visible planets, and set your words in 15 fonts, including 10 premium typefaces.",
     },
     {
       id: "premium-unlock",
@@ -89,7 +89,7 @@ export function buildHomeFaqItems(input: { single: string; framed: string; unfra
     {
       id: "print-ready",
       q: "Are the maps print-ready?",
-      a: "Yes—designed to be print-ready up to 6000x6000 resolution for crisp posters and framed gifts.",
+      a: "Yes—designed to be print-ready at 6000px wide (up to 6000x9000 depending on the format you choose) for crisp posters and framed gifts.",
     },
     {
       id: "order-printed",

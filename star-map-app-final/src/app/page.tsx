@@ -131,7 +131,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           {
             "@type": "PropertyValue",
             name: "Export resolution",
-            value: "Up to 6000x6000 PNG",
+            value: "6000px wide — up to 6000x9000 PNG by format",
           },
           {
             "@type": "PropertyValue",

@@ -31,7 +31,7 @@ export function getPrintSizingLine(variant: PrintVariant = "poster_framed"): str
     case "poster_unframed":
       return "Unframed poster: 18×18 in — plan your own frame.";
     case "canvas_wrap":
-      return "Canvas gallery wrap: edge-to-edge print, gallery-style mount.";
+      return "Canvas gallery wrap: 6×6 in, edge-to-edge print, gallery-style mount.";
     case "mug_11oz":
       return "11 oz mug — wrap print on glossy black ceramic.";
     default:

@@ -1551,7 +1551,7 @@ export default function DownloadClient() {
                     </li>
                     <li className="flex items-center gap-1.5">
                       <span className="h-1 w-1 rounded-full bg-amber-300" />
-                      6000×6000 print-ready
+                      6000px-wide print-ready
                     </li>
                     <li className="flex items-center gap-1.5">
                       <span className="h-1 w-1 rounded-full bg-amber-300" />
@@ -1733,7 +1733,7 @@ export default function DownloadClient() {
             {[
               {
                 title: "Print-ready quality",
-                desc: "6000×6000 PNG for crisp framing and posters.",
+                desc: "6000px-wide PNG — up to 6000×9000 depending on format — for crisp framing and posters.",
               },
               {
                 title: "No watermark",
