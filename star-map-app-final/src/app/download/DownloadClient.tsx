@@ -6,7 +6,6 @@ import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { aspectRatioToNumber, buildRecipeFromState, renderStarMap, type MapRecipe } from "@/lib/renderSky";
 import { FONT_STACKS } from "@/lib/fonts";
-import { getShapeData } from "@/lib/shapeUtils";
 import { buildStarMapDownloadFilename } from "@/lib/downloadFilename";
 import type { Shape } from "@/lib/types";
 import {
@@ -560,11 +559,10 @@ export default function DownloadClient() {
     const shape = (activeRecipe.shape ||
       (activeRecipe.renderOptions?.shapeMask as Shape) ||
       "rectangle") as Shape;
-    const shapeData = await getShapeData(shape).catch(() => null);
-    let ratio = aspectRatioToNumber(activeRecipe.aspectRatio ?? "square");
-    if (shapeData && shapeData.viewBox.height > 0) {
-      ratio = shapeData.viewBox.width / shapeData.viewBox.height;
-    }
+    // The ratio is the design's selected aspect ratio only (E-2). The shape
+    // SVG viewBoxes are all square; using them here squared the download
+    // page's HD export, its print re-render, and its preview sizing.
+    const ratio = aspectRatioToNumber(activeRecipe.aspectRatio ?? "square");
     return { shape, ratio };
   }, []);
 

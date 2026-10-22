@@ -10,8 +10,8 @@ import {
   formatDateTimeForLocation,
   renderStarMap,
 } from "@/lib/renderSky";
+import { getExportDimensions } from "@/lib/aspectRatio";
 
-import { getShapeData } from "@/lib/shapeUtils";
 import { buildStarMapDownloadFilename } from "@/lib/downloadFilename";
 import {
   createCheckoutHandoffToken,
@@ -1300,19 +1300,9 @@ export function EditorExperience({
         renderOptions,
       });
       const width = mode === "hd" ? 6000 : 1200;
-      const shapeData = await getShapeData(recipe.shape).catch(() => null);
-      let ratio: number;
-      if (shapeData) {
-        if (shapeData.viewBox.height === 0) {
-          console.warn("Invalid shape viewBox height");
-          ratio = aspectRatioToNumber(recipe.aspectRatio);
-        } else {
-          ratio = shapeData.viewBox.width / shapeData.viewBox.height;
-        }
-      } else {
-        ratio = aspectRatioToNumber(recipe.aspectRatio);
-      }
-      const height = Math.max(1, Math.round(width / ratio));
+      // Export dimensions come from the selected aspect ratio only (E-2):
+      // the shape SVG viewBoxes are all square and must not size exports.
+      const { height } = getExportDimensions(width, recipe.aspectRatio);
       const canvas = document.createElement("canvas");
       const watermark = mode !== "hd";
       const premium = premiumOverride ?? paid;
@@ -1645,11 +1635,9 @@ export function EditorExperience({
           if (typeof document !== "undefined" && document.fonts) {
             await document.fonts.ready;
           }
-          const shapeData = await getShapeData(recipeForCheckout.shape).catch(() => null);
-          const ratio =
-            shapeData && shapeData.viewBox.height > 0
-              ? shapeData.viewBox.width / shapeData.viewBox.height
-              : aspectRatioToNumber(recipeForCheckout.aspectRatio);
+          // Print asset dimensions: ladder width × the design's selected
+          // aspect ratio (E-2). Never the shape viewBox — it is square for
+          // every shape, which silently squared every shaped print file.
           // Use JPEG for print asset upload to stay under API payload limits while preserving high quality.
           // Retry quality first, then a smaller export size if still too large for API transport.
           let uploadedAssetId: string | null = null;
@@ -1683,7 +1671,10 @@ export function EditorExperience({
           const uploadQualities = [0.92, 0.84, 0.76, 0.68, 0.6, 0.52, 0.44];
           for (const exportWidth of exportWidths) {
             if (uploadedAssetId) break;
-            const exportHeight = Math.max(1, Math.round(exportWidth / ratio));
+            const { height: exportHeight } = getExportDimensions(
+              exportWidth,
+              recipeForCheckout.aspectRatio,
+            );
             const printCanvas = document.createElement("canvas");
             try {
               await renderStarMap({
@@ -2192,19 +2183,8 @@ export function EditorExperience({
       renderOptions,
     });
     const width = 1200;
-    const shapeData = await getShapeData(recipe.shape).catch(() => null);
-    let ratio: number;
-    if (shapeData) {
-      if (shapeData.viewBox.height === 0) {
-        console.warn("Invalid shape viewBox height");
-        ratio = aspectRatioToNumber(recipe.aspectRatio);
-      } else {
-        ratio = shapeData.viewBox.width / shapeData.viewBox.height;
-      }
-    } else {
-      ratio = aspectRatioToNumber(recipe.aspectRatio);
-    }
-    const height = Math.max(1, Math.round(width / ratio));
+    // Selected aspect ratio only (E-2) — never the square shape viewBox.
+    const { height } = getExportDimensions(width, recipe.aspectRatio);
     const canvas = document.createElement("canvas");
     await renderStarMap({
       recipe,

@@ -25,6 +25,8 @@ import {
 
 export type { AspectRatio, Shape } from "@/lib/types";
 export { formatDateTimeForLocation } from "@/lib/dateTime";
+import { aspectRatioToNumber } from "@/lib/aspectRatio";
+export { aspectRatioToNumber, getExportDimensions } from "@/lib/aspectRatio";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -119,19 +121,6 @@ export const DEFAULT_RECIPE: MapRecipe = {
     premiumPlanets: "off",
   },
 };
-
-export function aspectRatioToNumber(aspect: AspectRatio): number {
-  switch (aspect) {
-    case "3:4":
-      return 3 / 4;
-    case "2:3":
-      return 2 / 3;
-    case "4:5":
-      return 4 / 5;
-    default:
-      return 1;
-  }
-}
 
 /** Scale sky + typography inward on print exports to keep content inside trim zone. */
 function applyPrintSafeTransform(
