@@ -9,6 +9,7 @@ import UtmAttributionClient from "@/components/UtmAttributionClient";
 import AnalyticsConsentManager from "@/components/AnalyticsConsentManager";
 import SiteTopNav from "@/components/SiteTopNav";
 import ChristmasBanner from "@/components/ChristmasBanner";
+import SiteChromeHeightSync from "@/components/SiteChromeHeightSync";
 import { getBusinessPhoneHref, getBusinessProfile } from "@/lib/businessProfile";
 import { isBulkOrdersEnabled } from "@/lib/bulkQuotes";
 import { isChristmasLandingInSeason } from "@/lib/christmasCampaign";
@@ -260,6 +261,7 @@ export default function RootLayout({
             <ChristmasBanner />
           </Suspense>
           <SiteTopNav />
+          <SiteChromeHeightSync />
           {children}
         </div>
         <footer className="relative overflow-hidden border-t border-[#b5934f]/45 bg-[linear-gradient(140deg,rgba(4,10,31,0.98),rgba(8,24,61,0.97),rgba(10,34,80,0.94))] text-[#f7f0e2] shadow-[0_-14px_36px_rgba(0,0,0,0.45)]">
