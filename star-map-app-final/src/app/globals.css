@@ -30,6 +30,11 @@
   --ring-color-light: rgba(241, 194, 125, 0.3);
   /* Sticky SiteTopNav: py-3 + single-line nav (~3.5rem) */
   --site-header-height: 3.5rem;
+  /* Total top chrome (Christmas banner when rendered + sticky header),
+     measured at runtime by SiteChromeHeightSync. Defaults to the
+     header-only height so the banner-hidden / pre-hydration state keeps
+     the hero at exactly 100dvh - header. */
+  --site-chrome-height: var(--site-header-height);
   --ring-offset: 2px;
   --ring-width: 2px;
 }
@@ -1215,8 +1220,8 @@ input[type="range"]:hover::-moz-range-thumb {
   position: relative;
   isolation: isolate;
   width: 100%;
-  min-height: calc(100svh - var(--site-header-height));
-  min-height: calc(100dvh - var(--site-header-height));
+  min-height: calc(100svh - var(--site-chrome-height));
+  min-height: calc(100dvh - var(--site-chrome-height));
   background-color: var(--cosmic-midnight);
   overflow: hidden;
 }

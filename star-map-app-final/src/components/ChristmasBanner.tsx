@@ -31,6 +31,7 @@ export default function ChristmasBanner({ nowMs }: Props = {}) {
 
   return (
     <div
+      data-site-chrome-banner
       className="border-b border-amber-300/40 bg-[linear-gradient(90deg,rgba(12,22,54,0.98),rgba(28,48,96,0.96),rgba(12,22,54,0.98))] text-[#f7f0e2]"
       role="region"
       aria-label="Christmas delivery notice"

@@ -23,6 +23,7 @@ export default function SiteTopNav() {
 
   return (
     <header
+      data-site-chrome-nav
       className={
         isHome
           ? "sticky top-0 z-50 border-b border-white/10 bg-[rgba(5,10,25,0.35)] text-[#f7f0e2] backdrop-blur-sm"
