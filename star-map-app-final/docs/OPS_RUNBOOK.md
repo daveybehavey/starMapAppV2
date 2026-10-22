@@ -28,12 +28,11 @@ Prefer WSL for production releases when possible (`docs/TIER0_VALIDATION.md`).
 
 ### Cloudflare Workers Builds (git integration)
 
-Pushes also build automatically in Cloudflare: the production trigger builds `main` and deploys `star-map-final`; other branches get preview builds. The authoritative build/deploy commands and build variables live **only** in the dashboard (Workers & Pages → `star-map-final` → Settings → Builds) — if they are ever changed there, mirror the new values here in the same change. The build stage is reproducible locally at any commit (verified 2026-10-22 at both `5a0ec33e` and `c8d037ab`, `[vars]` env from `wrangler.toml`, no secrets):
+Pushes also build automatically in Cloudflare: the production trigger builds `main` and deploys `star-map-final`; other branches get preview builds. The authoritative build/deploy commands and build variables live **only** in the dashboard (Workers & Pages → `star-map-final` → Settings → Builds) — if they are ever changed there, mirror the new values here in the same change. The build stage is reproducible locally at any commit (verified 2026-10-22 at both `5a0ec33e` and `c8d037ab`, no secrets). Use the repo's own wrapper — it loads the `[vars]` from `wrangler.toml` into the build environment (`buildEnvWithWranglerVars` in `scripts/opennext-cloudflare.mjs`, the same wrapper `deploy-production.yml` uses via `deploy:inner`); calling `next build` / the OpenNext CLI directly does **not** load `[vars]` and does not faithfully reproduce the build:
 
 ```bash
 npm ci
-npm run build                        # prebuild + next build --webpack
-npx @opennextjs/cloudflare build     # OpenNext bundle (what the build stage produces)
+node scripts/opennext-cloudflare.mjs build   # [vars]-loaded Next build + OpenNext bundle
 ```
 
 **Production build failure playbook** (worked example: 2026-10-22, builds `db518f25-2436-4763-9ce7-4f013d07ee8a` and `16dff48b-80e5-4ec1-af0e-9014af2143e8` failed while PR preview builds of the same trees passed; root cause was Cloudflare's official "Workers API Latency" incident, 15:33–16:15Z, which specifically degraded *deploying a script* — the code and repo config were exonerated by the local builds above):
