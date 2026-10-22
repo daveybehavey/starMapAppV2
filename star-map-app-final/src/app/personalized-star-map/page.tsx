@@ -230,7 +230,7 @@ export default function PersonalizedStarMapPage() {
         ]}
         rightTitle="Print quality and support"
         rightPoints={[
-          "Export up to 6000x6000 resolution",
+          "Export at 6000px wide — up to 6000x9000 by format",
           "Built for poster-quality prints and framing",
           shippingDisclosure,
           productionReviewTrustPoint,

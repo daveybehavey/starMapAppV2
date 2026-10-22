@@ -48,7 +48,7 @@ export const PRINT_CATALOG = [
     printfulVariantEnv: "PRINTFUL_VARIANT_ID_CANVAS_WRAP",
     shippingProfile: "poster_framed",
     includesFrame: false,
-    labelFallback: "Canvas gallery wrap",
+    labelFallback: "Canvas gallery wrap (6×6)",
     priceFallbackCents: 5900,
     priceEnv: "PRINT_CANVAS_WRAP_PRICE_CENTS",
     publicPriceEnv: "NEXT_PUBLIC_PRINT_CANVAS_WRAP_PRICE_CENTS",

@@ -26,7 +26,7 @@ const defaultItems: ReceiveItem[] = [
   },
   {
     title: "HD watermark-free PNG",
-    detail: "Final export is up to 6000x6000 so stars and text stay sharp when printed.",
+    detail: "Final export is 6000px wide — up to 6000x9000 depending on the format you choose — so stars and text stay sharp when printed.",
   },
   {
     title: "Immediate unlock after payment",

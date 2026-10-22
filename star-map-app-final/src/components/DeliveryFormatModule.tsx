@@ -87,7 +87,7 @@ export default function DeliveryFormatModule({
           </p>
           <ul className="mt-3 list-disc space-y-1.5 pl-5 text-xs text-neutral-700 sm:text-sm">
             <li>Unlocks immediately after payment</li>
-            <li>Up to 6000×6000 PNG, no watermark</li>
+            <li>6000px-wide PNG (up to 6000×9000 by format), no watermark</li>
             <li>Works well for local poster printing and DIY framing</li>
           </ul>
           <Link

@@ -206,7 +206,7 @@ export default function WeddingsPostPage() {
                 can choose framed print, unframed print, or HD digital delivery.
               </li>
               <li>
-                <strong>Is it print-ready?</strong> Yes—export up to 6000x6000 for posters and frames.
+                <strong>Is it print-ready?</strong> Yes—exports are 6000px wide (up to 6000x9000 depending on format) for posters and frames.
               </li>
               <li>
                 <strong>Can we share it digitally?</strong> Export watermarked previews or HD files for social and

@@ -267,7 +267,7 @@ export default function WeddingPage() {
         ]}
         bullets={[
           "Ceremony date, time, and location — venue city or coordinates",
-          "Print-ready exports up to 6000×6000, no watermark after purchase",
+          "Print-ready exports at 6000px wide (up to 6000×9000 by format), no watermark after purchase",
           "Celebration-ready presets with gold accents and custom dedication lines",
           "One approved design → framed, unframed, or HD without rebuilding",
         ]}
@@ -331,7 +331,7 @@ export default function WeddingPage() {
         ]}
         rightTitle="Print and support"
         rightPoints={[
-          "High-resolution file up to 6000x6000",
+          "High-resolution file, 6000px wide (up to 6000x9000 by format)",
           "Designed for frame-ready printing",
           shippingDisclosure,
           productionReviewTrustPoint,

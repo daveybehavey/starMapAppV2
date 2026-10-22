@@ -3,7 +3,7 @@ import EditorPageClient from "./EditorPageClient";
 
 export const metadata: Metadata = {
   title: "Star Map Editor | StarMapCo",
-  description: "Create and customize your personalized star map with our interactive editor.",
+  description: "Create and customize your personalized star map with our interactive editor — constellation labels, the Moon's true phase, the visible planets, and 15 fonts.",
   robots: { index: false, follow: false },
 };
 

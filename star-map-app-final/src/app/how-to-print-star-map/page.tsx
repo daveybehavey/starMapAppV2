@@ -100,7 +100,11 @@ export default function HowToPrintStarMapPage() {
             <strong>Unframed poster — 18×18 in</strong> (museum-grade poster). Frame locally or at a print shop.
           </li>
           <li>
-            <strong>HD digital — 6000×6000 PNG</strong> for DIY printing when you need a custom size or international
+            <strong>Canvas gallery wrap — 6×6 in</strong> (edge-to-edge print on a gallery-style mount). Ships from
+            Printful.
+          </li>
+          <li>
+            <strong>HD digital — 6000px-wide PNG (up to 6000×9000 by format)</strong> for DIY printing when you need a custom size or international
             delivery without freight.
           </li>
         </ul>

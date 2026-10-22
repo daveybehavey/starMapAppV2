@@ -71,7 +71,7 @@ export default function StarMapGiftFormatsPage() {
       href: "/editor?mode=quick&source=gift-formats-digital",
       imageSrc: HOME_MOCKUPS.digitalHd,
       fallbackSrc: HOME_MOCKUPS.digitalHd,
-      bulletA: "Up to 6000x6000 PNG",
+      bulletA: "6000px wide — up to 6000x9000 PNG",
       bulletB: "Immediate access after payment",
       source: "gift-formats-digital-cta",
       orderType: "digital" as const,
