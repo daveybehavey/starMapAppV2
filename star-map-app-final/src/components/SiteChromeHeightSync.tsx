@@ -51,9 +51,18 @@ export default function SiteChromeHeightSync() {
 
     // The banner mounts and unmounts through a Suspense boundary and by
     // season, and the nav unmounts on chrome-less routes: watch their
-    // shared container so appearance/disappearance re-measures.
+    // shared container so appearance/disappearance re-measures. The
+    // container is the stable .cosmic-backdrop wrapper from the root
+    // layout, selected directly rather than via the chrome elements:
+    // on a chrome-less route both elements are absent (null), and
+    // falling back to document.body with childList-only observation
+    // would miss the banner/nav mounting inside the wrapper when the
+    // user navigates client-side to a chromed route.
     const chromeContainer =
-      findNav()?.parentElement ?? findBanner()?.parentElement ?? document.body;
+      document.querySelector(".cosmic-backdrop") ??
+      findNav()?.parentElement ??
+      findBanner()?.parentElement ??
+      document.body;
     const mutationObserver = new MutationObserver(() => {
       observeChrome();
       update();

@@ -56,6 +56,10 @@ test("chrome sync measures rendered elements instead of hardcoding heights", () 
   // Tracks wraps (resize) and banner mount/unmount (mutation).
   assert.match(sync, /new ResizeObserver\(/);
   assert.match(sync, /new MutationObserver\(/);
+  // Observes the stable layout wrapper directly, so arriving from a
+  // chrome-less route (banner/nav initially absent) still re-measures
+  // when the chrome mounts inside it on client-side navigation.
+  assert.match(sync, /querySelector\("\.cosmic-backdrop"\)/);
   // Never writes a fixed pixel height of its own.
   assert.doesNotMatch(sync, /setProperty\("--site-chrome-height", "\d+px"\)/);
 });
