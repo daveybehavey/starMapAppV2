@@ -50,7 +50,7 @@ const PRINT_VARIANT_BASE_CENTS: Record<PrintVariant, number> = {
   ),
   canvas_wrap: getPublicNumber(
     "NEXT_PUBLIC_PRINT_CANVAS_WRAP_PRICE_CENTS",
-    getPublicNumber("PRINT_CANVAS_WRAP_PRICE_CENTS", 5900),
+    getPublicNumber("PRINT_CANVAS_WRAP_PRICE_CENTS", 7900),
   ),
   mug_11oz: getPublicNumber(
     "NEXT_PUBLIC_PRINT_MUG_11OZ_PRICE_CENTS",

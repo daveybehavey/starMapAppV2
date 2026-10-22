@@ -38,7 +38,7 @@ export const PRINT_VARIANT_COST_ROWS = Object.freeze({
   }),
   canvas_wrap: Object.freeze({
     cogsEnv: "PRINT_COGS_CANVAS_WRAP_CENTS",
-    defaultCogsCents: 2800,
+    defaultCogsCents: 3400,
     shippingProfile: "poster_framed",
   }),
   mug_11oz: Object.freeze({
