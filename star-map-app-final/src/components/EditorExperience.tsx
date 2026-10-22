@@ -172,7 +172,6 @@ const AdvancedPanel = dynamic(() => import("@/components/AdvancedPanel").then((m
   loading: () => <div className="mt-2 h-40 rounded-xl border border-white/15 bg-white/5" />,
 });
 
-const AUTO_EXPORT_KEY = "star-map-auto-export";
 const REVEALED_FLAG = "star-map-last-revealed";
 const CHECKOUT_MAP_KEY = "star-map-checkout-id";
 const PROMO_CODE_KEY = "star-map-promo-code";
@@ -387,7 +386,6 @@ export function EditorExperience({
   const [checkoutInFlight, setCheckoutInFlight] = useState(false);
   const checkoutInFlightRef = useRef(false);
   const [shareLink, setShareLink] = useState<string | null>(null);
-  const [autoExportPending, setAutoExportPending] = useState(false);
   const [isRevealing, setIsRevealing] = useState(false);
   const [revealStageIndex, setRevealStageIndex] = useState(0);
   const [lastDraftSavedAt, setLastDraftSavedAt] = useState<string | null>(null);
@@ -818,10 +816,6 @@ export function EditorExperience({
       if (revealedFlag === "true" && hasConfirmedEditorLocation(useStore.getState().location)) {
         setRevealed(true);
       }
-      const autoFlag = localStorage.getItem(AUTO_EXPORT_KEY);
-      if (autoFlag === "hd") {
-        setAutoExportPending(true);
-      }
     } catch {
       // ignore storage errors (e.g. private browsing)
     }
@@ -1120,11 +1114,6 @@ export function EditorExperience({
   ]);
 
   useEffect(() => {
-    if (!autoExportPending || paid) return;
-    void refreshPaidStatus();
-  }, [autoExportPending, paid, refreshPaidStatus]);
-
-  useEffect(() => {
     if (typeof window === "undefined" || !restored) return;
     if (draftWritesBlockedRef.current) return;
     const state = useStore.getState();
@@ -1349,56 +1338,6 @@ export function EditorExperience({
     return () => window.clearTimeout(timeout);
   }, [showFreeExportUpsell]);
 
-  useEffect(() => {
-    if (!restored || !autoExportPending || !paid) return;
-    setRevealed(true);
-  }, [autoExportPending, paid, restored, setRevealed]);
-
-  // Intentionally no auto-scroll on auto-export to avoid unexpected page jumps.
-
-  useEffect(() => {
-    if (!autoExportPending || !canvasReady || !paid) return;
-
-    let mounted = true;
-    const id = requestAnimationFrame(() => {
-      if (hdExportInFlightRef.current) return;
-      hdExportInFlightRef.current = true;
-      setHdExportInFlight(true);
-      renderExportFile("hd", true)
-        .then(async (rendered) => {
-          const triggered = triggerDownload(rendered.blob, rendered.filename);
-          if (!triggered.ok) {
-            setCheckoutError(formatHdExportFailedMessage(true));
-            return;
-          }
-          const consumed = await consumeHdCredit();
-          if (!consumed) {
-            setCheckoutError(formatHdExportConsumeFailedMessage());
-          }
-        })
-        .catch(() => {
-          setCheckoutError(formatHdExportFailedMessage(true));
-        })
-        .finally(() => {
-          hdExportInFlightRef.current = false;
-          setHdExportInFlight(false);
-          if (mounted) {
-            try {
-              localStorage.removeItem(AUTO_EXPORT_KEY);
-            } catch {
-              // ignore storage errors (e.g. private browsing)
-            }
-            setAutoExportPending(false);
-          }
-        });
-    });
-
-    return () => {
-      mounted = false;
-      cancelAnimationFrame(id);
-    };
-  }, [autoExportPending, canvasReady, consumeHdCredit, paid, renderExportFile, triggerDownload]);
-
   const handleExport = useCallback(
     async (mode: "preview" | "hd") => {
       const isHd = mode === "hd";
@@ -1423,7 +1362,6 @@ export function EditorExperience({
           trackPaywallOpenedEvent("digital", "hd_export_gate");
           if (typeof window !== "undefined") {
             try {
-              localStorage.setItem(AUTO_EXPORT_KEY, mode);
               if (revealed) localStorage.setItem(REVEALED_FLAG, "true");
             } catch {
               // ignore storage errors (e.g. private browsing)
