@@ -44,7 +44,7 @@ test("editor single-product rows keep product price + shipping estimate", () => 
   );
   assert.equal(
     paywallSecondaryLine({ variant: "canvas_wrap", includeDigitalAddOn: false, includeCardAddOn: false }),
-    "$59.00 USD + $10.70 USD shipping",
+    "$79.00 USD + $10.70 USD shipping",
   );
 });
 

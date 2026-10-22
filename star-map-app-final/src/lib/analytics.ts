@@ -87,7 +87,7 @@ const PRINT_DIGITAL_ADDON_CENTS = getPublicNumber("NEXT_PUBLIC_PRINT_DIGITAL_ADD
 const PRINT_VARIANT_BASE_CENTS: Record<PrintVariant, number> = {
   poster_unframed: getPublicNumber("NEXT_PUBLIC_PRINT_UNFRAMED_PRICE_CENTS", 4900),
   poster_framed: getPublicNumber("NEXT_PUBLIC_PRINT_FRAMED_PRICE_CENTS", 9900),
-  canvas_wrap: getPublicNumber("NEXT_PUBLIC_PRINT_CANVAS_WRAP_PRICE_CENTS", 5900),
+  canvas_wrap: getPublicNumber("NEXT_PUBLIC_PRINT_CANVAS_WRAP_PRICE_CENTS", 7900),
   mug_11oz: getPublicNumber("NEXT_PUBLIC_PRINT_MUG_11OZ_PRICE_CENTS", 3900),
   card_4x6: getPublicNumber("NEXT_PUBLIC_PRINT_CARD_4X6_PRICE_CENTS", 1900),
 };

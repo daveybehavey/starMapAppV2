@@ -100,7 +100,7 @@ export default function HowToPrintStarMapPage() {
             <strong>Unframed poster — 18×18 in</strong> (museum-grade poster). Frame locally or at a print shop.
           </li>
           <li>
-            <strong>Canvas gallery wrap — 6×6 in</strong> (edge-to-edge print on a gallery-style mount). Ships from
+            <strong>Canvas gallery wrap — 14×14 in</strong> (edge-to-edge print on a gallery-style mount). Ships from
             Printful.
           </li>
           <li>

@@ -23,10 +23,10 @@
   },
   {
     "id": "canvas_entry",
-    "label": "Canvas (entry size)",
-    "variantId": 19291,
+    "label": "Canvas (14x14)",
+    "variantId": 19302,
     "targetMarginUsd": 30,
-    "proposedPriceUsd": 59,
+    "proposedPriceUsd": 79,
     "fit": "high",
     "phase": "phase-2",
     "bundleOnly": false,
