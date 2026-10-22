@@ -102,7 +102,10 @@ test("Christmas banner discount windows (Pacific) cover each promo phase", async
   } = await loadTs("src/lib/christmasCampaign.ts");
 
   assert.equal(CHRISTMAS_ORDER_BY_DATES.framed_us, "2026-12-08");
-  assert.equal(CHRISTMAS_ORDER_BY_DATES.framed_ca, "2026-12-09");
+  // framed_ca tightened to Dec 3 (decision 2026-10-22): Printful
+  // fulfilment 2–5 business days + Canada delivery 3–10 business days
+  // can push a Dec 9 order past Christmas; Dec 3 worst case is Dec 24.
+  assert.equal(CHRISTMAS_ORDER_BY_DATES.framed_ca, "2026-12-03");
   assert.equal(CHRISTMAS_ORDER_BY_DATES.poster_us, "2026-12-09");
   assert.equal(CHRISTMAS_ORDER_BY_DATES.poster_ca, "2026-12-10");
   // No rest-of-world keys: Printful publishes holiday deadlines per
@@ -276,7 +279,7 @@ test("Christmas order-by table rows derive from CHRISTMAS_ORDER_BY_DATES", async
   const byProduct = new Map(rows.map((row) => [row.product, row]));
 
   const framed = byProduct.get("Framed print");
-  assert.equal(framed.canada, "Dec 9");
+  assert.equal(framed.canada, "Dec 3");
   assert.equal(framed.unitedStates, "Dec 8");
   // No rest-of-world date is published for framed/poster/canvas —
   // Printful sets deadlines per destination country only — so, exactly
@@ -325,11 +328,13 @@ test("Christmas order-by summary lines carry no rest-of-world dates", async () =
   // so they get the same guarantee as the table: CA/US dates present,
   // rest of world is "order early", never an invented date.
   const lines = getChristmasOrderBySummaryLines();
-  // U05: the bullets lead with the earliest cutoff — mug + keepsake
-  // card — ahead of the framed/poster lines.
+  // U05: the bullets lead with the earliest cutoff per country —
+  // framed prints & canvas wraps in Canada (Dec 3 since the 2026-10-22
+  // tightening), mugs & keepsake cards in the US (Dec 7) — ahead of the
+  // framed/poster lines.
   assert.deepEqual(lines, [
-    "Mugs & keepsake cards — earliest cutoff: United States Dec 7 · Canada Dec 8 · rest of world: order early",
-    "Framed & canvas: United States Dec 8 · Canada Dec 9 · rest of world: order early",
+    "Framed prints, canvas wraps, mugs & keepsake cards — earliest cutoff: United States Dec 7 · Canada Dec 3 · rest of world: order early",
+    "Framed & canvas: United States Dec 8 · Canada Dec 3 · rest of world: order early",
     "Posters: United States Dec 9 · Canada Dec 10 · rest of world: order early",
   ]);
   assert.equal(/Nov 30|Dec 1(?!0)/.test(lines.join(" ")), false);
@@ -340,10 +345,12 @@ test("earliest Christmas cutoff derives from CHRISTMAS_ORDER_BY_DATES (U05)", as
     "src/lib/christmasCampaign.ts"
   );
 
-  // Mug + keepsake card hold the tightest deadlines in both countries.
+  // Framed print + canvas wrap hold the tightest Canada deadline
+  // (Dec 3); mug + keepsake card hold the tightest US one (Dec 7).
+  // A product is listed when it holds either country's earliest date.
   assert.deepEqual(getEarliestChristmasCutoff(), {
-    products: ["Mug", "Keepsake card"],
-    canada: "Dec 8",
+    products: ["Framed print", "Canvas wrap", "Mug", "Keepsake card"],
+    canada: "Dec 3",
     unitedStates: "Dec 7",
   });
 
@@ -352,9 +359,9 @@ test("earliest Christmas cutoff derives from CHRISTMAS_ORDER_BY_DATES (U05)", as
   // plain order-by phase and in the promo phases that reuse the line.
   const at = (ymd) => Date.parse(`${ymd}T20:00:00.000Z`);
   const orderByPhase = getChristmasBannerContent(at("2026-10-13"), "$9");
-  assert.match(orderByPhase.message, /earliest cutoff: mugs & keepsake cards US Dec 7 · Canada Dec 8/);
+  assert.match(orderByPhase.message, /earliest cutoff: framed prints, canvas wraps, mugs & keepsake cards US Dec 7 · Canada Dec 3/);
   const earlyPhase = getChristmasBannerContent(at("2026-11-15"), "$9");
-  assert.match(earlyPhase.message, /earliest cutoff: mugs & keepsake cards US Dec 7 · Canada Dec 8/);
+  assert.match(earlyPhase.message, /earliest cutoff: framed prints, canvas wraps, mugs & keepsake cards US Dec 7 · Canada Dec 3/);
 });
 
 test("christmas order-by table wiring: page, component, footer and home links", () => {
