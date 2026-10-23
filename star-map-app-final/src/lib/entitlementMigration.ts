@@ -432,61 +432,88 @@ export async function ensureEntitlementMigrated(
   // Hold the migration lease across load→capture: a legacy writer that
   // began before us is waited out (its settled record is what we then
   // read); one that arrives during capture is excluded until we finish.
-  const lease = await acquireAccountingLease(client, sessionId, "migration", {
-    now,
-    retryDeadlineMs: 3_000,
-  });
-  if (lease.status === "authority_unavailable") {
-    return { status: "authority_unavailable" };
-  }
-  if (lease.status === "busy") return { status: "migration_busy" };
-  if (lease.status === "fenced") {
-    // "migration" acquires are never fenced; this is unreachable, but
-    // the type is shared with the legacy path — fail closed.
-    return { status: "authority_unavailable" };
-  }
-
-  try {
-    // Re-check inside the lease: a concurrent trigger may have captured
-    // while we waited for it.
-    const inside = await client.getState(sessionId);
-    if (!inside) return { status: "authority_unavailable" };
-    if (inside.baseline) return { status: "already_migrated", state: inside };
-
-    const record = await loadRecord();
-    if (!record) return { status: "no_record" };
-
-    const built = buildBaselineFromLegacyRecord(record, now);
-    if (built.status === "pending") {
-      return { status: "migration_pending", reason: built.reason };
-    }
-
-    const synced = await client.apply(sessionId, {
-      type: "sync_facts",
-      facts: built.facts,
+  // Capture is lease-conditional in the authority: if an attempt stalls
+  // past its TTL and an interleaved writer settles meanwhile, the
+  // capture is refused and the loop retries from a FRESH record load
+  // under a fresh lease (Codex P2, PR #367).
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const lease = await acquireAccountingLease(client, sessionId, "migration", {
       now,
+      retryDeadlineMs: 3_000,
     });
-    if (!synced) return { status: "authority_unavailable" };
+    if (lease.status === "authority_unavailable") {
+      return { status: "authority_unavailable" };
+    }
+    if (lease.status === "busy") return { status: "migration_busy" };
+    if (lease.status === "fenced") {
+      // "migration" acquires are never fenced; this is unreachable, but
+      // the type is shared with the legacy path — fail closed.
+      return { status: "authority_unavailable" };
+    }
 
-    const captured = await client.apply(sessionId, {
-      type: "capture_baseline",
-      baseline: built.baseline,
-      now,
-    });
-    if (!captured) return { status: "authority_unavailable" };
-    if (captured.outcome === "baseline_captured") {
-      return { status: "migrated", state: captured.state };
+    let captureLeaseLost = false;
+    try {
+      // Re-check inside the lease: a concurrent trigger may have captured
+      // while we waited for it.
+      const inside = await client.getState(sessionId);
+      if (!inside) return { status: "authority_unavailable" };
+      if (inside.baseline) return { status: "already_migrated", state: inside };
+
+      const record = await loadRecord();
+      if (!record) return { status: "no_record" };
+
+      const built = buildBaselineFromLegacyRecord(record, now);
+      if (built.status === "pending") {
+        return { status: "migration_pending", reason: built.reason };
+      }
+
+      const synced = await client.apply(sessionId, {
+        type: "sync_facts",
+        facts: built.facts,
+        now,
+      });
+      if (!synced) return { status: "authority_unavailable" };
+
+      const captured = await client.apply(sessionId, {
+        type: "capture_baseline",
+        baseline: built.baseline,
+        expectedLeaseId: lease.leaseId,
+        now,
+      });
+      if (!captured) return { status: "authority_unavailable" };
+      if (captured.outcome === "baseline_captured") {
+        return { status: "migrated", state: captured.state };
+      }
+      if (captured.outcome === "baseline_already_captured") {
+        // A concurrent trigger won the capture race; its baseline governs.
+        return { status: "already_migrated", state: captured.state };
+      }
+      if (
+        captured.outcome === "refused" &&
+        (captured.refusal === "lease_not_held" || captured.refusal === "lease_expired")
+      ) {
+        // Our lease lapsed mid-attempt: the loaded record may be stale.
+        // Retry from a fresh load under a fresh lease.
+        captureLeaseLost = true;
+      } else {
+        // The builder pre-validates, so a refusal here means the record and
+        // the authority disagree about validity — fail closed as
+        // pending/support.
+        return { status: "migration_pending", reason: "invalid_baseline" };
+      }
+    } finally {
+      await releaseAccountingLease(client, sessionId, lease.leaseId);
     }
-    if (captured.outcome === "baseline_already_captured") {
-      // A concurrent trigger won the capture race; its baseline governs.
-      return { status: "already_migrated", state: captured.state };
+    if (!captureLeaseLost) {
+      // Unreachable: every non-retry path returns inside the try. Guard
+      // against future edits silently looping forever.
+      return { status: "authority_unavailable" };
     }
-    // The builder pre-validates, so a refusal here means the record and the
-    // authority disagree about validity — fail closed as pending/support.
-    return { status: "migration_pending", reason: "invalid_baseline" };
-  } finally {
-    await releaseAccountingLease(client, sessionId, lease.leaseId);
   }
+
+  // Repeatedly lost the lease to interleaved writers: report transient
+  // contention; the next trigger retries the migration.
+  return { status: "migration_busy" };
 }
 
 export type LegacyWriterFenceResult =

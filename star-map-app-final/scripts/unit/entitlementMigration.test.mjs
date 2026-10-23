@@ -583,3 +583,39 @@ test("reconcile: moved-on KV or an unrelated baseline is a conflict, never a res
     "authority_unavailable",
   );
 });
+
+test("migration: a capture refused for lease loss retries from a fresh record (Codex P2, PR #367)", async () => {
+  const client = freshClient();
+  const id = sid();
+  let loads = 0;
+  const res = await ensureEntitlementMigrated(client, id, async () => {
+    loads += 1;
+    if (loads === 1) {
+      // The reproduced interleaving: this migration stalled past its
+      // lease; a consume acquired the (expired) lease, settled, and
+      // released. The record below is the STALE pre-debit one.
+      const acq = await client.apply(id, {
+        type: "acquire_accounting_lease",
+        leaseId: "consume-lease",
+        kind: "legacy_write",
+        ttlMs: 15_000,
+        now: NOW + 20_000,
+      });
+      assert.equal(acq.outcome, "lease_acquired");
+      await client.apply(id, {
+        type: "release_accounting_lease",
+        leaseId: "consume-lease",
+        now: NOW + 20_000,
+      });
+      return record();
+    }
+    // Fresh load on retry: the settled post-debit record.
+    return record({ creditsRemaining: 1, lastConsumeToken: "tok-2" });
+  }, NOW);
+  assert.equal(res.status, "migrated");
+  assert.equal(loads, 2);
+  // The baseline reflects the settled debit, never the stale record.
+  assert.equal(res.state.baseline.legacyRemainingBalance, 1);
+  assert.equal(res.state.baseline.legacySpentCount, 2);
+  assert.equal(res.state.baseline.lastConsumeToken, "tok-2");
+});

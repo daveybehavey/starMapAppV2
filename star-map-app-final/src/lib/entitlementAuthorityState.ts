@@ -318,7 +318,20 @@ export function isOwnedUnderValidEntitlement(
 
 export type EntitlementAuthorityOp =
   | { type: "sync_facts"; facts: EntitlementFacts; now: number }
-  | { type: "capture_baseline"; baseline: EntitlementBaseline; now: number }
+  | {
+      type: "capture_baseline";
+      baseline: EntitlementBaseline;
+      /**
+       * The accounting lease the capturer believes it holds. When
+       * supplied, capture is atomically conditional on that lease still
+       * being held and unexpired — a capturer that stalled past its TTL
+       * can never land a stale baseline over an interleaved writer
+       * (Codex P2, PR #367). When omitted, capture is still refused
+       * while ANY lease is actively held.
+       */
+      expectedLeaseId?: string;
+      now: number;
+    }
   | {
       type: "commit";
       artifactId: string;
@@ -732,6 +745,23 @@ function captureBaseline(
   // migration trigger and writer fencing around this op.
   if (state.baseline) {
     return result(state, false, "baseline_already_captured");
+  }
+  // Lease-conditional capture (Codex P2, PR #367): the record this
+  // baseline was built from was loaded under a lease; if that lease is
+  // no longer the live one, the record may be stale (an interleaved
+  // writer settled in between) and the capture must not land — the
+  // caller retries from a fresh load. The check is atomic with the
+  // capture because both happen inside this op.
+  const heldLease = state.accountingLease;
+  if (op.expectedLeaseId !== undefined) {
+    if (!heldLease || heldLease.leaseId !== op.expectedLeaseId) {
+      return refused(state, "lease_not_held");
+    }
+    if (heldLease.expiresAt <= op.now) {
+      return refused(state, "lease_expired");
+    }
+  } else if (heldLease && heldLease.expiresAt > op.now) {
+    return refused(state, "lease_not_held");
   }
   if (!isValidEntitlementBaseline(op.baseline)) {
     return refused(state, "invalid_baseline");

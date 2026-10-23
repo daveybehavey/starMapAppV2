@@ -1389,3 +1389,56 @@ test("lease seal: holder extends before writing; expired or foreign seals are re
   assert.equal(badTtl.outcome, "refused");
   assert.equal(badTtl.refusal, "invalid_lease");
 });
+
+test("capture: lease-conditional — stale capturers are refused, the live holder captures", () => {
+  // Holder captures with its own live lease id.
+  let s = seeded();
+  s = applyEntitlementAuthorityOp(s, acquireLeaseOp("lease-a")).state;
+  const own = applyEntitlementAuthorityOp(s, {
+    type: "capture_baseline",
+    baseline: baseline(),
+    expectedLeaseId: "lease-a",
+    now: NOW,
+  });
+  assert.equal(own.outcome, "baseline_captured");
+
+  // A capturer whose lease expired mid-flight is refused.
+  let s2 = seeded();
+  s2 = applyEntitlementAuthorityOp(s2, acquireLeaseOp("lease-a")).state;
+  const expired = applyEntitlementAuthorityOp(s2, {
+    type: "capture_baseline",
+    baseline: baseline(),
+    expectedLeaseId: "lease-a",
+    now: NOW + 15_001,
+  });
+  assert.equal(expired.outcome, "refused");
+  assert.equal(expired.refusal, "lease_expired");
+  assert.equal(expired.state.baseline, null);
+
+  // A foreign lease id is refused while another holder's lease is live.
+  const foreign = applyEntitlementAuthorityOp(s2, {
+    type: "capture_baseline",
+    baseline: baseline(),
+    expectedLeaseId: "lease-b",
+    now: NOW,
+  });
+  assert.equal(foreign.outcome, "refused");
+  assert.equal(foreign.refusal, "lease_not_held");
+
+  // Even without an expected id, capture cannot barge through a live lease.
+  const barging = applyEntitlementAuthorityOp(s2, {
+    type: "capture_baseline",
+    baseline: baseline(),
+    now: NOW,
+  });
+  assert.equal(barging.outcome, "refused");
+  assert.equal(barging.refusal, "lease_not_held");
+
+  // No lease anywhere: the pre-lease direct capture semantics are intact.
+  const direct = applyEntitlementAuthorityOp(seeded(), {
+    type: "capture_baseline",
+    baseline: baseline(),
+    now: NOW,
+  });
+  assert.equal(direct.outcome, "baseline_captured");
+});
