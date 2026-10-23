@@ -3,15 +3,15 @@
  *
  * Stripe documents redirecting customers to the full `session.url` string; the optional
  * `#fid…` fragment is an implementation detail and may be absent on some responses.
- * Security: exact hostname + HTTPS + canonical `/c/pay/cs_*` or `/f/pay/cs_*` path only —
+ * Security: exact hostname + HTTPS + canonical `/c/pay/cs_*`, `/f/pay/cs_*` or `/g/pay/cs_*` path only —
  * never substring matching or wildcard `*.stripe.com`.
  */
 
 /** Explicit Stripe Checkout hostnames (add custom Checkout domains here when configured). */
 export const STRIPE_CHECKOUT_HOSTNAMES = ["checkout.stripe.com"] as const;
 
-/** Canonical Checkout Session path: /(c|f)/pay/cs_{live|test}_<id> (Stripe hosts both shapes). */
-export const STRIPE_CHECKOUT_SESSION_PATH_RE = /^\/(?:c|f)\/pay\/cs_(?:live|test)_[A-Za-z0-9]+$/;
+/** Canonical Checkout Session path: /(c|f|g)/pay/cs_{live|test}_<id> (Stripe hosts all three shapes; /g/pay rolled out 2026-10). */
+export const STRIPE_CHECKOUT_SESSION_PATH_RE = /^\/(?:c|f|g)\/pay\/cs_(?:live|test)_[A-Za-z0-9]+$/;
 
 export type StripeCheckoutUrlShape = {
   valid: boolean;
@@ -87,7 +87,7 @@ export function isRecoverableStripeCheckoutUrl(url: string): boolean {
     // Prefer Checkout Session path shapes; also accept exact checkout.stripe.com hosts
     // with any path (Stripe has historically shipped alternate handoff paths).
     if (parsed.hostname === "checkout.stripe.com") return true;
-    return /\/(?:c|f)\/pay\/cs_(?:live|test)_/i.test(parsed.pathname) || /\/cs_(?:live|test)_/i.test(parsed.pathname);
+    return /\/(?:c|f|g)\/pay\/cs_(?:live|test)_/i.test(parsed.pathname) || /\/cs_(?:live|test)_/i.test(parsed.pathname);
   } catch {
     return false;
   }
