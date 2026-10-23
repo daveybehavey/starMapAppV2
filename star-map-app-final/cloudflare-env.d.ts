@@ -9,6 +9,7 @@ declare namespace Cloudflare {
 		STAR_MAP_KV: KVNamespace;
 		PRINT_ORDER_AUTHORITY: DurableObjectNamespace /* PrintOrderAuthorityDO */;
 		REVIEW_REQUEST_LEDGER: DurableObjectNamespace /* ReviewRequestLedgerDO */;
+		REVIEW_REQUEST_SUPPRESSION: DurableObjectNamespace /* ReviewRequestSuppressionDO */;
 		ENTITLEMENT_AUTHORITY: DurableObjectNamespace /* EntitlementAuthorityDO */;
 		REFERRAL_DISCOVERY: DurableObjectNamespace /* ReferralDiscoveryDO */;
 		NEXTJS_ENV: "production";

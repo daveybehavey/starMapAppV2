@@ -1,12 +1,16 @@
 /**
  * StarMapCo post-delivery review-request engine (T1) — core logic.
  *
- * Design: ~/workspace/starmapco-redesign/review-engine-design-2026-10-19.md
- * Semantics ported from OurImprint's web/lib/reviews.ts (due windows, claim
- * machine, backoff, suppression at send time, one ask only), adapted to
- * StarMapCo's KV populations + a per-session Durable Object ledger
- * (reviewRequestLedgerState.ts — KV itself has no atomic claim primitive;
- * Step-0 Codex critique P1).
+ * Design: ~/workspace/starmapco-redesign/review-engine-design-2026-10-19.md,
+ * revised by the T-T1 design iteration (burn lane 2026-10-22b pass 1).
+ * Due windows and the one-ask policy carry over from the original design;
+ * the send path is the revised one: this tick only discovers candidates,
+ * claims them in the per-session ledger DO with the provider payload frozen
+ * at first claim, and hands dispatch to the suppression coordinator
+ * (reviewRequestSuppression.ts) — the only component that may call the
+ * provider. Dispatching is never reclaimed; ambiguous outcomes are
+ * terminal `uncertain`, never resent; retries are bounded by the absolute
+ * deadline persisted at first dispatch.
  *
  * INERT BY DEFAULT: the engine does nothing unless REVIEW_REQUESTS_ENABLED
  * is exactly "true", and even then it sends nothing until every prerequisite
@@ -15,11 +19,11 @@
  * REVIEW_REQUESTS_PHYSICAL_ENABLED — it has no delivery signal, so it
  * activates only on its own explicit decision (design §12).
  *
- * ACTIVATION PRECONDITIONS not satisfiable by code alone (see PR body):
- * the checkout gift-flag writer must land first (until then `isGift` is
- * absent on every record), a mailing address must be supplied, and the
- * shipping email's built-in review ask must be removed (or two asks
- * explicitly approved) so the one-ask policy holds in practice.
+ * Gift exclusion FAILS CLOSED (T-T1): eligibility requires the record's
+ * `isGift` to be literally `false`; an absent/unknown flag excludes the
+ * session (reason `gift_uncertain`). Until the checkout gift-flag writer
+ * lands, that means every record is excluded — deliberately: an engine
+ * that cannot prove an order is not a gift must not ask its recipient.
  *
  * This module is dependency-injected (store / ledger / sender / config are
  * parameters) so the whole tick is unit-testable in plain Node. Runtime
@@ -34,6 +38,7 @@ import type { StripeSessionEntitlement } from "@/lib/entitlementsStore";
 import type { PrintOrderRecord } from "@/lib/printOrders";
 import {
   isReviewLedgerResolved,
+  type FrozenReviewPayload,
   type ReviewLedgerApplyResult,
   type ReviewLedgerOp,
   type ReviewLedgerState,
@@ -44,6 +49,20 @@ import {
   buildReviewRequestEmail,
   getReviewOptOutSecret,
 } from "@/lib/reviewRequestEmail";
+import {
+  deriveReviewSuppressionName,
+  type ReviewSuppressionClient,
+} from "@/lib/reviewRequestSuppression";
+
+export {
+  classifyReviewSendError,
+  type ReviewDispatchOutcome,
+  type ReviewFailureClass,
+  type ReviewSendFn,
+  type ReviewSendInput,
+  type ReviewSendResult,
+  type ReviewSuppressionClient,
+} from "@/lib/reviewRequestSuppression";
 
 // ---------------------------------------------------------------------------
 // Constants (design §3; tunables named here, never magic numbers inline)
@@ -103,18 +122,6 @@ export type ReviewLedgerClient = {
   apply(sessionId: string, op: ReviewLedgerOp): Promise<ReviewLedgerApplyResult | null>;
 };
 
-export type ReviewSendInput = {
-  to: string;
-  subject: string;
-  html: string;
-  text: string;
-  headers: Record<string, string>;
-  idempotencyKey: string;
-  tags: Record<string, string>;
-};
-
-export type ReviewSendResult = { ok: true; id: string | null } | { ok: false; error: string };
-
 export type ReviewEngineConfig = {
   enabled: boolean;
   physicalEnabled: boolean;
@@ -123,12 +130,21 @@ export type ReviewEngineConfig = {
   siteUrl: string;
   supportEmail: string;
   resendConfigured: boolean;
+  /**
+   * Sender identity snapshotted with the rest of the config so the exact
+   * From / Reply-To can be FROZEN into the payload at first claim — the
+   * send adapter must not re-derive them from the environment per
+   * attempt (a config change would diverge retries from the first send).
+   */
+  fromAddress: string;
+  replyTo: string | null;
 };
 
 export type ReviewEngineDeps = {
   store: ReviewScanStore;
   ledger: ReviewLedgerClient;
-  send: (input: ReviewSendInput) => Promise<ReviewSendResult>;
+  /** The dispatch coordinator — the only path to the provider. */
+  suppression: ReviewSuppressionClient;
   config: ReviewEngineConfig;
   now?: () => number;
   createClaimId?: () => string;
@@ -140,6 +156,11 @@ export function resolveReviewEngineConfig(
   env: Record<string, string | undefined>,
   probes: { resendConfigured: boolean },
 ): ReviewEngineConfig {
+  // From composition mirrors the Resend adapter's default exactly
+  // (RESEND_FROM_NAME <RESEND_FROM_EMAIL>) so the value frozen at claim
+  // time is the value the adapter would have used for the first send.
+  const fromEmail = env.RESEND_FROM_EMAIL?.trim() ?? "";
+  const fromName = env.RESEND_FROM_NAME?.trim() ?? "";
   return {
     enabled: env.REVIEW_REQUESTS_ENABLED?.trim() === "true",
     physicalEnabled: env.REVIEW_REQUESTS_PHYSICAL_ENABLED?.trim() === "true",
@@ -148,6 +169,8 @@ export function resolveReviewEngineConfig(
     siteUrl: env.NEXT_PUBLIC_SITE_URL?.trim() || "https://starmapco.com",
     supportEmail: env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim() || "support@starmapco.com",
     resendConfigured: probes.resendConfigured,
+    fromAddress: fromEmail ? (fromName ? `${fromName} <${fromEmail}>` : fromEmail) : "",
+    replyTo: env.RESEND_REPLY_TO?.trim() || null,
   };
 }
 
@@ -162,6 +185,7 @@ export type ReviewSkipReason =
   | "missing_email"
   | "invalid_anchor"
   | "gift_order"
+  | "gift_uncertain"
   | "print_order_physical_branch"
   | "terminal_failed"
   | "not_shipped"
@@ -232,10 +256,17 @@ export function classifyDigitalEntitlement(
   if (!record) return { outcome: "excluded", kind, reason: "missing_record" };
   if (record.paid !== true) return { outcome: "excluded", kind, reason: "not_paid" };
   if (record.revoked === true) return { outcome: "excluded", kind, reason: "revoked" };
-  if (record.isGift === true) return { outcome: "excluded", kind, reason: "gift_order" };
   if (record.orderType === "print") {
+    // Print sessions are judged ONLY in the physical population (D9) —
+    // including their gift status, which the physical classifier and the
+    // send-time entitlement cross-check own between them.
     return { outcome: "excluded", kind, reason: "print_order_physical_branch" };
   }
+  // Fail closed on gifts (T-T1): only a literal `false` is eligible — an
+  // absent flag means the writer never recorded gift status, and a gift
+  // recipient must never be asked to review someone else's purchase.
+  if (record.isGift === true) return { outcome: "excluded", kind, reason: "gift_order" };
+  if (record.isGift !== false) return { outcome: "excluded", kind, reason: "gift_uncertain" };
   const email = record.customerEmail?.trim();
   if (!email) return { outcome: "excluded", kind, reason: "missing_email" };
   const anchorAt = normalizeAnchorMs(record.created, now);
@@ -267,6 +298,7 @@ export function classifyPrintRecord(
   if (!record) return { outcome: "excluded", kind, reason: "missing_record" };
   if (record.status === "failed") return { outcome: "excluded", kind, reason: "terminal_failed" };
   if (record.isGift === true) return { outcome: "excluded", kind, reason: "gift_order" };
+  if (record.isGift !== false) return { outcome: "excluded", kind, reason: "gift_uncertain" };
   const email = record.customerEmail?.trim();
   if (!email) return { outcome: "excluded", kind, reason: "missing_email" };
   const rawAnchor = record.shippedAt ?? record.shippingNotificationSentAt;
@@ -286,7 +318,11 @@ export function classifyPrintRecord(
 }
 
 // ---------------------------------------------------------------------------
-// Suppression (checked in the send loop, immediately before claiming)
+// Suppression sources (KV). These are HINTS the tick checks before claiming;
+// the authoritative gate is the suppression coordinator's own record,
+// checked inside dispatch (reviewRequestSuppression.ts). A KV hint hit is
+// recorded as a ledger transition (mark_suppressed) so suppression leaves
+// state, per T-T1 — it is no longer a silent skip.
 // ---------------------------------------------------------------------------
 
 export type ReviewOptOutRecord = { email: string; optedOutAt: number; source: string };
@@ -322,26 +358,6 @@ export async function isReviewSuppressed(
 }
 
 // ---------------------------------------------------------------------------
-// Send-failure classification (critique P2: permanent vs transient vs ambiguous)
-// ---------------------------------------------------------------------------
-
-export type ReviewFailureClass = "permanent" | "transient" | "ambiguous" | "config";
-
-export function classifyReviewSendError(error: string): ReviewFailureClass {
-  if (error === "resend_not_configured" || error === "resend_from_missing") return "config";
-  if (error === "resend_recipient_missing") return "permanent";
-  if (error.startsWith("resend_fetch_failed")) return "ambiguous";
-  const httpMatch = /^resend_http_(\d{3}):/.exec(error);
-  if (httpMatch) {
-    const status = Number(httpMatch[1]);
-    if (status === 429 || status >= 500) return "transient";
-    if (status >= 400 && status < 500) return "permanent";
-    return "transient";
-  }
-  return "ambiguous";
-}
-
-// ---------------------------------------------------------------------------
 // The tick
 // ---------------------------------------------------------------------------
 
@@ -353,11 +369,17 @@ export type ReviewTickSummary = {
   due: number;
   sent: number;
   sendFailed: number;
+  /** Includes deadline-expired dispatches (terminal, never sent). */
   deferred: number;
   suppressed: number;
   alreadyResolved: number;
   inFlightOrBackoff: number;
   ledgerUnavailable: number;
+  /** No dispatch outcome obtained (unreachable or response lost): the
+   * claim release was attempted — it lands only if never dispatched. */
+  suppressionUnavailable: number;
+  /** Dispatches whose provider outcome is unknowable — terminal, never resent. */
+  uncertain: number;
   disputed: number;
   skips: Partial<Record<ReviewSkipReason, number>>;
 };
@@ -375,6 +397,8 @@ function emptySummary(status: ReviewTickSummary["status"]): ReviewTickSummary {
     alreadyResolved: 0,
     inFlightOrBackoff: 0,
     ledgerUnavailable: 0,
+    suppressionUnavailable: 0,
+    uncertain: 0,
     disputed: 0,
     skips: {},
   };
@@ -509,29 +533,32 @@ export async function runReviewRequestTick(deps: ReviewEngineDeps): Promise<Revi
   }
 
   const createClaimId = deps.createClaimId ?? (() => crypto.randomUUID());
+  const nowFn = deps.now ?? Date.now;
   let sendsUsed = 0;
 
   for (const candidate of candidates) {
     if (sendsUsed >= REVIEW_MAX_SENDS_PER_TICK) break;
     const { sessionId } = candidate;
     try {
+      // Fresh clock per candidate (T-T1: no tick-timestamp reuse — the scan
+      // time decided candidacy; eligibility, claim and dispatch each sample
+      // their own time so a long tick never acts on a stale "now").
+      const sendNow = nowFn();
       // Re-read + re-evaluate immediately before claiming (critique P3.2:
       // scan reads are stale inputs; eligibility is decided here, not there).
       const fresh =
         candidate.kind === "digital"
           ? classifyDigitalEntitlement(
               await store.getJson<StripeSessionEntitlement>(candidate.recordKey),
-              now,
+              sendNow,
             )
           : classifyPrintRecord(
               await store.getJson<PrintOrderRecord>(candidate.recordKey),
-              now,
+              sendNow,
               config.physicalEnabled,
             );
       if (fresh.outcome !== "due") {
-        if (fresh.outcome === "excluded" || fresh.outcome === "pending") {
-          summary.skips[fresh.reason] = (summary.skips[fresh.reason] ?? 0) + 1;
-        }
+        summary.skips[fresh.reason] = (summary.skips[fresh.reason] ?? 0) + 1;
         continue;
       }
 
@@ -540,14 +567,21 @@ export async function runReviewRequestTick(deps: ReviewEngineDeps): Promise<Revi
         // record: the Stripe webhook's revoke path updates only
         // stripe:session:<id> and never marks the print record failed
         // (PR #348 Codex P2). A shipped-but-refunded order must never be
-        // asked, so physical sends re-check the entitlement here — the
-        // send-time enforcement point, same as suppression below. A missing
-        // entitlement fails closed: fulfillment implies one exists.
+        // asked, so physical sends re-check the entitlement here. A missing
+        // entitlement fails closed: fulfillment implies one exists. The
+        // gift cross-check is fail-closed too (T-T1): BOTH records must be
+        // literal `isGift === false` — the print classifier has already
+        // proven the print record; here the entitlement must agree.
         const entitlement = await store.getJson<StripeSessionEntitlement>(
           `${DIGITAL_PREFIX}${sessionId}`,
         );
         if (!entitlement || entitlement.revoked === true || entitlement.paid !== true) {
           summary.skips.revoked = (summary.skips.revoked ?? 0) + 1;
+          continue;
+        }
+        if (entitlement.isGift !== false) {
+          const reason = entitlement.isGift === true ? "gift_order" : "gift_uncertain";
+          summary.skips[reason] = (summary.skips[reason] ?? 0) + 1;
           continue;
         }
       }
@@ -563,11 +597,67 @@ export async function runReviewRequestTick(deps: ReviewEngineDeps): Promise<Revi
         continue;
       }
 
-      // Suppression checked at send time — inside this loop, immediately
-      // before the claim (mirrors OurImprint's pre-claim opt-out check).
+      // Suppression hint (KV sources), checked at send time immediately
+      // before claiming. A hit becomes a ledger transition — suppression
+      // is recorded state, not a skip (T-T1). The authoritative check runs
+      // again inside dispatch, so a race here can only over-suppress.
       if (await isReviewSuppressed(store, fresh.email)) {
-        summary.suppressed += 1;
+        const marked = await deps.ledger.apply(sessionId, {
+          type: "mark_suppressed",
+          kind: fresh.kind,
+          anchorAt: fresh.anchorAt,
+          dueAt: fresh.dueAt,
+          now: sendNow,
+        });
+        if (!marked) {
+          summary.ledgerUnavailable += 1;
+        } else if (marked.outcome === "suppressed") {
+          summary.suppressed += 1;
+        } else if (marked.outcome === "already_resolved") {
+          summary.alreadyResolved += 1;
+        } else {
+          summary.inFlightOrBackoff += 1;
+        }
         continue;
+      }
+
+      // The payload is rendered ONCE, at first claim, and frozen into the
+      // ledger row; retries dispatch the frozen bytes (T-T1). A retry row
+      // already carries its payload — reuse it verbatim.
+      let payload: FrozenReviewPayload | null = existing.payload;
+      if (!payload) {
+        try {
+          const built = buildReviewRequestEmail({
+            kind: fresh.kind,
+            siteUrl: config.siteUrl,
+            supportEmail: config.supportEmail,
+            mailingAddress: config.mailingAddress,
+            optOutUrl: buildReviewOptOutUrl(
+              config.siteUrl,
+              normalizePromotionEmail(fresh.email),
+              config.signingSecret as string,
+            ),
+          });
+          payload = {
+            to: fresh.email,
+            // From / Reply-To freeze HERE, from the config snapshot —
+            // the complete provider request includes them, so a sender
+            // config change after this claim cannot diverge a retry.
+            from: config.fromAddress,
+            replyTo: config.replyTo,
+            subject: built.subject,
+            html: built.html,
+            text: built.text,
+            headers: built.headers,
+            idempotencyKey: reviewRequestIdempotencyKey(sessionId),
+            tags: { type: "review_request", kind: fresh.kind },
+          };
+        } catch {
+          // Render failure BEFORE any claim exists: nothing was claimed,
+          // nothing is consumed — the session stays eligible next tick.
+          summary.sendFailed += 1;
+          continue;
+        }
       }
 
       const claimId = createClaimId();
@@ -578,7 +668,11 @@ export async function runReviewRequestTick(deps: ReviewEngineDeps): Promise<Revi
         email: fresh.email,
         anchorAt: fresh.anchorAt,
         dueAt: fresh.dueAt,
-        now,
+        eligibilityEndsAt:
+          fresh.anchorAt +
+          (fresh.kind === "digital" ? REVIEW_DIGITAL_MAX_AGE_MS : REVIEW_PHYSICAL_MAX_AGE_MS),
+        payload,
+        now: sendNow,
       });
       if (!claim) {
         summary.ledgerUnavailable += 1;
@@ -588,6 +682,10 @@ export async function runReviewRequestTick(deps: ReviewEngineDeps): Promise<Revi
         summary.alreadyResolved += 1;
         continue;
       }
+      if (claim.outcome === "payload_diverged") {
+        summary.sendFailed += 1;
+        continue;
+      }
       if (claim.outcome !== "claimed") {
         summary.inFlightOrBackoff += 1;
         continue;
@@ -595,83 +693,56 @@ export async function runReviewRequestTick(deps: ReviewEngineDeps): Promise<Revi
 
       sendsUsed += 1;
 
-      let built: ReturnType<typeof buildReviewRequestEmail>;
-      try {
-        built = buildReviewRequestEmail({
-          kind: fresh.kind,
-          siteUrl: config.siteUrl,
-          supportEmail: config.supportEmail,
-          mailingAddress: config.mailingAddress,
-          optOutUrl: buildReviewOptOutUrl(config.siteUrl, normalizePromotionEmail(fresh.email), config.signingSecret),
-        });
-      } catch (error) {
-        await deps.ledger.apply(sessionId, {
-          type: "abandon_claim",
-          claimId,
-          error: error instanceof Error ? error.message : "email_build_failed",
-          permanent: false,
-          now,
-        });
-        summary.sendFailed += 1;
-        continue;
-      }
-
-      // Claim-currency re-verification immediately before the provider call
-      // (critique P3.3): a claimant displaced by stale-reclaim must not send.
-      const currency = await deps.ledger.getState(sessionId);
-      if (!currency || currency.status !== "sending" || currency.claimId !== claimId) {
-        summary.disputed += 1;
-        continue;
-      }
-
-      const result = await deps.send({
-        to: fresh.email,
-        subject: built.subject,
-        html: built.html,
-        text: built.text,
-        headers: built.headers,
-        idempotencyKey: reviewRequestIdempotencyKey(sessionId),
-        tags: { type: "review_request", kind: fresh.kind },
+      // Dispatch via the suppression coordinator — the only provider path.
+      // The claim token fences the send itself now (T-T1): the coordinator
+      // re-verifies suppression authoritatively, commits `dispatching`
+      // under this token, and only then calls the provider.
+      const suppressionName = deriveReviewSuppressionName(
+        normalizePromotionEmail(fresh.email),
+        config.signingSecret as string,
+      );
+      const dispatch = await deps.suppression.dispatch({
+        sessionId,
+        claimId,
+        name: suppressionName,
       });
-
-      if (result.ok && result.id) {
-        // `sent` is written ONLY after definitive provider acceptance, and
-        // records the provider id (critique P2/P3.3).
-        const completion = await deps.ledger.apply(sessionId, {
-          type: "complete_claim",
-          claimId,
-          providerId: result.id,
-          now,
-        });
-        if (completion && completion.outcome === "completed") {
-          summary.sent += 1;
-        } else {
-          summary.disputed += 1;
-        }
-        continue;
-      }
-      if (result.ok && !result.id) {
-        // Accepted with no provider id: ambiguous — leave the claim in
-        // `sending`; stale-reclaim converts it later rather than risk a
-        // duplicate ask on a guess.
-        summary.deferred += 1;
-        continue;
-      }
-      if (!result.ok) {
-        const failureClass = classifyReviewSendError(result.error);
-        if (failureClass === "ambiguous" || failureClass === "config") {
-          // No definitive provider answer: do NOT consume an attempt.
-          summary.deferred += 1;
-          continue;
-        }
+      if (dispatch === null || dispatch.outcome === "unavailable") {
+        // A null/unavailable result does NOT prove the coordinator never
+        // started: the dispatch may have committed (even sent) with only
+        // its response lost. The release is safe anyway — release_claim
+        // is state- and token-guarded in the ledger machine, so it
+        // returns the row to a due retry ONLY while the claim is still
+        // undispatched (`claimed`); once a dispatch has committed it
+        // no-ops, and the row settles through the dispatch lifecycle
+        // (expire_dispatch → `uncertain`) instead of a blind retry.
         await deps.ledger.apply(sessionId, {
-          type: "abandon_claim",
+          type: "release_claim",
           claimId,
-          error: result.error,
-          permanent: failureClass === "permanent",
-          now,
+          now: nowFn(),
         });
-        summary.sendFailed += 1;
+        summary.suppressionUnavailable += 1;
+        continue;
+      }
+      switch (dispatch.outcome) {
+        case "sent":
+          summary.sent += 1;
+          break;
+        case "suppressed":
+          summary.suppressed += 1;
+          break;
+        case "retry_scheduled":
+        case "failed":
+          summary.sendFailed += 1;
+          break;
+        case "uncertain":
+          summary.uncertain += 1;
+          break;
+        case "expired":
+          summary.deferred += 1;
+          break;
+        case "not_dispatchable":
+          summary.disputed += 1;
+          break;
       }
     } catch {
       // Per-record isolation: one bad record never throws the tick.

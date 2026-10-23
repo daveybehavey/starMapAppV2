@@ -23,12 +23,24 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
 const CHECKOUT_ROUTE = path.join(ROOT, "src/app/api/checkout/route.ts");
 
 const STRICT_OK = "https://checkout.stripe.com/c/pay/cs_live_abc123";
+const G_PAY_OK = "https://checkout.stripe.com/g/pay/cs_live_abc123";
 const ALT_PATH = "https://checkout.stripe.com/pay/cs_live_abc123";
 const LOOKALIKE = "https://checkout.stripe.com.evil.example/c/pay/cs_live_abc";
 
 test("strict validator still rejects alternate /pay/ path", () => {
   assert.equal(isValidStripeCheckoutUrl(STRICT_OK), true);
   assert.equal(isValidStripeCheckoutUrl(ALT_PATH), false);
+});
+
+test("strict validator accepts the /g/pay session path Stripe rolled out in 2026-10", () => {
+  assert.equal(isValidStripeCheckoutUrl(G_PAY_OK), true);
+  assert.equal(isValidStripeCheckoutUrl("https://checkout.stripe.com/g/pay/cs_test_abc123"), true);
+  assert.equal(isValidStripeCheckoutUrl("https://checkout.stripe.com/x/pay/cs_live_abc123"), false);
+  assert.equal(isValidStripeCheckoutUrl("https://checkout.stripe.com.evil.example/g/pay/cs_live_abc"), false);
+  const resolved = resolveStripeCheckoutHandoffUrl(G_PAY_OK);
+  assert.equal(resolved.url, G_PAY_OK);
+  assert.equal(resolved.strictValid, true);
+  assert.equal(resolved.recovered, false);
 });
 
 test("recovery allowlist accepts checkout.stripe.com alternate paths", () => {

@@ -78,7 +78,7 @@ async function ensureDirFor(filePath) {
 
 /**
  * Strict Stripe hosted Checkout path allowlist (mirrors stripeCheckoutNavigation.ts).
- * Accepts only /(c|f)/pay/cs_(live|test)_… on checkout.stripe.com over HTTPS.
+ * Accepts only /(c|f|g)/pay/cs_(live|test)_… on checkout.stripe.com over HTTPS.
  * @param {string} url
  */
 export function isStrictStripeCheckoutHandoffUrl(url) {
@@ -87,7 +87,7 @@ export function isStrictStripeCheckoutHandoffUrl(url) {
     if (parsed.protocol !== "https:") return false;
     if (parsed.username || parsed.password) return false;
     if (parsed.hostname !== "checkout.stripe.com") return false;
-    if (!/^\/(?:c|f)\/pay\/cs_(?:live|test)_[A-Za-z0-9]+$/.test(parsed.pathname)) return false;
+    if (!/^\/(?:c|f|g)\/pay\/cs_(?:live|test)_[A-Za-z0-9]+$/.test(parsed.pathname)) return false;
     if (parsed.hash === "#") return false;
     return true;
   } catch {

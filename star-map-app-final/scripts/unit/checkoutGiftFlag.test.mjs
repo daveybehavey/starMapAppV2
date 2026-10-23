@@ -4,8 +4,10 @@
  * The buyer's "This is a gift" indication must travel:
  *   editor checkbox → POST /api/checkout `isGift`
  *     → Stripe session metadata `is_gift = "true"`
- *     → webhook writers stamp `isGift` on the entitlement + print records
- *     → the review engine excludes `isGift === true` (never asked).
+ *     → webhook writers stamp an explicit-boolean `isGift` on the
+ *       entitlement + print records
+ *     → the review engine asks only literal `isGift === false` records
+ *       (T-T1 fail-closed: true OR absent provenance is never asked).
  *
  * The derivation helpers in src/lib/checkoutGiftFlag.ts are the real code
  * both writers call; the route/component wiring is pinned by source text
@@ -75,13 +77,15 @@ test("only the exact string 'true' marks a gift (Stripe metadata is case-sensiti
   assert.equal(isGiftFromSessionMetadata(undefined), false);
 });
 
-test("record value: true for gift, absent (undefined) for non-gift — the reader's expectation", () => {
+test("record value: explicit boolean — true for gift, false for non-gift (T-T1 provenance)", () => {
   assert.equal(giftFlagForRecord({ is_gift: "true" }), true);
-  assert.equal(giftFlagForRecord({ order_type: "print" }), undefined);
-  assert.equal(giftFlagForRecord(null), undefined);
-  // As persisted to KV (JSON), a non-gift record carries no isGift field.
+  assert.equal(giftFlagForRecord({ order_type: "print" }), false);
+  assert.equal(giftFlagForRecord(null), false);
+  // As persisted to KV (JSON), a non-gift record now carries isGift: false —
+  // the review engine fails closed on an ABSENT flag (gift_uncertain), so
+  // provenance must be stamped, never implied.
   const stored = JSON.parse(JSON.stringify({ isGift: giftFlagForRecord({}) }));
-  assert.equal("isGift" in stored, false);
+  assert.equal(stored.isGift, false);
 });
 
 test("writer → reader, digital: a gift-flagged session lands isGift on the entitlement and is never due", () => {
@@ -109,7 +113,7 @@ test("writer → reader, digital: a non-gift session is due in the same window",
     orderType: "digital",
     isGift: giftFlagForRecord(session.metadata),
   };
-  assert.equal(entitlement.isGift, undefined);
+  assert.equal(entitlement.isGift, false);
   const verdict = classifyDigitalEntitlement(entitlement, NOW);
   assert.equal(verdict.outcome, "due");
 });
@@ -139,7 +143,7 @@ test("writer → reader, physical: a non-gift print record is due in the same wi
     shippedAt: NOW - 8 * DAY_MS,
     isGift: giftFlagForRecord(session.metadata),
   };
-  assert.equal(printRecord.isGift, undefined);
+  assert.equal(printRecord.isGift, false);
   const verdict = classifyPrintRecord(printRecord, NOW, true);
   assert.equal(verdict.outcome, "due");
 });
