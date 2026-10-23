@@ -1814,7 +1814,11 @@ test("wiring: coordinator-only provider access — the tick and its runtime hold
 test("wiring: promotions unsubscribe establishes the AUTHORITATIVE suppression record before any acknowledgement", () => {
   const page = readFileSync(new URL("src/app/unsubscribe/page.tsx", appRoot), "utf8");
   const recordCall = page.indexOf("createReviewSuppressionClient().record(");
-  const kvWrite = page.indexOf("await kv.set");
+  // T-SM-KVRACE: the promotions opt-out write no longer happens inline
+  // in the page — it is the Consistency Coordinator call (which also
+  // writes the KV projection). The ordering invariant this pin protects
+  // is unchanged: that write is what must follow the suppression record.
+  const kvWrite = page.indexOf("await unsubscribePromotionFlow(");
   const alreadyAck = page.indexOf('status = "already_unsubscribed"');
   const successAck = page.indexOf('status = "unsubscribed"');
   assert.ok(recordCall !== -1, "the page must write the authoritative suppression record");
@@ -1831,7 +1835,9 @@ test("wiring: promotions unsubscribe establishes the AUTHORITATIVE suppression r
 
 test("wiring: promotions unsubscribe is decoupled from review-secret configuration (Codex re-gate P1)", () => {
   const page = readFileSync(new URL("src/app/unsubscribe/page.tsx", appRoot), "utf8");
-  const kvWrite = page.indexOf("await kv.set");
+  // T-SM-KVRACE: the opt-out write marker is the coordinator flow call
+  // (see the companion pin above); the settled-guard invariant is unchanged.
+  const kvWrite = page.indexOf("await unsubscribePromotionFlow(");
   // When NO purpose-built review opt-out secret is configured, the
   // suppression record settles as true (nothing to record into; review
   // dispatch fails closed on signing_secret_missing) so a promotions

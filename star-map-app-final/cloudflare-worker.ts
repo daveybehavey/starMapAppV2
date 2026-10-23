@@ -6,6 +6,7 @@ export { PrintOrderAuthorityDO } from "./src/durable-objects/PrintOrderAuthority
 export { ReviewRequestLedgerDO } from "./src/durable-objects/ReviewRequestLedgerDO";
 export { ReviewRequestSuppressionDO } from "./src/durable-objects/ReviewRequestSuppressionDO";
 export { EntitlementAuthorityDO } from "./src/durable-objects/EntitlementAuthorityDO";
+export { ConsistencyCoordinatorDO } from "./src/durable-objects/ConsistencyCoordinatorDO";
 
 export default {
   fetch: handler.fetch,

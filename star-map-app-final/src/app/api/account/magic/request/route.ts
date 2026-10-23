@@ -8,6 +8,10 @@ import {
   accountLiteMagicKey,
 } from "@/lib/accountLiteAuth";
 import {
+  createConsistencyCoordinatorClient,
+  magicCoordinatorName,
+} from "@/lib/consistencyCoordinator";
+import {
   isAccountMagicLinkEmailConfigured,
   sendAccountMagicLinkAlert,
 } from "@/lib/accountMagicLinkAlerts";
@@ -84,11 +88,30 @@ export async function POST(req: NextRequest) {
   }
 
   const token = crypto.randomUUID();
+  const now = Date.now();
   const record: MagicLinkRecord = {
     email,
     emailHash,
-    createdAt: Date.now(),
+    createdAt: now,
   };
+  // A2-1 (T-SM-KVRACE): register the token with the Consistency
+  // Coordinator before the link is sent, with its explicit expiry
+  // (design S3-A). A registration failure sends nothing — the response
+  // stays the generic success either way, so a failed issuance is
+  // indistinguishable from a sent one (anti-enumeration) and the user
+  // can simply retry.
+  try {
+    const client = createConsistencyCoordinatorClient();
+    await client.registerMagicToken(magicCoordinatorName(token), {
+      email,
+      emailHash,
+      expiresAt: now + ACCOUNT_LITE_MAGIC_LINK_TTL_SECONDS * 1000,
+      now,
+    });
+  } catch (error) {
+    console.error("magic link coordinator registration failed", { emailHash, error });
+    return genericSuccess();
+  }
   await kv.set(accountLiteMagicKey(token), record, { ex: ACCOUNT_LITE_MAGIC_LINK_TTL_SECONDS });
 
   const origin = new URL(req.url).origin;
