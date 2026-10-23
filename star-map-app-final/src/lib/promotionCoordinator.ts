@@ -77,7 +77,8 @@ export async function gatherPromotionLegacyFacts(
 
 /** Write the non-authoritative KV projection of authoritative state.
  *  Best-effort: authority is already committed in the coordinator, and
- *  the projection is rebuilt on the next mutation. */
+ *  the projection is rebuilt on the next mutation. The unsubscribe
+ *  flow is the one exception — it uses the strict variant below. */
 export async function publishPromotionProjection(
   email: string,
   state: PromotionCoordinatorState,
@@ -87,6 +88,22 @@ export async function publishPromotionProjection(
   } catch (error) {
     console.error("promotion state projection write failed", { email, error });
   }
+}
+
+/** Strict variant of the projection write: a KV failure PROPAGATES.
+ *  Used by the unsubscribe flow, whose projection cannot be
+ *  best-effort: an unsubscribe may be the last mutation this account
+ *  ever makes (nothing is guaranteed to rebuild the projection later),
+ *  and the review engine's suppression check reads only KV sources —
+ *  a silently lost write would leave the authoritative opt-out
+ *  invisible to it. The coordinator has already committed the opt-out
+ *  when this runs, so surfacing the failure is safe: the caller fails
+ *  the page closed and a retry republishes from committed state. */
+export async function publishPromotionProjectionStrict(
+  email: string,
+  state: PromotionCoordinatorState,
+): Promise<void> {
+  await kv.set(emailStateKey(email), promotionStateView(state));
 }
 
 function toCoordinatorOutcome(outcome: PromotionDeliveryOutcome): PromotionSendOutcome {
@@ -283,6 +300,11 @@ export async function unsubscribePromotionFlow(input: {
     reason: input.reason,
     facts,
   });
-  await publishPromotionProjection(email, result.state);
+  // Strict: the opt-out is committed in the coordinator, but the KV
+  // projection is the only suppression source the review engine reads
+  // — if this write fails, the caller must hear about it and fail
+  // closed (the page shows a retryable error) rather than acknowledge
+  // an unsubscribe whose suppression record never landed.
+  await publishPromotionProjectionStrict(email, result.state);
   return { wasAlreadyUnsubscribed: result.wasAlreadyUnsubscribed, state: result.state };
 }

@@ -989,11 +989,27 @@ export function applyCompletePromotionJob(
   }
 
   if (outcome.type === "definitive_failure") {
+    // The provider answered and rejected the submission: acceptance is
+    // proven absent, so this attempt carries no uncertainty for the
+    // idempotency window to bound. When it was the job's ONLY attempt,
+    // clear the window anchor — otherwise a failed job rearmed by a
+    // fresh subscribe more than 24h later would be blocked at claim
+    // time as though an acceptance were still uncertain, and the
+    // subscriber could never recover after the provider fault (say, an
+    // invalid key) is repaired. The rearmed job's next claim stamps a
+    // fresh anchor. attemptCount is NOT unwound, unlike the
+    // unconfigured branch: a provider attempt genuinely occurred, and
+    // the count remains the job's attempt history. With earlier
+    // attempts on record (attemptCount > 1) the anchor is retained:
+    // an earlier attempt may have been an uncertain one retried under
+    // a guarantee, and this rejection (e.g. a 401, never processed)
+    // proves nothing about it — fail closed, per S3-A.
     jobs[input.kind] = {
       ...job,
       status: "failed",
       claimedAt: null,
       nextAttemptAt: null,
+      firstAttemptAt: job.attemptCount <= 1 ? null : job.firstAttemptAt,
       provider: outcome.provider,
       attemptProvider: null,
       attemptIdempotencyGuaranteed: null,

@@ -44,7 +44,11 @@ const { ConsistencyCoordinatorDO } = await import(
   "../../src/durable-objects/ConsistencyCoordinatorDO.ts"
 );
 const clientLib = await import("../../src/lib/consistencyCoordinator.ts");
-const { drivePromotionJobs } = await import("../../src/lib/promotionCoordinator.ts");
+const { drivePromotionJobs, unsubscribePromotionFlow } = await import(
+  "../../src/lib/promotionCoordinator.ts"
+);
+const { kv } = await import("../../src/lib/kv.ts");
+const { emailStateKey } = await import("../../src/lib/promotionSubscriptions.ts");
 const {
   preparePromotionCouponPayload,
   preparePromotionFollowupPayload,
@@ -1770,6 +1774,138 @@ test("A2-3 an unconfigured completion after an unsubscribe cancels with no retry
     state.jobs.coupon?.nextAttemptAt,
     null,
     "a cancelled job carries no retry schedule",
+  );
+});
+
+/* ------------- A2-3 gate fix round 4 (Codex findings) ------------- */
+
+test("A2-3 a definitively rejected first attempt rearms with a fresh retry window", () => {
+  const t0 = NOW;
+  let state = subscribedState("hash-r4-definitive-window", t0);
+  const claimed = stateLib.applyClaimPromotionJob(state, {
+    kind: "coupon",
+    now: t0,
+    attemptProvider: "resend",
+    attemptIdempotencyGuaranteed: true,
+  });
+  assert.ok(claimed.claim);
+  state = claimed.state;
+  assert.equal(state.jobs.coupon?.firstAttemptAt, t0);
+  // The provider answers definitively (HTTP 401: invalid key). The
+  // request was rejected before processing — no acceptance is possible,
+  // so this attempt carries no uncertainty for a retry window to bound.
+  state = stateLib.applyCompletePromotionJob(state, {
+    kind: "coupon",
+    now: t0 + 1000,
+    outcome: { type: "definitive_failure", provider: "resend", error: "resend_http_401" },
+  }).state;
+  assert.equal(state.jobs.coupon?.status, "failed");
+  assert.equal(
+    state.jobs.coupon?.attemptCount,
+    1,
+    "the attempt genuinely occurred, so its count is not unwound",
+  );
+  assert.equal(
+    state.jobs.coupon?.firstAttemptAt,
+    null,
+    "a definitive rejection clears the uncertainty window anchor",
+  );
+  // The provider configuration is repaired and the subscriber
+  // explicitly subscribes again 25 hours later — past the 24h window
+  // the rejected attempt would otherwise still be anchoring.
+  const t1 = t0 + 25 * HOUR;
+  const re = stateLib.applySubscribePromotion(state, {
+    emailHash: "hash-r4-definitive-window",
+    source: "test",
+    now: t1,
+    facts: noFacts,
+    couponPayload: preparePromotionCouponPayload("pure@example.com", "FIRST50"),
+  });
+  assert.equal(re.state.jobs.coupon?.status, "pending", "a failed job rearms to pending");
+  const claim = stateLib.applyClaimPromotionJob(re.state, {
+    kind: "coupon",
+    now: t1,
+    attemptProvider: "resend",
+    attemptIdempotencyGuaranteed: true,
+  });
+  assert.ok(claim.claim, "the rearmed job is claimable under a fresh window");
+  assert.equal(
+    claim.state.jobs.coupon?.firstAttemptAt,
+    t1,
+    "the new claim stamps a fresh window anchor",
+  );
+});
+
+test("A2-3 an ambiguous attempt keeps its uncertainty window across the same span (control)", () => {
+  const t0 = NOW;
+  let state = subscribedState("hash-r4-ambiguous-control", t0);
+  const claimed = stateLib.applyClaimPromotionJob(state, {
+    kind: "coupon",
+    now: t0,
+    attemptProvider: "resend",
+    attemptIdempotencyGuaranteed: true,
+  });
+  assert.ok(claimed.claim);
+  state = claimed.state;
+  // The response is lost: acceptance stays uncertain, so the window
+  // anchor must survive completion untouched.
+  state = stateLib.applyCompletePromotionJob(state, {
+    kind: "coupon",
+    now: t0 + 1000,
+    outcome: {
+      type: "ambiguous",
+      provider: "resend",
+      idempotencyGuaranteed: true,
+      error: "response lost",
+    },
+  }).state;
+  assert.equal(state.jobs.coupon?.status, "pending");
+  assert.equal(
+    state.jobs.coupon?.firstAttemptAt,
+    t0,
+    "an ambiguous completion retains the window anchor",
+  );
+  const claim = stateLib.applyClaimPromotionJob(state, {
+    kind: "coupon",
+    now: t0 + 25 * HOUR,
+    attemptProvider: "resend",
+    attemptIdempotencyGuaranteed: true,
+  });
+  assert.equal(claim.claim, null, "a claim after the window is refused");
+  assert.equal(
+    claim.state.jobs.coupon?.status,
+    "blocked",
+    "the lapsed window blocks the job for an operator",
+  );
+});
+
+test("A2-3 the unsubscribe flow surfaces a KV projection failure and a retry lands the opt-out", async () => {
+  const email = "projretry@example.com";
+  const originalSet = kv.set;
+  kv.set = async () => {
+    throw new Error("injected kv projection failure");
+  };
+  try {
+    // Pre-fix the projection helper swallowed this failure and the
+    // flow resolved as a success, leaving the authoritative opt-out
+    // invisible to the KV-only review suppression check.
+    await assert.rejects(
+      unsubscribePromotionFlow({ email, reason: "email_link" }),
+      /injected kv projection failure/,
+      "a failed projection write must surface instead of resolving as success",
+    );
+  } finally {
+    kv.set = originalSet;
+  }
+  // The coordinator committed the opt-out before the projection ran,
+  // so a retry republishes from committed state: it reports the
+  // already-recorded unsubscribe and lands the projection this time.
+  const retry = await unsubscribePromotionFlow({ email, reason: "email_link" });
+  assert.equal(retry.wasAlreadyUnsubscribed, true);
+  const view = await kv.get(emailStateKey(email));
+  assert.ok(
+    view?.unsubscribedAt,
+    "the KV projection now carries the opt-out the review suppression check reads",
   );
 });
 
