@@ -10,6 +10,7 @@ declare namespace Cloudflare {
 		PRINT_ORDER_AUTHORITY: DurableObjectNamespace /* PrintOrderAuthorityDO */;
 		REVIEW_REQUEST_LEDGER: DurableObjectNamespace /* ReviewRequestLedgerDO */;
 		ENTITLEMENT_AUTHORITY: DurableObjectNamespace /* EntitlementAuthorityDO */;
+		REFERRAL_DISCOVERY: DurableObjectNamespace /* ReferralDiscoveryDO */;
 		NEXTJS_ENV: "production";
 		NEXT_INC_CACHE_R2_PREFIX: "incremental-cache";
 		STRIPE_SECRET_KEY: string;

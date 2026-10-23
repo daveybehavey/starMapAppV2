@@ -180,6 +180,19 @@ class_name = "EntitlementAuthorityDO"
 tag = "v3-entitlement-authority"
 new_sqlite_classes = ["EntitlementAuthorityDO"]
 
+# DL-1 referral discovery authority (v3.8 §5.2): one instance per referred
+# checkout session id; registration inside the grant op precedes any fold
+# effect, and terminal negative lineage decisions are recorded here
+# before dedupe finalizes (v3.9 §4). Like the entitlement authority it is
+# inert until the owner activates D1 routing — no [vars] entry.
+[[durable_objects.bindings]]
+name = "REFERRAL_DISCOVERY"
+class_name = "ReferralDiscoveryDO"
+
+[[migrations]]
+tag = "v4-referral-discovery"
+new_sqlite_classes = ["ReferralDiscoveryDO"]
+
 # Persist Worker console logs in Cloudflare dashboard (Workers Logs).
 # Logging in checkout is structured and excludes PII/secrets; see checkoutResilience.ts.
 [observability]

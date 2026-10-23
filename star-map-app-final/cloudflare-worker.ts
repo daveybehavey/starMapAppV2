@@ -5,6 +5,7 @@ import { runScheduledReviewRequestTick } from "./src/lib/reviewRequestRuntime";
 export { PrintOrderAuthorityDO } from "./src/durable-objects/PrintOrderAuthorityDO";
 export { ReviewRequestLedgerDO } from "./src/durable-objects/ReviewRequestLedgerDO";
 export { EntitlementAuthorityDO } from "./src/durable-objects/EntitlementAuthorityDO";
+export { ReferralDiscoveryDO } from "./src/durable-objects/ReferralDiscoveryDO";
 
 export default {
   fetch: handler.fetch,
