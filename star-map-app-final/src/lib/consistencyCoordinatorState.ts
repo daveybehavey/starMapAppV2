@@ -357,10 +357,14 @@ export type PromotionJob = {
   nextAttemptAt: number | null;
   acceptedAt: number | null;
   /** The provider holding this job's send record: set when an attempt
-   *  completes (accepted / failed / ambiguous) and preserved by the
-   *  alarm when it reclaims an uncertain attempt. Once set, the job is
-   *  PINNED to this provider — the idempotency guarantee covering the
-   *  job's key lives there, so a retry may only ever be submitted
+   *  completes with an outcome that leaves acceptance possible or
+   *  proven at that provider (accepted / ambiguous, or a failure with
+   *  earlier attempts on record), and preserved by the alarm when it
+   *  reclaims an uncertain attempt. A definitive rejection of the
+   *  job's ONLY attempt leaves it null instead: acceptance is proven
+   *  absent everywhere, so there is nothing to pin. Once set, the job
+   *  is PINNED to this provider — the idempotency guarantee covering
+   *  the job's key lives there, so a retry may only ever be submitted
    *  under this provider (applyClaimPromotionJob refuses any other,
    *  and the drivers skip a pinned job whose provider is not the
    *  configured selection). */
@@ -997,20 +1001,27 @@ export function applyCompletePromotionJob(
     // time as though an acceptance were still uncertain, and the
     // subscriber could never recover after the provider fault (say, an
     // invalid key) is repaired. The rearmed job's next claim stamps a
-    // fresh anchor. attemptCount is NOT unwound, unlike the
-    // unconfigured branch: a provider attempt genuinely occurred, and
-    // the count remains the job's attempt history. With earlier
-    // attempts on record (attemptCount > 1) the anchor is retained:
-    // an earlier attempt may have been an uncertain one retried under
-    // a guarantee, and this rejection (e.g. a 401, never processed)
-    // proves nothing about it — fail closed, per S3-A.
+    // fresh anchor. The provider pin is released under the same
+    // condition: no acceptance exists at the rejecting provider (or
+    // anywhere) for this job's key, so there is nothing for a pin to
+    // protect — the rearmed job may be claimed under whichever
+    // provider is configured after the repair (say, a switch from the
+    // faulting provider to another), instead of being backed off as
+    // pinned_provider_unavailable forever. attemptCount is NOT
+    // unwound, unlike the unconfigured branch: a provider attempt
+    // genuinely occurred, and the count remains the job's attempt
+    // history. With earlier attempts on record (attemptCount > 1) the
+    // anchor AND the pin are retained: an earlier attempt may have
+    // been an uncertain one retried under a guarantee, and this
+    // rejection (e.g. a 401, never processed) proves nothing about
+    // it — fail closed, per S3-A.
     jobs[input.kind] = {
       ...job,
       status: "failed",
       claimedAt: null,
       nextAttemptAt: null,
       firstAttemptAt: job.attemptCount <= 1 ? null : job.firstAttemptAt,
-      provider: outcome.provider,
+      provider: job.attemptCount <= 1 ? null : outcome.provider,
       attemptProvider: null,
       attemptIdempotencyGuaranteed: null,
       uncertainCancellation: null,

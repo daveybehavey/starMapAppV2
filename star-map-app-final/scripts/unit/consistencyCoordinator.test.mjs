@@ -1836,6 +1836,130 @@ test("A2-3 a definitively rejected first attempt rearms with a fresh retry windo
   );
 });
 
+test("A2-3 a definitively rejected only attempt releases the provider pin", () => {
+  const t0 = NOW;
+  let state = subscribedState("hash-r4-definitive-pin", t0);
+  const claimed = stateLib.applyClaimPromotionJob(state, {
+    kind: "coupon",
+    now: t0,
+    attemptProvider: "resend",
+    attemptIdempotencyGuaranteed: true,
+  });
+  assert.ok(claimed.claim);
+  state = claimed.state;
+  // The job's only attempt is definitively rejected by Resend (HTTP
+  // 401): the provider answered, so no acceptance exists at Resend —
+  // or anywhere — for this job's key. Nothing is uncertain, so there
+  // is no provider whose guarantee a retry must stay pinned to.
+  state = stateLib.applyCompletePromotionJob(state, {
+    kind: "coupon",
+    now: t0 + 1000,
+    outcome: { type: "definitive_failure", provider: "resend", error: "resend_http_401" },
+  }).state;
+  assert.equal(state.jobs.coupon?.status, "failed");
+  assert.equal(state.jobs.coupon?.attemptCount, 1);
+  assert.equal(
+    state.jobs.coupon?.provider,
+    null,
+    "a sole definitive rejection releases the provider pin",
+  );
+  // Configuration is repaired by switching providers entirely, and
+  // the subscriber explicitly subscribes again: the rearmed job must
+  // be claimable under the newly configured provider.
+  const t1 = t0 + 2 * HOUR;
+  const re = stateLib.applySubscribePromotion(state, {
+    emailHash: "hash-r4-definitive-pin",
+    source: "test",
+    now: t1,
+    facts: noFacts,
+    couponPayload: preparePromotionCouponPayload("pure@example.com", "FIRST50"),
+  });
+  assert.equal(re.state.jobs.coupon?.status, "pending", "a failed job rearms to pending");
+  const claim = stateLib.applyClaimPromotionJob(re.state, {
+    kind: "coupon",
+    now: t1,
+    attemptProvider: "sendgrid",
+    attemptIdempotencyGuaranteed: false,
+  });
+  assert.ok(claim.claim, "the rearmed job is claimable under the repaired provider");
+  assert.equal(claim.state.jobs.coupon?.attemptProvider, "sendgrid");
+});
+
+test("A2-3 a definitive rejection after an uncertain attempt keeps the provider pin (control)", () => {
+  const t0 = NOW;
+  let state = subscribedState("hash-r4-uncertain-pin-control", t0);
+  // Attempt 1: ambiguous under Resend's guarantee — its acceptance is
+  // uncertain at Resend, so the job pins to Resend.
+  const claimed = stateLib.applyClaimPromotionJob(state, {
+    kind: "coupon",
+    now: t0,
+    attemptProvider: "resend",
+    attemptIdempotencyGuaranteed: true,
+  });
+  assert.ok(claimed.claim);
+  state = stateLib.applyCompletePromotionJob(claimed.state, {
+    kind: "coupon",
+    now: t0 + 1000,
+    outcome: {
+      type: "ambiguous",
+      provider: "resend",
+      idempotencyGuaranteed: true,
+      error: "response lost",
+    },
+  }).state;
+  assert.equal(state.jobs.coupon?.status, "pending");
+  assert.equal(state.jobs.coupon?.provider, "resend");
+  // Attempt 2 (the guaranteed same-key retry) is definitively
+  // rejected. That rejection proves nothing about attempt 1, whose
+  // acceptance is still uncertain — the pin must be retained.
+  const retryAt = state.jobs.coupon?.nextAttemptAt;
+  assert.ok(retryAt !== null && retryAt !== undefined);
+  const retried = stateLib.applyClaimPromotionJob(state, {
+    kind: "coupon",
+    now: retryAt,
+    attemptProvider: "resend",
+    attemptIdempotencyGuaranteed: true,
+  });
+  assert.ok(retried.claim);
+  state = stateLib.applyCompletePromotionJob(retried.state, {
+    kind: "coupon",
+    now: retryAt + 1000,
+    outcome: { type: "definitive_failure", provider: "resend", error: "resend_http_401" },
+  }).state;
+  assert.equal(state.jobs.coupon?.status, "failed");
+  assert.equal(state.jobs.coupon?.attemptCount, 2);
+  assert.equal(
+    state.jobs.coupon?.provider,
+    "resend",
+    "an earlier uncertain attempt keeps the job pinned to its provider",
+  );
+  assert.equal(
+    state.jobs.coupon?.firstAttemptAt,
+    t0,
+    "the uncertainty window anchor is retained alongside the pin",
+  );
+  // A resubscribe rearms the job, but a claim under a different
+  // provider is still refused: attempt 1 may already have been
+  // accepted at Resend, and SendGrid cannot dedupe it.
+  const re = stateLib.applySubscribePromotion(state, {
+    emailHash: "hash-r4-uncertain-pin-control",
+    source: "test",
+    now: retryAt + 2 * HOUR,
+    facts: noFacts,
+    couponPayload: preparePromotionCouponPayload("pure@example.com", "FIRST50"),
+  });
+  assert.equal(re.state.jobs.coupon?.status, "pending", "a failed job rearms to pending");
+  const claim = stateLib.applyClaimPromotionJob(re.state, {
+    kind: "coupon",
+    now: retryAt + 2 * HOUR,
+    attemptProvider: "sendgrid",
+    attemptIdempotencyGuaranteed: false,
+  });
+  assert.equal(claim.claim, null, "a claim under another provider is refused (pin retained)");
+  assert.equal(claim.state.jobs.coupon?.lastError, "pinned_provider_unavailable");
+  assert.equal(claim.state.jobs.coupon?.status, "pending");
+});
+
 test("A2-3 an ambiguous attempt keeps its uncertainty window across the same span (control)", () => {
   const t0 = NOW;
   let state = subscribedState("hash-r4-ambiguous-control", t0);
