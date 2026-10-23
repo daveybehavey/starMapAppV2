@@ -74,7 +74,19 @@ export function registerDiscovery(
       row.referrerSessionId === input.referrerSessionId &&
       row.grantId === input.grantId
     ) {
-      return { row, outcome: "already_registered" };
+      // Idempotent re-registration — but a terminal record standing
+      // on the row is part of the leg's answer on EVERY delivery
+      // (Codex re-gate F-B): the first attempt may have registered
+      // over the terminal record and then died before the grant op
+      // committed, and the retry that only hears
+      // `already_registered` would admit an ordinary grant where
+      // the design mandates the born-reversed one (v3.9 §4). The
+      // outcome names the terminal fact whenever it stands, first
+      // registration or retry alike.
+      return {
+        row,
+        outcome: row.terminalNegative ? "registered_after_terminal" : "already_registered",
+      };
     }
     return { row, outcome: "conflict" };
   }

@@ -170,6 +170,18 @@ export type RewardGrantEntry = {
    * cleared design; readers treat an absent field as 0.
    */
   attributedSpent?: number;
+  /**
+   * Reward value of this grant's attributed debits since RESTORED by
+   * compensation (Codex re-gate F-A). A restoration is the
+   * un-spending of a recorded debit portion (v3.10 §2.2), and the
+   * pool's spend identity is net of restored portions (v3.9 §3.3) —
+   * the per-grant shadow nets the same way, so a restored credit
+   * makes its funding grant selectable again under §4.3's "unspent
+   * remainder". The debit's own record (fundingGrantId) is never
+   * revised; this counter only tracks what restorations un-spent.
+   * Optional for states written before the fix; absent reads as 0.
+   */
+  attributedRestored?: number;
   /** Journal sequence of this grant's reversal entry, when reversed. */
   reversedSeq?: number | null;
   /** Journal sequence of the grant entry itself. */
@@ -178,14 +190,21 @@ export type RewardGrantEntry = {
 
 /**
  * Per-grant attribution residual (DL-1 v3.9 §3.1, as corrected): a
- * SIGNED bookkeeping quantity — foldedAmount − attributedSpent −
- * clawedAmount. It may be negative under the pooled claw (R1) and is
- * NOT a balance: no op may read it as spendable, as a restoration
- * budget, or as a claw floor. The only spendable reward quantity is
- * the pooled bucket identity.
+ * SIGNED bookkeeping quantity — foldedAmount − outstanding
+ * attribution − clawedAmount, where outstanding attribution is
+ * `attributedSpent − attributedRestored` (restorations un-spend,
+ * v3.10 §2.2; the pool identity nets identically, v3.9 §3.3). It may
+ * be negative under the pooled claw (R1) and is NOT a balance: no op
+ * may read it as spendable, as a restoration budget, or as a claw
+ * floor. The only spendable reward quantity is the pooled bucket
+ * identity. Its one eligibility use is the §4.3 selection predicate
+ * (oldest grant with unspent remainder) — a REMAINDER test over the
+ * net figure, not a balance read.
  */
 export function rewardGrantResidual(grant: RewardGrantEntry): number {
-  return grant.amount - (grant.attributedSpent ?? 0) - grant.clawedAmount;
+  const outstandingAttribution =
+    (grant.attributedSpent ?? 0) - (grant.attributedRestored ?? 0);
+  return grant.amount - outstandingAttribution - grant.clawedAmount;
 }
 
 /** How the entitlement's journal was born (DL-1 v3.7 §2.4, v3.11 §2). */
@@ -224,6 +243,20 @@ export type PendingGrantEntry = {
     lineageRef: string;
     recordedAt: number;
   } | null;
+  /**
+   * For kind "discovery" entries only: the registration leg has
+   * completed successfully at least once (on admission's retry
+   * dispatch — the first attempt is what pended the entry). The
+   * §5.1 invariant spends fold effect only when an association was
+   * registered in or before the conferring op; a settlement of a
+   * discovery pendency refuses until this stands recorded (Codex
+   * re-gate F-E), because the receipt an operator presents proves
+   * exclusion from the opening — never registration, and never the
+   * absence of a terminal-negative record. Absent/false for entries
+   * written before the fix; meaningless for other kinds (their
+   * association preceded the entry by the same leg).
+   */
+  discoveryRegistered?: boolean;
 };
 
 /** An identity settled `included` (zero fold effect throughout). */
@@ -900,7 +933,9 @@ export type EntitlementAuthorityRefusal =
   /** Commit only a pending amount could fund (v3.8 §3.5 matrix cell). */
   | "insufficient_balance_pending"
   /** Settlement evidence cannot settle to `included` (v3.8 §2.3). */
-  | "grant_inclusion_unresolved";
+  | "grant_inclusion_unresolved"
+  /** Settlement of a discovery pendency before its registration leg completed (v3.8 §5.1). */
+  | "discovery_registration_required";
 
 export type EntitlementAuthorityApplyResult = {
   state: EntitlementAuthorityState;
@@ -1197,8 +1232,11 @@ export function isValidEntitlementAuthorityState(
     if (g.attributedSpent !== undefined && !isNonNegativeInt(g.attributedSpent)) {
       return false;
     }
+    if (g.attributedRestored !== undefined && !isNonNegativeInt(g.attributedRestored)) {
+      return false;
+    }
     // NOTE: attributedSpent is NOT bounded by the grant amount and the
-    // residual (amount − attributedSpent − clawedAmount) may be
+    // residual (amount − outstanding attribution − clawedAmount) may be
     // negative under the pooled claw (v3.9 §3.1) — a negative residual
     // is a valid state, never a validity violation.
     grantedSum += grant.amount;
@@ -1309,6 +1347,9 @@ export function isValidEntitlementAuthorityState(
     if (p.family !== "reward" && p.family !== "own_purchase") return false;
     if (!isNonNegativeInt(p.amount) || p.amount <= 0) return false;
     if (!isFiniteNumber(p.presentedAt)) return false;
+    if (p.discoveryRegistered !== undefined && typeof p.discoveryRegistered !== "boolean") {
+      return false;
+    }
     // Exactly one home per identity (see above).
     if ((state.rewardGrants as Record<string, unknown>)[grantId]) return false;
     if ((s.settledInclusions ?? {})[grantId]) return false;
@@ -1801,10 +1842,29 @@ function compensateDebit(
     restoredRewardPortion: portions.restoredRewardPortion + restoreReward,
     restorationSeq: seq,
   };
+  // The restoration un-spends the recorded funding grant's
+  // attribution by the restored amount (Codex re-gate F-A): the
+  // grant's outstanding attribution nets down, so a later commit can
+  // select it again under §4.3's unspent-remainder rule and the new
+  // debit records the funding grant whose reversal state §4.2 will
+  // read. A refused reward portion (funding grant reversed) restores
+  // nothing and nets nothing.
+  const rewardGrants =
+    restoreReward > 0 && fundingGrant && entry.fundingGrantId
+      ? {
+          ...state.rewardGrants,
+          [entry.fundingGrantId]: {
+            ...fundingGrant,
+            attributedRestored:
+              (fundingGrant.attributedRestored ?? 0) + restoreReward,
+          },
+        }
+      : state.rewardGrants;
   return result(
     {
       ...state,
       ownedFiles: { ...state.ownedFiles, [artifactId]: nextEntry },
+      rewardGrants,
       rewardBucketBalance: state.rewardBucketBalance + restoreReward,
       rewardSpentTotal: state.rewardSpentTotal - restoreReward,
       journalHead: seq,
@@ -1929,6 +1989,7 @@ function foldRewardGrant(
     clawedAmount: 0,
     reversed: false,
     attributedSpent: 0,
+    attributedRestored: 0,
     reversedSeq: null,
     seq,
   };
@@ -2036,16 +2097,37 @@ function grantReward(
   const existingPending = pendingGrantsOf(state)[op.grantId];
   if (existingPending) {
     if (existingPending.amount !== op.amount) return refused(state, "invalid_reward");
-    // Retry after a terminal record landed during the pendency
-    // (v3.8 §5.3 retry + v3.10 §5): the re-run registration leg
-    // returns registered_after_terminal, so the terminal obligation
-    // attaches to the pending entry now — its excluded settlement
-    // will be the born-reversed pair, exactly as if the obligation
-    // had been recorded at first admission.
+    // A discovery pendency's registration conflict surfaces on
+    // retry exactly as at first admission (§5.3: refusal + incident).
     if (
-      op.discoveryRegistration === "registered_after_terminal" &&
-      !existingPending.terminalObligation
+      existingPending.kind === "discovery" &&
+      op.discoveryRegistration === "conflict"
     ) {
+      return refused(state, "discovery_conflict");
+    }
+    // Retry dispatch (v3.8 §5.3 retry + v3.10 §5): the redelivery
+    // re-runs the registration leg, and its outcome updates the
+    // pending entry in this same op —
+    // (i) a COMPLETED leg is recorded for a discovery pendency
+    //     (Codex re-gate F-E): settlement may spend the entry only
+    //     once this stands, because the registration is the only
+    //     evidence a settlement can lawfully rest on;
+    // (ii) a terminal record that landed during the pendency
+    //     attaches its obligation, so the excluded settlement is
+    //     the born-reversed pair, exactly as if the obligation had
+    //     been recorded at first admission.
+    const legCompleted =
+      op.discoveryRegistration === "registered" ||
+      op.discoveryRegistration === "already_registered" ||
+      op.discoveryRegistration === "registered_after_terminal";
+    const attachObligation =
+      op.discoveryRegistration === "registered_after_terminal" &&
+      !existingPending.terminalObligation;
+    const recordLeg =
+      existingPending.kind === "discovery" &&
+      legCompleted &&
+      !existingPending.discoveryRegistered;
+    if (attachObligation || recordLeg) {
       const seq = nextSeq(state);
       return result(
         {
@@ -2054,11 +2136,16 @@ function grantReward(
             ...pendingGrantsOf(state),
             [op.grantId]: {
               ...existingPending,
-              terminalObligation: {
-                referredSessionId: op.grantId,
-                lineageRef: op.terminalRecord?.lineageRef ?? "",
-                recordedAt: op.terminalRecord?.recordedAt ?? op.now,
-              },
+              ...(recordLeg ? { discoveryRegistered: true } : {}),
+              ...(attachObligation
+                ? {
+                    terminalObligation: {
+                      referredSessionId: op.grantId,
+                      lineageRef: op.terminalRecord?.lineageRef ?? "",
+                      recordedAt: op.terminalRecord?.recordedAt ?? op.now,
+                    },
+                  }
+                : {}),
             },
           },
           journalHead: seq,
@@ -2432,9 +2519,20 @@ function purchaseGrant(
     const settled = settledInclusionsOf(state)[grantId];
     if (!settled) {
       const seq = nextSeq(state);
+      // A birth pendency for this same identity may still stand
+      // (the grant pended before the baseline arrived): recording
+      // the by-construction inclusion RETIRES it in the same commit
+      // (Codex re-gate F-C). Leaving both would persist a state the
+      // validator's exactly-one-home rule rejects, wedging every
+      // later read and mutation of the entitlement.
+      const pendings = { ...pendingGrantsOf(state) };
+      if (pendings[grantId]?.family === "own_purchase") {
+        delete pendings[grantId];
+      }
       return result(
         {
           ...state,
+          pendingGrants: pendings,
           settledInclusions: {
             ...settledInclusionsOf(state),
             [grantId]: {
@@ -2588,6 +2686,17 @@ function resolveGrantInclusion(
 ): EntitlementAuthorityApplyResult {
   const pending = pendingGrantsOf(state)[op.grantId];
   if (!pending) return refused(state, "unknown_reward_grant");
+  if (pending.kind === "discovery" && !pending.discoveryRegistered) {
+    // §5.1's invariant spends fold effect only when an association
+    // was registered in or before the conferring op. A discovery
+    // pendency exists BECAUSE its registration leg never completed;
+    // until a redelivery dispatch records the leg's completion on
+    // the entry, no settlement — to either classification — may
+    // confer or retire its value: the evidence an operator presents
+    // proves exclusion from the opening, not registration, and not
+    // the absence of a terminal-negative record (Codex re-gate F-E).
+    return refused(state, "discovery_registration_required");
+  }
   if (
     op.classification === "included" &&
     op.evidence !== "operator_receipt" &&
