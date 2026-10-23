@@ -45,6 +45,7 @@ const {
   evaluateEntitlementValidity,
   isOwnedUnderValidEntitlement,
   isValidEntitlementAuthorityState,
+  isValidEntitlementBaseline,
   LEGACY_COMPENSATE_WINDOW_MS,
 } = await import("../../src/lib/entitlementAuthorityState.ts");
 const { EntitlementAuthorityDO } = await import(
@@ -285,7 +286,10 @@ test("grant guards: baseline, spend, purchase map, support fallback, finalizatio
   const noBaseline = seeded();
   assert.equal(applyEntitlementAuthorityOp(noBaseline, grantOp("art-l")).refusal, "no_baseline");
 
-  const noSpend = seeded({ withBaseline: true, baselineOver: { legacySpentCount: 0 } });
+  const noSpend = seeded({
+    withBaseline: true,
+    baselineOver: { legacySpentCount: 0, legacyRemainingBalance: 3 },
+  });
   assert.equal(applyEntitlementAuthorityOp(noSpend, grantOp("art-l")).refusal, "no_legacy_spend");
 
   const noMap = seeded({ withBaseline: true, baselineOver: { purchaseMapId: null } });
@@ -701,6 +705,133 @@ test("DO: inconsistent persisted bookkeeping (compensations without spends) fail
   const row = sql.rows.get(SID);
   const parsed = JSON.parse(row.state_json);
   parsed.baselineCompensationCount = 1;
+  sql.rows.set(SID, { ...row, state_json: JSON.stringify(parsed) });
+  await assert.rejects(() => newAuthority(sql).getState(SID), /malformed/);
+});
+
+test("validation: baseline conservation — remaining must equal allowance minus spent", () => {
+  const s0 = seeded();
+  // G-dot round-2 reproduction: allowance 1, spent 0, remaining 0 claims a
+  // credit both never spent and no longer available; the derivation would
+  // silently mint it back.
+  const contradictory = applyEntitlementAuthorityOp(s0, {
+    type: "capture_baseline",
+    baseline: baseline({
+      plan: "single",
+      allowance: 1,
+      legacyRemainingBalance: 0,
+      legacySpentCount: 0,
+    }),
+    now: NOW,
+  });
+  assert.equal(contradictory.outcome, "refused");
+  assert.equal(contradictory.refusal, "invalid_baseline");
+  // Spent beyond the allowance is equally impossible in a settled record.
+  const overspent = applyEntitlementAuthorityOp(s0, {
+    type: "capture_baseline",
+    baseline: baseline({ legacySpentCount: 4, legacyRemainingBalance: null }),
+    now: NOW,
+  });
+  assert.equal(overspent.refusal, "invalid_baseline");
+  // A subscription baseline carries no finite allowance by definition.
+  const subAllowance = applyEntitlementAuthorityOp(s0, {
+    type: "capture_baseline",
+    baseline: baseline({ plan: "subscription", allowance: 3, legacyRemainingBalance: null }),
+    now: NOW,
+  });
+  assert.equal(subAllowance.refusal, "invalid_baseline");
+  assert.equal(isValidEntitlementBaseline(baseline()), true);
+});
+
+test("validation: compensation count/token must agree with the recovery decision", () => {
+  // G-dot round-2 reproduction: a compensation already counted beside an
+  // "unresolved" decision would let a legacy grant run on top of the
+  // restored credit — file AND credit for a single spend.
+  const gdotCase = seeded({
+    withBaseline: true,
+    baselineOver: { plan: "single", allowance: 1, legacyRemainingBalance: 0, legacySpentCount: 1 },
+  });
+  gdotCase.baselineCompensationCount = 1;
+  assert.equal(isValidEntitlementAuthorityState(gdotCase), false);
+
+  // Codex round-2 reproduction: pack3, two spends, one compensation already
+  // counted while decision/token deny it — a second compensate would
+  // restore the same spend again (balance 2 → 3 on a 3-credit pack).
+  const codexCase = seeded({
+    withBaseline: true,
+    baselineOver: { legacySpentCount: 2, legacyRemainingBalance: 1 },
+  });
+  codexCase.baselineCompensationCount = 1;
+  assert.equal(isValidEntitlementAuthorityState(codexCase), false);
+
+  // A recorded compensated token beside an unresolved decision is the same
+  // contradiction seen from its other view.
+  const tokenCase = seeded({ withBaseline: true });
+  tokenCase.compensatedConsumeToken = "tok-1";
+  assert.equal(isValidEntitlementAuthorityState(tokenCase), false);
+});
+
+test("validation: machine-produced compensated states stay valid", () => {
+  // Authority-compensated: compensate() itself produces count 1 + the
+  // compensated decision + the baseline's last-consume token.
+  let s = seeded({ withBaseline: true });
+  s = applyEntitlementAuthorityOp(s, {
+    type: "compensate",
+    consumeToken: "tok-1",
+    now: NOW,
+  }).state;
+  assert.equal(s.recoveryDecision, "compensated");
+  assert.equal(s.baselineCompensationCount, 1);
+  assert.equal(isValidEntitlementAuthorityState(s), true);
+
+  // Pre-compensated at capture (the legitimate case G-dot named): the
+  // settled record already compensated the last consume, so capture marks
+  // the decision while the authority's own count stays 0 — its restore is
+  // already netted in the baseline's spent count.
+  const pre = seeded({
+    withBaseline: true,
+    baselineOver: { lastCompensatedToken: "tok-1" },
+  });
+  assert.equal(pre.recoveryDecision, "compensated");
+  assert.equal(pre.baselineCompensationCount, 0);
+  assert.equal(isValidEntitlementAuthorityState(pre), true);
+});
+
+test("DO: persisted compensation count contradicting the decision fails closed", async () => {
+  const sql = new FakeSqlStorage();
+  const authority = newAuthority(sql);
+  await authority.apply(SID, { type: "sync_facts", facts: facts(), now: NOW - 1000 });
+  await authority.apply(SID, {
+    type: "capture_baseline",
+    baseline: baseline({
+      plan: "single",
+      allowance: 1,
+      legacyRemainingBalance: 0,
+      legacySpentCount: 1,
+    }),
+    now: NOW - 900,
+  });
+  const row = sql.rows.get(SID);
+  const parsed = JSON.parse(row.state_json);
+  parsed.baselineCompensationCount = 1; // the decision stays "unresolved"
+  sql.rows.set(SID, { ...row, state_json: JSON.stringify(parsed) });
+  await assert.rejects(() => newAuthority(sql).getState(SID), /malformed/);
+});
+
+test("DO: persisted baseline breaking conservation fails closed", async () => {
+  const sql = new FakeSqlStorage();
+  const authority = newAuthority(sql);
+  await authority.apply(SID, { type: "sync_facts", facts: facts(), now: NOW - 1000 });
+  await authority.apply(SID, {
+    type: "capture_baseline",
+    baseline: baseline(),
+    now: NOW - 900,
+  });
+  const row = sql.rows.get(SID);
+  const parsed = JSON.parse(row.state_json);
+  parsed.baseline.allowance = 1;
+  parsed.baseline.legacyRemainingBalance = 0;
+  parsed.baseline.legacySpentCount = 0;
   sql.rows.set(SID, { ...row, state_json: JSON.stringify(parsed) });
   await assert.rejects(() => newAuthority(sql).getState(SID), /malformed/);
 });

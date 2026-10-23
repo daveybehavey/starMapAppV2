@@ -358,20 +358,51 @@ export function isValidEntitlementBaseline(
   baseline: unknown,
 ): baseline is EntitlementBaseline {
   if (!isRecord(baseline)) return false;
-  return (
-    typeof baseline.plan === "string" &&
-    CHECKOUT_PLAN_VALUES.has(baseline.plan) &&
-    (baseline.allowance === null || isNonNegativeInt(baseline.allowance)) &&
-    (baseline.legacyRemainingBalance === null ||
-      isFiniteNumber(baseline.legacyRemainingBalance)) &&
-    isNonNegativeInt(baseline.legacySpentCount) &&
-    isNullableString(baseline.lastConsumeToken) &&
-    (baseline.lastConsumeAt === null || isFiniteNumber(baseline.lastConsumeAt)) &&
-    isNullableString(baseline.lastCompensatedToken) &&
-    isNullableString(baseline.purchaseMapId) &&
-    isNullableString(baseline.accessTermsNote) &&
-    isFiniteNumber(baseline.capturedAt)
-  );
+  if (
+    !(
+      typeof baseline.plan === "string" &&
+      CHECKOUT_PLAN_VALUES.has(baseline.plan) &&
+      (baseline.allowance === null || isNonNegativeInt(baseline.allowance)) &&
+      (baseline.legacyRemainingBalance === null ||
+        isFiniteNumber(baseline.legacyRemainingBalance)) &&
+      isNonNegativeInt(baseline.legacySpentCount) &&
+      isNullableString(baseline.lastConsumeToken) &&
+      (baseline.lastConsumeAt === null || isFiniteNumber(baseline.lastConsumeAt)) &&
+      isNullableString(baseline.lastCompensatedToken) &&
+      isNullableString(baseline.purchaseMapId) &&
+      isNullableString(baseline.accessTermsNote) &&
+      isFiniteNumber(baseline.capturedAt)
+    )
+  ) {
+    return false;
+  }
+  const settled = baseline as EntitlementBaseline;
+  // Baseline conservation (G-dot P2 round 2, PR #362): the baseline is a
+  // SETTLED record, so its fields must agree with each other, not merely
+  // be well-typed. A finite plan's remaining balance is exactly its
+  // allowance minus its (net) spent count — a baseline that asserts
+  // allowance 1, spent 0, remaining 0 simultaneously claims a credit was
+  // both never spent and no longer available, and the derivation would
+  // silently mint the credit back.
+  if (settled.plan === "subscription") {
+    // A subscription baseline carries no finite allowance by definition.
+    if (settled.allowance !== null) return false;
+  } else {
+    if (settled.allowance === null) return false;
+    if (settled.legacySpentCount > settled.allowance) return false;
+    if (
+      settled.legacyRemainingBalance !== null &&
+      settled.legacyRemainingBalance !== settled.allowance - settled.legacySpentCount
+    ) {
+      return false;
+    }
+  }
+  // A compensated consume is a consume: the baseline cannot record a
+  // compensated token while recording no last consume token at all.
+  if (settled.lastCompensatedToken !== null && settled.lastConsumeToken === null) {
+    return false;
+  }
+  return true;
 }
 
 export function isValidEntitlementAuthorityState(
@@ -390,10 +421,49 @@ export function isValidEntitlementAuthorityState(
     // compensation bookkeeping is an inconsistent record.
     if (state.baselineCompensationCount !== 0) return false;
     if (state.compensatedConsumeToken !== null) return false;
-  } else if (state.baselineCompensationCount > baseline.legacySpentCount) {
-    // The authority cannot have compensated more baseline spends than the
-    // baseline records.
-    return false;
+  } else {
+    if (state.baselineCompensationCount > baseline.legacySpentCount) {
+      // The authority cannot have compensated more baseline spends than the
+      // baseline records.
+      return false;
+    }
+    // Cross-field recovery consistency (G-dot + Codex P2 round 2, PR #362):
+    // the compensation counter, the recorded compensated token, and the
+    // recovery decision are three views of ONE fact — this authority either
+    // compensated the baseline's last consume or it did not — and every
+    // view must agree with the others. Per-field checks alone admitted a
+    // compensated count beside an "unresolved" decision, which let a grant
+    // (or a second compensate) run on top of a compensation that had
+    // already restored the credit: double recovery for a single spend.
+    if (state.baselineCompensationCount > 0) {
+      if (state.recoveryDecision !== "compensated") return false;
+      if (state.compensatedConsumeToken === null) return false;
+      if (state.compensatedConsumeToken !== baseline.lastConsumeToken) return false;
+    }
+    if (state.compensatedConsumeToken !== null) {
+      // A recorded compensated token is only ever the baseline's last
+      // consume (compensate refuses any other token), and it exists only
+      // alongside the compensated decision.
+      if (state.recoveryDecision !== "compensated") return false;
+      if (state.compensatedConsumeToken !== baseline.lastConsumeToken) return false;
+    }
+    if (state.recoveryDecision === "compensated") {
+      // The compensated decision must name its consume, and the credit it
+      // restored must be accounted for: either by this authority's own
+      // compensation counter (the checks above), or because the consume was
+      // already compensated in the settled legacy record at capture time —
+      // the legitimate pre-compensated case, whose restore is already
+      // netted in the baseline's spent count and whose authority count
+      // therefore stays 0.
+      if (state.compensatedConsumeToken === null) return false;
+      if (state.compensatedConsumeToken !== baseline.lastConsumeToken) return false;
+      if (
+        state.baselineCompensationCount === 0 &&
+        baseline.lastCompensatedToken !== baseline.lastConsumeToken
+      ) {
+        return false;
+      }
+    }
   }
   if (!isNullableString(state.compensatedConsumeToken)) return false;
   if (!isRecord(state.ownedFiles)) return false;
