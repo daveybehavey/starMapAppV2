@@ -352,6 +352,42 @@ export type ReversalReceipt = {
   } | null;
 };
 
+/**
+ * A durable reconciliation record for an UNRESOLVED reversal absence
+ * (DL-1 v3.7 §2.3 outcome 3, conformance round 2 F3 residual): when a
+ * reversal defers because the identity has no journal presence to
+ * classify against — no baseline at all, or a baselined journal in
+ * which the grant is simply unknown — the deferral itself persists
+ * this record, keyed by grant id on the referrer's authority state,
+ * BEFORE the caller returns the deferral. Without it the deferral
+ * existed only in a webhook log line: after the request ended, no
+ * keyed record named the unresolved identity for the census /
+ * operator workflow to find (the census is a per-identity
+ * classification pass over authority states; keyed lookup is
+ * getState(referrer).unresolvedReversals[grantId]).
+ *
+ * ZERO accounting effect, by construction: no derivation (fold,
+ * opening, bucket, eligibility, validity) reads this map, and
+ * recording one never advances the journal head — it is not an
+ * accounting mutation, so it is outside the exact-head attestation's
+ * coverage (v3.6 §2.4 binds mutations OF THE FOLD). It is an
+ * observation log, not a classification: it asserts only that the
+ * absence was observed at the recorded times. It is NOT a baseline,
+ * NOT a terminal receipt, and NOT a Discovery negative decision —
+ * uncertainty is recorded as uncertainty, and the identity's live
+ * classification is always read from the journal itself (a record
+ * may therefore outlive the resolution it once described).
+ */
+export type UnresolvedReversalRecord = {
+  grantId: string;
+  /** The absence the deferral rested on, as most recently observed. */
+  absence: "no_baseline" | "unknown_grant";
+  /** When the unresolved absence was first recorded (ms). */
+  recordedAt: number;
+  /** When it was most recently re-observed (ms; repeat delivery). */
+  lastObservedAt: number;
+};
+
 /** The mutually exclusive legacy recovery decision (v3.5 §2.4). */
 export type RecoveryDecision = "unresolved" | "granted" | "compensated";
 
@@ -434,6 +470,9 @@ export type EntitlementAuthorityState = {
   pendingGrants?: Record<string, PendingGrantEntry>;
   settledInclusions?: Record<string, SettledInclusionEntry>;
   reversalReceipts?: Record<string, ReversalReceipt>;
+  /** Unresolved reversal-absence reconciliation records, by grantId
+   *  (observation log only — see UnresolvedReversalRecord). */
+  unresolvedReversals?: Record<string, UnresolvedReversalRecord>;
   /** Late-grant incidents (grant after a terminal receipt), by grantId. */
   lateGrantIncidents?: Record<string, number>;
   verificationReceipt?: OpeningVerificationReceipt | null;
@@ -482,6 +521,7 @@ export function createEmptyEntitlementAuthorityState(
     pendingGrants: {},
     settledInclusions: {},
     reversalReceipts: {},
+    unresolvedReversals: {},
     lateGrantIncidents: {},
     verificationReceipt: null,
     installedOpeningBase: null,
@@ -507,6 +547,11 @@ export function reversalReceiptsOf(
   state: EntitlementAuthorityState,
 ): Record<string, ReversalReceipt> {
   return state.reversalReceipts ?? {};
+}
+export function unresolvedReversalsOf(
+  state: EntitlementAuthorityState,
+): Record<string, UnresolvedReversalRecord> {
+  return state.unresolvedReversals ?? {};
 }
 
 /**
@@ -857,6 +902,27 @@ export type EntitlementAuthorityOp =
       now: number;
     }
   | {
+      /**
+       * Persist the reconciliation record for an unresolved reversal
+       * absence (see UnresolvedReversalRecord): the deferral a
+       * reverse_reward refusal (unknown_reward_grant) or a
+       * no-baseline routing produces must leave a durable, keyed
+       * record of the unresolved identity BEFORE the caller returns
+       * the deferral — a log line is not reconciliation. Zero
+       * accounting effect: the op writes only the observation map,
+       * never advances the journal head, and refuses
+       * (unresolved_absence_resolved) when the identity meanwhile
+       * gained a journal presence, so a record is written only while
+       * the absence it names still holds in the serialized stream.
+       */
+      type: "record_unresolved_reversal";
+      /** The grant id whose reversal deferred unresolved. */
+      grantId: string;
+      /** The absence the deferral rests on. */
+      absence: "no_baseline" | "unknown_grant";
+      now: number;
+    }
+  | {
       type: "acquire_accounting_lease";
       leaseId: string;
       kind: "legacy_write" | "migration";
@@ -898,6 +964,9 @@ export type EntitlementAuthorityOutcome =
   | "already_included_in_opening"
   /** Terminal zero: positively not a bucket grant (v3.6 §4.3 outcomes). */
   | "not_bucket_grant"
+  /** Unresolved reversal-absence reconciliation record persisted
+   *  (zero accounting effect; see UnresolvedReversalRecord). */
+  | "unresolved_reversal_recorded"
   /** A pending grant settled by resolve_grant_inclusion. */
   | "inclusion_settled"
   /** record_checkpoint installed the verified opening (v3.6 §3). */
@@ -954,6 +1023,11 @@ export type EntitlementAuthorityRefusal =
   | "unknown_debit"
   /** Reversal arrived while the grant's inclusion is still pending (§2.3 pairing). */
   | "reversal_deferred"
+  /** An unresolved-absence record was requested for an identity that
+   *  meanwhile gained a journal presence (folded, pending, settled,
+   *  or receipted): the absence it would name no longer holds, so no
+   *  record is written. */
+  | "unresolved_absence_resolved"
   /** Commit only a pending amount could fund (v3.8 §3.5 matrix cell). */
   | "insufficient_balance_pending"
   /** Settlement evidence cannot settle to `included` (v3.8 §2.3). */
@@ -1409,6 +1483,22 @@ export function isValidEntitlementAuthorityState(
       return false;
     }
   }
+  const unresolved = s.unresolvedReversals ?? {};
+  if (!isRecord(unresolved)) return false;
+  for (const [grantId, entry] of Object.entries(unresolved)) {
+    if (!isRecord(entry)) return false;
+    const u = entry as UnresolvedReversalRecord;
+    if (u.grantId !== grantId) return false;
+    if (u.absence !== "no_baseline" && u.absence !== "unknown_grant") return false;
+    if (!isFiniteNumber(u.recordedAt)) return false;
+    if (!isFiniteNumber(u.lastObservedAt)) return false;
+    if (u.lastObservedAt < u.recordedAt) return false;
+    // Structural only, deliberately: NO cross-check against the
+    // journal maps. The record is an observation of a past absence;
+    // the identity may since have folded, pended, settled, or been
+    // receipted, and the record standing beside that resolution is
+    // history, not inconsistency (see UnresolvedReversalRecord).
+  }
   if (s.foldedOwnGrantTotal !== undefined && !isNonNegativeInt(s.foldedOwnGrantTotal)) {
     return false;
   }
@@ -1471,6 +1561,18 @@ function factsEqual(a: EntitlementFacts, b: EntitlementFacts): boolean {
   );
 }
 
+/**
+ * Refresh the grant-side facts. NOTE (RG3 F4 audit clarification):
+ * this op carries no timing guard and none is enforced — nothing
+ * here prevents a facts rewrite from landing after the opening is
+ * installed, and the rewrite does not advance the journal head
+ * because it is not an accounting mutation. The accepted protection
+ * is not timing: derivations are baseline-fixed (the opening derives
+ * from the creation snapshot / installed base, never from a facts
+ * rewrite), and record_checkpoint preserves the standing facts
+ * rather than restoring snapshot-time facts, so a later rewrite
+ * cannot resurrect a superseded opening or falsify an installed one.
+ */
 function syncFacts(
   state: EntitlementAuthorityState,
   op: Extract<EntitlementAuthorityOp, { type: "sync_facts" }>,
@@ -2480,6 +2582,72 @@ function reverseReward(
   );
 }
 
+/**
+ * Persist the reconciliation record for an unresolved reversal
+ * absence (conformance round 2, F3 residual). Called by the reversal
+ * wrapper on exactly the two deferral paths whose absence had no
+ * durable form: no baseline (the op itself never ran) and
+ * unknown_reward_grant (the op refused on unchanged state). The
+ * third deferral path — reversal_deferred against a pending entry —
+ * needs no record here: the pendency IS the durable, operator-visible
+ * record of that identity.
+ *
+ * Idempotent and zero-effect: one record per grant id; a repeat
+ * delivery with the same absence is a no-op replay, and a progressed
+ * absence (a baseline landed, the grant still unknown) refreshes the
+ * observation in place — recordedAt, the first observation, is
+ * preserved. The journal head is NOT advanced and no counter, fold
+ * input, or validity input is touched: this is bookkeeping about an
+ * absence, not an accounting mutation, so the exact-head attestation
+ * neither covers it nor is invalidated by it (v3.6 §2.4; the lease
+ * ops are the standing precedent for changed-but-unattested state).
+ * Deliberately NOT validity-gated, like reverseReward itself: a
+ * deferral must be recordable exactly when the state is at its least
+ * classifiable.
+ */
+function recordUnresolvedReversal(
+  state: EntitlementAuthorityState,
+  op: Extract<EntitlementAuthorityOp, { type: "record_unresolved_reversal" }>,
+): EntitlementAuthorityApplyResult {
+  const grantId = typeof op.grantId === "string" ? op.grantId : "";
+  if (!grantId) return refused(state, "invalid_reward");
+  if (op.absence !== "no_baseline" && op.absence !== "unknown_grant") {
+    return refused(state, "invalid_reward");
+  }
+  // Presence guard, judged inside the serialized stream: a record is
+  // written only while the absence it names still holds. Any journal
+  // presence — a folded grant, a pending entry, a settled inclusion,
+  // a reversal receipt — means the identity is classifiable (or
+  // already classified) and an "unresolved absence" record would be
+  // false the moment it landed.
+  if (
+    state.rewardGrants[grantId] ||
+    pendingGrantsOf(state)[grantId] ||
+    settledInclusionsOf(state)[grantId] ||
+    reversalReceiptsOf(state)[grantId]
+  ) {
+    return refused(state, "unresolved_absence_resolved");
+  }
+  const existing = unresolvedReversalsOf(state)[grantId];
+  if (existing && existing.absence === op.absence) {
+    // Idempotent replay: the record already stands as observed; a
+    // redelivery must not duplicate it or churn the state.
+    return result(state, false, "unresolved_reversal_recorded");
+  }
+  const record: UnresolvedReversalRecord = existing
+    ? { ...existing, absence: op.absence, lastObservedAt: op.now }
+    : { grantId, absence: op.absence, recordedAt: op.now, lastObservedAt: op.now };
+  return result(
+    {
+      ...state,
+      unresolvedReversals: { ...unresolvedReversalsOf(state), [grantId]: record },
+      updatedAt: op.now,
+    },
+    true,
+    "unresolved_reversal_recorded",
+  );
+}
+
 /** The live lease, treating an absent (pre-lease) field as free. */
 export function currentAccountingLease(
   state: EntitlementAuthorityState,
@@ -2915,6 +3083,8 @@ export function applyEntitlementAuthorityOp(
       return grantReward(state, op);
     case "reverse_reward":
       return reverseReward(state, op);
+    case "record_unresolved_reversal":
+      return recordUnresolvedReversal(state, op);
     case "acquire_accounting_lease":
       return acquireAccountingLease(state, op);
     case "release_accounting_lease":

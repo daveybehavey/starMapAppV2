@@ -67,6 +67,7 @@ const {
   reversalReceiptsOf,
   rewardGrantResidual,
   settledInclusionsOf,
+  unresolvedReversalsOf,
 } = await import("../../src/lib/entitlementAuthorityState.ts");
 const {
   createEmptyReferralDiscoveryRow,
@@ -1449,6 +1450,14 @@ test("RG2: checkpoint acceptance aligns with persisted-state validation — a ne
  * advances the journal head), RG3-F5 (FIFO is journal order, with the
  * unsequenced-compatibility rule), RG3-F6 (included settlement keeps
  * the terminal-obligation citation — T-C50's pair, extended).
+ *
+ * Conformance recheck round 2 narrowed the BLOCK to one F3 residual:
+ * the deferral was correct but left no DURABLE reconciliation record.
+ * RG3-F3 now also pins the record: persisted keyed by grant id for
+ * both absence kinds, findable after reload, zero accounting effect,
+ * never duplicated on redelivery, refreshed in place when the
+ * absence progresses, and refused once the identity has a journal
+ * presence to classify against.
  */
 
 test("RG3-F1a: missing classification evidence pends — never native admission, even in the lost-witness posture", () => {
@@ -1626,15 +1635,65 @@ test("RG3-F3: unresolved absence defers in the authority-routed path; a terminal
   // Baseline standing, grant unknown to the journal: DEFERRED (the
   // webhook leaves dedupe unfinalized) — never a terminal zero with
   // no serialized reversal receipt behind it.
+  const headBeforeDeferral = journalHeadOf(await client.getState(REF));
   const unknown = await reverseReferralRewardViaAuthority(client, REF, "cs_rg3f3_unknown", NOW);
   assert.equal(unknown.status, "deferred");
 
-  // No baseline at all: likewise deferred, and nothing is created.
+  // F3 residual (conformance round 2): the deferral is DURABLE.
+  // Reloading the authority state finds the reconciliation record
+  // keyed by grant id — the census/operator workflow's lookup — and
+  // recording it moved nothing: no journal head advance, no bucket
+  // or fold change (zero accounting effect).
+  const refAfterDeferral = reload(await client.getState(REF));
+  const unknownRecord = unresolvedReversalsOf(refAfterDeferral)["cs_rg3f3_unknown"];
+  assert.ok(unknownRecord, "unresolved record persisted for the unknown grant");
+  assert.equal(unknownRecord.absence, "unknown_grant");
+  assert.equal(unknownRecord.recordedAt, NOW);
+  assert.equal(journalHeadOf(refAfterDeferral), headBeforeDeferral);
+  assert.equal(refAfterDeferral.rewardBucketBalance, 0);
+
+  // No baseline at all: likewise deferred. No baseline is created —
+  // the ONLY thing persisted is the reconciliation record.
   const stranger = "cs_rg3f3_stranger";
   const noBaseline = await reverseReferralRewardViaAuthority(client, stranger, "cs_rg3f3_unknown", NOW);
   assert.equal(noBaseline.status, "deferred");
-  const strangerState = await client.getState(stranger);
+  const strangerState = reload(await client.getState(stranger));
   assert.equal(strangerState?.baseline ?? null, null);
+  const noBaselineRecord = unresolvedReversalsOf(strangerState)["cs_rg3f3_unknown"];
+  assert.ok(noBaselineRecord, "unresolved record persisted for the no-baseline deferral");
+  assert.equal(noBaselineRecord.absence, "no_baseline");
+  assert.equal(noBaselineRecord.recordedAt, NOW);
+  assert.equal(journalHeadOf(strangerState), 0);
+
+  // Repeated delivery: still deferred (dedupe never finalizes on a
+  // deferral), and the record is NOT duplicated — one keyed entry
+  // per grant id, its first observation preserved.
+  const unknownAgain = await reverseReferralRewardViaAuthority(client, REF, "cs_rg3f3_unknown", NOW + 10);
+  assert.equal(unknownAgain.status, "deferred");
+  const noBaselineAgain = await reverseReferralRewardViaAuthority(client, stranger, "cs_rg3f3_unknown", NOW + 10);
+  assert.equal(noBaselineAgain.status, "deferred");
+  const refAfterRepeat = await client.getState(REF);
+  assert.deepEqual(Object.keys(unresolvedReversalsOf(refAfterRepeat)), ["cs_rg3f3_unknown"]);
+  assert.equal(unresolvedReversalsOf(refAfterRepeat)["cs_rg3f3_unknown"].recordedAt, NOW);
+  const strangerAfterRepeat = await client.getState(stranger);
+  assert.deepEqual(Object.keys(unresolvedReversalsOf(strangerAfterRepeat)), ["cs_rg3f3_unknown"]);
+  assert.equal(unresolvedReversalsOf(strangerAfterRepeat)["cs_rg3f3_unknown"].recordedAt, NOW);
+
+  // A progressed absence refreshes the SAME record in place: the
+  // stranger gains a baseline (the grant still unknown to its
+  // journal), the next deferral updates the absence kind and the
+  // last-observed time — recordedAt, and the single keyed entry,
+  // survive.
+  await client.apply(stranger, { type: "sync_facts", facts: facts(), now: NOW + 20 });
+  await client.apply(stranger, { type: "capture_baseline", baseline: baseline(), now: NOW + 30 });
+  const progressed = await reverseReferralRewardViaAuthority(client, stranger, "cs_rg3f3_unknown", NOW + 40);
+  assert.equal(progressed.status, "deferred");
+  const strangerProgressed = reload(await client.getState(stranger));
+  assert.deepEqual(Object.keys(unresolvedReversalsOf(strangerProgressed)), ["cs_rg3f3_unknown"]);
+  const progressedRecord = unresolvedReversalsOf(strangerProgressed)["cs_rg3f3_unknown"];
+  assert.equal(progressedRecord.absence, "unknown_grant");
+  assert.equal(progressedRecord.recordedAt, NOW);
+  assert.equal(progressedRecord.lastObservedAt, NOW + 40);
 
   // The terminal zero survives exactly where its ground is
   // serialized: an operator-receipt reversal journals the receipt and
@@ -1652,6 +1711,20 @@ test("RG3-F3: unresolved absence defers in the authority-routed path; a terminal
     reversalReceiptsOf(receipted.state)["cs_rg3f3_receipted"].basis,
     "operator_receipt",
   );
+
+  // Presence guard: once a terminal ground stands in the journal,
+  // the identity is classifiable — an unresolved-absence record for
+  // it is refused and nothing is written.
+  const staleNote = applyEntitlementAuthorityOp(receipted.state, {
+    type: "record_unresolved_reversal",
+    grantId: "cs_rg3f3_receipted",
+    absence: "unknown_grant",
+    now: NOW,
+  });
+  assert.equal(staleNote.outcome, "refused");
+  assert.equal(staleNote.refusal, "unresolved_absence_resolved");
+  assert.equal(staleNote.changed, false);
+  assert.deepEqual(Object.keys(unresolvedReversalsOf(staleNote.state)), []);
 });
 
 test("RG3-F4: a monetary mutation invalidates exact-head attestation — the interleaved compensation", () => {

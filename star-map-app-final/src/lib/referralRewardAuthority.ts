@@ -293,9 +293,27 @@ export async function reverseReferralRewardViaAuthority(
   // decision) can be serialized. A terminal zero is issued only from
   // such a ground, inside the op. (The S-OFF legacy posture lives in
   // the webhook's own legacy path, not in this wrapper.)
+  //
+  // Both deferral paths below first persist the reconciliation
+  // record (record_unresolved_reversal): the cleared rule requires
+  // DURABLE reconciliation for unresolved absence, and a deferral
+  // that exists only in a webhook log line leaves the census /
+  // operator workflow no keyed record to find once the request ends.
+  // The record is zero-accounting-effect bookkeeping keyed by grant
+  // id — no baseline, terminal receipt, or Discovery negative is
+  // created to record the uncertainty. If the note itself cannot be
+  // persisted (authority lost between the read and the write), the
+  // deferral stands unchanged: the money answer is the deferral,
+  // and the next redelivery retries the whole chain, note included.
   const state = await client.getState(referrerSessionId);
   if (!state) return { status: "authority_unavailable" };
   if (!state.baseline) {
+    await client.apply(referrerSessionId, {
+      type: "record_unresolved_reversal",
+      grantId,
+      absence: "no_baseline",
+      now,
+    });
     return { status: "deferred" };
   }
 
@@ -327,7 +345,17 @@ export async function reverseReferralRewardViaAuthority(
     // decision behind it. The reversal defers (the caller's dedupe
     // stays unfinalized); the terminal answer arrives only when a
     // positive ground lands in the journal and the op itself issues
-    // not_bucket_grant with its journaled receipt.
+    // not_bucket_grant with its journaled receipt. The deferral is
+    // first made durable as a reconciliation record (see the
+    // no-baseline path above): the machine refused on UNCHANGED
+    // state, so without the note nothing keyed would survive the
+    // request for the census/operator workflow to find.
+    await client.apply(referrerSessionId, {
+      type: "record_unresolved_reversal",
+      grantId,
+      absence: "unknown_grant",
+      now,
+    });
     return { status: "deferred" };
   }
   // Any other refusal means the state disagrees with itself — fail
