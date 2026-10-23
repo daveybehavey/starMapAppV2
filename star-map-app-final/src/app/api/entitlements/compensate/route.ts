@@ -3,7 +3,13 @@ import { applyHdCreditCompensate } from "@/lib/entitlementConsume.mjs";
 import { ENTITLEMENT_KV, type StripeSessionEntitlement } from "@/lib/entitlementsStore";
 import { kv } from "@/lib/kv";
 import { createEntitlementAuthorityClient } from "@/lib/entitlementAuthority";
-import { acquireAccountingLease, releaseAccountingLease } from "@/lib/entitlementMigration";
+import {
+  acquireAccountingLease,
+  legacyAccountingFingerprint,
+  reconcileLegacyWrite,
+  releaseAccountingLease,
+  sealAccountingLease,
+} from "@/lib/entitlementMigration";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 import { PREMIUM_COOKIE_NAME } from "@/lib/premium";
 
@@ -17,6 +23,22 @@ export async function POST(req: NextRequest) {
   const sessionId = req.cookies.get(PREMIUM_COOKIE_NAME)?.value;
   if (!sessionId) {
     return NextResponse.json({ ok: false, error: "Missing entitlement" }, { status: 401 });
+  }
+
+  // The request body is parsed BEFORE the accounting lease is taken:
+  // a slow or trickling body must not hold the lease (Codex P2, PR #367).
+  let token: string | null = null;
+  try {
+    const payload = (await req.json()) as { token?: string };
+    if (typeof payload?.token === "string" && payload.token.trim()) {
+      token = payload.token.trim();
+    }
+  } catch {
+    // ignore non-JSON bodies
+  }
+
+  if (!token) {
+    return NextResponse.json({ ok: false, error: "Missing token" }, { status: 400 });
   }
 
   // DL-1 Slice 3 fence + exclusion (see the consume route): the whole
@@ -46,20 +68,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "No active entitlement" }, { status: 403 });
     }
 
-    let token: string | null = null;
-    try {
-      const payload = (await req.json()) as { token?: string };
-      if (typeof payload?.token === "string" && payload.token.trim()) {
-        token = payload.token.trim();
-      }
-    } catch {
-      // ignore non-JSON bodies
-    }
-
-    if (!token) {
-      return NextResponse.json({ ok: false, error: "Missing token" }, { status: 400 });
-    }
-
     const result = applyHdCreditCompensate(record, token);
     if (!result.ok) {
       const status =
@@ -68,7 +76,51 @@ export async function POST(req: NextRequest) {
     }
 
     if (!result.idempotent) {
-      await kv.set(ENTITLEMENT_KV.stripeSession(sessionId), result.record);
+      // Seal before writing (see the consume route): a request that
+      // stalled past its lease aborts here instead of landing a stale
+      // restore behind a captured baseline (Codex P2, PR #367).
+      const seal = await sealAccountingLease(authorityClient, sessionId, lease.leaseId);
+      if (seal.status === "authority_unavailable") {
+        return NextResponse.json({ ok: false, error: "authority_unavailable" }, { status: 503 });
+      }
+      if (seal.status === "lost") {
+        return NextResponse.json({ ok: false, error: "accounting_lease_lost" }, { status: 503 });
+      }
+
+      // The .mjs helper's ok variant always carries the mutated record,
+      // though its inferred typing does not express that discriminant.
+      const updatedRecord = result.record as StripeSessionEntitlement;
+      const pre = legacyAccountingFingerprint(record);
+      const post = legacyAccountingFingerprint(updatedRecord);
+      await kv.set(ENTITLEMENT_KV.stripeSession(sessionId), updatedRecord);
+
+      // Backstop (see the consume route): a baseline captured from the
+      // pre-write record means this restore missed capture — put the
+      // pre-image back and fail the request rather than diverge.
+      if (pre.creditsRemaining !== post.creditsRemaining || pre.lastConsumeToken !== post.lastConsumeToken || pre.lastCompensatedToken !== post.lastCompensatedToken) {
+        const reconciled = await reconcileLegacyWrite(authorityClient, sessionId, {
+          pre,
+          post,
+          loadCurrent: async () => {
+            const current = await kv.get<StripeSessionEntitlement>(
+              ENTITLEMENT_KV.stripeSession(sessionId),
+            );
+            return current ? legacyAccountingFingerprint(current) : null;
+          },
+          restorePre: async () => {
+            await kv.set(ENTITLEMENT_KV.stripeSession(sessionId), record);
+          },
+        });
+        if (reconciled === "authority_unavailable") {
+          return NextResponse.json({ ok: false, error: "authority_unavailable" }, { status: 503 });
+        }
+        if (reconciled === "restored" || reconciled === "conflict") {
+          if (reconciled === "conflict") {
+            console.error("Legacy compensate write conflicts with a captured baseline", { sessionId });
+          }
+          return NextResponse.json({ ok: false, error: "accounting_handoff_failed" }, { status: 503 });
+        }
+      }
     }
 
     return NextResponse.json({

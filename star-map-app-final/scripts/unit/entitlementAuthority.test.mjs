@@ -1044,6 +1044,27 @@ test("wiring: only the fenced routes and the webhook reference the authority (Sl
     "utf8",
   );
   assert.match(webhook, /isEntitlementAuthorityRoutingEnabled\(\)/);
+
+  // Both routes must seal the lease BEFORE the KV write and reconcile
+  // AFTER it — a write without the seal can land behind a baseline
+  // captured from a stalled holder (Codex P2, PR #367).
+  for (const rel of [
+    path.join("api/entitlements/consume/route.ts"),
+    path.join("api/entitlements/compensate/route.ts"),
+  ]) {
+    const text = readFileSync(path.join(appDir, rel), "utf8");
+    const sealAt = text.indexOf("sealAccountingLease(");
+    const writeAt = text.indexOf("kv.set(ENTITLEMENT_KV.stripeSession(sessionId), updatedRecord)");
+    const reconcileAt = text.indexOf("reconcileLegacyWrite(");
+    assert.ok(sealAt >= 0, `${rel} must seal the lease`);
+    assert.ok(writeAt > sealAt, `${rel} must seal before writing`);
+    assert.ok(reconcileAt > writeAt, `${rel} must reconcile after writing`);
+  }
+
+  // Refund/dispute events must defer their dedupe so a transiently
+  // deferred reversal can actually be redelivered (Codex P2, PR #367).
+  assert.match(webhook, /isReferralReversalEvent/);
+  assert.match(webhook, /deferDedupeUntilSuccess =[\s\S]*isReferralReversalEvent/);
 });
 
 /* ---------------- reward bucket (Slice 3, R1-A) ---------------- */
@@ -1315,4 +1336,56 @@ test("validator: a well-formed lease passes, a malformed one fails closed, an ab
   const preLease = structuredClone(s);
   delete preLease.accountingLease;
   assert.equal(isValidEntitlementAuthorityState(preLease), true);
+});
+
+test("lease seal: holder extends before writing; expired or foreign seals are refused", () => {
+  let s = seeded();
+  s = applyEntitlementAuthorityOp(s, acquireLeaseOp("lease-a")).state;
+
+  const sealed = applyEntitlementAuthorityOp(s, {
+    type: "seal_accounting_lease",
+    leaseId: "lease-a",
+    ttlMs: 5_000,
+    now: NOW + 10_000,
+  });
+  assert.equal(sealed.outcome, "lease_sealed");
+  assert.equal(sealed.state.accountingLease.expiresAt, NOW + 10_000 + 5_000);
+
+  const foreign = applyEntitlementAuthorityOp(s, {
+    type: "seal_accounting_lease",
+    leaseId: "lease-b",
+    ttlMs: 5_000,
+    now: NOW,
+  });
+  assert.equal(foreign.outcome, "refused");
+  assert.equal(foreign.refusal, "lease_not_held");
+
+  // The reproduced hazard: a holder that stalled past its TTL must not
+  // be able to seal (and therefore must not write) after expiry.
+  const expired = applyEntitlementAuthorityOp(s, {
+    type: "seal_accounting_lease",
+    leaseId: "lease-a",
+    ttlMs: 5_000,
+    now: NOW + 15_001,
+  });
+  assert.equal(expired.outcome, "refused");
+  assert.equal(expired.refusal, "lease_expired");
+
+  const noLease = applyEntitlementAuthorityOp(seeded(), {
+    type: "seal_accounting_lease",
+    leaseId: "lease-a",
+    ttlMs: 5_000,
+    now: NOW,
+  });
+  assert.equal(noLease.outcome, "refused");
+  assert.equal(noLease.refusal, "lease_not_held");
+
+  const badTtl = applyEntitlementAuthorityOp(s, {
+    type: "seal_accounting_lease",
+    leaseId: "lease-a",
+    ttlMs: 0,
+    now: NOW,
+  });
+  assert.equal(badTtl.outcome, "refused");
+  assert.equal(badTtl.refusal, "invalid_lease");
 });

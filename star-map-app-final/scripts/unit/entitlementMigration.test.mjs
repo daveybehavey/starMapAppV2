@@ -42,6 +42,7 @@ const {
   checkLegacyWriterFence,
   acquireAccountingLease,
   releaseAccountingLease,
+  reconcileLegacyWrite,
 } = await import("../../src/lib/entitlementMigration.ts");
 const {
   createEntitlementAuthorityClient,
@@ -504,4 +505,81 @@ test("authority outage surfaces as transient statuses on both referral paths", a
 
   const reversal = await reverseReferralRewardViaAuthority(deadClient, sid(), "cs_referred_outage", NOW);
   assert.equal(reversal.status, "authority_unavailable");
+});
+
+/* ---------------- post-write reconcile backstop (Codex P2, PR #367) ---------------- */
+
+test("reconcile: no baseline or a baseline holding the post-write state is ok", async () => {
+  const client = freshClient();
+  const id = sid();
+  const pre = { creditsRemaining: 2, lastConsumeToken: "tok-1", lastCompensatedToken: null };
+  const post = { creditsRemaining: 1, lastConsumeToken: "tok-2", lastCompensatedToken: null };
+  const noRestore = async () => { throw new Error("must not restore"); };
+
+  assert.equal(
+    await reconcileLegacyWrite(client, id, { pre, post, loadCurrent: async () => post, restorePre: noRestore }),
+    "ok",
+  );
+
+  // Capture a baseline from the SETTLED (post-write) record.
+  await ensureEntitlementMigrated(client, id, async () => record({ creditsRemaining: 1, lastConsumeToken: "tok-2" }), NOW);
+  assert.equal(
+    await reconcileLegacyWrite(client, id, { pre, post, loadCurrent: async () => post, restorePre: noRestore }),
+    "ok",
+  );
+});
+
+test("reconcile: a baseline that captured the pre-write state restores the pre-image", async () => {
+  const client = freshClient();
+  const id = sid();
+  // Baseline captured from the pre-write record (remaining 2, tok-1).
+  await ensureEntitlementMigrated(client, id, async () => record(), NOW);
+
+  const pre = { creditsRemaining: 2, lastConsumeToken: "tok-1", lastCompensatedToken: null };
+  const post = { creditsRemaining: 1, lastConsumeToken: "tok-2", lastCompensatedToken: null };
+  let current = post;
+  let restored = false;
+  const res = await reconcileLegacyWrite(client, id, {
+    pre,
+    post,
+    loadCurrent: async () => current,
+    restorePre: async () => { restored = true; current = pre; },
+  });
+  assert.equal(res, "restored");
+  assert.equal(restored, true);
+  assert.deepEqual(current, pre);
+});
+
+test("reconcile: moved-on KV or an unrelated baseline is a conflict, never a restore", async () => {
+  const client = freshClient();
+  const id = sid();
+  await ensureEntitlementMigrated(client, id, async () => record(), NOW);
+  const pre = { creditsRemaining: 2, lastConsumeToken: "tok-1", lastCompensatedToken: null };
+  const post = { creditsRemaining: 1, lastConsumeToken: "tok-2", lastCompensatedToken: null };
+  let restored = false;
+  const restorePre = async () => { restored = true; };
+
+  // KV no longer holds this write (a later writer moved it on).
+  const movedOn = { creditsRemaining: 0, lastConsumeToken: "tok-3", lastCompensatedToken: null };
+  assert.equal(
+    await reconcileLegacyWrite(client, id, { pre, post, loadCurrent: async () => movedOn, restorePre }),
+    "conflict",
+  );
+  assert.equal(restored, false);
+
+  // Baseline matches neither side.
+  const neither = { creditsRemaining: 3, lastConsumeToken: "tok-9", lastCompensatedToken: null };
+  const id2 = sid();
+  await ensureEntitlementMigrated(client, id2, async () => record({ creditsRemaining: 3, creditsTotal: 3, lastConsumeToken: undefined, lastConsumeAt: undefined }), NOW);
+  assert.equal(
+    await reconcileLegacyWrite(client, id2, { pre: neither, post, loadCurrent: async () => post, restorePre }),
+    "conflict",
+  );
+  assert.equal(restored, false);
+
+  const deadClient = { getState: async () => null, apply: async () => null };
+  assert.equal(
+    await reconcileLegacyWrite(deadClient, id, { pre, post, loadCurrent: async () => post, restorePre }),
+    "authority_unavailable",
+  );
 });

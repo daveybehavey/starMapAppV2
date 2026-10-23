@@ -777,21 +777,32 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
   }
 }
 
-async function reverseReferralReward(sessionId: string, reason: "refund" | "dispute") {
-  if (!sessionId) return;
+/**
+ * Reverses a referral conversion + reward for a refunded/disputed
+ * referred purchase. Returns `deferred: true` when the clawback could
+ * not run because the entitlement authority was transiently
+ * unavailable: nothing is finalized in that case, and the caller keeps
+ * the Stripe event retryable (its dedupe is deferred — see POST) so a
+ * redelivery completes the reversal (Codex P2, PR #367).
+ */
+async function reverseReferralReward(
+  sessionId: string,
+  reason: "refund" | "dispute",
+): Promise<{ deferred: boolean }> {
+  if (!sessionId) return { deferred: false };
 
   const rewardStateKey = referralRewardedKey(sessionId);
   const rewardState = await kv.get<ReferralConversionState>(rewardStateKey);
-  if (!rewardState?.rewarded) return;
-  if (!rewardState.referralCode || !rewardState.referrerSessionId) return;
-  if (rewardState.conversionRecorded !== true) return;
+  if (!rewardState?.rewarded) return { deferred: false };
+  if (!rewardState.referralCode || !rewardState.referrerSessionId) return { deferred: false };
+  if (rewardState.conversionRecorded !== true) return { deferred: false };
 
   const referralCode = normalizeReferralCode(rewardState.referralCode);
-  if (!referralCode) return;
+  if (!referralCode) return { deferred: false };
   const rewardGranted = Math.max(0, Math.floor(rewardState.rewardGranted ?? 0));
   const conversionAlreadyReversed = rewardState.conversionReversed === true;
   const rewardAlreadyReversed = rewardGranted <= 0 || rewardState.rewardReversed === true;
-  if (conversionAlreadyReversed && rewardAlreadyReversed) return;
+  if (conversionAlreadyReversed && rewardAlreadyReversed) return { deferred: false };
 
   const referralRecord = await kv.get<ReferralRecord>(referralKey(referralCode));
   if (!referralRecord || referralRecord.sessionId !== rewardState.referrerSessionId) {
@@ -799,7 +810,7 @@ async function reverseReferralReward(sessionId: string, reason: "refund" | "disp
       ...rewardState,
       reversalReason: reason,
     });
-    return;
+    return { deferred: false };
   }
 
   const timestamp = Date.now();
@@ -834,7 +845,7 @@ async function reverseReferralReward(sessionId: string, reason: "refund" | "disp
           sessionId,
           reason,
         });
-        return;
+        return { deferred: true };
       }
       authorityClawed = reversal.status === "reversed" ? reversal.clawed : 0;
     }
@@ -923,6 +934,8 @@ async function reverseReferralReward(sessionId: string, reason: "refund" | "disp
       },
     });
   }
+
+  return { deferred: false };
 }
 
 async function queuePrintOrder(session: Stripe.Checkout.Session) {
@@ -1685,13 +1698,23 @@ export async function POST(req: Request) {
   const isCompletedCheckoutEvent = event.type === "checkout.session.completed";
   const isAsyncPaymentSucceededEvent = event.type === "checkout.session.async_payment_succeeded";
   const isAsyncPaymentFailedEvent = event.type === "checkout.session.async_payment_failed";
+  // Refund/dispute events drive the referral reversal; since DL-1 Slice 3
+  // that reversal can be transiently deferred by an authority outage, so
+  // these events defer dedupe too — a deferred reversal answers 503 and
+  // Stripe redelivery completes it, instead of the pre-processing dedupe
+  // acking the redelivery as a duplicate (Codex P2, PR #367).
+  const isReferralReversalEvent =
+    event.type === "charge.refunded" ||
+    event.type === "charge.dispute.created" ||
+    event.type === "charge.dispute.funds_withdrawn";
   // Defer dedupe finalization for events whose critical side effects must remain
   // Stripe-retryable when durable persistence fails mid-handling.
   const deferDedupeUntilSuccess =
     isExpiredCheckoutEvent ||
     isCompletedCheckoutEvent ||
     isAsyncPaymentSucceededEvent ||
-    isAsyncPaymentFailedEvent;
+    isAsyncPaymentFailedEvent ||
+    isReferralReversalEvent;
 
   // Unrelated Stripe event types keep pre-processing dedupe.
   // checkout.session.expired / checkout.session.completed / the async-payment
@@ -1714,6 +1737,7 @@ export async function POST(req: Request) {
   let expiredRecoveryRetryable = false;
   let completedCheckoutRetryable = false;
   let asyncPaymentFailedRetryable = false;
+  let referralReversalRetryable = false;
 
   switch (event.type) {
     case "checkout.session.completed": {
@@ -1790,7 +1814,8 @@ export async function POST(req: Request) {
         (await resolveSessionIdFromCharge(charge.id));
       if (sessionId) {
         await markSessionRevoked(sessionId, "refund");
-        await reverseReferralReward(sessionId, "refund");
+        const reversal = await reverseReferralReward(sessionId, "refund");
+        if (reversal.deferred) referralReversalRetryable = true;
       } else {
         if (!paymentIntentId) {
           paymentIntentId = await resolvePaymentIntentIdFromCharge(charge.id);
@@ -1812,7 +1837,8 @@ export async function POST(req: Request) {
         (await resolveSessionIdFromCharge(chargeId));
       if (sessionId) {
         await markSessionRevoked(sessionId, "dispute");
-        await reverseReferralReward(sessionId, "dispute");
+        const reversal = await reverseReferralReward(sessionId, "dispute");
+        if (reversal.deferred) referralReversalRetryable = true;
       } else {
         if (!paymentIntentId && chargeId) {
           paymentIntentId = await resolvePaymentIntentIdFromCharge(chargeId);
@@ -1827,14 +1853,29 @@ export async function POST(req: Request) {
       break;
   }
 
-  if (expiredRecoveryRetryable || completedCheckoutRetryable || asyncPaymentFailedRetryable) {
+  // Deferred-dedupe reversal events finalize their dedupe only on
+  // success (mirroring the checkout flows): a deferred reversal leaves
+  // no dedupe behind, so the 503 below buys a real redelivery.
+  if (isReferralReversalEvent && !referralReversalRetryable) {
+    const deduped = await persistWebhookEventDedupe(eventDedupeKey);
+    if (!deduped) referralReversalRetryable = true;
+  }
+
+  if (
+    expiredRecoveryRetryable ||
+    completedCheckoutRetryable ||
+    asyncPaymentFailedRetryable ||
+    referralReversalRetryable
+  ) {
     return NextResponse.json(
       {
         error: completedCheckoutRetryable
           ? "print_order_queue_retryable"
           : asyncPaymentFailedRetryable
             ? "async_payment_failed_finalize_retryable"
-            : "checkout_recovery_retryable",
+            : referralReversalRetryable
+              ? "referral_reversal_retryable"
+              : "checkout_recovery_retryable",
       },
       { status: 503 },
     );

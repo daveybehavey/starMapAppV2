@@ -358,7 +358,14 @@ export type EntitlementAuthorityOp =
       ttlMs: number;
       now: number;
     }
-  | { type: "release_accounting_lease"; leaseId: string; now: number };
+  | { type: "release_accounting_lease"; leaseId: string; now: number }
+  | {
+      type: "seal_accounting_lease";
+      leaseId: string;
+      /** Fresh TTL granted from `now` when the seal succeeds. */
+      ttlMs: number;
+      now: number;
+    };
 
 export type EntitlementAuthorityOutcome =
   | "facts_synced"
@@ -377,6 +384,7 @@ export type EntitlementAuthorityOutcome =
   | "reward_reversal_already_applied"
   | "lease_acquired"
   | "lease_released"
+  | "lease_sealed"
   | "refused";
 
 export type EntitlementAuthorityRefusal =
@@ -401,7 +409,9 @@ export type EntitlementAuthorityRefusal =
   | "unknown_reward_grant"
   | "lease_held"
   | "already_migrated"
-  | "invalid_lease";
+  | "invalid_lease"
+  | "lease_expired"
+  | "lease_not_held";
 
 export type EntitlementAuthorityApplyResult = {
   state: EntitlementAuthorityState;
@@ -1051,6 +1061,40 @@ function acquireAccountingLease(
   );
 }
 
+/**
+ * Seal: the holder's final act before committing its external (KV)
+ * write. Succeeds only while the lease is held and unexpired, and
+ * extends it by a fresh short TTL — so a holder that stalled past its
+ * original TTL (and let migration take ownership) is refused here and
+ * never writes, instead of landing a stale mutation after the baseline
+ * captured (Codex P2, PR #367). A refused seal aborts the write; the
+ * accounting stays exactly as it was before the holder began.
+ */
+function sealAccountingLease(
+  state: EntitlementAuthorityState,
+  op: Extract<EntitlementAuthorityOp, { type: "seal_accounting_lease" }>,
+): EntitlementAuthorityApplyResult {
+  if (!isNonNegativeInt(op.ttlMs) || op.ttlMs <= 0) {
+    return refused(state, "invalid_lease");
+  }
+  const held = currentAccountingLease(state);
+  if (!held || held.leaseId !== op.leaseId) {
+    return refused(state, "lease_not_held");
+  }
+  if (held.expiresAt <= op.now) {
+    return refused(state, "lease_expired");
+  }
+  return result(
+    {
+      ...state,
+      accountingLease: { ...held, expiresAt: op.now + op.ttlMs },
+      updatedAt: op.now,
+    },
+    true,
+    "lease_sealed",
+  );
+}
+
 function releaseAccountingLease(
   state: EntitlementAuthorityState,
   op: Extract<EntitlementAuthorityOp, { type: "release_accounting_lease" }>,
@@ -1114,6 +1158,8 @@ export function applyEntitlementAuthorityOp(
       return acquireAccountingLease(state, op);
     case "release_accounting_lease":
       return releaseAccountingLease(state, op);
+    case "seal_accounting_lease":
+      return sealAccountingLease(state, op);
   }
 }
 

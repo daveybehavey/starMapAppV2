@@ -268,6 +268,132 @@ export async function acquireAccountingLease(
   }
 }
 
+/** Fresh TTL a successful seal grants for the holder's committing write. */
+export const ACCOUNTING_LEASE_SEAL_TTL_MS = 5_000;
+
+export type AccountingLeaseSealResult =
+  | { status: "sealed" }
+  | { status: "lost" }
+  | { status: "authority_unavailable" };
+
+/**
+ * Seal the lease immediately before the holder's KV write: proves the
+ * holder still owns the accounting (unexpired, same lease id) and
+ * extends the lease briefly for the write itself. `lost` means the
+ * lease expired or was taken — the caller MUST NOT write; nothing has
+ * been mutated, so aborting is clean (Codex P2, PR #367).
+ */
+export async function sealAccountingLease(
+  client: EntitlementAuthorityClient,
+  sessionId: string,
+  leaseId: string,
+  now: number = Date.now(),
+): Promise<AccountingLeaseSealResult> {
+  const res = await client.apply(sessionId, {
+    type: "seal_accounting_lease",
+    leaseId,
+    ttlMs: ACCOUNTING_LEASE_SEAL_TTL_MS,
+    now,
+  });
+  if (!res) return { status: "authority_unavailable" };
+  if (res.outcome === "lease_sealed") return { status: "sealed" };
+  return { status: "lost" };
+}
+
+/** The accounting-bearing fields of a legacy record (or a baseline). */
+export type LegacyAccountingFingerprint = {
+  creditsRemaining: number | null;
+  lastConsumeToken: string | null;
+  lastCompensatedToken: string | null;
+};
+
+export function legacyAccountingFingerprint(record: {
+  creditsRemaining?: number | null;
+  lastConsumeToken?: string | null;
+  lastCompensatedToken?: string | null;
+}): LegacyAccountingFingerprint {
+  return {
+    creditsRemaining:
+      typeof record.creditsRemaining === "number" ? record.creditsRemaining : null,
+    lastConsumeToken:
+      typeof record.lastConsumeToken === "string" && record.lastConsumeToken
+        ? record.lastConsumeToken
+        : null,
+    lastCompensatedToken:
+      typeof record.lastCompensatedToken === "string" && record.lastCompensatedToken
+        ? record.lastCompensatedToken
+        : null,
+  };
+}
+
+function fingerprintEquals(
+  a: LegacyAccountingFingerprint,
+  b: LegacyAccountingFingerprint,
+): boolean {
+  return (
+    a.creditsRemaining === b.creditsRemaining &&
+    a.lastConsumeToken === b.lastConsumeToken &&
+    a.lastCompensatedToken === b.lastCompensatedToken
+  );
+}
+
+function baselineMatchesFingerprint(
+  baseline: EntitlementBaseline,
+  fp: LegacyAccountingFingerprint,
+): boolean {
+  return (
+    baseline.legacyRemainingBalance === fp.creditsRemaining &&
+    baseline.lastConsumeToken === fp.lastConsumeToken &&
+    baseline.lastCompensatedToken === fp.lastCompensatedToken
+  );
+}
+
+export type LegacyWriteReconcileResult =
+  | "ok"
+  | "restored"
+  | "conflict"
+  | "authority_unavailable";
+
+/**
+ * Post-write backstop for the lease protocol (Codex P2, PR #367): after
+ * a legacy writer commits its KV write, verify the write and any
+ * concurrent baseline capture agree.
+ * - no baseline, or the baseline captured the post-write state → "ok";
+ * - the baseline captured the PRE-write state (this mutation missed
+ *   capture) and KV still holds exactly this write → the pre-image is
+ *   restored and the result is "restored" (the caller fails the
+ *   request; accounting is consistent again — KV and authority both
+ *   hold the pre-write state);
+ * - anything else (KV has moved on, or the baseline matches neither
+ *   side) → "conflict": the caller fails loudly and writes nothing
+ *   more; the divergence is bounded, logged, and support-visible
+ *   rather than silently successful.
+ */
+export async function reconcileLegacyWrite(
+  client: EntitlementAuthorityClient,
+  sessionId: string,
+  input: {
+    pre: LegacyAccountingFingerprint;
+    post: LegacyAccountingFingerprint;
+    loadCurrent: () => Promise<LegacyAccountingFingerprint | null>;
+    restorePre: () => Promise<void>;
+  },
+): Promise<LegacyWriteReconcileResult> {
+  const state = await client.getState(sessionId);
+  if (!state) return "authority_unavailable";
+  if (!state.baseline) return "ok";
+  if (baselineMatchesFingerprint(state.baseline, input.post)) return "ok";
+  if (baselineMatchesFingerprint(state.baseline, input.pre)) {
+    const current = await input.loadCurrent();
+    if (current && fingerprintEquals(current, input.post)) {
+      await input.restorePre();
+      return "restored";
+    }
+    return "conflict";
+  }
+  return "conflict";
+}
+
 /** Best-effort lease release; safe to call unconditionally in a finally. */
 export async function releaseAccountingLease(
   client: EntitlementAuthorityClient,
