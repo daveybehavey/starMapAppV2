@@ -11,6 +11,12 @@ import {
   type ReferralRecord,
 } from "@/lib/referrals";
 import { appendReferralEvent, getReferralEvents } from "@/lib/referralLedger";
+import { createEntitlementAuthorityClient } from "@/lib/entitlementAuthority";
+import {
+  grantReferralRewardViaAuthority,
+  reverseReferralRewardViaAuthority,
+} from "@/lib/referralRewardAuthority";
+import type { StripeSessionEntitlement } from "@/lib/entitlementsStore";
 import { isPrintfulConfigured, submitPrintfulOrder } from "@/lib/printful";
 import { isPrintfulV2Configured, submitPrintfulV2CatalogOrder } from "@/lib/printfulV2Orders";
 import { PRINT_ASSET_ID_REGEX } from "@/lib/printAssets";
@@ -642,14 +648,29 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
         }
       }
       if (!rewardSkipReason) {
-        const nextCredits = Math.max(0, referrer.creditsRemaining ?? 0) + referralRewardCredits;
-        await kv.set(sessionKey(referrerSessionId), {
-          ...referrer,
-          paid: true,
-          creditsRemaining: nextCredits,
-          creditsTotal: Math.max(nextCredits, referrer.creditsTotal ?? 0),
-        });
-        rewardGranted = referralRewardCredits;
+        // DL-1 Slice 3 (R1-A): the reward lands in the entitlement
+        // authority's separate reward bucket — never in the combined KV
+        // balance, where a later clawback could reach purchased credits.
+        // The grant migrates the referrer first (lazy trigger) and is
+        // idempotent on this checkout session id. If the referrer's
+        // legacy record cannot be baselined, the grant is skipped
+        // (fail closed) rather than written behind the authority's back.
+        const grantResult = await grantReferralRewardViaAuthority(
+          createEntitlementAuthorityClient(),
+          referrerSessionId,
+          session.id,
+          referralRewardCredits,
+          async () =>
+            (await kv.get<SessionRecord>(sessionKey(referrerSessionId))) as
+              | StripeSessionEntitlement
+              | null,
+          timestamp,
+        );
+        if (grantResult.status === "granted" || grantResult.status === "already_granted") {
+          rewardGranted = referralRewardCredits;
+        } else {
+          rewardSkipReason = `authority_${grantResult.reason}`;
+        }
       }
     } else {
       rewardSkipReason = "subscription_referrer";
@@ -764,13 +785,19 @@ async function reverseReferralReward(sessionId: string, reason: "refund" | "disp
   if (!rewardAlreadyReversed && rewardGranted > 0) {
     const referrer = await kv.get<SessionRecord>(sessionKey(rewardState.referrerSessionId));
     if (referrer && referrer.plan !== "subscription") {
-      const currentCredits = Math.max(0, referrer.creditsRemaining ?? 0);
-      rewardReclaimed = Math.min(currentCredits, rewardGranted);
-      await kv.set(sessionKey(rewardState.referrerSessionId), {
-        ...referrer,
-        paid: true,
-        creditsRemaining: Math.max(0, currentCredits - rewardReclaimed),
-      });
+      // DL-1 Slice 3 (R1-A): the clawback runs against the authority's
+      // reward bucket only — it removes at most this grant's unspent
+      // bucket credits. A grant that predates the bucket (inside the
+      // migrated legacy balance) reclaims ZERO: the legacy bucket is
+      // never debited by a referral reversal, purchased credits are
+      // unreachable, and no debt is created when the reward was spent.
+      const reversal = await reverseReferralRewardViaAuthority(
+        createEntitlementAuthorityClient(),
+        rewardState.referrerSessionId,
+        sessionId,
+        timestamp,
+      );
+      rewardReclaimed = reversal.status === "reversed" ? reversal.clawed : 0;
     }
   }
 

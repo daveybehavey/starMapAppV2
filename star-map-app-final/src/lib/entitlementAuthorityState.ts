@@ -26,6 +26,16 @@
  * rotation increments it atomically here so previously issued read
  * capabilities die with the rotation (v3 §2.3, overlap contract O4).
  * Credential renewal never extends or restarts an entitlement term.
+ *
+ * Slice 3 adds the migration trigger's counterpart state and the R1 reward
+ * bucket (David's decision, 2026-10-22 — option A): referral reward credits
+ * granted AFTER baseline capture live in a bucket separate from purchased
+ * allowance. Commits spend the bucket first; a referral reversal (clawback)
+ * may remove ONLY unspent bucket credits — it can never touch purchased
+ * credits, remove an owned file, or create a negative balance/debt. The
+ * pre-migration balance is NOT split retroactively: the baseline captures
+ * the customer's existing total intact as the legacy (purchased-side)
+ * bucket, historical referral rewards included (see entitlementMigration.ts).
  */
 import type { CheckoutPlan } from "@/lib/pricing";
 
@@ -75,6 +85,29 @@ export type OwnedFileEntry = {
   fingerprint: string;
   committedAt: number;
   source: OwnedFileSource;
+  /**
+   * True when this commit was funded from the referral reward bucket
+   * (Slice 3, R1-A): commits spend reward-bucket credits first, so a later
+   * clawback of that reward finds the bucket already spent and reclaims
+   * nothing — it never reaches purchased value or this file.
+   */
+  rewardFunded: boolean;
+};
+
+/**
+ * One referral reward grant tracked in the reward bucket (R1-A). Keyed in
+ * `rewardGrants` by a caller-supplied idempotency id (the webhook uses the
+ * referred checkout session id — the same dedupe domain as its legacy
+ * `referral:rewarded:{sessionId}` record). `clawedAmount` is what a
+ * reversal actually removed (bounded by the unspent bucket at reversal
+ * time); `reversed` marks the grant's reversal as processed even when it
+ * reclaimed zero, so a replay is an idempotent no-op.
+ */
+export type RewardGrantEntry = {
+  amount: number;
+  grantedAt: number;
+  clawedAmount: number;
+  reversed: boolean;
 };
 
 /** The mutually exclusive legacy recovery decision (v3 §2.6). */
@@ -97,6 +130,23 @@ export type EntitlementAuthorityState = {
   recoveryDecision: RecoveryDecision;
   /** Incremented atomically on every claim-token rotation (v3 §2.3). */
   capabilityGeneration: number;
+  /**
+   * Referral reward bucket (Slice 3, R1-A): credits granted after baseline
+   * capture, tracked apart from purchased allowance. Invariant, enforced
+   * by the state validator:
+   *   rewardBucketBalance = rewardGrantedTotal − rewardSpentTotal
+   *                         − rewardClawedTotal   (all ≥ 0)
+   * A reversal may only decrease the balance; it can never reach purchased
+   * value (see reverseReward).
+   */
+  rewardBucketBalance: number;
+  rewardGrantedTotal: number;
+  /** Bucket credits spent by commits (commits spend the bucket first). */
+  rewardSpentTotal: number;
+  /** Bucket credits removed by referral reversals. */
+  rewardClawedTotal: number;
+  /** Per-grant bookkeeping for idempotent grants and bounded clawbacks. */
+  rewardGrants: Record<string, RewardGrantEntry>;
   createdAt: number | null;
   updatedAt: number | null;
 };
@@ -122,6 +172,11 @@ export function createEmptyEntitlementAuthorityState(
     ownedFiles: {},
     recoveryDecision: "unresolved",
     capabilityGeneration: 0,
+    rewardBucketBalance: 0,
+    rewardGrantedTotal: 0,
+    rewardSpentTotal: 0,
+    rewardClawedTotal: 0,
+    rewardGrants: {},
     createdAt: null,
     updatedAt: null,
   };
@@ -171,13 +226,20 @@ export function countPaidCommits(state: EntitlementAuthorityState): number {
 }
 
 /**
- * Derived remaining allowance (v3 §2.6 formula):
- *   remaining = allowance − baseline legacy spent
+ * The purchased-side remainder (v3 §2.6 formula):
+ *   purchased = allowance − baseline legacy spent
  *             + successful baseline compensations − new paid commit count
+ * Reward-bucket credits spent by commits are NOT subtracted here: the
+ * commit count includes reward-funded commits, but their cost is carried
+ * by `rewardSpentTotal` — subtracting them from the purchased side too
+ * would double-count. Equivalently: total remaining (below) counts each
+ * commit once, against whichever bucket funded it.
  * Returns null for an active subscription (unlimited while active) and 0
  * when no entitlement facts exist. Never negative.
  */
-export function deriveRemainingAllowance(state: EntitlementAuthorityState): number | null {
+export function derivePurchasedRemainingAllowance(
+  state: EntitlementAuthorityState,
+): number | null {
   const plan = effectivePlan(state);
   if (plan === "subscription") {
     return state.facts?.subscriptionActive ? null : 0;
@@ -185,9 +247,21 @@ export function deriveRemainingAllowance(state: EntitlementAuthorityState): numb
   if (!plan) return 0;
   const allowance = state.baseline?.allowance ?? PLAN_ALLOWANCE[plan];
   const legacySpent = state.baseline?.legacySpentCount ?? 0;
+  const purchasedFundedCommits = countPaidCommits(state) - state.rewardSpentTotal;
   const remaining =
-    allowance - legacySpent + state.baselineCompensationCount - countPaidCommits(state);
+    allowance - legacySpent + state.baselineCompensationCount - purchasedFundedCommits;
   return Math.max(0, remaining);
+}
+
+/**
+ * Total spendable remainder: purchased side plus the unspent referral
+ * reward bucket (R1-A — reward credits remain spendable on HD files,
+ * tracked separately). Null for an active subscription. Never negative.
+ */
+export function deriveRemainingAllowance(state: EntitlementAuthorityState): number | null {
+  const purchased = derivePurchasedRemainingAllowance(state);
+  if (purchased === null) return null;
+  return purchased + state.rewardBucketBalance;
 }
 
 /**
@@ -240,7 +314,20 @@ export type EntitlementAuthorityOp =
       now: number;
     }
   | { type: "compensate"; consumeToken: string; now: number }
-  | { type: "rotate_capability"; now: number };
+  | { type: "rotate_capability"; now: number }
+  | {
+      type: "grant_reward";
+      /** Idempotency id for this grant (webhook: referred checkout session id). */
+      grantId: string;
+      amount: number;
+      now: number;
+    }
+  | {
+      type: "reverse_reward";
+      /** The grant id being reversed (same id domain as grant_reward). */
+      grantId: string;
+      now: number;
+    };
 
 export type EntitlementAuthorityOutcome =
   | "facts_synced"
@@ -253,6 +340,10 @@ export type EntitlementAuthorityOutcome =
   | "compensated"
   | "already_compensated"
   | "rotated"
+  | "reward_granted"
+  | "reward_already_granted"
+  | "reward_reversed"
+  | "reward_reversal_already_applied"
   | "refused";
 
 export type EntitlementAuthorityRefusal =
@@ -272,7 +363,9 @@ export type EntitlementAuthorityRefusal =
   | "grant_map_mismatch"
   | "subscription_plan"
   | "token_mismatch"
-  | "window_expired";
+  | "window_expired"
+  | "invalid_reward"
+  | "unknown_reward_grant";
 
 export type EntitlementAuthorityApplyResult = {
   state: EntitlementAuthorityState;
@@ -282,6 +375,12 @@ export type EntitlementAuthorityApplyResult = {
   refusal: EntitlementAuthorityRefusal | null;
   /** Derived remaining allowance after the op (null = unlimited). */
   creditsRemaining: number | null;
+  /**
+   * Bucket credits a reverse_reward op actually removed (0 for every other
+   * op and for reversals that found the bucket already spent). Callers
+   * (the webhook) record this as the reclaimed amount.
+   */
+  rewardClawed: number;
 };
 
 function result(
@@ -289,6 +388,7 @@ function result(
   changed: boolean,
   outcome: EntitlementAuthorityOutcome,
   refusal: EntitlementAuthorityRefusal | null = null,
+  rewardClawed = 0,
 ): EntitlementAuthorityApplyResult {
   return {
     state,
@@ -296,6 +396,7 @@ function result(
     outcome,
     refusal,
     creditsRemaining: deriveRemainingAllowance(state),
+    rewardClawed,
   };
 }
 
@@ -474,7 +575,52 @@ export function isValidEntitlementAuthorityState(
     if (typeof entry.fingerprint !== "string") return false;
     if (!isFiniteNumber(entry.committedAt)) return false;
     if (entry.source !== "commit" && entry.source !== "legacy") return false;
+    if (typeof entry.rewardFunded !== "boolean") return false;
+    // Only a paid commit can be reward-funded; a legacy grant entry is an
+    // already-counted baseline spend and is never bucket-funded.
+    if (entry.rewardFunded && entry.source !== "commit") return false;
   }
+  // Reward bucket conservation (Slice 3, R1-A): the four bucket counters
+  // and the per-grant records are views of one fact and must agree
+  // exactly. A persisted state that overstates the bucket (or understates
+  // what was spent/clawed) would let a clawback reach purchased value or
+  // resurrect spent rewards, so it fails closed like every other
+  // accounting inconsistency at this boundary.
+  if (!isNonNegativeInt(state.rewardBucketBalance)) return false;
+  if (!isNonNegativeInt(state.rewardGrantedTotal)) return false;
+  if (!isNonNegativeInt(state.rewardSpentTotal)) return false;
+  if (!isNonNegativeInt(state.rewardClawedTotal)) return false;
+  if (!isRecord(state.rewardGrants)) return false;
+  let grantedSum = 0;
+  let clawedSum = 0;
+  for (const grant of Object.values(state.rewardGrants)) {
+    if (!isRecord(grant)) return false;
+    if (!isNonNegativeInt(grant.amount) || grant.amount <= 0) return false;
+    if (!isFiniteNumber(grant.grantedAt)) return false;
+    if (!isNonNegativeInt(grant.clawedAmount)) return false;
+    if (grant.clawedAmount > grant.amount) return false;
+    if (typeof grant.reversed !== "boolean") return false;
+    // A grant not yet reversed cannot have been clawed: clawback happens
+    // only as part of a reversal.
+    if (!grant.reversed && grant.clawedAmount !== 0) return false;
+    grantedSum += grant.amount;
+    clawedSum += grant.clawedAmount;
+  }
+  if (grantedSum !== state.rewardGrantedTotal) return false;
+  if (clawedSum !== state.rewardClawedTotal) return false;
+  if (
+    state.rewardBucketBalance !==
+    state.rewardGrantedTotal - state.rewardSpentTotal - state.rewardClawedTotal
+  ) {
+    return false;
+  }
+  // Bucket spend is carried by commit entries: the spent total can never
+  // exceed the number of reward-funded commits actually in the ledger.
+  let rewardFundedCommits = 0;
+  for (const entry of Object.values(state.ownedFiles)) {
+    if (isRecord(entry) && entry.rewardFunded === true) rewardFundedCommits += 1;
+  }
+  if (state.rewardSpentTotal !== rewardFundedCommits) return false;
   if (
     state.recoveryDecision !== "unresolved" &&
     state.recoveryDecision !== "granted" &&
@@ -580,16 +726,31 @@ function commit(
   const remaining = deriveRemainingAllowance(state);
   if (remaining !== null && remaining <= 0) return refused(state, "no_credits");
 
+  // Reward-first funding (R1-A): on a finite plan the commit is funded
+  // from the reward bucket while it has an unspent credit, so a later
+  // referral clawback finds the reward already spent and can never reach
+  // purchased value. A subscription commit is unlimited and never touches
+  // the bucket (subscription entitlements hold no bucket credits — grants
+  // refuse them — so the bucket is always empty here in practice).
+  const plan = effectivePlan(state);
+  const rewardFunded = plan !== "subscription" && state.rewardBucketBalance > 0;
   const entry: OwnedFileEntry = {
     mapId: op.mapId,
     fingerprint: op.fingerprint,
     committedAt: op.now,
     source: "commit",
+    rewardFunded,
   };
   return result(
     {
       ...state,
       ownedFiles: { ...state.ownedFiles, [op.artifactId]: entry },
+      rewardBucketBalance: rewardFunded
+        ? state.rewardBucketBalance - 1
+        : state.rewardBucketBalance,
+      rewardSpentTotal: rewardFunded
+        ? state.rewardSpentTotal + 1
+        : state.rewardSpentTotal,
       updatedAt: op.now,
     },
     true,
@@ -650,6 +811,7 @@ function grant(
     fingerprint: op.fingerprint,
     committedAt: op.now,
     source: "legacy",
+    rewardFunded: false,
   };
   return result(
     {
@@ -714,6 +876,91 @@ function compensate(
   );
 }
 
+function grantReward(
+  state: EntitlementAuthorityState,
+  op: Extract<EntitlementAuthorityOp, { type: "grant_reward" }>,
+): EntitlementAuthorityApplyResult {
+  // Shape first: a malformed grant is refused before any accounting.
+  if (
+    typeof op.grantId !== "string" ||
+    op.grantId.trim().length === 0 ||
+    !isNonNegativeInt(op.amount) ||
+    op.amount <= 0
+  ) {
+    return refused(state, "invalid_reward");
+  }
+  // Idempotent replay: the same grant id with the same amount is the same
+  // webhook event redelivered — no double grant. The same id with a
+  // DIFFERENT amount is a conflicting fact and fails closed.
+  const existing = state.rewardGrants[op.grantId];
+  if (existing) {
+    if (existing.amount !== op.amount) return refused(state, "invalid_reward");
+    return result(state, false, "reward_already_granted");
+  }
+  const invalid = validityRefusal(state);
+  if (invalid) return invalid;
+  // Matches the legacy writer (W13): subscription referrers receive no
+  // finite reward credit — an unlimited plan has no bucket to hold one.
+  if (effectivePlan(state) === "subscription") {
+    return refused(state, "subscription_plan");
+  }
+  const grant: RewardGrantEntry = {
+    amount: op.amount,
+    grantedAt: op.now,
+    clawedAmount: 0,
+    reversed: false,
+  };
+  return result(
+    {
+      ...state,
+      rewardGrants: { ...state.rewardGrants, [op.grantId]: grant },
+      rewardBucketBalance: state.rewardBucketBalance + op.amount,
+      rewardGrantedTotal: state.rewardGrantedTotal + op.amount,
+      createdAt: state.createdAt ?? op.now,
+      updatedAt: op.now,
+    },
+    true,
+    "reward_granted",
+  );
+}
+
+function reverseReward(
+  state: EntitlementAuthorityState,
+  op: Extract<EntitlementAuthorityOp, { type: "reverse_reward" }>,
+): EntitlementAuthorityApplyResult {
+  const grant =
+    typeof op.grantId === "string" ? state.rewardGrants[op.grantId] : undefined;
+  if (!grant) return refused(state, "unknown_reward_grant");
+  if (grant.reversed) {
+    return result(state, false, "reward_reversal_already_applied");
+  }
+  // R1-A clawback bound — the entire point of the separate bucket: a
+  // reversal removes at most this grant's still-unreversed amount, and
+  // only from the UNSPENT bucket. What the bucket no longer holds (spent
+  // on files, or clawed by an earlier reversal) is never collected from
+  // purchased credits, owned files are never removed, and no negative
+  // balance/debt is created. Deliberately NOT validity-gated: a reversal
+  // only ever shrinks the bucket, and gating it (e.g. on the referrer's
+  // own later revocation) could strand a reversal the ledger owes.
+  const clawed = Math.min(grant.amount - grant.clawedAmount, state.rewardBucketBalance);
+  return result(
+    {
+      ...state,
+      rewardGrants: {
+        ...state.rewardGrants,
+        [op.grantId]: { ...grant, clawedAmount: grant.clawedAmount + clawed, reversed: true },
+      },
+      rewardBucketBalance: state.rewardBucketBalance - clawed,
+      rewardClawedTotal: state.rewardClawedTotal + clawed,
+      updatedAt: op.now,
+    },
+    true,
+    "reward_reversed",
+    null,
+    clawed,
+  );
+}
+
 function rotateCapability(
   state: EntitlementAuthorityState,
   op: Extract<EntitlementAuthorityOp, { type: "rotate_capability" }>,
@@ -751,6 +998,10 @@ export function applyEntitlementAuthorityOp(
       return compensate(state, op);
     case "rotate_capability":
       return rotateCapability(state, op);
+    case "grant_reward":
+      return grantReward(state, op);
+    case "reverse_reward":
+      return reverseReward(state, op);
   }
 }
 
@@ -760,6 +1011,10 @@ export type EntitlementAuthorityProjection = {
   sessionId: string;
   plan: CheckoutPlan | null;
   creditsRemaining: number | null;
+  /** Purchased-side remainder only (excludes the reward bucket). */
+  purchasedCreditsRemaining: number | null;
+  /** Unspent referral reward-bucket credits (R1-A). */
+  rewardCreditsRemaining: number;
   ownedArtifactIds: string[];
   recoveryDecision: RecoveryDecision;
   capabilityGeneration: number;
@@ -773,6 +1028,8 @@ export function buildEntitlementAuthorityProjection(
     sessionId: state.sessionId,
     plan: effectivePlan(state),
     creditsRemaining: deriveRemainingAllowance(state),
+    purchasedCreditsRemaining: derivePurchasedRemainingAllowance(state),
+    rewardCreditsRemaining: state.rewardBucketBalance,
     ownedArtifactIds: Object.keys(state.ownedFiles).sort(),
     recoveryDecision: state.recoveryDecision,
     capabilityGeneration: state.capabilityGeneration,

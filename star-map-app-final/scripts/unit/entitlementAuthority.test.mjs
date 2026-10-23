@@ -22,6 +22,15 @@
  *   projection (non-authoritative) after mutations;
  * - wiring pins: the DO binding/migration exist, and NOTHING under src/app
  *   references the authority yet (Slice 2 is inert by design).
+ *
+ * Slice 3 addendum (migration baseline + fencing + R1 reward bucket):
+ * - reward bucket ops: grants are idempotent and bucket-only, commits
+ *   spend the bucket first, and a reversal can remove only unspent bucket
+ *   credits — never purchased credits, owned files, or a negative balance;
+ * - the bucket conservation rules join the authority-boundary validation;
+ * - the inert wiring pin is replaced by the Slice 3 wiring contract:
+ *   exactly the consume/compensate routes and the Stripe webhook may
+ *   reference the authority, and both routes consult the fence first.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -38,6 +47,7 @@ process.env.STARMAP_KV_ALLOW_LOCAL = "1";
 
 const {
   applyEntitlementAuthorityOp,
+  buildEntitlementAuthorityProjection,
   countPaidCommits,
   createEmptyEntitlementAuthorityState,
   deriveRemainingAllowance,
@@ -977,21 +987,211 @@ test("wiring: DO binding, migration, and worker export exist", () => {
   assert.match(worker, /export \{ EntitlementAuthorityDO \}/);
 });
 
-test("wiring: no route or page references the authority yet (inert slice)", () => {
+test("wiring: only the fenced routes and the webhook reference the authority (Slice 3)", () => {
   const appDir = path.join(appRoot, "src/app");
-  const offenders = [];
+  const referencers = [];
   const walk = (dir) => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) walk(full);
       else if (/\.(ts|tsx|mjs)$/.test(entry.name)) {
         const text = readFileSync(full, "utf8");
-        if (text.includes("EntitlementAuthority") || text.includes("entitlementAuthority")) {
-          offenders.push(full);
+        if (
+          text.includes("EntitlementAuthority") ||
+          text.includes("entitlementAuthority") ||
+          text.includes("entitlementMigration") ||
+          text.includes("referralRewardAuthority")
+        ) {
+          referencers.push(path.relative(appDir, full));
         }
       }
     }
   };
   walk(appDir);
-  assert.deepEqual(offenders, []);
+  assert.deepEqual(
+    referencers.sort(),
+    [
+      path.join("api/entitlements/compensate/route.ts"),
+      path.join("api/entitlements/consume/route.ts"),
+      path.join("api/stripe/webhook/route.ts"),
+    ].sort(),
+  );
+
+  // Both legacy routes must consult the fence BEFORE the legacy helper
+  // can run — a fence placed after the mutation would be decorative.
+  for (const [rel, helper] of [
+    [path.join("api/entitlements/consume/route.ts"), "applyHdCreditConsume(record"],
+    [path.join("api/entitlements/compensate/route.ts"), "applyHdCreditCompensate(record"],
+  ]) {
+    const text = readFileSync(path.join(appDir, rel), "utf8");
+    const fenceAt = text.indexOf("checkLegacyWriterFence(");
+    const helperAt = text.indexOf(helper);
+    assert.ok(fenceAt >= 0, `${rel} must call checkLegacyWriterFence`);
+    assert.ok(helperAt > fenceAt, `${rel} must fence before ${helper}`);
+  }
+});
+
+/* ---------------- reward bucket (Slice 3, R1-A) ---------------- */
+
+const grantRewardOp = (grantId, amount = 1, over = {}) => ({
+  type: "grant_reward",
+  grantId,
+  amount,
+  now: NOW,
+  ...over,
+});
+const reverseRewardOp = (grantId, over = {}) => ({
+  type: "reverse_reward",
+  grantId,
+  now: NOW,
+  ...over,
+});
+
+test("reward grant lands in the bucket, spendable but tracked separately", () => {
+  let s = seeded({ withBaseline: true }); // pack3, legacy spent 1, purchased remaining 2
+  const r = applyEntitlementAuthorityOp(s, grantRewardOp("cs_referred_1"));
+  assert.equal(r.outcome, "reward_granted");
+  assert.equal(r.state.rewardBucketBalance, 1);
+  assert.equal(r.state.rewardGrantedTotal, 1);
+  // Total spendable = 2 purchased + 1 reward; the split stays visible.
+  assert.equal(r.creditsRemaining, 3);
+  const projection = buildEntitlementAuthorityProjection(r.state);
+  assert.equal(projection.purchasedCreditsRemaining, 2);
+  assert.equal(projection.rewardCreditsRemaining, 1);
+  assert.equal(isValidEntitlementAuthorityState(r.state), true);
+});
+
+test("reward grant is idempotent per grant id; a conflicting amount fails closed", () => {
+  let s = seeded({ withBaseline: true });
+  s = applyEntitlementAuthorityOp(s, grantRewardOp("cs_referred_1", 2)).state;
+  const replay = applyEntitlementAuthorityOp(s, grantRewardOp("cs_referred_1", 2));
+  assert.equal(replay.outcome, "reward_already_granted");
+  assert.equal(replay.changed, false);
+  assert.equal(replay.state.rewardBucketBalance, 2);
+  const conflict = applyEntitlementAuthorityOp(s, grantRewardOp("cs_referred_1", 3));
+  assert.equal(conflict.outcome, "refused");
+  assert.equal(conflict.refusal, "invalid_reward");
+});
+
+test("reward grant refuses invalid shapes, missing facts, revocation, subscriptions", () => {
+  const empty = createEmptyEntitlementAuthorityState(SID);
+  const noFacts = applyEntitlementAuthorityOp(empty, grantRewardOp("g1"));
+  assert.equal(noFacts.refusal, "no_facts");
+
+  let s = seeded({ withBaseline: true });
+  assert.equal(applyEntitlementAuthorityOp(s, grantRewardOp("g", 0)).refusal, "invalid_reward");
+  assert.equal(applyEntitlementAuthorityOp(s, grantRewardOp("g", 1.5)).refusal, "invalid_reward");
+  assert.equal(applyEntitlementAuthorityOp(s, grantRewardOp("  ", 1)).refusal, "invalid_reward");
+
+  const revoked = seeded({ factsOver: { revoked: true }, withBaseline: true });
+  assert.equal(applyEntitlementAuthorityOp(revoked, grantRewardOp("g2")).refusal, "revoked");
+
+  const sub = seeded({
+    factsOver: { plan: "subscription", subscriptionActive: true },
+    baselineOver: {
+      plan: "subscription",
+      allowance: null,
+      legacyRemainingBalance: null,
+      legacySpentCount: 0,
+      lastConsumeToken: null,
+      lastConsumeAt: null,
+    },
+    withBaseline: true,
+  });
+  assert.equal(applyEntitlementAuthorityOp(sub, grantRewardOp("g3")).refusal, "subscription_plan");
+});
+
+test("commit spends the reward bucket first and marks the entry rewardFunded", () => {
+  let s = seeded({ withBaseline: true }); // purchased remaining 2
+  s = applyEntitlementAuthorityOp(s, grantRewardOp("cs_referred_1")).state;
+  const c1 = applyEntitlementAuthorityOp(s, commitOp("art-a"));
+  assert.equal(c1.outcome, "committed");
+  assert.equal(c1.state.ownedFiles["art-a"].rewardFunded, true);
+  assert.equal(c1.state.rewardBucketBalance, 0);
+  assert.equal(c1.state.rewardSpentTotal, 1);
+  // Purchased side untouched by the reward-funded commit: still 2.
+  assert.equal(buildEntitlementAuthorityProjection(c1.state).purchasedCreditsRemaining, 2);
+  assert.equal(c1.creditsRemaining, 2);
+  const c2 = applyEntitlementAuthorityOp(c1.state, commitOp("art-b"));
+  assert.equal(c2.state.ownedFiles["art-b"].rewardFunded, false);
+  assert.equal(buildEntitlementAuthorityProjection(c2.state).purchasedCreditsRemaining, 1);
+  assert.equal(isValidEntitlementAuthorityState(c2.state), true);
+});
+
+test("clawback removes only the unspent bucket — purchased credits and files survive", () => {
+  let s = seeded({ withBaseline: true }); // pack3: purchased remaining 2
+  s = applyEntitlementAuthorityOp(s, grantRewardOp("cs_r1")).state;
+  s = applyEntitlementAuthorityOp(s, grantRewardOp("cs_r2")).state;
+  assert.equal(deriveRemainingAllowance(s), 4); // 2 purchased + 2 reward
+  // Spend one reward on a file; the second reward stays unspent.
+  s = applyEntitlementAuthorityOp(s, commitOp("art-a")).state;
+  assert.equal(s.rewardBucketBalance, 1);
+
+  // Bucket credits are fungible (as they were in the legacy combined
+  // balance): one of the two granted credits was spent on the file, so the
+  // bucket holds exactly ONE unspent credit. The first reversal removes
+  // that one unspent credit; the second finds the bucket empty and
+  // reclaims zero. Across both reversals the clawback never exceeds
+  // granted − spent, and neither reversal touches the owned file or the
+  // purchased side.
+  const first = applyEntitlementAuthorityOp(s, reverseRewardOp("cs_r1"));
+  assert.equal(first.outcome, "reward_reversed");
+  assert.equal(first.rewardClawed, 1);
+  assert.ok(first.state.ownedFiles["art-a"]);
+  assert.equal(first.creditsRemaining, 2); // purchased only; bucket empty
+
+  const unspent = applyEntitlementAuthorityOp(first.state, reverseRewardOp("cs_r2"));
+  assert.equal(unspent.rewardClawed, 0);
+  assert.equal(unspent.state.rewardBucketBalance, 0);
+  assert.equal(unspent.state.rewardClawedTotal, 1);
+  assert.equal(unspent.creditsRemaining, 2); // purchased side intact
+  assert.ok(unspent.state.ownedFiles["art-a"]);
+  assert.equal(isValidEntitlementAuthorityState(unspent.state), true);
+
+  // Replay is an idempotent no-op; an unknown grant fails closed.
+  const replay = applyEntitlementAuthorityOp(unspent.state, reverseRewardOp("cs_r2"));
+  assert.equal(replay.outcome, "reward_reversal_already_applied");
+  assert.equal(replay.changed, false);
+  const unknown = applyEntitlementAuthorityOp(unspent.state, reverseRewardOp("cs_nope"));
+  assert.equal(unknown.outcome, "refused");
+  assert.equal(unknown.refusal, "unknown_reward_grant");
+});
+
+test("clawback of a partially spent multi-credit grant is bounded by the bucket", () => {
+  let s = seeded({ withBaseline: true });
+  s = applyEntitlementAuthorityOp(s, grantRewardOp("cs_big", 3)).state;
+  s = applyEntitlementAuthorityOp(s, commitOp("art-a")).state; // spends 1 of 3
+  s = applyEntitlementAuthorityOp(s, commitOp("art-b")).state; // spends 2 of 3
+  const rev = applyEntitlementAuthorityOp(s, reverseRewardOp("cs_big"));
+  assert.equal(rev.rewardClawed, 1); // only the one unspent bucket credit
+  assert.equal(rev.state.rewardBucketBalance, 0);
+  assert.equal(Object.keys(rev.state.ownedFiles).length, 2);
+  assert.equal(isValidEntitlementAuthorityState(rev.state), true);
+});
+
+test("validator rejects persisted states that break reward conservation", () => {
+  let s = seeded({ withBaseline: true });
+  s = applyEntitlementAuthorityOp(s, grantRewardOp("cs_r1")).state;
+  assert.equal(isValidEntitlementAuthorityState(s), true);
+  // Bucket overstated (balance no longer equals granted − spent − clawed).
+  assert.equal(
+    isValidEntitlementAuthorityState({ ...s, rewardBucketBalance: 5 }),
+    false,
+  );
+  // Grant bookkeeping that disagrees with the totals.
+  assert.equal(
+    isValidEntitlementAuthorityState({ ...s, rewardGrantedTotal: 2 }),
+    false,
+  );
+  // A claw recorded without a reversal.
+  const clawWithoutReversal = structuredClone(s);
+  clawWithoutReversal.rewardGrants["cs_r1"].clawedAmount = 1;
+  clawWithoutReversal.rewardClawedTotal = 1;
+  clawWithoutReversal.rewardBucketBalance = 0;
+  assert.equal(isValidEntitlementAuthorityState(clawWithoutReversal), false);
+  // Spent total with no reward-funded commit entry to carry it.
+  const spentWithoutEntry = structuredClone(s);
+  spentWithoutEntry.rewardSpentTotal = 1;
+  spentWithoutEntry.rewardBucketBalance = 0;
+  assert.equal(isValidEntitlementAuthorityState(spentWithoutEntry), false);
 });

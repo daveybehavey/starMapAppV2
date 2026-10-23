@@ -9,9 +9,12 @@
  * so all accounting transitions for an entitlement are serialized inside a
  * single instance.
  *
- * INERT (DL-1 Slice 2): no route calls this yet. The legacy consume /
- * compensate routes remain the live accounting writers until later slices
- * fence them; this object changes no production behaviour.
+ * Wiring status: Slice 2 shipped this object inert. Slice 3 wires the
+ * first production callers — the legacy consume/compensate routes consult
+ * it as a fence (refusing to mutate a migrated entitlement), and the
+ * Stripe webhook routes referral reward grants/reversals through it
+ * (which is also the lazy migration trigger). The commit debit path
+ * itself is not cut over until Slice 6.
  *
  * Storage shape: the ledger state is genuinely nested (owned-files map,
  * baseline object), unlike the flat rows of the print/review precedents, so
@@ -148,5 +151,25 @@ export class EntitlementAuthorityDO extends DurableObject {
     now: number,
   ): Promise<EntitlementAuthorityApplyResult> {
     return this.apply(sessionId, { type: "rotate_capability", now });
+  }
+
+  /** Grant referral reward credits into the separate reward bucket (R1-A). */
+  async grantReward(
+    sessionId: string,
+    input: { grantId: string; amount: number; now: number },
+  ): Promise<EntitlementAuthorityApplyResult> {
+    return this.apply(sessionId, { type: "grant_reward", ...input });
+  }
+
+  /**
+   * Reverse a referral reward grant: removes only that grant's unspent
+   * reward-bucket credits — never purchased credits, owned files, or a
+   * negative balance (R1-A).
+   */
+  async reverseReward(
+    sessionId: string,
+    input: { grantId: string; now: number },
+  ): Promise<EntitlementAuthorityApplyResult> {
+    return this.apply(sessionId, { type: "reverse_reward", ...input });
   }
 }
