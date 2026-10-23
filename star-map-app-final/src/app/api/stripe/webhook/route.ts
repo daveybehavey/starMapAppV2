@@ -828,6 +828,20 @@ async function reverseReferralReward(
   const timestamp = Date.now();
   const routingEnabled = isEntitlementAuthorityRoutingEnabled();
 
+  // A grant that journaled PENDING in the authority (discovery or
+  // inclusion unresolved) was finalized on the KV side as a
+  // zero-grant skip — but it is not a TERMINAL skip (Codex re-gate
+  // F-D): the machine pairs a reversal with the pendency
+  // (reversal_deferred — dedupe must NOT finalize), and a later
+  // settlement can still fold the grant. The recorded skip reason
+  // is the durable distinction, so this record's reversal consults
+  // the authority even though the KV side granted 0.
+  const pendingAuthorityGrant =
+    routingEnabled &&
+    rewardGranted <= 0 &&
+    (rewardState.rewardSkipReason === "authority_grant_discovery_unresolved" ||
+      rewardState.rewardSkipReason === "authority_grant_inclusion_unresolved");
+
   // When authority routing is enabled, the clawback runs BEFORE any
   // bookkeeping below is finalized (Codex P2, PR #367): a transient
   // authority outage must not be recorded as a completed zero-credit
@@ -837,7 +851,7 @@ async function reverseReferralReward(
   // later delivery that reaches this path for the session.
   let authorityClawed: number | null = null;
   let referrer: SessionRecord | null = null;
-  if (!rewardAlreadyReversed && rewardGranted > 0) {
+  if ((!rewardAlreadyReversed && rewardGranted > 0) || pendingAuthorityGrant) {
     referrer = await kv.get<SessionRecord>(sessionKey(rewardState.referrerSessionId));
     if (referrer && referrer.plan !== "subscription" && routingEnabled) {
       // DL-1 Slice 3 (R1-A): the clawback runs against the authority's
@@ -904,20 +918,37 @@ async function reverseReferralReward(
         creditsRemaining: Math.max(0, currentCredits - rewardReclaimed),
       });
     }
+  } else if (pendingAuthorityGrant && authorityClawed !== null) {
+    // The pending grant settled and folded before this reversal
+    // landed: the authority's claw is the true reclaimed amount,
+    // recorded here even though the KV grant side stood at 0.
+    rewardReclaimed = authorityClawed;
   }
+
+  // The authority answered this record's reversal (granted path, or
+  // a pending grant's terminal answer): the reversal is final and
+  // is recorded as such, with the authority's amount.
+  const authorityReversalAnswered = pendingAuthorityGrant && authorityClawed !== null;
 
   await kv.set(rewardStateKey, {
     ...rewardState,
     conversionReversed: true,
     conversionReversedAt: conversionAlreadyReversed ? rewardState.conversionReversedAt : timestamp,
-    rewardReversed: rewardAlreadyReversed ? rewardState.rewardReversed : rewardGranted > 0,
+    rewardReversed: authorityReversalAnswered
+      ? true
+      : rewardAlreadyReversed
+        ? rewardState.rewardReversed
+        : rewardGranted > 0,
     rewardReversedAt:
-      rewardAlreadyReversed || rewardGranted <= 0
-        ? rewardState.rewardReversedAt
-        : timestamp,
+      authorityReversalAnswered || !(rewardAlreadyReversed || rewardGranted <= 0)
+        ? timestamp
+        : rewardState.rewardReversedAt,
     reversalReason: reason,
-    rewardReclaimed:
-      rewardAlreadyReversed || rewardGranted <= 0 ? rewardState.rewardReclaimed : rewardReclaimed,
+    rewardReclaimed: authorityReversalAnswered
+      ? rewardReclaimed
+      : rewardAlreadyReversed || rewardGranted <= 0
+        ? rewardState.rewardReclaimed
+        : rewardReclaimed,
   });
 
   if (!conversionAlreadyReversed) {
@@ -939,7 +970,10 @@ async function reverseReferralReward(
     });
   }
 
-  if (!rewardAlreadyReversed && rewardGranted > 0) {
+  if (
+    (!rewardAlreadyReversed && rewardGranted > 0) ||
+    (authorityReversalAnswered && rewardReclaimed > 0)
+  ) {
     await appendReferralEvent({
       code: referralCode,
       type: "reward_reversed",
