@@ -260,6 +260,26 @@ test("grant replay returns the same ownership; a second fingerprint is refused",
   assert.equal(other.refusal, "already_granted");
 });
 
+test("grant after a paid commit preserves the commit entry and consumes the decision", () => {
+  let s = seeded({ withBaseline: true });
+  s = applyEntitlementAuthorityOp(s, commitOp("art-x", { now: NOW - 500 })).state;
+  const before = s.ownedFiles["art-x"];
+  assert.equal(before.source, "commit");
+  const g = applyEntitlementAuthorityOp(s, grantOp("art-x"));
+  assert.equal(g.outcome, "already_owned");
+  // The paid entry is preserved byte-for-byte.
+  assert.deepEqual(g.state.ownedFiles["art-x"], before);
+  // The one-time recovery decision is consumed — nothing remains owed —
+  // and exclusivity still holds against a later compensate.
+  assert.equal(g.state.recoveryDecision, "granted");
+  const c = applyEntitlementAuthorityOp(g.state, {
+    type: "compensate",
+    consumeToken: "tok-1",
+    now: NOW,
+  });
+  assert.equal(c.refusal, "already_granted");
+});
+
 test("grant guards: baseline, spend, purchase map, support fallback, finalization", () => {
   const noBaseline = seeded();
   assert.equal(applyEntitlementAuthorityOp(noBaseline, grantOp("art-l")).refusal, "no_baseline");

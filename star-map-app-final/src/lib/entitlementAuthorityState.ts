@@ -447,6 +447,19 @@ function grant(
   }
   if (!op.finalized) return refused(state, "not_finalized");
 
+  // An artifact the customer already owns via a paid commit needs no
+  // grant: consume the one-time recovery decision (nothing remains owed)
+  // and preserve the paid entry byte-for-byte — a real purchase's
+  // provenance, fingerprint and commit time are never rewritten by
+  // recovery. (Codex P2 on PR #362.)
+  if (state.ownedFiles[op.artifactId]) {
+    return result(
+      { ...state, recoveryDecision: "granted", updatedAt: op.now },
+      true,
+      "already_owned",
+    );
+  }
+
   const entry: OwnedFileEntry = {
     mapId: op.mapId,
     fingerprint: op.fingerprint,
