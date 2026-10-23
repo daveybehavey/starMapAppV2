@@ -427,42 +427,34 @@ export function isValidEntitlementAuthorityState(
       // baseline records.
       return false;
     }
-    // Cross-field recovery consistency (G-dot + Codex P2 round 2, PR #362):
-    // the compensation counter, the recorded compensated token, and the
-    // recovery decision are three views of ONE fact — this authority either
-    // compensated the baseline's last consume or it did not — and every
-    // view must agree with the others. Per-field checks alone admitted a
-    // compensated count beside an "unresolved" decision, which let a grant
-    // (or a second compensate) run on top of a compensation that had
-    // already restored the credit: double recovery for a single spend.
-    if (state.baselineCompensationCount > 0) {
-      if (state.recoveryDecision !== "compensated") return false;
-      if (state.compensatedConsumeToken === null) return false;
-      if (state.compensatedConsumeToken !== baseline.lastConsumeToken) return false;
-    }
-    if (state.compensatedConsumeToken !== null) {
-      // A recorded compensated token is only ever the baseline's last
-      // consume (compensate refuses any other token), and it exists only
-      // alongside the compensated decision.
-      if (state.recoveryDecision !== "compensated") return false;
-      if (state.compensatedConsumeToken !== baseline.lastConsumeToken) return false;
-    }
+    // Compensation cardinality (G-dot P2 round 3, PR #362): the count,
+    // the recorded compensated token, the recovery decision, and the
+    // baseline's own compensation evidence are four views of one fact and
+    // must agree EXACTLY, in both directions. This authority can compensate
+    // only the baseline's last consume, and only once, so the count is
+    // fully determined by which case holds:
+    //   - decision unresolved or granted → count 0, no compensated token;
+    //   - decision compensated, and the last consume was already
+    //     compensated in the settled legacy record at capture (the
+    //     pre-compensated case — its restore is netted in the baseline's
+    //     spent count) → count exactly 0;
+    //   - decision compensated by this authority → count exactly 1, and
+    //     the token names the baseline's last consume.
+    // Anything else double-counts a restore: count 2 beside a compensated
+    // decision derives a third credit from a 3-credit pack with two
+    // spends, and count 1 on a pre-compensated consume counts the same
+    // restore once in the baseline and once locally.
+    const lastConsumePreCompensated =
+      baseline.lastConsumeToken !== null &&
+      baseline.lastCompensatedToken === baseline.lastConsumeToken;
     if (state.recoveryDecision === "compensated") {
-      // The compensated decision must name its consume, and the credit it
-      // restored must be accounted for: either by this authority's own
-      // compensation counter (the checks above), or because the consume was
-      // already compensated in the settled legacy record at capture time —
-      // the legitimate pre-compensated case, whose restore is already
-      // netted in the baseline's spent count and whose authority count
-      // therefore stays 0.
       if (state.compensatedConsumeToken === null) return false;
       if (state.compensatedConsumeToken !== baseline.lastConsumeToken) return false;
-      if (
-        state.baselineCompensationCount === 0 &&
-        baseline.lastCompensatedToken !== baseline.lastConsumeToken
-      ) {
-        return false;
-      }
+      const expectedCount = lastConsumePreCompensated ? 0 : 1;
+      if (state.baselineCompensationCount !== expectedCount) return false;
+    } else {
+      if (state.baselineCompensationCount !== 0) return false;
+      if (state.compensatedConsumeToken !== null) return false;
     }
   }
   if (!isNullableString(state.compensatedConsumeToken)) return false;

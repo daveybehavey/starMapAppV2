@@ -771,6 +771,46 @@ test("validation: compensation count/token must agree with the recovery decision
   assert.equal(isValidEntitlementAuthorityState(tokenCase), false);
 });
 
+test("validation: compensation cardinality is exact in both directions", () => {
+  // G-dot round-3 case 1: pack3, two spends, compensated decision/token,
+  // but count 2 — this model can compensate only the latest consume, once,
+  // so the correct count is 1 and the correct balance 2, never 3.
+  let overCounted = seeded({
+    withBaseline: true,
+    baselineOver: { legacySpentCount: 2, legacyRemainingBalance: 1 },
+  });
+  overCounted = applyEntitlementAuthorityOp(overCounted, {
+    type: "compensate",
+    consumeToken: "tok-1",
+    now: NOW,
+  }).state;
+  assert.equal(overCounted.baselineCompensationCount, 1);
+  assert.equal(deriveRemainingAllowance(overCounted), 2);
+  assert.equal(isValidEntitlementAuthorityState(overCounted), true);
+  overCounted.baselineCompensationCount = 2;
+  assert.equal(isValidEntitlementAuthorityState(overCounted), false);
+
+  // G-dot round-3 case 2: the latest consume was already compensated
+  // before baseline capture; an authority count of 1 counts that same
+  // restore once in the baseline and once again locally.
+  const preCounted = seeded({
+    withBaseline: true,
+    baselineOver: { lastCompensatedToken: "tok-1" },
+  });
+  assert.equal(preCounted.recoveryDecision, "compensated");
+  assert.equal(preCounted.baselineCompensationCount, 0);
+  preCounted.baselineCompensationCount = 1;
+  assert.equal(isValidEntitlementAuthorityState(preCounted), false);
+
+  // A granted decision carrying compensation bookkeeping is the same
+  // impossibility in the other non-compensated decision.
+  let granted = seeded({ withBaseline: true });
+  granted = applyEntitlementAuthorityOp(granted, grantOp("art-legacy")).state;
+  assert.equal(granted.recoveryDecision, "granted");
+  granted.baselineCompensationCount = 1;
+  assert.equal(isValidEntitlementAuthorityState(granted), false);
+});
+
 test("validation: machine-produced compensated states stay valid", () => {
   // Authority-compensated: compensate() itself produces count 1 + the
   // compensated decision + the baseline's last-consume token.
@@ -832,6 +872,24 @@ test("DO: persisted baseline breaking conservation fails closed", async () => {
   parsed.baseline.allowance = 1;
   parsed.baseline.legacyRemainingBalance = 0;
   parsed.baseline.legacySpentCount = 0;
+  sql.rows.set(SID, { ...row, state_json: JSON.stringify(parsed) });
+  await assert.rejects(() => newAuthority(sql).getState(SID), /malformed/);
+});
+
+test("DO: persisted over-counted compensation fails closed", async () => {
+  const sql = new FakeSqlStorage();
+  const authority = newAuthority(sql);
+  await authority.apply(SID, { type: "sync_facts", facts: facts(), now: NOW - 1000 });
+  await authority.apply(SID, {
+    type: "capture_baseline",
+    baseline: baseline({ legacySpentCount: 2, legacyRemainingBalance: 1 }),
+    now: NOW - 900,
+  });
+  await authority.apply(SID, { type: "compensate", consumeToken: "tok-1", now: NOW - 800 });
+  const row = sql.rows.get(SID);
+  const parsed = JSON.parse(row.state_json);
+  assert.equal(parsed.baselineCompensationCount, 1);
+  parsed.baselineCompensationCount = 2;
   sql.rows.set(SID, { ...row, state_json: JSON.stringify(parsed) });
   await assert.rejects(() => newAuthority(sql).getState(SID), /malformed/);
 });
