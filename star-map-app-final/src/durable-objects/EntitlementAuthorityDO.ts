@@ -25,6 +25,7 @@ import { DurableObject } from "cloudflare:workers";
 import {
   applyEntitlementAuthorityOp,
   createEmptyEntitlementAuthorityState,
+  isValidEntitlementAuthorityState,
   type EntitlementAuthorityApplyResult,
   type EntitlementAuthorityOp,
   type EntitlementAuthorityState,
@@ -64,6 +65,13 @@ export class EntitlementAuthorityDO extends DurableObject {
     const parsed = JSON.parse(rows[0].state_json) as EntitlementAuthorityState;
     if (!parsed || parsed.sessionId !== trimmed) {
       throw new Error(`entitlement authority state mismatch for ${trimmed}`);
+    }
+    // Structural validation, not just syntax + identity: a well-formed
+    // JSON document with a missing count field or an invalid enum would
+    // otherwise flow into the accounting as NaN balances and phantom
+    // credits. Malformed persisted state fails closed (G-dot P2, #362).
+    if (!isValidEntitlementAuthorityState(parsed)) {
+      throw new Error(`entitlement authority state malformed for ${trimmed}`);
     }
     return parsed;
   }

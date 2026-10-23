@@ -263,6 +263,8 @@ export type EntitlementAuthorityRefusal =
   | "not_finalized"
   | "no_credits"
   | "no_baseline"
+  | "invalid_facts"
+  | "invalid_baseline"
   | "already_granted"
   | "already_compensated"
   | "no_legacy_spend"
@@ -311,6 +313,110 @@ function validityRefusal(
   return validity.valid ? null : refused(state, validity.reason);
 }
 
+/* ------------- Authority-boundary validation (G-dot P2 fix, PR #362) -------------
+ * The DO's stored document and every incoming facts/baseline payload are
+ * validated structurally BEFORE any accounting runs: a cast is not
+ * validation. Malformed numbers (a missing count field deriving to NaN),
+ * invalid enums, and inconsistent allowance/spend/recovery combinations
+ * fail closed — persisted state throws at read; op payloads are refused. */
+
+const CHECKOUT_PLAN_VALUES: ReadonlySet<string> = new Set([
+  "single",
+  "pack3",
+  "subscription",
+]);
+
+function isNonNegativeInt(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function isNullableString(value: unknown): value is string | null {
+  return value === null || typeof value === "string";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export function isValidEntitlementFacts(facts: unknown): facts is EntitlementFacts {
+  if (!isRecord(facts)) return false;
+  return (
+    typeof facts.plan === "string" &&
+    CHECKOUT_PLAN_VALUES.has(facts.plan) &&
+    typeof facts.paid === "boolean" &&
+    typeof facts.revoked === "boolean" &&
+    typeof facts.subscriptionActive === "boolean" &&
+    isNullableString(facts.mapId)
+  );
+}
+
+export function isValidEntitlementBaseline(
+  baseline: unknown,
+): baseline is EntitlementBaseline {
+  if (!isRecord(baseline)) return false;
+  return (
+    typeof baseline.plan === "string" &&
+    CHECKOUT_PLAN_VALUES.has(baseline.plan) &&
+    (baseline.allowance === null || isNonNegativeInt(baseline.allowance)) &&
+    (baseline.legacyRemainingBalance === null ||
+      isFiniteNumber(baseline.legacyRemainingBalance)) &&
+    isNonNegativeInt(baseline.legacySpentCount) &&
+    isNullableString(baseline.lastConsumeToken) &&
+    (baseline.lastConsumeAt === null || isFiniteNumber(baseline.lastConsumeAt)) &&
+    isNullableString(baseline.lastCompensatedToken) &&
+    isNullableString(baseline.purchaseMapId) &&
+    isNullableString(baseline.accessTermsNote) &&
+    isFiniteNumber(baseline.capturedAt)
+  );
+}
+
+export function isValidEntitlementAuthorityState(
+  state: unknown,
+): state is EntitlementAuthorityState {
+  if (!isRecord(state)) return false;
+  if (typeof state.sessionId !== "string" || state.sessionId.length === 0) return false;
+  if (state.facts !== null && !isValidEntitlementFacts(state.facts)) return false;
+  if (state.baseline !== null && !isValidEntitlementBaseline(state.baseline)) {
+    return false;
+  }
+  if (!isNonNegativeInt(state.baselineCompensationCount)) return false;
+  const baseline = state.baseline as EntitlementBaseline | null;
+  if (baseline === null) {
+    // Compensations exist only against a baseline; without one, any
+    // compensation bookkeeping is an inconsistent record.
+    if (state.baselineCompensationCount !== 0) return false;
+    if (state.compensatedConsumeToken !== null) return false;
+  } else if (state.baselineCompensationCount > baseline.legacySpentCount) {
+    // The authority cannot have compensated more baseline spends than the
+    // baseline records.
+    return false;
+  }
+  if (!isNullableString(state.compensatedConsumeToken)) return false;
+  if (!isRecord(state.ownedFiles)) return false;
+  for (const entry of Object.values(state.ownedFiles)) {
+    if (!isRecord(entry)) return false;
+    if (typeof entry.mapId !== "string") return false;
+    if (typeof entry.fingerprint !== "string") return false;
+    if (!isFiniteNumber(entry.committedAt)) return false;
+    if (entry.source !== "commit" && entry.source !== "legacy") return false;
+  }
+  if (
+    state.recoveryDecision !== "unresolved" &&
+    state.recoveryDecision !== "granted" &&
+    state.recoveryDecision !== "compensated"
+  ) {
+    return false;
+  }
+  if (!isNonNegativeInt(state.capabilityGeneration)) return false;
+  if (state.createdAt !== null && !isFiniteNumber(state.createdAt)) return false;
+  if (state.updatedAt !== null && !isFiniteNumber(state.updatedAt)) return false;
+  return true;
+}
+
 function factsEqual(a: EntitlementFacts, b: EntitlementFacts): boolean {
   return (
     a.plan === b.plan &&
@@ -325,6 +431,7 @@ function syncFacts(
   state: EntitlementAuthorityState,
   op: Extract<EntitlementAuthorityOp, { type: "sync_facts" }>,
 ): EntitlementAuthorityApplyResult {
+  if (!isValidEntitlementFacts(op.facts)) return refused(state, "invalid_facts");
   if (state.facts && factsEqual(state.facts, op.facts)) {
     return result(state, false, "facts_synced");
   }
@@ -349,6 +456,9 @@ function captureBaseline(
   // migration trigger and writer fencing around this op.
   if (state.baseline) {
     return result(state, false, "baseline_already_captured");
+  }
+  if (!isValidEntitlementBaseline(op.baseline)) {
+    return refused(state, "invalid_baseline");
   }
   const baseline = { ...op.baseline };
   let { recoveryDecision, compensatedConsumeToken } = state;
@@ -442,6 +552,10 @@ function grant(
   // Records lacking a mapId fall back to support (v3 §2.6) — the authority
   // never guesses a binding.
   if (!state.baseline.purchaseMapId) return refused(state, "grant_requires_support");
+  // A spent baseline whose consume carries no token has an incomplete
+  // evidence chain: the spend remains spent, but recovery for it is
+  // support-only — it cannot authorize a grant (G-dot P2 fix, PR #362).
+  if (!state.baseline.lastConsumeToken) return refused(state, "grant_requires_support");
   if (op.mapId !== state.baseline.purchaseMapId) {
     return refused(state, "grant_map_mismatch");
   }
@@ -502,6 +616,10 @@ function compensate(
     return refused(state, "already_compensated");
   }
 
+  // Compensation restores a credit for a spend that actually happened:
+  // a token recorded against a zero-spend baseline is an inconsistent
+  // record, never a compensable spend (G-dot P2 fix, PR #362).
+  if (state.baseline.legacySpentCount <= 0) return refused(state, "no_legacy_spend");
   if (!op.consumeToken || op.consumeToken !== state.baseline.lastConsumeToken) {
     return refused(state, "token_mismatch");
   }

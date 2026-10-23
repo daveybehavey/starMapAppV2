@@ -44,6 +44,7 @@ const {
   evaluateDeliveryEligibility,
   evaluateEntitlementValidity,
   isOwnedUnderValidEntitlement,
+  isValidEntitlementAuthorityState,
   LEGACY_COMPENSATE_WINDOW_MS,
 } = await import("../../src/lib/entitlementAuthorityState.ts");
 const { EntitlementAuthorityDO } = await import(
@@ -599,6 +600,109 @@ test("DO: grant/compensate exclusivity and rotation persist across restarts", as
   const comp = await restarted.compensate(SID, { consumeToken: "tok-1", now: NOW });
   assert.equal(comp.outcome, "refused");
   assert.equal(comp.refusal, "already_granted");
+});
+
+/* ------------- authority-boundary validation (G-dot P2, PR #362) ------------- */
+
+test("validation: token-less spent baseline is support-only for grant; the spend still counts", () => {
+  const s = seeded({ withBaseline: true, baselineOver: { lastConsumeToken: null } });
+  assert.equal(deriveRemainingAllowance(s), 2); // the spend remains spent
+  const g = applyEntitlementAuthorityOp(s, grantOp("art-legacy"));
+  assert.equal(g.outcome, "refused");
+  assert.equal(g.refusal, "grant_requires_support");
+});
+
+test("validation: compensate requires an actual baseline spend", () => {
+  const s = seeded({
+    withBaseline: true,
+    baselineOver: { legacySpentCount: 0, legacyRemainingBalance: 3 },
+  });
+  const c = applyEntitlementAuthorityOp(s, {
+    type: "compensate",
+    consumeToken: "tok-1",
+    now: NOW,
+  });
+  assert.equal(c.outcome, "refused");
+  assert.equal(c.refusal, "no_legacy_spend");
+});
+
+test("validation: malformed facts/baseline payloads are refused at the boundary", () => {
+  const s0 = seeded();
+  const badFacts = applyEntitlementAuthorityOp(s0, {
+    type: "sync_facts",
+    facts: { ...facts(), paid: "yes" },
+    now: NOW,
+  });
+  assert.equal(badFacts.refusal, "invalid_facts");
+  const badBaseline = applyEntitlementAuthorityOp(s0, {
+    type: "capture_baseline",
+    baseline: { ...baseline(), legacySpentCount: -1 },
+    now: NOW,
+  });
+  assert.equal(badBaseline.refusal, "invalid_baseline");
+  const nanBaseline = applyEntitlementAuthorityOp(s0, {
+    type: "capture_baseline",
+    baseline: { ...baseline(), legacySpentCount: Number.NaN },
+    now: NOW,
+  });
+  assert.equal(nanBaseline.refusal, "invalid_baseline");
+});
+
+test("validation: the shape validator accepts states the machine itself produces", () => {
+  let s = seeded({ withBaseline: true });
+  s = applyEntitlementAuthorityOp(s, commitOp("art-a")).state;
+  assert.equal(isValidEntitlementAuthorityState(s), true);
+  assert.equal(
+    isValidEntitlementAuthorityState(createEmptyEntitlementAuthorityState(SID)),
+    true,
+  );
+});
+
+test("DO: persisted state missing a count field fails closed — no NaN accounting", async () => {
+  const sql = new FakeSqlStorage();
+  const authority = newAuthority(sql);
+  await authority.apply(SID, { type: "sync_facts", facts: facts(), now: NOW - 1000 });
+  await authority.commit(SID, {
+    artifactId: "art-a",
+    mapId: "map-1",
+    fingerprint: "fp-art-a",
+    finalized: true,
+    now: NOW,
+  });
+  // Corrupt the persisted document the way the gate reproduced it: valid
+  // JSON with baselineCompensationCount removed.
+  const row = sql.rows.get(SID);
+  const parsed = JSON.parse(row.state_json);
+  delete parsed.baselineCompensationCount;
+  sql.rows.set(SID, { ...row, state_json: JSON.stringify(parsed) });
+  await assert.rejects(() => newAuthority(sql).getState(SID), /malformed/);
+  await assert.rejects(
+    () =>
+      newAuthority(sql).commit(SID, {
+        artifactId: "art-b",
+        mapId: "map-1",
+        fingerprint: "fp-art-b",
+        finalized: true,
+        now: NOW,
+      }),
+    /malformed/,
+  );
+});
+
+test("DO: inconsistent persisted bookkeeping (compensations without spends) fails closed", async () => {
+  const sql = new FakeSqlStorage();
+  const authority = newAuthority(sql);
+  await authority.apply(SID, { type: "sync_facts", facts: facts(), now: NOW - 1000 });
+  await authority.apply(SID, {
+    type: "capture_baseline",
+    baseline: baseline({ legacySpentCount: 0, legacyRemainingBalance: 3 }),
+    now: NOW - 900,
+  });
+  const row = sql.rows.get(SID);
+  const parsed = JSON.parse(row.state_json);
+  parsed.baselineCompensationCount = 1;
+  sql.rows.set(SID, { ...row, state_json: JSON.stringify(parsed) });
+  await assert.rejects(() => newAuthority(sql).getState(SID), /malformed/);
 });
 
 /* ---------------- client: memory fallback + KV projection ---------------- */
