@@ -165,9 +165,13 @@ new_sqlite_classes = ["ReviewRequestLedgerDO"]
 
 # Per-entitlement DL-1 entitlement authority (owned-files ledger, legacy
 # recovery decision, capability generation, referral reward bucket).
-# Slice 3: the legacy consume/compensate routes consult it as a fence and
-# the Stripe webhook routes referral grants/reversals through it; the
-# commit debit path cuts over in Slice 6.
+# Slice 3: the legacy consume/compensate routes hold its accounting lease
+# and refuse migrated entitlements; the Stripe webhook CAN route referral
+# grants/reversals through it, but that routing stays GATED OFF until the
+# owner sets DL1_AUTHORITY_ROUTING_ENABLED=true in the dashboard at the
+# Slice 6 cutover (when downloads gain an authority debit path) —
+# deliberately NOT a [vars] entry here, so activation is an explicit
+# owner action rather than a deploy side effect.
 [[durable_objects.bindings]]
 name = "ENTITLEMENT_AUTHORITY"
 class_name = "EntitlementAuthorityDO"

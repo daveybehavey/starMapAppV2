@@ -10,11 +10,12 @@
  * single instance.
  *
  * Wiring status: Slice 2 shipped this object inert. Slice 3 wires the
- * first production callers — the legacy consume/compensate routes consult
- * it as a fence (refusing to mutate a migrated entitlement), and the
- * Stripe webhook routes referral reward grants/reversals through it
- * (which is also the lazy migration trigger). The commit debit path
- * itself is not cut over until Slice 6.
+ * first production callers — the legacy consume/compensate routes hold
+ * its accounting lease across their KV mutations and refuse migrated
+ * entitlements — and prepares the Stripe webhook's referral routing
+ * (the lazy migration trigger), which stays gated off behind
+ * DL1_AUTHORITY_ROUTING_ENABLED until the Slice 6 cutover gives
+ * downloads an authority debit path (Codex P1, PR #367).
  *
  * Storage shape: the ledger state is genuinely nested (owned-files map,
  * baseline object), unlike the flat rows of the print/review precedents, so

@@ -113,6 +113,26 @@ export type RewardGrantEntry = {
 /** The mutually exclusive legacy recovery decision (v3 §2.6). */
 export type RecoveryDecision = "unresolved" | "granted" | "compensated";
 
+/**
+ * Short-lived accounting exclusion lease (Slice 3, Codex P1 fix on
+ * PR #367). The legacy consume/compensate routes mutate the KV record
+ * OUTSIDE this authority, so a read-only fence cannot exclude them from
+ * an in-flight baseline capture: a route could load its record, observe
+ * "no baseline", and write its debit back after migration captured the
+ * pre-debit record — leaving the authority's baseline one credit richer
+ * than reality, with the consume token lost. The lease makes the two
+ * critical sections mutually exclusive through the DO (which serializes
+ * every op): a legacy writer holds kind "legacy_write" across its
+ * load→mutate→write, and migration holds kind "migration" across its
+ * load→capture. An expired lease is treated as free (a crashed holder
+ * can block accounting only until its TTL lapses).
+ */
+export type AccountingLease = {
+  leaseId: string;
+  kind: "legacy_write" | "migration";
+  expiresAt: number;
+};
+
 export type EntitlementAuthorityState = {
   sessionId: string;
   facts: EntitlementFacts | null;
@@ -147,6 +167,8 @@ export type EntitlementAuthorityState = {
   rewardClawedTotal: number;
   /** Per-grant bookkeeping for idempotent grants and bounded clawbacks. */
   rewardGrants: Record<string, RewardGrantEntry>;
+  /** Accounting exclusion lease (see AccountingLease); null when free. */
+  accountingLease: AccountingLease | null;
   createdAt: number | null;
   updatedAt: number | null;
 };
@@ -177,6 +199,7 @@ export function createEmptyEntitlementAuthorityState(
     rewardSpentTotal: 0,
     rewardClawedTotal: 0,
     rewardGrants: {},
+    accountingLease: null,
     createdAt: null,
     updatedAt: null,
   };
@@ -327,7 +350,15 @@ export type EntitlementAuthorityOp =
       /** The grant id being reversed (same id domain as grant_reward). */
       grantId: string;
       now: number;
-    };
+    }
+  | {
+      type: "acquire_accounting_lease";
+      leaseId: string;
+      kind: "legacy_write" | "migration";
+      ttlMs: number;
+      now: number;
+    }
+  | { type: "release_accounting_lease"; leaseId: string; now: number };
 
 export type EntitlementAuthorityOutcome =
   | "facts_synced"
@@ -344,6 +375,8 @@ export type EntitlementAuthorityOutcome =
   | "reward_already_granted"
   | "reward_reversed"
   | "reward_reversal_already_applied"
+  | "lease_acquired"
+  | "lease_released"
   | "refused";
 
 export type EntitlementAuthorityRefusal =
@@ -365,7 +398,10 @@ export type EntitlementAuthorityRefusal =
   | "token_mismatch"
   | "window_expired"
   | "invalid_reward"
-  | "unknown_reward_grant";
+  | "unknown_reward_grant"
+  | "lease_held"
+  | "already_migrated"
+  | "invalid_lease";
 
 export type EntitlementAuthorityApplyResult = {
   state: EntitlementAuthorityState;
@@ -621,6 +657,19 @@ export function isValidEntitlementAuthorityState(
     if (isRecord(entry) && entry.rewardFunded === true) rewardFundedCommits += 1;
   }
   if (state.rewardSpentTotal !== rewardFundedCommits) return false;
+  // Accounting lease (Slice 3, PR #367): structural only. States stored
+  // before the lease existed carry no field at all — an absent field is
+  // the free state, not corruption (the machine reads it as null and
+  // every apply writes it explicitly going forward). A PRESENT lease
+  // must be well-formed: a malformed holder record could otherwise lock
+  // accounting forever or be mistaken for a live exclusion.
+  if (state.accountingLease !== undefined && state.accountingLease !== null) {
+    const lease = state.accountingLease;
+    if (!isRecord(lease)) return false;
+    if (typeof lease.leaseId !== "string" || lease.leaseId.length === 0) return false;
+    if (lease.kind !== "legacy_write" && lease.kind !== "migration") return false;
+    if (!isFiniteNumber(lease.expiresAt)) return false;
+  }
   if (
     state.recoveryDecision !== "unresolved" &&
     state.recoveryDecision !== "granted" &&
@@ -961,6 +1010,65 @@ function reverseReward(
   );
 }
 
+/** The live lease, treating an absent (pre-lease) field as free. */
+export function currentAccountingLease(
+  state: EntitlementAuthorityState,
+): AccountingLease | null {
+  return state.accountingLease ?? null;
+}
+
+function acquireAccountingLease(
+  state: EntitlementAuthorityState,
+  op: Extract<EntitlementAuthorityOp, { type: "acquire_accounting_lease" }>,
+): EntitlementAuthorityApplyResult {
+  if (
+    typeof op.leaseId !== "string" ||
+    op.leaseId.trim().length === 0 ||
+    (op.kind !== "legacy_write" && op.kind !== "migration") ||
+    !isNonNegativeInt(op.ttlMs) ||
+    op.ttlMs <= 0
+  ) {
+    return refused(state, "invalid_lease");
+  }
+  // A legacy writer arriving after capture is not "busy" — it is fenced
+  // for good: the authority owns this entitlement's accounting now.
+  if (op.kind === "legacy_write" && state.baseline) {
+    return refused(state, "already_migrated");
+  }
+  const held = currentAccountingLease(state);
+  if (held && held.expiresAt > op.now && held.leaseId !== op.leaseId) {
+    return refused(state, "lease_held");
+  }
+  const lease: AccountingLease = {
+    leaseId: op.leaseId,
+    kind: op.kind,
+    expiresAt: op.now + op.ttlMs,
+  };
+  return result(
+    { ...state, accountingLease: lease, updatedAt: op.now },
+    true,
+    "lease_acquired",
+  );
+}
+
+function releaseAccountingLease(
+  state: EntitlementAuthorityState,
+  op: Extract<EntitlementAuthorityOp, { type: "release_accounting_lease" }>,
+): EntitlementAuthorityApplyResult {
+  const held = currentAccountingLease(state);
+  if (held && held.leaseId === op.leaseId) {
+    return result(
+      { ...state, accountingLease: null, updatedAt: op.now },
+      true,
+      "lease_released",
+    );
+  }
+  // Idempotent: releasing a lease you do not hold (expired, already
+  // released, or another holder's) changes nothing and never fails —
+  // cleanup paths must be safe to retry.
+  return result(state, false, "lease_released");
+}
+
 function rotateCapability(
   state: EntitlementAuthorityState,
   op: Extract<EntitlementAuthorityOp, { type: "rotate_capability" }>,
@@ -1002,6 +1110,10 @@ export function applyEntitlementAuthorityOp(
       return grantReward(state, op);
     case "reverse_reward":
       return reverseReward(state, op);
+    case "acquire_accounting_lease":
+      return acquireAccountingLease(state, op);
+    case "release_accounting_lease":
+      return releaseAccountingLease(state, op);
   }
 }
 

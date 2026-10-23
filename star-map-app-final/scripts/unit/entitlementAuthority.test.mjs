@@ -1017,18 +1017,33 @@ test("wiring: only the fenced routes and the webhook reference the authority (Sl
     ].sort(),
   );
 
-  // Both legacy routes must consult the fence BEFORE the legacy helper
-  // can run — a fence placed after the mutation would be decorative.
+  // Both legacy routes must acquire the accounting lease BEFORE the
+  // record is even loaded — a lease taken after the load would leave
+  // the check-to-write race the lease exists to close (Codex P1,
+  // PR #367), and the legacy helper must run inside the lease.
   for (const [rel, helper] of [
     [path.join("api/entitlements/consume/route.ts"), "applyHdCreditConsume(record"],
     [path.join("api/entitlements/compensate/route.ts"), "applyHdCreditCompensate(record"],
   ]) {
     const text = readFileSync(path.join(appDir, rel), "utf8");
-    const fenceAt = text.indexOf("checkLegacyWriterFence(");
+    const leaseAt = text.indexOf("acquireAccountingLease(");
+    const loadAt = text.indexOf("kv.get<StripeSessionEntitlement>");
     const helperAt = text.indexOf(helper);
-    assert.ok(fenceAt >= 0, `${rel} must call checkLegacyWriterFence`);
-    assert.ok(helperAt > fenceAt, `${rel} must fence before ${helper}`);
+    const releaseAt = text.indexOf("releaseAccountingLease(");
+    assert.ok(leaseAt >= 0, `${rel} must call acquireAccountingLease`);
+    assert.ok(loadAt > leaseAt, `${rel} must lease before loading the record`);
+    assert.ok(helperAt > leaseAt, `${rel} must lease before ${helper}`);
+    assert.ok(releaseAt > helperAt, `${rel} must release after ${helper}`);
   }
+
+  // The webhook's authority routing must stay behind the activation
+  // gate: an ungated grant path would migrate referrers into the
+  // undebited-download hole the gate exists to prevent (Codex P1).
+  const webhook = readFileSync(
+    path.join(appDir, "api/stripe/webhook/route.ts"),
+    "utf8",
+  );
+  assert.match(webhook, /isEntitlementAuthorityRoutingEnabled\(\)/);
 });
 
 /* ---------------- reward bucket (Slice 3, R1-A) ---------------- */
@@ -1194,4 +1209,110 @@ test("validator rejects persisted states that break reward conservation", () => 
   spentWithoutEntry.rewardSpentTotal = 1;
   spentWithoutEntry.rewardBucketBalance = 0;
   assert.equal(isValidEntitlementAuthorityState(spentWithoutEntry), false);
+});
+
+/* ---------------- accounting lease (Slice 3, Codex P1 on PR #367) ---------------- */
+
+const acquireLeaseOp = (leaseId, kind = "legacy_write", over = {}) => ({
+  type: "acquire_accounting_lease",
+  leaseId,
+  kind,
+  ttlMs: 15_000,
+  now: NOW,
+  ...over,
+});
+const releaseLeaseOp = (leaseId, over = {}) => ({
+  type: "release_accounting_lease",
+  leaseId,
+  now: NOW,
+  ...over,
+});
+
+test("lease: acquire grants when free; a second holder is refused until expiry or release", () => {
+  let s = seeded();
+  const first = applyEntitlementAuthorityOp(s, acquireLeaseOp("lease-a"));
+  assert.equal(first.outcome, "lease_acquired");
+  s = first.state;
+  assert.equal(s.accountingLease.leaseId, "lease-a");
+
+  const rival = applyEntitlementAuthorityOp(s, acquireLeaseOp("lease-b", "migration"));
+  assert.equal(rival.outcome, "refused");
+  assert.equal(rival.refusal, "lease_held");
+  assert.equal(rival.state.accountingLease.leaseId, "lease-a");
+
+  // The holder may renew its own lease.
+  const renewed = applyEntitlementAuthorityOp(s, acquireLeaseOp("lease-a", "legacy_write", { now: NOW + 5_000 }));
+  assert.equal(renewed.outcome, "lease_acquired");
+  assert.equal(renewed.state.accountingLease.expiresAt, NOW + 5_000 + 15_000);
+
+  // After the TTL lapses the lease is treated as abandoned.
+  const afterExpiry = applyEntitlementAuthorityOp(
+    renewed.state,
+    acquireLeaseOp("lease-b", "migration", { now: NOW + 5_000 + 15_001 }),
+  );
+  assert.equal(afterExpiry.outcome, "lease_acquired");
+  assert.equal(afterExpiry.state.accountingLease.leaseId, "lease-b");
+});
+
+test("lease: release clears only the holder's lease and is idempotent", () => {
+  let s = seeded();
+  s = applyEntitlementAuthorityOp(s, acquireLeaseOp("lease-a")).state;
+
+  const wrongHolder = applyEntitlementAuthorityOp(s, releaseLeaseOp("lease-b"));
+  assert.equal(wrongHolder.outcome, "lease_released");
+  assert.equal(wrongHolder.changed, false);
+  assert.equal(wrongHolder.state.accountingLease.leaseId, "lease-a");
+
+  const released = applyEntitlementAuthorityOp(s, releaseLeaseOp("lease-a"));
+  assert.equal(released.outcome, "lease_released");
+  assert.equal(released.changed, true);
+  assert.equal(released.state.accountingLease, null);
+
+  const again = applyEntitlementAuthorityOp(released.state, releaseLeaseOp("lease-a"));
+  assert.equal(again.outcome, "lease_released");
+  assert.equal(again.changed, false);
+});
+
+test("lease: a legacy writer is fenced for good once a baseline exists", () => {
+  const s = seeded({ withBaseline: true });
+  const legacy = applyEntitlementAuthorityOp(s, acquireLeaseOp("lease-a", "legacy_write"));
+  assert.equal(legacy.outcome, "refused");
+  assert.equal(legacy.refusal, "already_migrated");
+  // Migration itself may still acquire (it observes the baseline and stops).
+  const migration = applyEntitlementAuthorityOp(s, acquireLeaseOp("lease-m", "migration"));
+  assert.equal(migration.outcome, "lease_acquired");
+});
+
+test("lease: malformed acquire shapes fail closed", () => {
+  const s = seeded();
+  for (const op of [
+    acquireLeaseOp(""),
+    acquireLeaseOp("lease-a", "bogus"),
+    acquireLeaseOp("lease-a", "legacy_write", { ttlMs: 0 }),
+    acquireLeaseOp("lease-a", "legacy_write", { ttlMs: 1.5 }),
+  ]) {
+    const res = applyEntitlementAuthorityOp(s, op);
+    assert.equal(res.outcome, "refused");
+    assert.equal(res.refusal, "invalid_lease");
+  }
+});
+
+test("validator: a well-formed lease passes, a malformed one fails closed, an absent field is the free state", () => {
+  let s = seeded();
+  s = applyEntitlementAuthorityOp(s, acquireLeaseOp("lease-a")).state;
+  assert.equal(isValidEntitlementAuthorityState(s), true);
+
+  const malformed = structuredClone(s);
+  malformed.accountingLease = { leaseId: "lease-a", kind: "bogus", expiresAt: NOW + 1 };
+  assert.equal(isValidEntitlementAuthorityState(malformed), false);
+
+  const noExpiry = structuredClone(s);
+  noExpiry.accountingLease = { leaseId: "lease-a", kind: "migration", expiresAt: "soon" };
+  assert.equal(isValidEntitlementAuthorityState(noExpiry), false);
+
+  // States persisted before the lease existed carry no field: valid,
+  // and the machine reads them as unleased.
+  const preLease = structuredClone(s);
+  delete preLease.accountingLease;
+  assert.equal(isValidEntitlementAuthorityState(preLease), true);
 });

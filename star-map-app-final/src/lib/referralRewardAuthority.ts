@@ -22,7 +22,30 @@
  * SKIPPED rather than written to the legacy counter behind the authority's
  * back. The webhook records the skip with the reason, exactly like its
  * other reward-skip paths. Nothing here ever writes a balance to KV.
+ *
+ * ACTIVATION GATE (Codex P1, PR #367): this routing stays DISABLED until
+ * the Slice 6 cutover gives downloads an authority-backed debit path.
+ * Today the download flow delivers the file BEFORE its consume call and,
+ * when consume fails, refreshes the balance from the legacy KV record —
+ * so a referrer migrated by a referral grant would see every consume
+ * refused (409, fenced) while their downloads kept succeeding and their
+ * KV balance never moved: unlimited undebited exports. The webhook
+ * therefore keeps the legacy KV writers until the owner enables
+ * DL1_AUTHORITY_ROUTING_ENABLED (dashboard-set at Slice 6 activation,
+ * deliberately NOT a wrangler [vars] entry — activation is an explicit
+ * owner action, never a deploy side effect).
  */
+
+/**
+ * Whether referral grants/reversals route through the entitlement
+ * authority. Default OFF — see the activation gate note above. Follows
+ * the codebase's boolean env pattern (BULK_EVENT_ORDERS_ENABLED etc.).
+ */
+export function isEntitlementAuthorityRoutingEnabled(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  return /^(1|true|yes)$/i.test((env.DL1_AUTHORITY_ROUTING_ENABLED || "").trim());
+}
 import type { EntitlementAuthorityClient } from "@/lib/entitlementAuthority";
 import {
   ensureEntitlementMigrated,
@@ -40,6 +63,7 @@ export type ReferralRewardGrantResult =
         | "invalid_baseline"
         | "no_record"
         | "authority_unavailable"
+        | "migration_busy"
         | "refused";
     };
 
@@ -54,6 +78,12 @@ export async function grantReferralRewardViaAuthority(
   const ensured = await ensureEntitlementMigrated(client, referrerSessionId, loadRecord, now);
   if (ensured.status === "authority_unavailable") {
     return { status: "skipped", reason: "authority_unavailable" };
+  }
+  if (ensured.status === "migration_busy") {
+    // A legacy consume/compensate held the accounting lease past the
+    // wait window. The grant is skipped for this delivery; the webhook's
+    // recorded skip keeps it visible and a redelivery can retry.
+    return { status: "skipped", reason: "migration_busy" };
   }
   if (ensured.status === "no_record") return { status: "skipped", reason: "no_record" };
   if (ensured.status === "migration_pending") {

@@ -37,9 +37,12 @@ process.env.STARMAP_KV_ALLOW_LOCAL = "1";
 const { buildBaselineFromLegacyRecord } = await import(
   "../../src/lib/entitlementMigration.ts"
 );
-const { ensureEntitlementMigrated, checkLegacyWriterFence } = await import(
-  "../../src/lib/entitlementMigration.ts"
-);
+const {
+  ensureEntitlementMigrated,
+  checkLegacyWriterFence,
+  acquireAccountingLease,
+  releaseAccountingLease,
+} = await import("../../src/lib/entitlementMigration.ts");
 const {
   createEntitlementAuthorityClient,
   isLocalAuthorityFallbackAllowed,
@@ -48,8 +51,11 @@ const {
 const { deriveRemainingAllowance } = await import(
   "../../src/lib/entitlementAuthorityState.ts"
 );
-const { grantReferralRewardViaAuthority, reverseReferralRewardViaAuthority } =
-  await import("../../src/lib/referralRewardAuthority.ts");
+const {
+  grantReferralRewardViaAuthority,
+  reverseReferralRewardViaAuthority,
+  isEntitlementAuthorityRoutingEnabled,
+} = await import("../../src/lib/referralRewardAuthority.ts");
 
 const NOW = Date.UTC(2026, 9, 22, 13, 0, 0);
 const HOUR = 60 * 60 * 1000;
@@ -378,4 +384,96 @@ test("referral round trip: unspent reward is clawed back exactly once", async ()
   state = await client.getState(referrer);
   assert.equal(deriveRemainingAllowance(state), 1); // purchased credit intact
   assert.equal(state.rewardBucketBalance, 0);
+});
+
+/* ---------------- accounting lease exclusion (Codex P1, PR #367) ----------------
+ * The finding's interleaving: a legacy consume loads its record and
+ * passes a read-only fence; a referral webhook then captures the
+ * baseline from the pre-debit record; the consume writes its debit to
+ * KV afterwards — authority says 3 credits, KV says 2, and the consume
+ * token exists in neither baseline nor ledger. The lease protocol must
+ * make that interleaving impossible: migration waits out an in-flight
+ * legacy writer and captures the SETTLED record. */
+
+test("exclusion: migration waits out an in-flight legacy writer and captures the settled record", async () => {
+  const client = freshClient();
+  const id = sid();
+  let current = record(); // pack3: total 3, remaining 2, one spend (tok-1)
+
+  // The legacy consume begins: it holds the writer lease (as the routes
+  // now do) while it mutates its record.
+  const writer = await acquireAccountingLease(client, id, "legacy_write", { now: NOW });
+  assert.equal(writer.status, "acquired");
+
+  // Migration arriving mid-consume cannot capture yet.
+  const pending = ensureEntitlementMigrated(client, id, async () => current, NOW);
+  const blocked = await Promise.race([
+    pending.then(() => "finished"),
+    new Promise((resolve) => setTimeout(() => resolve("still-waiting"), 400)),
+  ]);
+  assert.equal(blocked, "still-waiting");
+  const midState = await client.getState(id);
+  assert.equal(midState.baseline, null);
+
+  // The consume settles: one more credit spent, token recorded in KV.
+  current = record({ creditsRemaining: 1, lastConsumeToken: "tok-2", lastConsumeAt: NOW });
+  await releaseAccountingLease(client, id, writer.leaseId);
+
+  // The SAME migration now completes — against the settled record, so
+  // the second spend is IN the baseline, not lost behind it.
+  const res = await pending;
+  assert.equal(res.status, "migrated");
+  assert.equal(res.state.baseline.legacySpentCount, 2);
+  assert.equal(res.state.baseline.legacyRemainingBalance, 1);
+  assert.equal(res.state.baseline.lastConsumeToken, "tok-2");
+  assert.equal(deriveRemainingAllowance(res.state), 1);
+});
+
+test("exclusion: a legacy writer arriving after capture is fenced, not busy", async () => {
+  const client = freshClient();
+  const id = sid();
+  await ensureEntitlementMigrated(client, id, async () => record(), NOW);
+  const res = await acquireAccountingLease(client, id, "legacy_write", { now: NOW });
+  assert.equal(res.status, "fenced");
+});
+
+test("exclusion: a stuck lease yields migration_busy, and the grant path skips with that reason", async () => {
+  const client = freshClient();
+  const id = sid();
+  // A writer lease with a long TTL that is never released in-test.
+  const held = await client.apply(id, {
+    type: "acquire_accounting_lease",
+    leaseId: "stuck-writer",
+    kind: "legacy_write",
+    ttlMs: 60_000,
+    now: Date.now(),
+  });
+  assert.equal(held.outcome, "lease_acquired");
+
+  const t0 = Date.now();
+  const res = await ensureEntitlementMigrated(client, id, async () => record());
+  assert.equal(res.status, "migration_busy");
+  assert.ok(Date.now() - t0 < 10_000, "busy must surface within the wait window");
+
+  const grant = await grantReferralRewardViaAuthority(
+    client,
+    id,
+    "cs_referred_busy",
+    1,
+    async () => record(),
+  );
+  assert.equal(grant.status, "skipped");
+  assert.equal(grant.reason, "migration_busy");
+});
+
+/* ---------------- authority routing activation gate (Codex P1, PR #367) ---------------- */
+
+test("routing gate: default off; only explicit truthy values enable it", () => {
+  assert.equal(isEntitlementAuthorityRoutingEnabled({}), false);
+  assert.equal(isEntitlementAuthorityRoutingEnabled({ DL1_AUTHORITY_ROUTING_ENABLED: "" }), false);
+  assert.equal(isEntitlementAuthorityRoutingEnabled({ DL1_AUTHORITY_ROUTING_ENABLED: "0" }), false);
+  assert.equal(isEntitlementAuthorityRoutingEnabled({ DL1_AUTHORITY_ROUTING_ENABLED: "false" }), false);
+  assert.equal(isEntitlementAuthorityRoutingEnabled({ DL1_AUTHORITY_ROUTING_ENABLED: "1" }), true);
+  assert.equal(isEntitlementAuthorityRoutingEnabled({ DL1_AUTHORITY_ROUTING_ENABLED: "true" }), true);
+  assert.equal(isEntitlementAuthorityRoutingEnabled({ DL1_AUTHORITY_ROUTING_ENABLED: " YES " }), true);
 });
