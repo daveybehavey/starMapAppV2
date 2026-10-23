@@ -431,6 +431,34 @@ async function sendLegWebhook(payload: PromotionSendPayload): Promise<LegResult>
 }
 
 /**
+ * The provider the delivery chain will use for the next send — the
+ * first configured leg, in chain order — and whether that provider
+ * guarantees idempotency for the attempt. The coordinator stamps this
+ * selection on the job at claim time, BEFORE the provider call, so a
+ * driver that dies mid-attempt leaves behind proof of which guarantee
+ * covered the attempt; the alarm's stale-claim reclaim reads the stamp
+ * (S3-A: an ambiguous attempt may be retried only under a proven
+ * guarantee — otherwise it blocks). Mirrors the legs' configured
+ * checks exactly; deliverPromotionSend remains the authority at send
+ * time.
+ */
+export function selectPromotionProvider(): {
+  provider: PromotionAutomationProvider;
+  idempotencyGuaranteed: boolean;
+} | null {
+  if (process.env.RESEND_API_KEY && promotionFromEmail) {
+    return { provider: "resend", idempotencyGuaranteed: true };
+  }
+  if (process.env.SENDGRID_API_KEY && parseEmailAddress(promotionFromEmail)) {
+    return { provider: "sendgrid", idempotencyGuaranteed: false };
+  }
+  if (process.env.PROMOTION_AUTOMATION_WEBHOOK_URL) {
+    return { provider: "webhook", idempotencyGuaranteed: false };
+  }
+  return null;
+}
+
+/**
  * Submit one frozen payload through the provider chain. The idempotency
  * key is passed to Resend (the only leg with a documented idempotency
  * guarantee); ambiguous outcomes report whether that guarantee covers

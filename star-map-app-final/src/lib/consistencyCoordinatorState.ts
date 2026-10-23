@@ -358,6 +358,15 @@ export type PromotionJob = {
   acceptedAt: number | null;
   provider: string | null;
   providerMessageId: string | null;
+  /** Provider the in-flight attempt was submitted to, and whether that
+   *  provider guarantees idempotency for it — stamped by the claim
+   *  transition from the driver's provider selection BEFORE the
+   *  provider call is made. Both null unless the job is `attempting`.
+   *  The alarm's stale-claim reclaim reads them: an uncertain attempt
+   *  may become retryable only under a proven guarantee (S3-A);
+   *  without one it blocks instead of risking a duplicate send. */
+  attemptProvider: string | null;
+  attemptIdempotencyGuaranteed: boolean | null;
   lastError: string | null;
   updatedAt: number;
 };
@@ -418,6 +427,12 @@ export function isValidPromotionJob(value: unknown): value is PromotionJob {
     (job.claimedAt === null || finiteNumber(job.claimedAt) !== null) &&
     (job.nextAttemptAt === null || finiteNumber(job.nextAttemptAt) !== null) &&
     (job.acceptedAt === null || finiteNumber(job.acceptedAt) !== null) &&
+    (job.attemptProvider === null ||
+      job.attemptProvider === undefined ||
+      nonEmptyString(job.attemptProvider) !== null) &&
+    (job.attemptIdempotencyGuaranteed === null ||
+      job.attemptIdempotencyGuaranteed === undefined ||
+      typeof job.attemptIdempotencyGuaranteed === "boolean") &&
     finiteNumber(job.updatedAt) !== null
   );
 }
@@ -474,6 +489,8 @@ function legacyAcceptedJob(
     acceptedAt,
     provider: "legacy",
     providerMessageId: null,
+    attemptProvider: null,
+    attemptIdempotencyGuaranteed: null,
     lastError: null,
     updatedAt: now,
   };
@@ -567,6 +584,8 @@ function createPendingJob(
     acceptedAt: null,
     provider: null,
     providerMessageId: null,
+    attemptProvider: null,
+    attemptIdempotencyGuaranteed: null,
     lastError: null,
     updatedAt: now,
   };
@@ -580,6 +599,9 @@ export function applySubscribePromotion(
     now: number;
     facts: PromotionLegacyFacts;
     couponPayload: PromotionJobPayload;
+    /** Prepared by the caller (its schedule is frozen at creation).
+     *  Used only by the accepted-coupon recovery below. */
+    followupPayload?: PromotionJobPayload;
   },
 ): { state: PromotionCoordinatorState; changed: boolean; isNewSubscriber: boolean } {
   let current = state ?? createEmptyPromotionState(input.emailHash, input.now);
@@ -612,6 +634,16 @@ export function applySubscribePromotion(
   }
   if (!jobs.coupon) {
     jobs.coupon = createPendingJob(input.emailHash, input.couponPayload, input.now);
+  }
+  if (!jobs.followup && jobs.coupon?.status === "accepted" && input.followupPayload) {
+    // Recovery for partial delivery state: the coupon is already
+    // accepted (a legacy import whose followup marker never existed,
+    // or an acceptance recorded after an unsubscribe suppressed its
+    // followup), so coupon completion — the only other creation
+    // point — will never run for it. The legacy subscribe route
+    // attempted the followup in exactly this case; create the job
+    // here so the drive can send it.
+    jobs.followup = createPendingJob(input.emailHash, input.followupPayload, input.now);
   }
 
   current = {
@@ -684,7 +716,17 @@ export type ClaimPromotionJobResult = {
 
 export function applyClaimPromotionJob(
   state: PromotionCoordinatorState,
-  input: { kind: PromotionJobKind; now: number },
+  input: {
+    kind: PromotionJobKind;
+    now: number;
+    /** The driver's provider selection (see selectPromotionProvider):
+     *  stamped onto the job with the claim commit, BEFORE the provider
+     *  call, so the guarantee covering the attempt survives a driver
+     *  crash. A claim without a recorded selection stamps null — the
+     *  reclaim then fails closed (no proven guarantee). */
+    attemptProvider?: string | null;
+    attemptIdempotencyGuaranteed?: boolean | null;
+  },
 ): { state: PromotionCoordinatorState; changed: boolean; claim: ClaimPromotionJobResult } {
   const job = state.jobs[input.kind];
   if (!job || job.status !== "pending") return { state, changed: false, claim: null };
@@ -718,6 +760,8 @@ export function applyClaimPromotionJob(
     claimedAt: input.now,
     firstAttemptAt: job.firstAttemptAt ?? input.now,
     attemptCount: job.attemptCount + 1,
+    attemptProvider: input.attemptProvider ?? null,
+    attemptIdempotencyGuaranteed: input.attemptIdempotencyGuaranteed ?? null,
     updatedAt: input.now,
   };
   return {
@@ -759,10 +803,23 @@ export function applyCompletePromotionJob(
       providerMessageId: outcome.providerMessageId ?? null,
       claimedAt: null,
       nextAttemptAt: null,
+      attemptProvider: null,
+      attemptIdempotencyGuaranteed: null,
       lastError: null,
       updatedAt: input.now,
     };
-    if (input.kind === "coupon" && input.followupPayload && !jobs.followup) {
+    // The followup is created only for a subscribed account: an
+    // unsubscribe that landed mid-attempt leaves the in-flight job
+    // alone (it cannot be un-sent), but its completion must not
+    // schedule a NEW delivery for an opted-out account. A later
+    // explicit subscribe creates the missing followup instead
+    // (applySubscribePromotion's accepted-coupon recovery).
+    if (
+      input.kind === "coupon" &&
+      input.followupPayload &&
+      !jobs.followup &&
+      state.unsubscribedAt === null
+    ) {
       jobs.followup = createPendingJob(state.emailHash, input.followupPayload, input.now);
     }
     return { state: { ...state, jobs, updatedAt: input.now }, changed: true };
@@ -771,12 +828,17 @@ export function applyCompletePromotionJob(
   if (outcome.type === "unconfigured") {
     // No provider was attempted at all: restore the claim untouched so
     // a later subscribe (or a configured provider) can drive the job.
+    // After an unsubscribe, though, restoring a pending job would
+    // leave a deliverable job on an opted-out account — cancel it
+    // instead; a fresh subscribe re-arms cancelled jobs.
     jobs[input.kind] = {
       ...job,
-      status: "pending",
+      status: state.unsubscribedAt !== null ? "cancelled" : "pending",
       claimedAt: null,
       attemptCount: Math.max(0, job.attemptCount - 1),
       firstAttemptAt: job.attemptCount <= 1 ? null : job.firstAttemptAt,
+      attemptProvider: null,
+      attemptIdempotencyGuaranteed: null,
       updatedAt: input.now,
     };
     return { state: { ...state, jobs, updatedAt: input.now }, changed: true };
@@ -789,6 +851,8 @@ export function applyCompletePromotionJob(
       claimedAt: null,
       nextAttemptAt: null,
       provider: outcome.provider,
+      attemptProvider: null,
+      attemptIdempotencyGuaranteed: null,
       lastError: outcome.error ?? "definitive_failure",
       updatedAt: input.now,
     };
@@ -796,6 +860,24 @@ export function applyCompletePromotionJob(
   }
 
   // Ambiguous: the provider may or may not have accepted.
+  if (state.unsubscribedAt !== null) {
+    // The account opted out while this attempt was in flight. Whether
+    // or not the provider accepted, no retry may be scheduled: end the
+    // job as cancelled (a later explicit subscribe re-arms it under
+    // the same job id and idempotency key).
+    jobs[input.kind] = {
+      ...job,
+      status: "cancelled",
+      claimedAt: null,
+      nextAttemptAt: null,
+      provider: outcome.provider,
+      attemptProvider: null,
+      attemptIdempotencyGuaranteed: null,
+      lastError: outcome.error ?? "ambiguous_after_unsubscribe",
+      updatedAt: input.now,
+    };
+    return { state: { ...state, jobs, updatedAt: input.now }, changed: true };
+  }
   const windowExpired =
     job.firstAttemptAt !== null &&
     input.now > job.firstAttemptAt + PROVIDER_IDEMPOTENCY_WINDOW_MS;
@@ -806,6 +888,8 @@ export function applyCompletePromotionJob(
       claimedAt: null,
       nextAttemptAt: null,
       provider: outcome.provider,
+      attemptProvider: null,
+      attemptIdempotencyGuaranteed: null,
       lastError:
         outcome.error ??
         (outcome.idempotencyGuaranteed ? "idempotency_window_expired" : "ambiguous_without_idempotency"),
@@ -819,6 +903,8 @@ export function applyCompletePromotionJob(
     claimedAt: null,
     nextAttemptAt: input.now + PROMOTION_JOB_RETRY_DELAY_MS,
     provider: outcome.provider,
+    attemptProvider: null,
+    attemptIdempotencyGuaranteed: null,
     lastError: outcome.error ?? "ambiguous",
     updatedAt: input.now,
   };
@@ -827,9 +913,13 @@ export function applyCompletePromotionJob(
 
 /**
  * Alarm pass: reclaim stale claims (driver crashed mid-attempt). A
- * reclaimed job becomes retryable in the same pass — the provider
- * idempotency key makes the retry safe inside the window — or blocks
- * when the window has lapsed. Returns the kinds due for an attempt.
+ * reclaimed job becomes retryable in the same pass ONLY when the
+ * attempt's stamped provider guarantees idempotency and the guarantee
+ * window is still open — the retry then repeats the identical key +
+ * payload and the provider dedupes it. An uncertain attempt without a
+ * proven guarantee (a no-guarantee provider, or no selection recorded)
+ * blocks instead of risking a duplicate send (S3-A). Returns the kinds
+ * due for an attempt.
  */
 export function applyPromotionAlarm(
   state: PromotionCoordinatorState,
@@ -847,21 +937,28 @@ export function applyPromotionAlarm(
     const windowExpired =
       job.firstAttemptAt !== null &&
       input.now > job.firstAttemptAt + PROVIDER_IDEMPOTENCY_WINDOW_MS;
-    jobs[kind] = windowExpired
+    const retryable = job.attemptIdempotencyGuaranteed === true && !windowExpired;
+    jobs[kind] = retryable
       ? {
-          ...job,
-          status: "blocked",
-          claimedAt: null,
-          nextAttemptAt: null,
-          lastError: job.lastError ?? "idempotency_window_expired",
-          updatedAt: input.now,
-        }
-      : {
           ...job,
           status: "pending",
           claimedAt: null,
           nextAttemptAt: input.now,
+          attemptProvider: null,
+          attemptIdempotencyGuaranteed: null,
           lastError: job.lastError ?? "attempt_reclaimed",
+          updatedAt: input.now,
+        }
+      : {
+          ...job,
+          status: "blocked",
+          claimedAt: null,
+          nextAttemptAt: null,
+          attemptProvider: null,
+          attemptIdempotencyGuaranteed: null,
+          lastError:
+            job.lastError ??
+            (windowExpired ? "idempotency_window_expired" : "ambiguous_without_idempotency"),
           updatedAt: input.now,
         };
     changed = true;

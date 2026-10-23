@@ -42,6 +42,7 @@ import {
   getPromotionFollowupDelaySeconds,
   preparePromotionCouponPayload,
   preparePromotionFollowupPayload,
+  selectPromotionProvider,
   type PromotionDeliveryOutcome,
 } from "@/lib/promotions";
 
@@ -139,8 +140,17 @@ export async function drivePromotionJobs(
     couponDelivered = true;
   }
 
+  // The provider selection is committed with each claim, before the
+  // provider call, so the guarantee covering the attempt is on record
+  // even if this driver dies mid-send.
+  const selection = selectPromotionProvider();
   for (const kind of ["coupon", "followup"] as PromotionJobKind[]) {
-    const { claim } = await client.claimPromotionJob(name, { kind, now: Date.now() });
+    const { claim } = await client.claimPromotionJob(name, {
+      kind,
+      now: Date.now(),
+      attemptProvider: selection?.provider ?? null,
+      attemptIdempotencyGuaranteed: selection?.idempotencyGuaranteed ?? null,
+    });
     if (!claim) continue;
 
     let outcome: PromotionSendOutcome;
@@ -210,12 +220,20 @@ export async function subscribePromotionFlow(input: {
   const client = createConsistencyCoordinatorClient();
 
   const facts = await gatherPromotionLegacyFacts(email);
+  const now = Date.now();
   const { isNewSubscriber, state } = await client.subscribePromotion(name, {
     emailHash,
     source: input.source,
-    now: Date.now(),
+    now,
     facts,
     couponPayload: preparePromotionCouponPayload(email, input.couponCode),
+    // Used only if the coupon is already accepted but its followup job
+    // was never created (partial legacy state) — the recovery path.
+    followupPayload: preparePromotionFollowupPayload(
+      email,
+      input.couponCode,
+      new Date(now + getPromotionFollowupDelaySeconds() * 1000).toISOString(),
+    ),
   });
   await publishPromotionProjection(email, state);
 

@@ -102,6 +102,7 @@ type CoordinatorStub = {
     now: number;
     facts: PromotionLegacyFacts;
     couponPayload: PromotionJobPayload;
+    followupPayload?: PromotionJobPayload;
   }): Promise<{ isNewSubscriber: boolean; state: PromotionCoordinatorState }>;
   unsubscribePromotion(input: {
     emailHash: string;
@@ -112,6 +113,8 @@ type CoordinatorStub = {
   claimPromotionJob(input: {
     kind: PromotionJobKind;
     now: number;
+    attemptProvider?: string | null;
+    attemptIdempotencyGuaranteed?: boolean | null;
   }): Promise<{ claim: ClaimPromotionJobResult }>;
   completePromotionJob(input: {
     kind: PromotionJobKind;
@@ -162,6 +165,7 @@ export type ConsistencyCoordinatorClient = {
       now: number;
       facts: PromotionLegacyFacts;
       couponPayload: PromotionJobPayload;
+      followupPayload?: PromotionJobPayload;
     },
   ): Promise<{ isNewSubscriber: boolean; state: PromotionCoordinatorState }>;
   unsubscribePromotion(
@@ -175,7 +179,12 @@ export type ConsistencyCoordinatorClient = {
   ): Promise<{ wasAlreadyUnsubscribed: boolean; state: PromotionCoordinatorState }>;
   claimPromotionJob(
     name: string,
-    input: { kind: PromotionJobKind; now: number },
+    input: {
+      kind: PromotionJobKind;
+      now: number;
+      attemptProvider?: string | null;
+      attemptIdempotencyGuaranteed?: boolean | null;
+    },
   ): Promise<{ claim: ClaimPromotionJobResult }>;
   completePromotionJob(
     name: string,

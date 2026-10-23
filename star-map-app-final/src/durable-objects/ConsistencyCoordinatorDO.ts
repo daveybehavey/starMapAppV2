@@ -57,6 +57,7 @@ import {
   deliverPromotionSend,
   getPromotionFollowupDelaySeconds,
   preparePromotionFollowupPayload,
+  selectPromotionProvider,
   type PromotionDeliveryOutcome,
 } from "../lib/promotions";
 
@@ -219,6 +220,7 @@ export class ConsistencyCoordinatorDO extends DurableObject {
     now: number;
     facts: PromotionLegacyFacts;
     couponPayload: PromotionJobPayload;
+    followupPayload?: PromotionJobPayload;
   }): Promise<{ isNewSubscriber: boolean; state: PromotionCoordinatorState }> {
     const current = this.readKind("promotion");
     const result = applySubscribePromotion(current, input);
@@ -243,10 +245,23 @@ export class ConsistencyCoordinatorDO extends DurableObject {
   async claimPromotionJob(input: {
     kind: PromotionJobKind;
     now: number;
+    attemptProvider?: string | null;
+    attemptIdempotencyGuaranteed?: boolean | null;
   }): Promise<{ claim: ClaimPromotionJobResult }> {
     const current = this.readKind("promotion");
     if (!current) return { claim: null };
-    const result = applyClaimPromotionJob(current, input);
+    // The claim commits the provider selection that will cover the
+    // attempt BEFORE the driver calls the provider. Callers may pass
+    // their own selection; otherwise this object's env decides (same
+    // worker env the delivery chain reads).
+    const selection = selectPromotionProvider();
+    const result = applyClaimPromotionJob(current, {
+      kind: input.kind,
+      now: input.now,
+      attemptProvider: input.attemptProvider ?? selection?.provider ?? null,
+      attemptIdempotencyGuaranteed:
+        input.attemptIdempotencyGuaranteed ?? selection?.idempotencyGuaranteed ?? null,
+    });
     if (result.changed) {
       this.writeDocument(result.state);
       await this.syncAlarm(result.state);
@@ -294,7 +309,10 @@ export class ConsistencyCoordinatorDO extends DurableObject {
    * coupon acceptance creates (and immediately attempts) the followup
    * in the same pass, exactly as the subscribe route does inline.
    * Each completion is persisted before the next provider call, so a
-   * crash mid-pass resumes from committed state.
+   * crash mid-pass resumes from committed state. Delivery awaits the
+   * provider, so each completion is applied to a freshly re-read
+   * document — never to this pass's pre-send snapshot, which a
+   * concurrent RPC may have superseded.
    */
   async alarm(): Promise<void> {
     const initial = this.readKind("promotion");
@@ -308,8 +326,14 @@ export class ConsistencyCoordinatorDO extends DurableObject {
     // coupon acceptance can create and immediately attempt the
     // followup). The claim op itself enforces due-ness — kinds that
     // are not due return no claim.
+    const selection = selectPromotionProvider();
     for (const kind of ["coupon", "followup"] as const) {
-      const claimed = applyClaimPromotionJob(state, { kind, now: Date.now() });
+      const claimed = applyClaimPromotionJob(state, {
+        kind,
+        now: Date.now(),
+        attemptProvider: selection?.provider ?? null,
+        attemptIdempotencyGuaranteed: selection?.idempotencyGuaranteed ?? null,
+      });
       if (!claimed.claim) {
         state = claimed.state;
         if (claimed.changed) this.writeDocument(state);
@@ -338,8 +362,16 @@ export class ConsistencyCoordinatorDO extends DurableObject {
         };
       }
 
+      // The provider call above is an external await: RPCs (an
+      // unsubscribe, a resubscribe) may have committed newer state
+      // while it was in flight. Re-read the document and apply the
+      // completion to the CURRENT state — completing against this
+      // pass's pre-send snapshot would overwrite those commits with
+      // stale subscription fields.
+      const fresh = this.readKind("promotion");
+      if (!fresh) return;
       const completedAt = Date.now();
-      const completed = applyCompletePromotionJob(state, {
+      const completed = applyCompletePromotionJob(fresh, {
         kind,
         outcome,
         now: completedAt,

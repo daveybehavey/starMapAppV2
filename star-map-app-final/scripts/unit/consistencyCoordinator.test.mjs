@@ -49,6 +49,7 @@ const {
   preparePromotionCouponPayload,
   preparePromotionFollowupPayload,
   getPromotionFollowupDelaySeconds,
+  selectPromotionProvider,
 } = await import("../../src/lib/promotions.ts");
 
 const APP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -736,6 +737,390 @@ test("A2-3 definitive failure is terminal for the drive but recorded", async () 
   const state = await client.getPromotionState(name);
   assert.equal(state?.jobs.coupon?.status, "failed");
   assert.match(state?.jobs.coupon?.lastError ?? "", /resend_http_422/);
+});
+
+/* ------------- A2-3 gate fix round 1 (Codex findings) ------------- */
+
+function saveEnv() {
+  return {
+    resend: process.env.RESEND_API_KEY,
+    sendgrid: process.env.SENDGRID_API_KEY,
+    webhook: process.env.PROMOTION_AUTOMATION_WEBHOOK_URL,
+  };
+}
+
+function restoreEnv(saved) {
+  if (saved.resend === undefined) delete process.env.RESEND_API_KEY;
+  else process.env.RESEND_API_KEY = saved.resend;
+  if (saved.sendgrid === undefined) delete process.env.SENDGRID_API_KEY;
+  else process.env.SENDGRID_API_KEY = saved.sendgrid;
+  if (saved.webhook === undefined) delete process.env.PROMOTION_AUTOMATION_WEBHOOK_URL;
+  else process.env.PROMOTION_AUTOMATION_WEBHOOK_URL = saved.webhook;
+}
+
+function setProviderEnv({ resend = false, sendgrid = false, webhook = false }) {
+  if (resend) process.env.RESEND_API_KEY = "test-resend-key";
+  else delete process.env.RESEND_API_KEY;
+  if (sendgrid) process.env.SENDGRID_API_KEY = "test-sendgrid-key";
+  else delete process.env.SENDGRID_API_KEY;
+  if (webhook) process.env.PROMOTION_AUTOMATION_WEBHOOK_URL = "https://example.invalid/hook";
+  else delete process.env.PROMOTION_AUTOMATION_WEBHOOK_URL;
+}
+
+function subscribedState(emailHash, now) {
+  return stateLib.applySubscribePromotion(null, {
+    emailHash,
+    source: "test",
+    now,
+    facts: noFacts,
+    couponPayload: preparePromotionCouponPayload("pure@example.com", "FIRST50"),
+  }).state;
+}
+
+test("A2-3 provider selection mirrors the delivery chain order and guarantees", () => {
+  const saved = saveEnv();
+  try {
+    setProviderEnv({ resend: true, sendgrid: true, webhook: true });
+    assert.deepEqual(selectPromotionProvider(), {
+      provider: "resend",
+      idempotencyGuaranteed: true,
+    });
+    setProviderEnv({ sendgrid: true, webhook: true });
+    assert.deepEqual(selectPromotionProvider(), {
+      provider: "sendgrid",
+      idempotencyGuaranteed: false,
+    });
+    setProviderEnv({ webhook: true });
+    assert.deepEqual(selectPromotionProvider(), {
+      provider: "webhook",
+      idempotencyGuaranteed: false,
+    });
+    setProviderEnv({});
+    assert.equal(selectPromotionProvider(), null);
+  } finally {
+    restoreEnv(saved);
+  }
+});
+
+test("A2-3 stale claim on a provider without an idempotency guarantee blocks instead of resending", () => {
+  const t0 = NOW;
+  const state = subscribedState("hash-stale-sg", t0);
+  const claimed = stateLib.applyClaimPromotionJob(state, {
+    kind: "coupon",
+    now: t0,
+    attemptProvider: "sendgrid",
+    attemptIdempotencyGuaranteed: false,
+  });
+  assert.ok(claimed.claim);
+  assert.equal(
+    claimed.state.jobs.coupon?.attemptProvider,
+    "sendgrid",
+    "the claim stamps the selected provider before any provider call",
+  );
+  assert.equal(claimed.state.jobs.coupon?.attemptIdempotencyGuaranteed, false);
+  // The driver dies after SendGrid accepted but before recording the
+  // completion: the attempt's outcome is uncertain and SendGrid has no
+  // idempotency guarantee to make a retry safe.
+  const alarmed = stateLib.applyPromotionAlarm(claimed.state, {
+    now: t0 + stateLib.PROMOTION_JOB_ATTEMPT_STALE_MS + 1000,
+  });
+  assert.equal(
+    alarmed.state.jobs.coupon?.status,
+    "blocked",
+    "an uncertain attempt without a guarantee is never made retryable",
+  );
+  assert.deepEqual(alarmed.dueKinds, []);
+  const reclaim = stateLib.applyClaimPromotionJob(alarmed.state, {
+    kind: "coupon",
+    now: t0 + stateLib.PROMOTION_JOB_ATTEMPT_STALE_MS + 2000,
+  });
+  assert.equal(reclaim.claim, null);
+});
+
+test("A2-3 stale claim with an unrecorded guarantee blocks (fail closed)", () => {
+  const t0 = NOW;
+  const state = subscribedState("hash-stale-unknown", t0);
+  const claimed = stateLib.applyClaimPromotionJob(state, { kind: "coupon", now: t0 });
+  assert.ok(claimed.claim);
+  const alarmed = stateLib.applyPromotionAlarm(claimed.state, {
+    now: t0 + stateLib.PROMOTION_JOB_ATTEMPT_STALE_MS + 1000,
+  });
+  assert.equal(alarmed.state.jobs.coupon?.status, "blocked");
+  assert.deepEqual(alarmed.dueKinds, []);
+});
+
+test("A2-3 stale claim under Resend's guarantee reclaims to a retry and clears the stamp", () => {
+  const t0 = NOW;
+  const state = subscribedState("hash-stale-rs", t0);
+  const claimed = stateLib.applyClaimPromotionJob(state, {
+    kind: "coupon",
+    now: t0,
+    attemptProvider: "resend",
+    attemptIdempotencyGuaranteed: true,
+  });
+  assert.ok(claimed.claim);
+  const alarmed = stateLib.applyPromotionAlarm(claimed.state, {
+    now: t0 + stateLib.PROMOTION_JOB_ATTEMPT_STALE_MS + 1000,
+  });
+  assert.equal(alarmed.state.jobs.coupon?.status, "pending");
+  assert.deepEqual(alarmed.dueKinds, ["coupon"]);
+  assert.equal(alarmed.state.jobs.coupon?.attemptProvider, null);
+  assert.equal(alarmed.state.jobs.coupon?.attemptIdempotencyGuaranteed, null);
+});
+
+test("A2-3 DO claim stamps the selected provider; the reclaim honours its guarantee", async () => {
+  const saved = saveEnv();
+  try {
+    // SendGrid is the only configured provider: no idempotency guarantee.
+    setProviderEnv({ sendgrid: true });
+    const coordSg = newCoordinator(new FakeSqlStorage(), "promotion:v1:hash-stamp-sg");
+    await coordSg.subscribePromotion({
+      emailHash: "hash-stamp-sg",
+      source: "test",
+      now: NOW,
+      facts: noFacts,
+      couponPayload: preparePromotionCouponPayload("sg@example.com", "FIRST50"),
+    });
+    const { claim } = await coordSg.claimPromotionJob({ kind: "coupon", now: NOW });
+    assert.ok(claim);
+    const attempting = await coordSg.getPromotionState();
+    assert.equal(attempting?.jobs.coupon?.attemptProvider, "sendgrid");
+    assert.equal(attempting?.jobs.coupon?.attemptIdempotencyGuaranteed, false);
+    // Driver dies mid-attempt; the stale-claim reclaim must block, not resend.
+    const reclaimed = stateLib.applyPromotionAlarm(attempting, {
+      now: NOW + stateLib.PROMOTION_JOB_ATTEMPT_STALE_MS + 1000,
+    });
+    assert.equal(reclaimed.state.jobs.coupon?.status, "blocked");
+    assert.deepEqual(reclaimed.dueKinds, []);
+
+    // Resend selected: its 24h guarantee covers the reclaim.
+    setProviderEnv({ resend: true });
+    const coordRs = newCoordinator(new FakeSqlStorage(), "promotion:v1:hash-stamp-rs");
+    await coordRs.subscribePromotion({
+      emailHash: "hash-stamp-rs",
+      source: "test",
+      now: NOW,
+      facts: noFacts,
+      couponPayload: preparePromotionCouponPayload("rs@example.com", "FIRST50"),
+    });
+    await coordRs.claimPromotionJob({ kind: "coupon", now: NOW });
+    const attemptingRs = await coordRs.getPromotionState();
+    assert.equal(attemptingRs?.jobs.coupon?.attemptProvider, "resend");
+    assert.equal(attemptingRs?.jobs.coupon?.attemptIdempotencyGuaranteed, true);
+    const reclaimedRs = stateLib.applyPromotionAlarm(attemptingRs, {
+      now: NOW + stateLib.PROMOTION_JOB_ATTEMPT_STALE_MS + 1000,
+    });
+    assert.equal(reclaimedRs.state.jobs.coupon?.status, "pending");
+    assert.deepEqual(reclaimedRs.dueKinds, ["coupon"]);
+  } finally {
+    restoreEnv(saved);
+  }
+});
+
+test("A2-3 late coupon acceptance after an unsubscribe creates no followup", async () => {
+  const calls = installFetchFake(async () => okJson({ id: "should_not_send" }));
+  const client = freshClient();
+  const email = "lateaccept@example.com";
+  const emailHash = clientLib.coordinatorEmailHash(email);
+  const name = clientLib.promotionCoordinatorName(emailHash);
+  await subscribeViaClient(client, email);
+  const { claim } = await client.claimPromotionJob(name, { kind: "coupon", now: Date.now() });
+  assert.ok(claim);
+  // The user opts out while the coupon send is in flight.
+  await client.unsubscribePromotion(name, {
+    emailHash,
+    now: Date.now(),
+    reason: "email_link",
+    facts: noFacts,
+  });
+  let state = await client.getPromotionState(name);
+  assert.ok(state?.unsubscribedAt, "unsubscribe landed mid-attempt");
+  assert.equal(state?.jobs.coupon?.status, "attempting", "the in-flight job is left alone");
+  // The send then completes as accepted.
+  const completedAt = Date.now();
+  const { state: after } = await client.completePromotionJob(name, {
+    kind: "coupon",
+    outcome: { type: "accepted", provider: "resend", providerMessageId: "email_late" },
+    now: completedAt,
+    followupPayload: preparePromotionFollowupPayload(
+      email,
+      "FIRST50",
+      new Date(completedAt + getPromotionFollowupDelaySeconds() * 1000).toISOString(),
+    ),
+  });
+  assert.equal(after?.jobs.coupon?.status, "accepted", "the completed send is recorded truthfully");
+  assert.equal(
+    after?.jobs.followup,
+    undefined,
+    "no followup is scheduled for an opted-out account",
+  );
+  const drive = await drivePromotionJobs(client, name, email);
+  assert.equal(calls.length, 0, "nothing further is delivered");
+  assert.equal(drive.couponDelivered, true);
+  state = await client.getPromotionState(name);
+  assert.ok(state?.unsubscribedAt, "the opt-out stands");
+});
+
+test("A2-3 ambiguous completion after an unsubscribe cancels instead of restoring a retry", async () => {
+  installFetchFake(async () => okJson({ id: "unused" }));
+  const client = freshClient();
+  const email = "lateambiguous@example.com";
+  const emailHash = clientLib.coordinatorEmailHash(email);
+  const name = clientLib.promotionCoordinatorName(emailHash);
+  await subscribeViaClient(client, email);
+  const { claim } = await client.claimPromotionJob(name, { kind: "coupon", now: Date.now() });
+  assert.ok(claim);
+  await client.unsubscribePromotion(name, {
+    emailHash,
+    now: Date.now(),
+    reason: "email_link",
+    facts: noFacts,
+  });
+  const { state: after } = await client.completePromotionJob(name, {
+    kind: "coupon",
+    outcome: { type: "ambiguous", provider: "resend", idempotencyGuaranteed: true, error: "timeout" },
+    now: Date.now(),
+  });
+  assert.equal(
+    after?.jobs.coupon?.status,
+    "cancelled",
+    "a late ambiguous completion must not restore a deliverable retry for an opted-out account",
+  );
+  assert.equal(after?.jobs.coupon?.nextAttemptAt, null);
+  const alarmed = stateLib.applyPromotionAlarm(after, { now: Date.now() + 60 * 60 * 1000 });
+  assert.deepEqual(alarmed.dueKinds, []);
+  // Only a later explicit subscribe makes the job eligible again.
+  await subscribeViaClient(client, email);
+  const revived = await client.getPromotionState(name);
+  assert.equal(revived?.jobs.coupon?.status, "pending");
+  assert.equal(revived?.unsubscribedAt, null);
+});
+
+test("A2-3 imported coupon acceptance without a followup marker recovers the followup on subscribe", async () => {
+  const calls = installFetchFake(async () => okJson({ id: "email_followup_recovered" }));
+  const client = freshClient();
+  const email = "partial-legacy@example.com";
+  const emailHash = clientLib.coordinatorEmailHash(email);
+  const name = clientLib.promotionCoordinatorName(emailHash);
+  const now = Date.now();
+  const { state } = await client.subscribePromotion(name, {
+    emailHash,
+    source: "test",
+    now,
+    facts: {
+      state: {
+        subscribedAt: NOW - 30 * 24 * HOUR,
+        couponSentAt: NOW - 29 * 24 * HOUR,
+        updatedAt: NOW - 29 * 24 * HOUR,
+      },
+      inLegacySubscriptionList: null,
+      inLegacySentList: null,
+      inLegacyFollowupList: null,
+    },
+    couponPayload: preparePromotionCouponPayload(email, "FIRST50"),
+    followupPayload: preparePromotionFollowupPayload(
+      email,
+      "FIRST50",
+      new Date(now + getPromotionFollowupDelaySeconds() * 1000).toISOString(),
+    ),
+  });
+  assert.equal(state.jobs.coupon?.status, "accepted");
+  assert.equal(state.jobs.coupon?.provider, "legacy");
+  assert.equal(
+    state.jobs.followup?.status,
+    "pending",
+    "the missing followup is created so the drive can send it (the legacy route's recovery path)",
+  );
+  const drive = await drivePromotionJobs(client, name, email);
+  assert.equal(drive.couponDelivered, true);
+  assert.equal(calls.length, 1, "only the followup is sent — the coupon is never resent");
+  assert.ok(calls[0].body.scheduled_at, "the single send is the scheduled followup");
+  const after = await client.getPromotionState(name);
+  assert.equal(after?.jobs.followup?.status, "accepted");
+});
+
+test("A2-3 legacy sent-list membership without a followup marker recovers the followup on subscribe", async () => {
+  const calls = installFetchFake(async () => okJson({ id: "email_followup_list" }));
+  const client = freshClient();
+  const email = "partial-list@example.com";
+  const emailHash = clientLib.coordinatorEmailHash(email);
+  const name = clientLib.promotionCoordinatorName(emailHash);
+  const now = Date.now();
+  const { state } = await client.subscribePromotion(name, {
+    emailHash,
+    source: "test",
+    now,
+    facts: {
+      state: null,
+      inLegacySubscriptionList: true,
+      inLegacySentList: true,
+      inLegacyFollowupList: false,
+    },
+    couponPayload: preparePromotionCouponPayload(email, "FIRST50"),
+    followupPayload: preparePromotionFollowupPayload(
+      email,
+      "FIRST50",
+      new Date(now + getPromotionFollowupDelaySeconds() * 1000).toISOString(),
+    ),
+  });
+  assert.equal(state.jobs.coupon?.status, "accepted");
+  assert.equal(state.jobs.coupon?.provider, "legacy");
+  assert.equal(state.jobs.followup?.status, "pending");
+  await drivePromotionJobs(client, name, email);
+  assert.equal(calls.length, 1, "only the followup is sent");
+  assert.ok(calls[0].body.scheduled_at);
+});
+
+test("A2-3 DO alarm completion cannot erase a concurrent unsubscribe", async () => {
+  let enteredSend;
+  let releaseSend;
+  const sendEntered = new Promise((resolve) => {
+    enteredSend = resolve;
+  });
+  let blockFirstSend = true;
+  const calls = installFetchFake(async () => {
+    if (blockFirstSend) {
+      blockFirstSend = false;
+      enteredSend();
+      await new Promise((resolve) => {
+        releaseSend = resolve;
+      });
+    }
+    return okJson({ id: "email_race" });
+  });
+  const sql = new FakeSqlStorage();
+  const name = "promotion:v1:hash-race";
+  const coord = newCoordinator(sql, name);
+  await coord.subscribePromotion({
+    emailHash: "hash-race",
+    source: "test",
+    now: Date.now(),
+    facts: noFacts,
+    couponPayload: preparePromotionCouponPayload("race@example.com", "FIRST50"),
+  });
+  const alarmRun = coord.alarm();
+  await sendEntered; // the alarm is parked inside the provider call
+  const un = await coord.unsubscribePromotion({
+    emailHash: "hash-race",
+    now: Date.now(),
+    reason: "email_link",
+    facts: noFacts,
+  });
+  assert.equal(un.wasAlreadyUnsubscribed, false);
+  releaseSend();
+  await alarmRun;
+  const after = await coord.getPromotionState();
+  assert.ok(
+    after?.unsubscribedAt,
+    "the unsubscribe committed during the provider call survives the alarm's completion",
+  );
+  assert.equal(after?.jobs.coupon?.status, "accepted");
+  assert.equal(
+    after?.jobs.followup,
+    undefined,
+    "the late completion schedules no followup for the opted-out account",
+  );
+  assert.equal(calls.length, 1, "only the in-flight coupon was sent");
 });
 
 /* ------------------------------ wiring ------------------------------ */
