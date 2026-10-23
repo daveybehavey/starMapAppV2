@@ -1379,10 +1379,16 @@ export function isValidEntitlementAuthorityState(
   if (s.foldedOwnGrantTotal !== undefined && !isNonNegativeInt(s.foldedOwnGrantTotal)) {
     return false;
   }
+  // The installed base is O_v + S — a SIGNED figure like the
+  // position it feeds (v3.6 §3.2): when the verified opening is
+  // negative but the journal fold already covers it (S = 0), the
+  // base is negative and valid; the floor lives on the spendable
+  // view, never on the stored figure. The receipt-arithmetic check
+  // below binds the base to O_v + S exactly.
   if (
     s.installedOpeningBase !== undefined &&
     s.installedOpeningBase !== null &&
-    !isNonNegativeInt(s.installedOpeningBase)
+    !Number.isInteger(s.installedOpeningBase)
   ) {
     return false;
   }

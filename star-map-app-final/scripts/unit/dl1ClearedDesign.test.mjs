@@ -32,6 +32,14 @@
  * birth pendency atomically), F-D (pending authority grants defer
  * their reversal at the webhook), F-E (no settlement of a discovery
  * pendency before its registration leg completes).
+ *
+ * Codex re-gate FIX ROUND 2 (2026-10-23): one P2 against 5439513 —
+ * checkpoint acceptance vs persisted-state validation. v3.6 §3.2
+ * preserves the position signed and floors only the spendable view,
+ * so the installed base (O_v + S) is signed too; the validator's
+ * non-negativity demand on it was the misaligned side. The RG2 test
+ * pins Codex's reproduction (negative verified opening covered by
+ * the fold installs a signed base that persists validly).
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -1359,4 +1367,56 @@ test("RG1 F-D wiring: the webhook reversal consults the authority for pending-gr
   assert.match(route, /authority_grant_discovery_unresolved/);
   assert.match(route, /authority_grant_inclusion_unresolved/);
   assert.match(route, /pendingAuthorityGrant/);
+});
+
+/* ---------------- Codex re-gate round 2 (RG2) ---------------- */
+
+test("RG2: checkpoint acceptance aligns with persisted-state validation — a negative verified opening covered by the fold installs a signed base", () => {
+  // Codex's reproduction: exhausted pack3 baseline (allowance 3,
+  // spent 3 → snapshot figure 0), then a successful legacy
+  // compensation (F = +1).
+  let s = seeded({
+    baselineOver: { allowance: 3, legacyRemainingBalance: 0, legacySpentCount: 3 },
+  });
+  const comp = applyEntitlementAuthorityOp(s, {
+    type: "compensate",
+    consumeToken: "tok-1",
+    now: NOW,
+  });
+  assert.equal(comp.outcome, "compensated");
+  s = comp.state;
+  // Attestation proves the opening was −1; the fold already covers
+  // it, so S = 0 and the installed base is O_v + S = −1 — signed,
+  // exactly as v3.6 §3.2 preserves the position signed (the floor
+  // lives on the spendable view only). Before the fix the
+  // checkpoint recorded this state and the persisted-state
+  // validator then rejected it, wedging the entitlement.
+  const installed = applyEntitlementAuthorityOp(s, {
+    type: "record_checkpoint",
+    verifiedOpening: -1,
+    attestedJournalHead: journalHeadOf(s),
+    snapshotFigureEcho: 0,
+    now: NOW + 1,
+  });
+  assert.equal(installed.outcome, "checkpoint_recorded");
+  const receipt = installed.state.verificationReceipt;
+  assert.deepEqual(
+    {
+      Ov: receipt.verifiedOpening,
+      F: receipt.journalFoldAtInstall,
+      S: receipt.shortfallAbsorption,
+    },
+    { Ov: -1, F: 1, S: 0 },
+  );
+  assert.equal(installed.state.installedOpeningBase, -1);
+  assert.equal(installed.state.installedOpeningBase, receipt.verifiedOpening + receipt.shortfallAbsorption);
+  assert.equal(deriveSignedPurchasedPosition(installed.state), 0);
+  assert.equal(deriveRemainingAllowance(installed.state), 0); // spendable view floored at 0
+  reload(installed.state); // persisted-state validation accepts the signed base
+  // The entitlement is not wedged: a later grant journals normally
+  // on top of the signed base (future grants are never offset).
+  const granted = applyEntitlementAuthorityOp(installed.state, grantRewardOp("cs_rg2_ref", 1));
+  assert.equal(deriveSignedPurchasedPosition(granted.state), 0); // purchased side unchanged
+  assert.equal(deriveRemainingAllowance(granted.state), 1); // reward credit spendable in full
+  reload(granted.state);
 });
