@@ -6,15 +6,19 @@
  * facts + immutable baseline (shapes in entitlementAuthorityState.ts), and
  * it is the ONLY bridge between the two accounting worlds.
  *
- * Safety posture (v3 §2.6, v3.1 §A):
+ * Safety posture (cleared design: v3.6 §2.1 snapshot, v3.7 §7.2 matrix):
  * - Lazy trigger: migration runs before the first accounting operation for
  *   an entitlement (the referral grant/reversal path in the webhook), never
  *   from a projection/display read.
  * - Fail closed: a record whose settled history cannot be established
- *   unambiguously yields `migration_pending` with a reason, and accounting
- *   stays on the legacy path only where the fence allows (see below) — the
- *   baseline is never guessed. Ambiguous records are a support-resolution
- *   path, not a silent approximation.
+ *   unambiguously yields `migration_pending` with a reason — the baseline
+ *   is never guessed. Ambiguous records are a support-resolution path,
+ *   not a silent approximation. NOTE (v3.7 §7.2, correcting the
+ *   pre-matrix text): once routing is ON, an underivable opening does
+ *   NOT "continue on a legacy path" — its W13 grants skip-record
+ *   (SKIP-R), its D1 serving is operator-gated, and its record is
+ *   frozen like every other. The matrix has no legacy cell at
+ *   S-ACTIVE/S-SAFE; the legacy writers exist only at S-OFF.
  * - No term synthesis: the baseline records established access terms as
  *   evidence; it never derives an access-expiry boundary from claim-token
  *   expiry and never resets an established term (no-expiry decision).
@@ -51,6 +55,7 @@
  */
 import {
   PLAN_ALLOWANCE,
+  type CreationSnapshot,
   type EntitlementAuthorityState,
   type EntitlementBaseline,
   type EntitlementFacts,
@@ -198,6 +203,42 @@ export function buildBaselineFromLegacyRecord(
       accessTermsNote: `${createdNote}; ${r1Note}${abovePlanNote}`,
       capturedAt: now,
     },
+  };
+}
+
+/**
+ * Build the creation snapshot from the SAME record read that produced
+ * the baseline figure (DL-1 v3.6 §2.1 / v3.7 §2.1): figure,
+ * fingerprints, and the unexplained reward aggregate — a census figure
+ * with no identity content, never a classification input (v3.10 §3.3).
+ * The access fingerprint preserves the record's revocation fields
+ * VERBATIM, including the legacy subscription handler's conflation
+ * (revoked: true beside reason "subscription_inactive"): the import
+ * preserves, never reinterprets (v3.6 §6.1, v3.7 §5.3's two axes).
+ */
+export function buildCreationSnapshot(
+  record: StripeSessionEntitlement,
+  baseline: EntitlementBaseline,
+  journalHead: number,
+  now: number,
+): CreationSnapshot {
+  const aggregate =
+    baseline.plan !== "subscription" && baseline.allowance !== null
+      ? Math.max(0, baseline.allowance - PLAN_ALLOWANCE[baseline.plan])
+      : 0;
+  return {
+    figure: baseline.legacyRemainingBalance,
+    allowance: baseline.allowance,
+    unexplainedRewardAggregate: aggregate,
+    accountingFingerprint: legacyAccountingFingerprint(record),
+    accessFingerprint: {
+      revoked: record.revoked === true,
+      revokedAt: typeof record.revokedAt === "number" ? record.revokedAt : null,
+      reason: typeof record.reason === "string" && record.reason ? record.reason : null,
+      subscriptionActive: record.subscriptionActive === true,
+    },
+    snapshotJournalHead: journalHead,
+    capturedAt: baseline.capturedAt ?? now,
   };
 }
 
@@ -460,7 +501,14 @@ export async function ensureEntitlementMigrated(
       if (inside.baseline) return { status: "already_migrated", state: inside };
 
       const record = await loadRecord();
-      if (!record) return { status: "no_record" };
+      if (!record) {
+        // A KV null is an OBSERVATION, never a birth fact (DL-1 v3.7
+        // §2.4): it classifies nothing. Callers that journal a grant
+        // on this outcome treat the birth as UNRESOLVED (pending,
+        // zero fold effect) — never as born-in-authority at full
+        // allowance.
+        return { status: "no_record" };
+      }
 
       const built = buildBaselineFromLegacyRecord(record, now);
       if (built.status === "pending") {
@@ -477,6 +525,7 @@ export async function ensureEntitlementMigrated(
       const captured = await client.apply(sessionId, {
         type: "capture_baseline",
         baseline: built.baseline,
+        snapshot: buildCreationSnapshot(record, built.baseline, 0, now),
         expectedLeaseId: lease.leaseId,
         now,
       });

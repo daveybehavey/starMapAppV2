@@ -52,6 +52,41 @@ import {
   type MigrationPendingReason,
 } from "@/lib/entitlementMigration";
 import type { StripeSessionEntitlement } from "@/lib/entitlementsStore";
+import type { ReferralDiscoveryClient } from "@/lib/referralDiscoveryClient";
+
+/**
+ * Discovery + classification inputs for the grant path (DL-1 v3.8
+ * §5.3, §2.2). When supplied, the wrapper runs the ReferralDiscoveryDO
+ * registration leg BEFORE the grant op (the shell leg: registration
+ * precedes any fold effect) and presents the classification evidence
+ * to the op, which classifies inside the serialized stream. When
+ * absent, the grant takes the pre-classification native path.
+ */
+export type ReferralGrantDiscoveryInput = {
+  discoveryClient: ReferralDiscoveryClient;
+  /** The referred session's Stripe creation time (ms). */
+  sessionCreatedAt: number;
+  /** Activation record's fencing-completion time; null until the
+   *  activation record exists (P-b is unavailable without it — never
+   *  approximated from deploy timestamps, v3.10 §8(a)). */
+  fencingCompletedAt: number | null;
+  /**
+   * The identity's landing witness, in its finalized form, when the
+   * caller has one. Omit to run the discovery leg WITHOUT presenting
+   * classification evidence (the op then takes the native path): the
+   * webhook's grant-time claim is a claim, not a finalized witness,
+   * and classification activates with the activation record that
+   * grounds P-b — passing a claim as evidence would pend every
+   * first-contact grant on a technicality the design does not intend.
+   */
+  witness?:
+    | "finalized_grant"
+    | "finalized_non_grant"
+    | "unfinalized"
+    | "absent";
+  operatorIncludedReceipt?: boolean;
+  operatorExcludedReceipt?: boolean;
+};
 
 export type ReferralGrantSkipReason =
   | MigrationPendingReason
@@ -59,7 +94,18 @@ export type ReferralGrantSkipReason =
   | "no_record"
   | "authority_unavailable"
   | "migration_busy"
-  | "refused";
+  | "refused"
+  /**
+   * The grant journaled as a zero-fold-effect PENDING entry
+   * (inclusion/birth/discovery unresolved). Not a loss: the pending
+   * entry is durable and operator-visible, the claim is NOT rolled
+   * back, and settlement — not redelivery — is what resolves it
+   * (though a redelivery dispatches to the same entry). Deliberately
+   * NOT in the transient set below.
+   */
+  | "grant_inclusion_unresolved"
+  | "grant_discovery_unresolved"
+  | "grant_birth_unresolved";
 
 export type ReferralRewardGrantResult =
   | { status: "granted" }
@@ -107,6 +153,7 @@ export async function grantReferralRewardViaAuthority(
   amount: number,
   loadRecord: () => Promise<StripeSessionEntitlement | null>,
   now: number = Date.now(),
+  discovery?: ReferralGrantDiscoveryInput,
 ): Promise<ReferralRewardGrantResult> {
   const ensured = await ensureEntitlementMigrated(client, referrerSessionId, loadRecord, now);
   if (ensured.status === "authority_unavailable") {
@@ -123,27 +170,98 @@ export async function grantReferralRewardViaAuthority(
     return { status: "skipped", reason: ensured.reason };
   }
 
+  // Discovery registration leg (DL-1 v3.8 §5.3): runs BEFORE the
+  // state machine is invoked for the fold, so no grant can commit
+  // unregistered. An unreachable discovery authority pends the grant
+  // (fail-closed, durable, retryable) rather than mis-recording it.
+  let discoveryRegistration:
+    | "registered"
+    | "already_registered"
+    | "unavailable"
+    | "conflict"
+    | "registered_after_terminal"
+    | undefined;
+  let terminalRecord: { lineageRef: string; recordedAt: number } | null = null;
+  if (discovery) {
+    const registered = await discovery.discoveryClient.register(grantId, {
+      referrerSessionId,
+      grantId,
+      now,
+    });
+    if (!registered) {
+      discoveryRegistration = "unavailable";
+    } else {
+      discoveryRegistration = registered.outcome;
+      if (registered.outcome === "registered_after_terminal") {
+        terminalRecord = registered.row.terminalNegative;
+      }
+    }
+  }
+
   const applied = await client.apply(referrerSessionId, {
     type: "grant_reward",
     grantId,
     amount,
     now,
+    discoveryRegistration,
+    terminalRecord,
+    classificationEvidence:
+      discovery && discovery.witness !== undefined
+        ? {
+            sessionCreatedAt: discovery.sessionCreatedAt,
+            fencingCompletedAt: discovery.fencingCompletedAt,
+            witness: discovery.witness,
+            operatorIncludedReceipt: discovery.operatorIncludedReceipt,
+            operatorExcludedReceipt: discovery.operatorExcludedReceipt,
+          }
+        : undefined,
+    presentingWriter: "stripe_webhook_w13",
   });
   if (!applied) return { status: "skipped", reason: "authority_unavailable" };
   if (applied.outcome === "reward_granted") return { status: "granted" };
+  if (applied.outcome === "reward_granted_born_reversed") return { status: "granted" };
   if (applied.outcome === "reward_already_granted") return { status: "already_granted" };
+  if (applied.outcome === "already_included_in_opening") {
+    // The value was already inside the referrer's opening figure;
+    // the observation is the grant's commit ticket.
+    return { status: "already_granted" };
+  }
+  if (applied.outcome === "grant_pending") {
+    return {
+      status: "skipped",
+      reason:
+        applied.pendingKind === "discovery"
+          ? "grant_discovery_unresolved"
+          : applied.pendingKind === "birth"
+            ? "grant_birth_unresolved"
+            : "grant_inclusion_unresolved",
+    };
+  }
   return { status: "skipped", reason: "refused" };
 }
 
 export type ReferralRewardReversalResult =
   | { status: "reversed"; clawed: number }
-  | { status: "already_reversed" }
+  /**
+   * Replay of a committed reversal. `clawed` is the ORIGINAL
+   * journaled receipt's amount, returned verbatim (DL-1 v3.6 §4.3) —
+   * a caller that died before finalizing its KV bookkeeping
+   * redelivers and records the true amount, not zero.
+   */
+  | { status: "already_reversed"; clawed: number }
   /**
    * The grant predates the reward bucket (or the referrer was never
    * migrated): nothing in the authority corresponds to it, and a clawback
    * must not reach the legacy bucket — reclaimed is zero by policy.
+   * `basis` names the positive ground when the op journaled one.
    */
-  | { status: "not_bucket_grant" }
+  | { status: "not_bucket_grant"; basis?: string }
+  /**
+   * Outcome 3 (DL-1 v3.7 §2.3 pairing / §6.1): the grant's inclusion
+   * classification is still pending, so the reversal defers — dedupe
+   * must NOT finalize — until the classification settles.
+   */
+  | { status: "deferred" }
   | { status: "authority_unavailable" };
 
 export async function reverseReferralRewardViaAuthority(
@@ -151,20 +269,30 @@ export async function reverseReferralRewardViaAuthority(
   referrerSessionId: string,
   grantId: string,
   now: number = Date.now(),
+  opts: { operatorReceipt?: boolean } = {},
 ): Promise<ReferralRewardReversalResult> {
   // Deliberately NO migration attempt here: a bucket grant can only exist
   // on an already-migrated entitlement (the grant path migrates first),
   // so a referrer without a baseline holds no bucket grant — and a
   // reversal must not create a baseline as a side effect.
+  //
+  // Classification is the OP's, inside the serialized stream (DL-1
+  // v3.6 §4.3): this wrapper no longer pre-checks state to decide
+  // not_bucket_grant — a read may route (an unreachable authority
+  // fails closed here), never decide. The one routing fact read here
+  // is baseline presence for the legacy posture: with no baseline at
+  // all, no journal exists for the op to classify against, and the
+  // pre-bucket answer stands as the built behaviour.
   const state = await client.getState(referrerSessionId);
   if (!state) return { status: "authority_unavailable" };
-  if (!state.baseline || !state.rewardGrants[grantId]) {
+  if (!state.baseline) {
     return { status: "not_bucket_grant" };
   }
 
   const applied = await client.apply(referrerSessionId, {
     type: "reverse_reward",
     grantId,
+    operatorReceipt: opts.operatorReceipt,
     now,
   });
   if (!applied) return { status: "authority_unavailable" };
@@ -172,9 +300,22 @@ export async function reverseReferralRewardViaAuthority(
     return { status: "reversed", clawed: applied.rewardClawed };
   }
   if (applied.outcome === "reward_reversal_already_applied") {
-    return { status: "already_reversed" };
+    return { status: "already_reversed", clawed: applied.rewardClawed };
   }
-  // The pre-check found the grant, so a refusal here means the state moved
-  // under us or disagrees with itself — fail closed, reclaim nothing.
+  if (applied.outcome === "not_bucket_grant") {
+    return { status: "not_bucket_grant", basis: applied.reversalBasis ?? undefined };
+  }
+  if (applied.outcome === "refused" && applied.refusal === "reversal_deferred") {
+    return { status: "deferred" };
+  }
+  if (applied.outcome === "refused" && applied.refusal === "unknown_reward_grant") {
+    // No folded grant, no pending entry, no settled inclusion, no
+    // receipt: the grant never entered this journal. With a baseline
+    // standing, the pre-bucket/legacy posture applies (the built
+    // behaviour the design grandfathers) — reclaimed zero, terminal.
+    return { status: "not_bucket_grant" };
+  }
+  // Any other refusal means the state disagrees with itself — fail
+  // closed, reclaim nothing.
   return { status: "authority_unavailable" };
 }

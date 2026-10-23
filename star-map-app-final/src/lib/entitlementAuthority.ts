@@ -10,7 +10,7 @@
  * fallback.
  *
  * Every successful mutation also republishes the KV read projection
- * (non-authoritative, display only — v3 §2.2). A failed projection write
+ * (non-authoritative, display only — v3.5 §6.3). A failed projection write
  * never fails or alters the accounting result; the projection is rebuilt
  * from authoritative state on the next mutation.
  *
@@ -27,8 +27,21 @@ import {
 } from "@/lib/entitlementAuthorityState";
 import { kv } from "@/lib/kv";
 
-/** KV key of the non-authoritative read projection for one entitlement. */
+/**
+ * KV key of the non-authoritative read projection for one entitlement.
+ * The projection lives on its OWN key (DL-1 v3.5 §6.3), separate from
+ * both the DO state and the legacy session record (whose accounting
+ * fields are frozen at D1 — no D1 code writes them; they are retained
+ * as opening evidence only). Images carry the publisher's
+ * `includedThroughSeq` watermark (see the projection type). The
+ * pre-v3.5 key (`entitlement:authority:{id}`) is retained as a named
+ * constant for the repair loop's dual-read; nothing new publishes to
+ * it.
+ */
 export const ENTITLEMENT_AUTHORITY_PROJECTION_KV_KEY = (sessionId: string) =>
+  `entitlement:projection:${sessionId}`;
+
+export const ENTITLEMENT_AUTHORITY_LEGACY_PROJECTION_KV_KEY = (sessionId: string) =>
   `entitlement:authority:${sessionId}`;
 
 type AuthorityNamespace = {
@@ -128,7 +141,7 @@ async function publishProjection(state: EntitlementAuthorityState): Promise<void
     );
   } catch {
     // Non-authoritative display projection: a failed write must never fail
-    // or alter the accounting result (v3 §2.2). It is rebuilt from
+    // or alter the accounting result (v3.5 §6.3). It is rebuilt from
     // authoritative state on the next mutation.
   }
 }

@@ -20,6 +20,7 @@ import {
   isTransientReferralGrantReason,
   reverseReferralRewardViaAuthority,
 } from "@/lib/referralRewardAuthority";
+import { createReferralDiscoveryClient } from "@/lib/referralDiscoveryClient";
 import type { StripeSessionEntitlement } from "@/lib/entitlementsStore";
 import { isPrintfulConfigured, submitPrintfulOrder } from "@/lib/printful";
 import { isPrintfulV2Configured, submitPrintfulV2CatalogOrder } from "@/lib/printfulV2Orders";
@@ -670,6 +671,17 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
                 | StripeSessionEntitlement
                 | null,
             timestamp,
+            {
+              // DL-1 v3.8 §5: the discovery registration leg runs
+              // inside the grant (before any fold effect). No
+              // classification evidence is presented here — the
+              // grant-time claim is not a finalized witness, and
+              // P-b's fencing timestamp arrives with the activation
+              // record at the Slice 6 cutover.
+              discoveryClient: createReferralDiscoveryClient(),
+              sessionCreatedAt: (session.created ?? 0) * 1000,
+              fencingCompletedAt: null,
+            },
           );
           if (grantResult.status === "granted" || grantResult.status === "already_granted") {
             rewardGranted = referralRewardCredits;
@@ -840,14 +852,25 @@ async function reverseReferralReward(
         sessionId,
         timestamp,
       );
-      if (reversal.status === "authority_unavailable") {
+      if (reversal.status === "authority_unavailable" || reversal.status === "deferred") {
+        // authority_unavailable: no authoritative answer exists.
+        // deferred: outcome 3 — the grant's inclusion classification
+        // is still pending (DL-1 v3.7 §2.3 pairing). Either way the
+        // dedupe must NOT finalize; the redelivery re-runs the chain.
         console.warn("Referral reversal deferred: entitlement authority unavailable", {
           sessionId,
           reason,
         });
         return { deferred: true };
       }
-      authorityClawed = reversal.status === "reversed" ? reversal.clawed : 0;
+      // A replayed reversal reports the ORIGINAL journaled claw
+      // (v3.6 §4.3 receipt): if this process died after the authority
+      // committed but before the KV finalization below, the
+      // redelivery finalizes with the true reclaimed amount.
+      authorityClawed =
+        reversal.status === "reversed" || reversal.status === "already_reversed"
+          ? reversal.clawed
+          : 0;
     }
   }
 
