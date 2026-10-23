@@ -7,6 +7,7 @@ import localFont from "next/font/local";
 import ReferralAttributionClient from "@/components/ReferralAttributionClient";
 import UtmAttributionClient from "@/components/UtmAttributionClient";
 import AnalyticsConsentManager from "@/components/AnalyticsConsentManager";
+import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 import SiteTopNav from "@/components/SiteTopNav";
 import ChristmasBanner from "@/components/ChristmasBanner";
 import SiteChromeHeightSync from "@/components/SiteChromeHeightSync";
@@ -256,6 +257,7 @@ export default function RootLayout({
           <UtmAttributionClient />
         </Suspense>
         <AnalyticsConsentManager />
+        <ServiceWorkerRegistration />
         <div className="cosmic-backdrop">
           <Suspense fallback={null}>
             <ChristmasBanner />
