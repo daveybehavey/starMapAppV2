@@ -120,10 +120,17 @@ async function sendWithTimeout(
 
 /**
  * The single send path. Ordering is the safety property:
- *   suppression check → begin_dispatch (fresh-clock deadline check, frozen
- *   payload read) → ONE provider call → resolve_dispatch.
+ *   suppression check → begin_dispatch (fresh-clock deadline check,
+ *   frozen payload read) → FINAL suppression re-check → ONE provider
+ *   call → resolve_dispatch.
  * The provider is called only with the payload frozen in the ledger row —
- * never with a caller-supplied re-render.
+ * never with a caller-supplied re-render. The final re-check exists
+ * because the first check cannot fence the send on its own: the
+ * begin_dispatch RPC is an external await, and an opt-out that lands (and
+ * is acknowledged) while it is in flight would otherwise be sent to.
+ * Between the final re-check's read and the provider-call invocation
+ * there is no external await, so no suppression write can slip between
+ * the decision and the send.
  */
 export async function executeReviewDispatch(
   input: { sessionId: string; claimId: string },
@@ -169,14 +176,31 @@ export async function executeReviewDispatch(
     return { outcome: "failed" };
   }
 
+  const resolve = async (result: ReviewDispatchResult) =>
+    deps.ledger.apply(sessionId, { type: "resolve_dispatch", claimId, result, now: now() }).catch(() => null);
+
+  // FINAL suppression fence: re-check after the dispatch commit, at the
+  // last moment before the provider call (see the ordering note above).
+  const suppressedFinal = await deps.isSuppressed().catch(() => null);
+  if (suppressedFinal === null) {
+    // The gate cannot be verified after the commit: do NOT send. The
+    // outcome is settled as uncertain (never resent) rather than guessed.
+    await resolve({ type: "ambiguous", error: "suppression_recheck_unavailable" });
+    return { outcome: "uncertain" };
+  }
+  if (suppressedFinal) {
+    // Suppression landed while the commit was in flight. No provider
+    // call has been made, so the committed row settles truthfully as
+    // terminal `suppressed` — not `uncertain`.
+    await resolve({ type: "suppressed" });
+    return { outcome: "suppressed" };
+  }
+
   const timed = await sendWithTimeout(
     deps.send,
     payload,
     deps.sendTimeoutMs ?? REVIEW_PROVIDER_SEND_TIMEOUT_MS
   );
-
-  const resolve = async (result: ReviewDispatchResult) =>
-    deps.ledger.apply(sessionId, { type: "resolve_dispatch", claimId, result, now: now() }).catch(() => null);
 
   if (timed.kind === "ambiguous") {
     await resolve({ type: "ambiguous", error: timed.error });

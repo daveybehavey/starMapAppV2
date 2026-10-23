@@ -47,6 +47,7 @@ import {
   reviewPayloadsEqual,
   reviewSendBackoffMs,
   sanitizeReviewError,
+  REVIEW_REQUEST_CLAIM_STALE_MS,
   REVIEW_REQUEST_MAX_ATTEMPTS,
   REVIEW_REQUEST_RETRY_DEADLINE_MS,
 } from "../../src/lib/reviewRequestLedgerState.ts";
@@ -214,6 +215,42 @@ test("ledger: release_claim returns an undispatched claim unconsumed", () => {
   assert.deepEqual(released.state.payload, frozenPayload("cs_live_r")); // frozen payload kept
   // And it can be claimed again immediately.
   assert.equal(claim(released.state, "c2", NOW + 1000).outcome, "claimed");
+});
+
+test("ledger: expire_claim recovers an abandoned pre-dispatch claim — only at the stale boundary", () => {
+  const claimed = claim(createEmptyReviewLedgerState("cs_live_ec"), "c1", NOW).state;
+  // 1ms before the boundary: untouched.
+  const early = applyReviewLedgerOp(claimed, {
+    type: "expire_claim",
+    now: NOW + REVIEW_REQUEST_CLAIM_STALE_MS - 1,
+  });
+  assert.equal(early.outcome, "no_change");
+  assert.equal(early.state.status, "claimed");
+  // At the boundary: released back to a due retry, unconsumed, payload kept.
+  const expired = applyReviewLedgerOp(claimed, {
+    type: "expire_claim",
+    now: NOW + REVIEW_REQUEST_CLAIM_STALE_MS,
+  });
+  assert.equal(expired.outcome, "released");
+  assert.equal(expired.state.status, "retry");
+  assert.equal(expired.state.attempts, 0);
+  assert.equal(expired.state.claimId, null);
+  assert.equal(expired.state.nextAttemptAt, NOW + REVIEW_REQUEST_CLAIM_STALE_MS);
+  assert.deepEqual(expired.state.payload, frozenPayload("cs_live_ec"));
+  // The dead claimant is fenced out for good; a fresh claim takes over.
+  const reclaim = claim(expired.state, "c2", NOW + REVIEW_REQUEST_CLAIM_STALE_MS);
+  assert.equal(reclaim.outcome, "claimed");
+  assert.equal(dispatch(expired.state, "c1", NOW + REVIEW_REQUEST_CLAIM_STALE_MS).outcome, "not_claim_owner");
+  assert.equal(dispatch(reclaim.state, "c2", NOW + REVIEW_REQUEST_CLAIM_STALE_MS).outcome, "dispatching");
+});
+
+test("ledger: expire_claim NEVER reclaims a committed dispatch", () => {
+  const claimed = claim(createEmptyReviewLedgerState("cs_live_ecd"), "c1", NOW).state;
+  const dispatching = dispatch(claimed, "c1", NOW).state;
+  const stale = NOW + REVIEW_REQUEST_CLAIM_STALE_MS * 10;
+  const result = applyReviewLedgerOp(dispatching, { type: "expire_claim", now: stale });
+  assert.equal(result.outcome, "no_change");
+  assert.equal(result.state.status, "dispatching");
 });
 
 test("ledger: absolute deadline — persisted at first dispatch, enforced at equality", () => {
@@ -507,6 +544,53 @@ test("coordinator: suppression is the final gate — checked inside dispatch, se
   assert.equal(outcome.outcome, "suppressed");
   assert.equal(sender.calls.length, 0);
   assert.equal(ledger.rows.get("cs_live_csup").status, "suppressed");
+});
+
+test("coordinator: suppression landing DURING begin_dispatch fences the send (final re-check)", async () => {
+  const base = createFakeLedger();
+  await claimedRow(base, "cs_live_cfence2");
+  let suppressed = false;
+  const ledger = {
+    rows: base.rows,
+    getState: base.getState,
+    async apply(id, op) {
+      const result = await base.apply(id, op);
+      // The opt-out lands (and is acknowledged in the suppression store)
+      // while the coordinator's begin_dispatch RPC is in flight.
+      if (op.type === "begin_dispatch" && result.outcome === "dispatching") suppressed = true;
+      return result;
+    },
+  };
+  const sender = createFakeSender();
+  const outcome = await executeReviewDispatch(
+    { sessionId: "cs_live_cfence2", claimId: "claim-1" },
+    { ledger, isSuppressed: async () => suppressed, send: sender.send, now: () => NOW },
+  );
+  assert.equal(outcome.outcome, "suppressed");
+  assert.equal(sender.calls.length, 0); // the provider was NEVER called
+  const row = base.rows.get("cs_live_cfence2");
+  assert.equal(row.status, "suppressed"); // truthful terminal — not uncertain
+  assert.equal(row.email, null); // terminal PII strip applied
+  assert.equal(row.payload, null);
+});
+
+test("coordinator: unavailable FINAL suppression re-check sends nothing, settles uncertain", async () => {
+  const ledger = createFakeLedger();
+  await claimedRow(ledger, "cs_live_crecheck");
+  let checks = 0;
+  const sender = createFakeSender();
+  const outcome = await executeReviewDispatch(
+    { sessionId: "cs_live_crecheck", claimId: "claim-1" },
+    {
+      ledger,
+      isSuppressed: async () => (checks++ === 0 ? false : null),
+      send: sender.send,
+      now: () => NOW,
+    },
+  );
+  assert.equal(outcome.outcome, "uncertain");
+  assert.equal(sender.calls.length, 0);
+  assert.equal(ledger.rows.get("cs_live_crecheck").status, "uncertain");
 });
 
 test("coordinator: unavailable suppression check dispatches nothing and consumes nothing", async () => {

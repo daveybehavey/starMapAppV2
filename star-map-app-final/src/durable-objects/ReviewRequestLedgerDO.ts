@@ -6,10 +6,14 @@
  * transitions for a session are serialized inside a single instance.
  *
  * REVISED (T-T1): the row carries the frozen provider payload, the absolute
- * retry deadline, and the PII-lifecycle timestamps. Two alarm duties:
+ * retry deadline, and the PII-lifecycle timestamps. Three alarm duties:
  *  - a `dispatching` row whose resolution never arrives (worker crash
  *    between the provider call and its recording) is settled as terminal
  *    `uncertain` after a grace window — never reclaimed, never resent;
+ *  - a `claimed` row whose claimant died before dispatching (worker
+ *    eviction between claim and dispatch/release) is expired back to a
+ *    due retry after the stale-claim window — no provider call can have
+ *    started from `claimed`, so the ask and its payload survive;
  *  - an `uncertain` row's retained recipient is redacted within 15 minutes.
  * Rows written by the PR #348 machine are migrated on load (legacy
  * `sending`/payload-less `retry` rows quarantined as `uncertain`, legacy
@@ -20,6 +24,7 @@ import {
   applyReviewLedgerOp,
   createEmptyReviewLedgerState,
   migrateLegacyReviewLedgerState,
+  REVIEW_REQUEST_CLAIM_STALE_MS,
   type FrozenReviewPayload,
   type ReviewLedgerApplyResult,
   type ReviewLedgerOp,
@@ -223,6 +228,8 @@ export class ReviewRequestLedgerDO extends DurableObject {
     let target: number | null = null;
     if (state.status === "dispatching") {
       target = (state.updatedAt ?? Date.now()) + REVIEW_DISPATCH_RESOLUTION_GRACE_MS;
+    } else if (state.status === "claimed") {
+      target = (state.claimedAt ?? state.updatedAt ?? Date.now()) + REVIEW_REQUEST_CLAIM_STALE_MS;
     } else if (
       state.status === "uncertain" &&
       state.redactedAt === null &&
@@ -249,6 +256,12 @@ export class ReviewRequestLedgerDO extends DurableObject {
     if (rows.length === 0) return;
     const state = this.loadState(rows[0].session_id);
     const now = Date.now();
+    if (state.status === "claimed") {
+      const result = applyReviewLedgerOp(state, { type: "expire_claim", now });
+      if (result.changed) this.writeState(result.state);
+      await this.syncAlarm(result.state);
+      return;
+    }
     if (state.status === "dispatching" && state.claimId) {
       const result = applyReviewLedgerOp(state, {
         type: "expire_dispatch",

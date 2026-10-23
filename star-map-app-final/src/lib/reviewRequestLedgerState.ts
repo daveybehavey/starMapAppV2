@@ -24,9 +24,11 @@
  *    claim presenting a different payload or identity terminalizes the row
  *    as `failed` (payload_diverged) instead of rebuilding.
  *  - Suppression used to be a skip with no ledger trace. It is now a ledger
- *    transition (`mark_suppressed` → terminal `suppressed`), and the final
+ *    transition (`mark_suppressed` → terminal `suppressed`), and the
  *    authoritative suppression check runs inside the dispatch coordinator
- *    immediately before the dispatch commits (reviewRequestSuppression.ts).
+ *    before the dispatch commits AND again after it, immediately before
+ *    the provider call — an opt-out acknowledged while the commit RPC was
+ *    in flight still fences the send (reviewRequestSuppression.ts).
  *  - Terminal rows used to keep the recipient address, provider id and claim
  *    token forever. Terminal transitions now strip payload, recipient,
  *    provider id and claim token immediately; `uncertain` rows keep the
@@ -98,6 +100,18 @@ export type ReviewLedgerState = {
 
 export const REVIEW_REQUEST_MAX_ATTEMPTS = 5;
 
+/**
+ * A pre-dispatch claim older than this is abandoned (see `expire_claim`).
+ * No provider call can start from `claimed` — the only send path commits
+ * `begin_dispatch` first — so expiring a stale claim can never reclaim a
+ * committed dispatch; it only recovers rows whose claimant died between
+ * claiming and dispatching (worker eviction), which would otherwise wedge
+ * the session's one ask forever and retain its recipient + frozen payload
+ * indefinitely. The window is far beyond the claim→dispatch RPC chain,
+ * which completes inside a single tick.
+ */
+export const REVIEW_REQUEST_CLAIM_STALE_MS = 15 * 60 * 1000;
+
 /** Absolute retry horizon from first dispatch (inside Resend's ~24h dedupe). */
 export const REVIEW_REQUEST_RETRY_DEADLINE_MS = 23 * 60 * 60 * 1000;
 
@@ -155,7 +169,14 @@ export function isReviewLedgerResolved(state: ReviewLedgerState): boolean {
 export type ReviewDispatchResult =
   | { type: "accepted"; providerId: string }
   | { type: "rejected"; error: string; permanent: boolean }
-  | { type: "ambiguous"; error: string };
+  | { type: "ambiguous"; error: string }
+  /**
+   * The coordinator's final suppression fence tripped AFTER the dispatch
+   * committed but BEFORE the provider was invoked: the coordinator (the
+   * sole send path) attests no provider call was made, so the committed
+   * row truthfully settles as terminal `suppressed` instead of `uncertain`.
+   */
+  | { type: "suppressed" };
 
 export type ReviewLedgerOp =
   | {
@@ -170,6 +191,7 @@ export type ReviewLedgerOp =
       now: number;
     }
   | { type: "release_claim"; claimId: string; now: number }
+  | { type: "expire_claim"; now: number }
   | { type: "begin_dispatch"; claimId: string; now: number }
   | { type: "resolve_dispatch"; claimId: string; result: ReviewDispatchResult; now: number }
   | { type: "expire_dispatch"; claimId: string; now: number }
@@ -264,7 +286,9 @@ function beginClaim(
   }
   if (state.status === "dispatching" || state.status === "claimed") {
     // A live claim is never displaced and a committed dispatch is never
-    // reclaimed — regardless of age. Crash recovery is the uncertain path.
+    // reclaimed — regardless of age. (An ABANDONED pre-dispatch claim is
+    // recovered only by the time-fenced `expire_claim`, never by a rival
+    // claimant; a crashed dispatch is the uncertain path.)
     return { state, changed: false, outcome: "in_flight" };
   }
   if (state.status === "retry" && (state.nextAttemptAt ?? 0) > now) {
@@ -334,6 +358,44 @@ function releaseClaim(
       claimId: null,
       claimedAt: null,
       nextAttemptAt: op.now,
+      updatedAt: op.now,
+    },
+    changed: true,
+    outcome: "released",
+  };
+}
+
+function expireClaim(
+  state: ReviewLedgerState,
+  op: Extract<ReviewLedgerOp, { type: "expire_claim" }>
+): ReviewLedgerApplyResult {
+  if (state.status === null) return { state, changed: false, outcome: "no_row" };
+  if (isReviewLedgerTerminal(state.status)) {
+    return { state, changed: false, outcome: "already_resolved" };
+  }
+  if (state.status !== "claimed") {
+    // Only a pre-dispatch claim can expire. A committed dispatch is NEVER
+    // reclaimed (crash recovery there is expire_dispatch → uncertain),
+    // and a due retry needs no recovery.
+    return { state, changed: false, outcome: "no_change" };
+  }
+  if (op.now - (state.claimedAt ?? op.now) < REVIEW_REQUEST_CLAIM_STALE_MS) {
+    return { state, changed: false, outcome: "no_change" };
+  }
+  // The claimant died between begin_claim and dispatch/release (e.g. the
+  // scheduled worker was evicted mid-tick). No provider call can have
+  // started — the send path requires begin_dispatch under the claim token
+  // — so, exactly like release_claim, no attempt is consumed and nothing
+  // is ambiguous: the row returns to a due retry with its frozen payload,
+  // and clearing the token fences out the dead claimant for good.
+  return {
+    state: {
+      ...state,
+      status: "retry",
+      claimId: null,
+      claimedAt: null,
+      nextAttemptAt: op.now,
+      lastError: "claim_abandoned",
       updatedAt: op.now,
     },
     changed: true,
@@ -424,6 +486,17 @@ function resolveDispatch(
     return { state, changed: false, outcome: "not_claim_owner" };
   }
   const { result } = op;
+
+  if (result.type === "suppressed") {
+    // The final suppression fence tripped after the commit but before
+    // the provider call (the coordinator attests no call was made):
+    // settle truthfully as suppressed, with the standard terminal strip.
+    return {
+      state: stripTerminalPii({ ...state, status: "suppressed", updatedAt: op.now }),
+      changed: true,
+      outcome: "suppressed",
+    };
+  }
 
   if (result.type === "accepted") {
     return {
@@ -606,6 +679,8 @@ export function applyReviewLedgerOp(state: ReviewLedgerState, op: ReviewLedgerOp
       return beginClaim(state, op);
     case "release_claim":
       return releaseClaim(state, op);
+    case "expire_claim":
+      return expireClaim(state, op);
     case "begin_dispatch":
       return beginDispatch(state, op);
     case "resolve_dispatch":
