@@ -1829,6 +1829,26 @@ test("wiring: promotions unsubscribe establishes the AUTHORITATIVE suppression r
   assert.ok(!page.includes("best-effort"), "the best-effort rationale must not return");
 });
 
+test("wiring: promotions unsubscribe is decoupled from review-secret configuration (Codex re-gate P1)", () => {
+  const page = readFileSync(new URL("src/app/unsubscribe/page.tsx", appRoot), "utf8");
+  const kvWrite = page.indexOf("await kv.set");
+  // When NO purpose-built review opt-out secret is configured, the
+  // suppression record settles as true (nothing to record into; review
+  // dispatch fails closed on signing_secret_missing) so a promotions
+  // token signed under any supported promotions fallback secret can
+  // still record the KV opt-out. The KV write sits behind the settled
+  // guard only — never behind the secret's presence.
+  assert.ok(page.includes("const suppressionSettled = secret"), "suppression outcome must be a settled flag");
+  assert.ok(page.includes(": true;"), "the unconfigured branch must settle, not fail");
+  const guard = page.indexOf("if (!suppressionSettled)");
+  assert.ok(guard !== -1 && guard < kvWrite, "the KV write must follow the settled guard");
+  // Secret separation holds on this surface: promotions/referral/payment
+  // secrets are never read here to key review suppression.
+  assert.ok(!page.includes("REFERRAL_SIGNING_SECRET"), "referral secret must not key review suppression");
+  assert.ok(!page.includes("STRIPE_"), "payment secrets must not key review suppression");
+  assert.ok(page.includes("getReviewOptOutSecret()"), "the purpose-built secret resolver remains the only source");
+});
+
 test("wiring: shippedAt is persisted before the shipping email send", () => {
   const source = readFileSync(new URL("src/lib/shippingNotifications.ts", appRoot), "utf8");
   const anchorWrite = source.indexOf("persistPrintOrderRecord(sessionId, anchored)");

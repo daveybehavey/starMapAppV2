@@ -37,24 +37,41 @@ export default async function UnsubscribePage({ searchParams }: PageProps) {
   if (valid) {
     const key = emailStateKey(email);
     const existing = await kv.get<PromotionEmailState>(key);
-    // AUTHORITATIVE suppression first (T-T1): a promotions unsubscribe is
-    // also a review-request suppression source, and this page — like the
-    // review opt-out route — may only acknowledge after the authoritative
-    // suppression record has landed. That includes the already-unsubscribed
-    // path: the KV row alone never proved the authoritative record exists,
-    // so it is (idempotently) established here too. If the record cannot
-    // be established, nothing is written and nothing is acknowledged: the
-    // page reports the failure instead of claiming an unsubscribe it did
-    // not record.
+    // Two obligations, deliberately decoupled (T-T1 + Codex re-gate):
+    //
+    // (1) The PROMOTIONAL opt-out. A valid promotions unsubscribe token
+    // must always be able to record the KV opt-out below. Promotions
+    // links may be signed with any supported promotions secret (the
+    // promotionSubscriptions fallbacks), including configurations where
+    // no purpose-built review opt-out secret exists — the promotional
+    // unsubscribe must not depend on review-engine readiness.
+    //
+    // (2) The REVIEW suppression record. When the review opt-out secret
+    // IS configured, the authoritative suppression-DO record is
+    // established BEFORE any acknowledgement — including on the
+    // already-unsubscribed path, where the KV row alone never proved
+    // the authoritative record exists — and a failed write fails the
+    // page closed: nothing is written, nothing is acknowledged. When
+    // the secret is NOT configured there is no key to name a record
+    // with, and the review engine cannot dispatch at all (its tick
+    // blocks on signing_secret_missing); a KV opt-out recorded in that
+    // state is still honoured later, because the tick treats the
+    // promotions KV state as a suppression source. Suppression
+    // enforcement therefore sits on the dispatch side rather than
+    // breaking a valid promotional unsubscribe.
+    //
+    // The review secret set is NOT broadened to match the promotions
+    // fallbacks: payment and referral secrets never key review
+    // suppression (secret separation, reviewRequestEmail.ts).
     const secret = getReviewOptOutSecret();
-    const recorded = secret
+    const suppressionSettled = secret
       ? await createReviewSuppressionClient().record(
           deriveReviewSuppressionName(email, secret),
           "promotions_unsubscribe",
           Date.now(),
         )
-      : false;
-    if (!recorded) {
+      : true;
+    if (!suppressionSettled) {
       status = "error";
     } else if (existing?.unsubscribedAt) {
       status = "already_unsubscribed";
