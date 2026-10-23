@@ -356,6 +356,14 @@ export type PromotionJob = {
   claimedAt: number | null;
   nextAttemptAt: number | null;
   acceptedAt: number | null;
+  /** The provider holding this job's send record: set when an attempt
+   *  completes (accepted / failed / ambiguous) and preserved by the
+   *  alarm when it reclaims an uncertain attempt. Once set, the job is
+   *  PINNED to this provider — the idempotency guarantee covering the
+   *  job's key lives there, so a retry may only ever be submitted
+   *  under this provider (applyClaimPromotionJob refuses any other,
+   *  and the drivers skip a pinned job whose provider is not the
+   *  configured selection). */
   provider: string | null;
   providerMessageId: string | null;
   /** Provider the in-flight attempt was submitted to, and whether that
@@ -728,6 +736,11 @@ export function applyClaimPromotionJob(
     attemptIdempotencyGuaranteed?: boolean | null;
   },
 ): { state: PromotionCoordinatorState; changed: boolean; claim: ClaimPromotionJobResult } {
+  // Opt-out guard: no claim is ever granted on an opted-out account.
+  // Unsubscribe cancels pending jobs, so a pending job alongside a set
+  // unsubscribedAt should be unreachable — but a claim racing the
+  // unsubscribe must not be the hole that lets a delivery through.
+  if (state.unsubscribedAt !== null) return { state, changed: false, claim: null };
   const job = state.jobs[input.kind];
   if (!job || job.status !== "pending") return { state, changed: false, claim: null };
   if (job.nextAttemptAt !== null && job.nextAttemptAt > input.now) {
@@ -750,6 +763,36 @@ export function applyClaimPromotionJob(
     };
     return {
       state: { ...state, jobs: { ...state.jobs, [input.kind]: blocked } },
+      changed: true,
+      claim: null,
+    };
+  }
+  if (
+    job.provider !== null &&
+    (input.attemptProvider ?? null) !== null &&
+    input.attemptProvider !== job.provider
+  ) {
+    // Provider pin: an earlier attempt left this job's acceptance
+    // uncertain at job.provider — that provider's idempotency
+    // guarantee is the only thing covering this job's key. A claim
+    // under a different provider would submit the campaign through a
+    // provider that cannot dedupe the original attempt, so it is
+    // refused (fail closed): the job stays pending, backed off by the
+    // standard retry delay so the alarm cannot spin on it, until its
+    // own provider is selected again (or the window check above
+    // blocks it for good). A claim recording NO selection is not a
+    // mismatch: every production claim path derives its selection
+    // from the same environment the delivery chain reads, so a null
+    // selection means no provider is configured at all and the
+    // attempt resolves as unconfigured without sending.
+    const backedOff: PromotionJob = {
+      ...job,
+      nextAttemptAt: input.now + PROMOTION_JOB_RETRY_DELAY_MS,
+      lastError: "pinned_provider_unavailable",
+      updatedAt: input.now,
+    };
+    return {
+      state: { ...state, jobs: { ...state.jobs, [input.kind]: backedOff } },
       changed: true,
       claim: null,
     };
@@ -918,8 +961,16 @@ export function applyCompletePromotionJob(
  * window is still open — the retry then repeats the identical key +
  * payload and the provider dedupes it. An uncertain attempt without a
  * proven guarantee (a no-guarantee provider, or no selection recorded)
- * blocks instead of risking a duplicate send (S3-A). Returns the kinds
- * due for an attempt.
+ * blocks instead of risking a duplicate send (S3-A). The reclaim
+ * preserves the attempt's stamped provider in the job's provider
+ * record before clearing the stamp: that record is what pins every
+ * later retry to the provider covering the job's key. If the
+ * subscriber has opted out, a stale claim is CANCELLED instead —
+ * unsubscribe cancels pending jobs but cannot touch an in-flight
+ * claim, and the crash-recovery path must not resurrect one into a
+ * deliverable retry for an opted-out account (a later explicit
+ * subscribe re-arms a cancelled job). Returns the kinds due for an
+ * attempt — always empty on an opted-out account.
  */
 export function applyPromotionAlarm(
   state: PromotionCoordinatorState,
@@ -934,6 +985,24 @@ export function applyPromotionAlarm(
     if (job.claimedAt === null || input.now < job.claimedAt + PROMOTION_JOB_ATTEMPT_STALE_MS) {
       continue;
     }
+    if (state.unsubscribedAt !== null) {
+      // The opt-out landed while this attempt was in flight. Whether
+      // or not the provider accepted it, no retry may be scheduled:
+      // cancel the job, mirroring the ambiguous-completion rule.
+      jobs[kind] = {
+        ...job,
+        status: "cancelled",
+        claimedAt: null,
+        nextAttemptAt: null,
+        provider: job.attemptProvider ?? job.provider,
+        attemptProvider: null,
+        attemptIdempotencyGuaranteed: null,
+        lastError: job.lastError ?? "attempt_cancelled_after_unsubscribe",
+        updatedAt: input.now,
+      };
+      changed = true;
+      continue;
+    }
     const windowExpired =
       job.firstAttemptAt !== null &&
       input.now > job.firstAttemptAt + PROVIDER_IDEMPOTENCY_WINDOW_MS;
@@ -944,6 +1013,7 @@ export function applyPromotionAlarm(
           status: "pending",
           claimedAt: null,
           nextAttemptAt: input.now,
+          provider: job.attemptProvider ?? job.provider,
           attemptProvider: null,
           attemptIdempotencyGuaranteed: null,
           lastError: job.lastError ?? "attempt_reclaimed",
@@ -964,14 +1034,17 @@ export function applyPromotionAlarm(
     changed = true;
   }
   if (changed) current = { ...current, jobs };
-  const dueKinds = (["coupon", "followup"] as const).filter((kind) => {
-    const job = current.jobs[kind];
-    return (
-      job !== undefined &&
-      job.status === "pending" &&
-      (job.nextAttemptAt === null || job.nextAttemptAt <= input.now)
-    );
-  });
+  const dueKinds =
+    current.unsubscribedAt !== null
+      ? []
+      : (["coupon", "followup"] as const).filter((kind) => {
+          const job = current.jobs[kind];
+          return (
+            job !== undefined &&
+            job.status === "pending" &&
+            (job.nextAttemptAt === null || job.nextAttemptAt <= input.now)
+          );
+        });
   return { state: current, changed, dueKinds };
 }
 

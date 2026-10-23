@@ -145,6 +145,20 @@ export async function drivePromotionJobs(
   // even if this driver dies mid-send.
   const selection = selectPromotionProvider();
   for (const kind of ["coupon", "followup"] as PromotionJobKind[]) {
+    // Provider pin: a job with a recorded provider carries an earlier
+    // attempt whose acceptance is uncertain at THAT provider — only
+    // its idempotency guarantee covers the job's key. Drive the job
+    // under its own provider or not at all: if that provider is no
+    // longer the configured selection, leave the job to the alarm
+    // (which retries under the same rule via the claim transition and
+    // blocks the job once the guarantee window lapses) rather than
+    // submitting the campaign through a provider that cannot dedupe
+    // the original attempt.
+    const current = await client.getPromotionState(name);
+    const pinnedProvider = current?.jobs[kind]?.provider ?? null;
+    if (pinnedProvider !== null && selection?.provider !== pinnedProvider) {
+      continue;
+    }
     const { claim } = await client.claimPromotionJob(name, {
       kind,
       now: Date.now(),

@@ -1123,6 +1123,298 @@ test("A2-3 DO alarm completion cannot erase a concurrent unsubscribe", async () 
   assert.equal(calls.length, 1, "only the in-flight coupon was sent");
 });
 
+/* ------------- A2-3 gate fix round 2 (Codex findings) ------------- */
+
+test("A2-3 stale claim after an unsubscribe is cancelled by the alarm, never claimable", () => {
+  const t0 = NOW;
+  let state = subscribedState("hash-r2-unsub-stale", t0);
+  const claimed = stateLib.applyClaimPromotionJob(state, {
+    kind: "coupon",
+    now: t0,
+    attemptProvider: "resend",
+    attemptIdempotencyGuaranteed: true,
+  });
+  assert.ok(claimed.claim);
+  state = claimed.state;
+  // The driver dies before submitting. The subscriber opts out while
+  // the claim is in flight: unsubscribe cancels PENDING jobs only, so
+  // the attempting job survives it — the crash-recovery path must not
+  // resurrect it into a deliverable retry.
+  const un = stateLib.applyUnsubscribePromotion(state, {
+    emailHash: "hash-r2-unsub-stale",
+    now: t0 + 1000,
+    reason: "email_link",
+    facts: noFacts,
+  });
+  state = un.state;
+  assert.ok(state.unsubscribedAt);
+  assert.equal(state.jobs.coupon?.status, "attempting");
+  const alarmed = stateLib.applyPromotionAlarm(state, {
+    now: t0 + stateLib.PROMOTION_JOB_ATTEMPT_STALE_MS + 2000,
+  });
+  assert.equal(
+    alarmed.state.jobs.coupon?.status,
+    "cancelled",
+    "an opted-out stale claim is cancelled, not made retryable",
+  );
+  assert.deepEqual(alarmed.dueKinds, []);
+  const reclaim = stateLib.applyClaimPromotionJob(alarmed.state, {
+    kind: "coupon",
+    now: t0 + stateLib.PROMOTION_JOB_ATTEMPT_STALE_MS + 3000,
+    attemptProvider: "resend",
+    attemptIdempotencyGuaranteed: true,
+  });
+  assert.equal(reclaim.claim, null, "a cancelled job is never claimable");
+  // Only an explicit resubscribe re-arms the job, under the same job id.
+  const re = stateLib.applySubscribePromotion(alarmed.state, {
+    emailHash: "hash-r2-unsub-stale",
+    source: "test",
+    now: t0 + stateLib.PROMOTION_JOB_ATTEMPT_STALE_MS + 4000,
+    facts: noFacts,
+    couponPayload: preparePromotionCouponPayload("pure@example.com", "FIRST50"),
+  });
+  assert.equal(re.state.unsubscribedAt, null);
+  assert.equal(re.state.jobs.coupon?.status, "pending");
+});
+
+test("A2-3 an opted-out account's pending job is never due and never claimable", () => {
+  const t0 = NOW;
+  const base = subscribedState("hash-r2-unsub-pending", t0);
+  // A pending job coexisting with an opt-out should be unreachable
+  // (unsubscribe cancels pending jobs); if state ever lands there, the
+  // alarm's due set and the claim must still refuse to deliver it.
+  const state = { ...base, unsubscribedAt: t0 + 1000, unsubscribeReason: "email_link" };
+  const alarmed = stateLib.applyPromotionAlarm(state, { now: t0 + 2000 });
+  assert.deepEqual(alarmed.dueKinds, [], "no kind is due on an opted-out account");
+  const { claim, changed } = stateLib.applyClaimPromotionJob(state, {
+    kind: "coupon",
+    now: t0 + 2000,
+    attemptProvider: "resend",
+    attemptIdempotencyGuaranteed: true,
+  });
+  assert.equal(claim, null, "no claim is granted on an opted-out account");
+  assert.equal(changed, false);
+});
+
+test("A2-3 DO alarm never sends to a subscriber who opted out during a crashed attempt", async () => {
+  const calls = installFetchFake(async () => okJson({ id: "should_not_send" }));
+  const emailHash = "hash-r2-crash-unsub";
+  const name = `promotion:v1:${emailHash}`;
+  // Seed the object with a claim that went stale mid-flight: subscribed
+  // and claimed ~15 minutes ago, unsubscribed while attempting.
+  const tPast = Date.now() - stateLib.PROMOTION_JOB_ATTEMPT_STALE_MS - 5000;
+  let seed = stateLib.applySubscribePromotion(null, {
+    emailHash,
+    source: "test",
+    now: tPast,
+    facts: noFacts,
+    couponPayload: preparePromotionCouponPayload("crashunsub@example.com", "FIRST50"),
+  }).state;
+  seed = stateLib.applyClaimPromotionJob(seed, {
+    kind: "coupon",
+    now: tPast,
+    attemptProvider: "resend",
+    attemptIdempotencyGuaranteed: true,
+  }).state;
+  seed = stateLib.applyUnsubscribePromotion(seed, {
+    emailHash,
+    now: tPast + 1000,
+    reason: "email_link",
+    facts: noFacts,
+  }).state;
+  assert.equal(seed.jobs.coupon?.status, "attempting");
+  const sql = new FakeSqlStorage();
+  sql.rows.set(name, {
+    object_id: name,
+    state_json: JSON.stringify(seed),
+    updated_at: tPast,
+  });
+  const coord = newCoordinator(sql, name);
+  await coord.alarm();
+  assert.equal(calls.length, 0, "the alarm sends nothing to the opted-out subscriber");
+  const after = await coord.getPromotionState();
+  assert.ok(after?.unsubscribedAt, "the opt-out stands");
+  assert.equal(after?.jobs.coupon?.status, "cancelled");
+});
+
+test("A2-3 a retry claim under a different provider than the recorded one is refused", () => {
+  const t0 = NOW;
+  let state = subscribedState("hash-r2-pin", t0);
+  const claimed = stateLib.applyClaimPromotionJob(state, {
+    kind: "coupon",
+    now: t0,
+    attemptProvider: "resend",
+    attemptIdempotencyGuaranteed: true,
+  });
+  assert.ok(claimed.claim);
+  // Resend accepted the send but its response was lost: the job is
+  // retryable, with resend recorded as the provider covering its key.
+  const completed = stateLib.applyCompletePromotionJob(claimed.state, {
+    kind: "coupon",
+    now: t0 + 1000,
+    outcome: {
+      type: "ambiguous",
+      provider: "resend",
+      idempotencyGuaranteed: true,
+      error: "response lost",
+    },
+  });
+  state = completed.state;
+  assert.equal(state.jobs.coupon?.status, "pending");
+  assert.equal(state.jobs.coupon?.provider, "resend");
+  const retryAt = state.jobs.coupon?.nextAttemptAt;
+  assert.ok(retryAt);
+  // Provider configuration changed before the retry: a claim under
+  // SendGrid is refused — SendGrid cannot dedupe the Resend attempt.
+  const refused = stateLib.applyClaimPromotionJob(state, {
+    kind: "coupon",
+    now: retryAt,
+    attemptProvider: "sendgrid",
+    attemptIdempotencyGuaranteed: false,
+  });
+  assert.equal(refused.claim, null, "no claim is granted under a different provider");
+  assert.equal(refused.state.jobs.coupon?.status, "pending", "the job waits for its own provider");
+  assert.equal(refused.state.jobs.coupon?.provider, "resend");
+  assert.equal(refused.state.jobs.coupon?.lastError, "pinned_provider_unavailable");
+  assert.ok(
+    (refused.state.jobs.coupon?.nextAttemptAt ?? 0) > retryAt,
+    "the refused claim backs the job off instead of spinning the alarm",
+  );
+  // A claim under the recorded provider still goes through, with the
+  // job's identical idempotency key.
+  const accepted = stateLib.applyClaimPromotionJob(refused.state, {
+    kind: "coupon",
+    now: refused.state.jobs.coupon?.nextAttemptAt ?? 0,
+    attemptProvider: "resend",
+    attemptIdempotencyGuaranteed: true,
+  });
+  assert.ok(accepted.claim, "a same-provider retry still works");
+  assert.equal(accepted.claim?.providerIdempotencyKey, state.jobs.coupon?.providerIdempotencyKey);
+});
+
+test("A2-3 the reclaim preserves the provider record so a crashed attempt stays pinned", () => {
+  const t0 = NOW;
+  const state = subscribedState("hash-r2-pin-crash", t0);
+  const claimed = stateLib.applyClaimPromotionJob(state, {
+    kind: "coupon",
+    now: t0,
+    attemptProvider: "resend",
+    attemptIdempotencyGuaranteed: true,
+  });
+  assert.ok(claimed.claim);
+  // The driver dies mid-attempt; the alarm reclaims the job to a retry.
+  const alarmed = stateLib.applyPromotionAlarm(claimed.state, {
+    now: t0 + stateLib.PROMOTION_JOB_ATTEMPT_STALE_MS + 1000,
+  });
+  assert.equal(alarmed.state.jobs.coupon?.status, "pending");
+  assert.equal(alarmed.state.jobs.coupon?.attemptProvider, null, "the in-flight stamp is cleared");
+  assert.equal(
+    alarmed.state.jobs.coupon?.provider,
+    "resend",
+    "the provider covering the uncertain attempt survives the reclaim",
+  );
+  const refused = stateLib.applyClaimPromotionJob(alarmed.state, {
+    kind: "coupon",
+    now: t0 + stateLib.PROMOTION_JOB_ATTEMPT_STALE_MS + 2000,
+    attemptProvider: "sendgrid",
+    attemptIdempotencyGuaranteed: false,
+  });
+  assert.equal(refused.claim, null, "the reclaimed job cannot be retried under another provider");
+});
+
+test("A2-3 driver never submits an uncertain retry through a different provider", async () => {
+  const saved = saveEnv();
+  const calls = [];
+  let resendAttempts = 0;
+  globalThis.fetch = async (url, init) => {
+    const u = String(url);
+    const call = { url: u, headers: init.headers, body: JSON.parse(init.body) };
+    calls.push(call);
+    if (u.startsWith("https://api.resend.com/")) {
+      resendAttempts += 1;
+      // The first Resend submission is accepted but its response is
+      // lost (500 surface): the driver records an ambiguous outcome.
+      return resendAttempts === 1 ? errResp(500, "response lost") : okJson({ id: "email_pinned" });
+    }
+    return okJson({ id: "sg_must_not_happen" });
+  };
+  try {
+    setProviderEnv({ resend: true });
+    const client = freshClient();
+    const email = "pinned@example.com";
+    const { name } = await subscribeViaClient(client, email);
+    // Attempt 1 (ten minutes ago): claimed under Resend and submitted;
+    // the provider accepted it but the response was lost, so the
+    // completion records an ambiguous outcome and the job is left
+    // pending, pinned to resend, its retry backoff already elapsed.
+    const tPast = Date.now() - 10 * 60 * 1000;
+    const { claim: firstClaim } = await client.claimPromotionJob(name, {
+      kind: "coupon",
+      now: tPast,
+      attemptProvider: "resend",
+      attemptIdempotencyGuaranteed: true,
+    });
+    assert.ok(firstClaim);
+    const { deliverPromotionSend } = await import("../../src/lib/promotions.ts");
+    const first = await deliverPromotionSend(
+      firstClaim.payload,
+      firstClaim.providerIdempotencyKey,
+    );
+    assert.equal(first.outcome, "ambiguous");
+    assert.equal(first.provider, "resend");
+    await client.completePromotionJob(name, {
+      kind: "coupon",
+      outcome: {
+        type: "ambiguous",
+        provider: "resend",
+        idempotencyGuaranteed: true,
+        error: "response lost",
+      },
+      now: tPast + 1000,
+    });
+    let state = await client.getPromotionState(name);
+    assert.equal(state?.jobs.coupon?.status, "pending");
+    assert.equal(state?.jobs.coupon?.provider, "resend");
+
+    // Provider configuration changes before the retry: Resend is gone,
+    // only SendGrid remains. The retry must not be submitted there —
+    // SendGrid cannot dedupe the original Resend attempt.
+    setProviderEnv({ sendgrid: true });
+    const callsBefore = calls.length;
+    const driveSg = await drivePromotionJobs(client, name, email);
+    assert.equal(driveSg.couponDelivered, false);
+    assert.equal(calls.length, callsBefore, "no submission under the replacement provider");
+    state = await client.getPromotionState(name);
+    assert.equal(state?.jobs.coupon?.status, "pending");
+    assert.equal(state?.jobs.coupon?.provider, "resend");
+
+    // Resend returns: the drive retries under the original provider
+    // with the job's identical idempotency key and payload.
+    setProviderEnv({ resend: true });
+    const driveRs = await drivePromotionJobs(client, name, email);
+    assert.equal(driveRs.couponDelivered, true);
+    const couponCalls = calls.filter(
+      (c) => c.url.startsWith("https://api.resend.com/") && !c.body.scheduled_at,
+    );
+    assert.equal(couponCalls.length, 2, "the coupon was submitted to Resend twice in total");
+    assert.equal(
+      couponCalls[0].headers["Idempotency-Key"],
+      couponCalls[1].headers["Idempotency-Key"],
+      "the retry reuses the identical idempotency key",
+    );
+    assert.equal(couponCalls[0].rawBody ?? JSON.stringify(couponCalls[0].body), couponCalls[1].rawBody ?? JSON.stringify(couponCalls[1].body), "the retry reuses the identical payload");
+    assert.equal(
+      calls.filter((c) => c.url.includes("sendgrid")).length,
+      0,
+      "SendGrid was never submitted to",
+    );
+    state = await client.getPromotionState(name);
+    assert.equal(state?.jobs.coupon?.status, "accepted");
+  } finally {
+    restoreEnv(saved);
+  }
+});
+
 /* ------------------------------ wiring ------------------------------ */
 
 test("wiring: coordinator binding, migration, and worker export exist", () => {
