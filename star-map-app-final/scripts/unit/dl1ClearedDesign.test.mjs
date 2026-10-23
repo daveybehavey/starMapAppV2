@@ -1458,6 +1458,18 @@ test("RG2: checkpoint acceptance aligns with persisted-state validation — a ne
  * never duplicated on redelivery, refreshed in place when the
  * absence progresses, and refused once the identity has a journal
  * presence to classify against.
+ *
+ * Gate fix round (local substitute Codex pass on the F3 diff, the
+ * GitHub bot not having engaged at 31704f9): two P2s against the F3
+ * record machinery itself, both source-verified — RG3-F3b (the
+ * record refresh is monotonic and one-way: an out-of-order caller
+ * timestamp can no longer set lastObservedAt < recordedAt, which
+ * the persisted-state validator rejects, nor regress the absence
+ * unknown_grant → no_baseline) and RG3-F3c (the wrapper no longer
+ * discards the note-write result: a lost or unexpectedly-refused
+ * write fails the deferral closed as authority_unavailable instead
+ * of returning a deferral nothing persisted behind; the presence-
+ * guard refusal still defers).
  */
 
 test("RG3-F1a: missing classification evidence pends — never native admission, even in the lost-witness posture", () => {
@@ -1725,6 +1737,162 @@ test("RG3-F3: unresolved absence defers in the authority-routed path; a terminal
   assert.equal(staleNote.refusal, "unresolved_absence_resolved");
   assert.equal(staleNote.changed, false);
   assert.deepEqual(Object.keys(unresolvedReversalsOf(staleNote.state)), []);
+});
+
+test("RG3-F3b: the unresolved-record refresh is monotonic and one-way — stale observations never wedge or regress it", () => {
+  // Gate fix round (substitute Codex P2-A): the refresh branch
+  // rewrote the record with the caller's `now` unconditionally.
+  // Caller timestamps are not serialized in order, so an
+  // out-of-order redelivery could set lastObservedAt below
+  // recordedAt — a state the persisted-state validator rejects,
+  // wedging the entitlement on its next load — and could regress
+  // the absence unknown_grant → no_baseline, against the design's
+  // one-way progression.
+  const G = "cs_rg3f3b_grant";
+  const t1 = NOW + 1_000;
+  const t2 = NOW + 2_000;
+  const t3 = NOW + 3_000;
+  const t4 = NOW + 4_000;
+  const note = (absence, now) => ({
+    type: "record_unresolved_reversal",
+    grantId: G,
+    absence,
+    now,
+  });
+  let s = createEmptyEntitlementAuthorityState("cs_rg3f3b_er");
+
+  // t2: the first observation — no baseline.
+  let r = applyEntitlementAuthorityOp(s, note("no_baseline", t2));
+  assert.equal(r.outcome, "unresolved_reversal_recorded");
+  s = reload(r.state);
+  assert.equal(unresolvedReversalsOf(s)[G].recordedAt, t2);
+  assert.equal(unresolvedReversalsOf(s)[G].lastObservedAt, t2);
+
+  // t3: the absence progresses — a baseline landed, the grant is
+  // still unknown to its journal.
+  r = applyEntitlementAuthorityOp(s, note("unknown_grant", t3));
+  assert.equal(r.outcome, "unresolved_reversal_recorded");
+  s = reload(r.state);
+  let rec = unresolvedReversalsOf(s)[G];
+  assert.equal(rec.absence, "unknown_grant");
+  assert.equal(rec.recordedAt, t2);
+  assert.equal(rec.lastObservedAt, t3);
+
+  // t1: the stale no_baseline observation redelivers out of order,
+  // older than recordedAt itself. reload() asserts the persisted
+  // state still validates (before the fix this load is exactly
+  // where the wedge bit); the absence does not regress and neither
+  // timestamp moves backwards.
+  r = applyEntitlementAuthorityOp(s, note("no_baseline", t1));
+  assert.equal(r.outcome, "unresolved_reversal_recorded");
+  s = reload(r.state);
+  rec = unresolvedReversalsOf(s)[G];
+  assert.equal(rec.absence, "unknown_grant");
+  assert.equal(rec.recordedAt, t2);
+  assert.equal(rec.lastObservedAt, t3);
+
+  // t4: the same stale observation, now ahead of the record — the
+  // progressed absence still stands, recordedAt is untouched, and
+  // the last-observed time refreshes forward.
+  r = applyEntitlementAuthorityOp(s, note("no_baseline", t4));
+  assert.equal(r.outcome, "unresolved_reversal_recorded");
+  s = reload(r.state);
+  rec = unresolvedReversalsOf(s)[G];
+  assert.equal(rec.absence, "unknown_grant");
+  assert.equal(rec.recordedAt, t2);
+  assert.equal(rec.lastObservedAt, t4);
+});
+
+test("RG3-F3c: a lost or unexpectedly-refused note write fails the deferral closed — authority_unavailable, never an unpersisted deferred", async () => {
+  // Gate fix round (substitute Codex P2-B): the wrapper awaited the
+  // note write and discarded its result, so a write lost between
+  // the read and the write (a null result — the same signal the
+  // reverse_reward path treats as authority_unavailable) still
+  // returned deferred with nothing persisted, against the
+  // persist-before-deferral guarantee. Stub clients pin the
+  // wrapper's handling of every note outcome at BOTH absence sites.
+  const withBaseline = () => {
+    let s = createEmptyEntitlementAuthorityState("cs_rg3f3c_er");
+    s = applyEntitlementAuthorityOp(s, { type: "sync_facts", facts: facts(), now: NOW - 1000 }).state;
+    s = applyEntitlementAuthorityOp(s, { type: "capture_baseline", baseline: baseline(), now: NOW - 900 }).state;
+    return s;
+  };
+  const stubClient = ({ state, noteResult, reverseResult }) => ({
+    getState: async () => state,
+    apply: async (_sessionId, op) => {
+      if (op.type === "record_unresolved_reversal") return noteResult;
+      if (op.type === "reverse_reward") return reverseResult;
+      throw new Error(`unexpected op: ${op.type}`);
+    },
+  });
+  const NOTE_RECORDED = { outcome: "unresolved_reversal_recorded" };
+  const NOTE_GUARD_REFUSAL = { outcome: "refused", refusal: "unresolved_absence_resolved" };
+  const NOTE_OTHER_REFUSAL = { outcome: "refused", refusal: "invalid_reward" };
+  const REVERSE_UNKNOWN = { outcome: "refused", refusal: "unknown_reward_grant" };
+  const noBaselineState = createEmptyEntitlementAuthorityState("cs_rg3f3c_er");
+
+  // No-baseline site: the note write is lost (null) → the answer
+  // fails closed, it does NOT defer.
+  const lostNoBaseline = await reverseReferralRewardViaAuthority(
+    stubClient({ state: noBaselineState, noteResult: null }),
+    "cs_rg3f3c_er",
+    "cs_rg3f3c_g",
+    NOW,
+  );
+  assert.equal(lostNoBaseline.status, "authority_unavailable");
+
+  // Unknown-grant site: the note write is lost (null) → same.
+  const lostUnknown = await reverseReferralRewardViaAuthority(
+    stubClient({ state: withBaseline(), noteResult: null, reverseResult: REVERSE_UNKNOWN }),
+    "cs_rg3f3c_er",
+    "cs_rg3f3c_g",
+    NOW,
+  );
+  assert.equal(lostUnknown.status, "authority_unavailable");
+
+  // Unknown-grant site: a note refusal that is neither the recorded
+  // success nor the presence guard → fails closed too.
+  const refusedUnknown = await reverseReferralRewardViaAuthority(
+    stubClient({ state: withBaseline(), noteResult: NOTE_OTHER_REFUSAL, reverseResult: REVERSE_UNKNOWN }),
+    "cs_rg3f3c_er",
+    "cs_rg3f3c_g",
+    NOW,
+  );
+  assert.equal(refusedUnknown.status, "authority_unavailable");
+
+  // Presence-guard refusal at either site: the identity resolved
+  // meanwhile, so there is no absence left to record — the
+  // deferral stands.
+  const guardUnknown = await reverseReferralRewardViaAuthority(
+    stubClient({ state: withBaseline(), noteResult: NOTE_GUARD_REFUSAL, reverseResult: REVERSE_UNKNOWN }),
+    "cs_rg3f3c_er",
+    "cs_rg3f3c_g",
+    NOW,
+  );
+  assert.equal(guardUnknown.status, "deferred");
+  const guardNoBaseline = await reverseReferralRewardViaAuthority(
+    stubClient({ state: noBaselineState, noteResult: NOTE_GUARD_REFUSAL }),
+    "cs_rg3f3c_er",
+    "cs_rg3f3c_g",
+    NOW,
+  );
+  assert.equal(guardNoBaseline.status, "deferred");
+
+  // Controls: a recorded note defers at both sites.
+  const okNoBaseline = await reverseReferralRewardViaAuthority(
+    stubClient({ state: noBaselineState, noteResult: NOTE_RECORDED }),
+    "cs_rg3f3c_er",
+    "cs_rg3f3c_g",
+    NOW,
+  );
+  assert.equal(okNoBaseline.status, "deferred");
+  const okUnknown = await reverseReferralRewardViaAuthority(
+    stubClient({ state: withBaseline(), noteResult: NOTE_RECORDED, reverseResult: REVERSE_UNKNOWN }),
+    "cs_rg3f3c_er",
+    "cs_rg3f3c_g",
+    NOW,
+  );
+  assert.equal(okUnknown.status, "deferred");
 });
 
 test("RG3-F4: a monetary mutation invalidates exact-head attestation — the interleaved compensation", () => {

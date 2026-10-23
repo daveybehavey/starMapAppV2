@@ -269,6 +269,35 @@ export type ReferralRewardReversalResult =
   | { status: "deferred" }
   | { status: "authority_unavailable" };
 
+/**
+ * Persist the reconciliation record behind a deferral and report
+ * whether the deferral may be returned. Exactly two note outcomes
+ * allow it: the record stands (unresolved_reversal_recorded), or
+ * the presence guard reports the identity resolved meanwhile
+ * (unresolved_absence_resolved) — there is no absence left to
+ * record, and the deferral is safe without one. A null result (the
+ * authority was lost between the read and the write) or any other
+ * refusal means nothing durable backs the deferral: the caller
+ * fails closed as authority_unavailable.
+ */
+async function persistUnresolvedReversalNote(
+  client: EntitlementAuthorityClient,
+  referrerSessionId: string,
+  grantId: string,
+  absence: "no_baseline" | "unknown_grant",
+  now: number,
+): Promise<boolean> {
+  const note = await client.apply(referrerSessionId, {
+    type: "record_unresolved_reversal",
+    grantId,
+    absence,
+    now,
+  });
+  if (!note) return false;
+  if (note.outcome === "unresolved_reversal_recorded") return true;
+  return note.outcome === "refused" && note.refusal === "unresolved_absence_resolved";
+}
+
 export async function reverseReferralRewardViaAuthority(
   client: EntitlementAuthorityClient,
   referrerSessionId: string,
@@ -301,19 +330,29 @@ export async function reverseReferralRewardViaAuthority(
   // operator workflow no keyed record to find once the request ends.
   // The record is zero-accounting-effect bookkeeping keyed by grant
   // id — no baseline, terminal receipt, or Discovery negative is
-  // created to record the uncertainty. If the note itself cannot be
-  // persisted (authority lost between the read and the write), the
-  // deferral stands unchanged: the money answer is the deferral,
-  // and the next redelivery retries the whole chain, note included.
+  // created to record the uncertainty. The deferral is returned
+  // only once the record is durable — or the note's presence guard
+  // reports the identity resolved meanwhile
+  // (unresolved_absence_resolved), in which case there is no
+  // absence left to record and the deferral is safe without one.
+  // If the note write itself is lost (a null result, as the
+  // reverse_reward path below treats it) or refuses in any other
+  // way, the answer fails closed as authority_unavailable instead
+  // of a deferral nothing persisted behind: the persist-before-
+  // deferral guarantee is the point of the record. Dedupe stays
+  // unfinalized either way, so the next redelivery retries the
+  // whole chain, note included.
   const state = await client.getState(referrerSessionId);
   if (!state) return { status: "authority_unavailable" };
   if (!state.baseline) {
-    await client.apply(referrerSessionId, {
-      type: "record_unresolved_reversal",
+    const noted = await persistUnresolvedReversalNote(
+      client,
+      referrerSessionId,
       grantId,
-      absence: "no_baseline",
+      "no_baseline",
       now,
-    });
+    );
+    if (!noted) return { status: "authority_unavailable" };
     return { status: "deferred" };
   }
 
@@ -350,12 +389,14 @@ export async function reverseReferralRewardViaAuthority(
     // no-baseline path above): the machine refused on UNCHANGED
     // state, so without the note nothing keyed would survive the
     // request for the census/operator workflow to find.
-    await client.apply(referrerSessionId, {
-      type: "record_unresolved_reversal",
+    const noted = await persistUnresolvedReversalNote(
+      client,
+      referrerSessionId,
       grantId,
-      absence: "unknown_grant",
+      "unknown_grant",
       now,
-    });
+    );
+    if (!noted) return { status: "authority_unavailable" };
     return { status: "deferred" };
   }
   // Any other refusal means the state disagrees with itself — fail

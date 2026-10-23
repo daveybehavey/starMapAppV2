@@ -2596,7 +2596,11 @@ function reverseReward(
  * delivery with the same absence is a no-op replay, and a progressed
  * absence (a baseline landed, the grant still unknown) refreshes the
  * observation in place — recordedAt, the first observation, is
- * preserved. The journal head is NOT advanced and no counter, fold
+ * preserved. The refresh is monotonic and one-way: lastObservedAt
+ * never moves backwards (caller timestamps are not serialized in
+ * order, and the validator rejects lastObservedAt < recordedAt), and
+ * absence never regresses from unknown_grant back to no_baseline.
+ * The journal head is NOT advanced and no counter, fold
  * input, or validity input is touched: this is bookkeeping about an
  * absence, not an accounting mutation, so the exact-head attestation
  * neither covers it nor is invalidated by it (v3.6 §2.4; the lease
@@ -2634,9 +2638,50 @@ function recordUnresolvedReversal(
     // redelivery must not duplicate it or churn the state.
     return result(state, false, "unresolved_reversal_recorded");
   }
-  const record: UnresolvedReversalRecord = existing
-    ? { ...existing, absence: op.absence, lastObservedAt: op.now }
-    : { grantId, absence: op.absence, recordedAt: op.now, lastObservedAt: op.now };
+  if (existing) {
+    // A DIFFERENT absence than the standing record: a progression
+    // (no_baseline → unknown_grant, when a baseline landed and the
+    // grant is still unknown) or a stale regression attempt (a
+    // no_baseline observation redelivered after the record already
+    // progressed). The refresh is monotonic and one-way. Caller
+    // timestamps are not serialized in order, so an out-of-order
+    // observation can carry a `now` older than the standing record
+    // — even older than recordedAt — and must never move the record
+    // backwards: the persisted-state validator rejects
+    // lastObservedAt < recordedAt, so a naive rewrite would wedge
+    // the state on its next load. recordedAt (the first observation)
+    // never changes and lastObservedAt only advances. Absence never
+    // regresses: against a standing unknown_grant the incoming
+    // no_baseline is stale — it refreshes the last-observed time
+    // forward and leaves the progressed absence standing.
+    const absence =
+      existing.absence === "unknown_grant" ? "unknown_grant" : op.absence;
+    const lastObservedAt = Math.max(existing.lastObservedAt, op.now);
+    if (absence === existing.absence && lastObservedAt === existing.lastObservedAt) {
+      // The stale observation advances nothing: no churn.
+      return result(state, false, "unresolved_reversal_recorded");
+    }
+    const record: UnresolvedReversalRecord = {
+      ...existing,
+      absence,
+      lastObservedAt,
+    };
+    return result(
+      {
+        ...state,
+        unresolvedReversals: { ...unresolvedReversalsOf(state), [grantId]: record },
+        updatedAt: op.now,
+      },
+      true,
+      "unresolved_reversal_recorded",
+    );
+  }
+  const record: UnresolvedReversalRecord = {
+    grantId,
+    absence: op.absence,
+    recordedAt: op.now,
+    lastObservedAt: op.now,
+  };
   return result(
     {
       ...state,
