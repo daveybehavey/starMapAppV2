@@ -811,6 +811,29 @@ test("validation: compensation cardinality is exact in both directions", () => {
   assert.equal(isValidEntitlementAuthorityState(granted), false);
 });
 
+test("validation: a pre-compensated baseline forces the compensated shape (reverse implication)", () => {
+  // G-dot round-4: the baseline establishes its latest consume was already
+  // compensated in the settled record. Anything but decision compensated +
+  // matching token + count 0 leaves that consume recoverable a second
+  // time whenever another historical spend remains.
+  const unresolvedForm = seeded({
+    withBaseline: true,
+    baselineOver: { legacySpentCount: 2, legacyRemainingBalance: 1, lastCompensatedToken: "tok-1" },
+  });
+  assert.equal(unresolvedForm.recoveryDecision, "compensated"); // capture marked it
+  unresolvedForm.recoveryDecision = "unresolved";
+  unresolvedForm.compensatedConsumeToken = null;
+  assert.equal(unresolvedForm.baselineCompensationCount, 0);
+  assert.equal(isValidEntitlementAuthorityState(unresolvedForm), false);
+
+  const grantedForm = seeded({
+    withBaseline: true,
+    baselineOver: { lastCompensatedToken: "tok-1" },
+  });
+  grantedForm.recoveryDecision = "granted";
+  assert.equal(isValidEntitlementAuthorityState(grantedForm), false);
+});
+
 test("validation: machine-produced compensated states stay valid", () => {
   // Authority-compensated: compensate() itself produces count 1 + the
   // compensated decision + the baseline's last-consume token.
@@ -890,6 +913,28 @@ test("DO: persisted over-counted compensation fails closed", async () => {
   const parsed = JSON.parse(row.state_json);
   assert.equal(parsed.baselineCompensationCount, 1);
   parsed.baselineCompensationCount = 2;
+  sql.rows.set(SID, { ...row, state_json: JSON.stringify(parsed) });
+  await assert.rejects(() => newAuthority(sql).getState(SID), /malformed/);
+});
+
+test("DO: persisted pre-compensated baseline with an unresolved decision fails closed", async () => {
+  const sql = new FakeSqlStorage();
+  const authority = newAuthority(sql);
+  await authority.apply(SID, { type: "sync_facts", facts: facts(), now: NOW - 1000 });
+  await authority.apply(SID, {
+    type: "capture_baseline",
+    baseline: baseline({
+      legacySpentCount: 2,
+      legacyRemainingBalance: 1,
+      lastCompensatedToken: "tok-1",
+    }),
+    now: NOW - 900,
+  });
+  const row = sql.rows.get(SID);
+  const parsed = JSON.parse(row.state_json);
+  assert.equal(parsed.recoveryDecision, "compensated"); // capture marked it
+  parsed.recoveryDecision = "unresolved";
+  parsed.compensatedConsumeToken = null;
   sql.rows.set(SID, { ...row, state_json: JSON.stringify(parsed) });
   await assert.rejects(() => newAuthority(sql).getState(SID), /malformed/);
 });

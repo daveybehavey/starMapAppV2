@@ -447,7 +447,16 @@ export function isValidEntitlementAuthorityState(
     const lastConsumePreCompensated =
       baseline.lastConsumeToken !== null &&
       baseline.lastCompensatedToken === baseline.lastConsumeToken;
-    if (state.recoveryDecision === "compensated") {
+    if (state.recoveryDecision === "compensated" || lastConsumePreCompensated) {
+      // Reverse implication (G-dot P2 round 4, PR #362): a baseline whose
+      // latest consume was already compensated in the settled record
+      // FORCES the compensated shape on the whole state. An unresolved or
+      // granted decision beside such a baseline — count 0, no token —
+      // would let grant/compensate recover that already-compensated
+      // consume a second time whenever another historical spend remains.
+      if (lastConsumePreCompensated && state.recoveryDecision !== "compensated") {
+        return false;
+      }
       if (state.compensatedConsumeToken === null) return false;
       if (state.compensatedConsumeToken !== baseline.lastConsumeToken) return false;
       const expectedCount = lastConsumePreCompensated ? 0 : 1;
