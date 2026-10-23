@@ -35,6 +35,15 @@ import {
   type EntitlementAuthorityState,
 } from "../lib/entitlementAuthorityState";
 
+// The DO shell performs no accounting decisions: it reads state, runs
+// the pure machine, and persists the result atomically. Under the
+// cleared design (v3.8 §5.3) the shell is also where a grant op's
+// ReferralDiscoveryDO registration leg runs — before the machine is
+// invoked for the fold — with its outcome entering the op as the
+// shell-attested `discoveryRegistration` command field, which the
+// pure machine validates and decides on. The referral wrapper
+// (referralRewardAuthority.ts) drives that leg for the webhook path.
+
 type AuthorityRow = {
   session_id: string;
   state_json: string;
@@ -157,9 +166,9 @@ export class EntitlementAuthorityDO extends DurableObject {
   /** Grant referral reward credits into the separate reward bucket (R1-A). */
   async grantReward(
     sessionId: string,
-    input: { grantId: string; amount: number; now: number },
+    input: Extract<EntitlementAuthorityOp, { type: "grant_reward" }>,
   ): Promise<EntitlementAuthorityApplyResult> {
-    return this.apply(sessionId, { type: "grant_reward", ...input });
+    return this.apply(sessionId, input);
   }
 
   /**
@@ -169,8 +178,40 @@ export class EntitlementAuthorityDO extends DurableObject {
    */
   async reverseReward(
     sessionId: string,
-    input: { grantId: string; now: number },
+    input: Extract<EntitlementAuthorityOp, { type: "reverse_reward" }>,
   ): Promise<EntitlementAuthorityApplyResult> {
-    return this.apply(sessionId, { type: "reverse_reward", ...input });
+    return this.apply(sessionId, input);
+  }
+
+  /** Compensate one journal debit by its consume token (v3.5 §2.4). */
+  async compensateDebit(
+    sessionId: string,
+    input: { consumeToken: string; now: number },
+  ): Promise<EntitlementAuthorityApplyResult> {
+    return this.apply(sessionId, { type: "compensate_debit", ...input });
+  }
+
+  /** Own-purchase grant (W1/W5 grant_fact; v3.7 §2.2/§2.4, v3.8 §3). */
+  async purchaseGrant(
+    sessionId: string,
+    input: Extract<EntitlementAuthorityOp, { type: "purchase_grant" }>,
+  ): Promise<EntitlementAuthorityApplyResult> {
+    return this.apply(sessionId, input);
+  }
+
+  /** Installation: record the attested verified opening (v3.6 §3). */
+  async recordCheckpoint(
+    sessionId: string,
+    input: Extract<EntitlementAuthorityOp, { type: "record_checkpoint" }>,
+  ): Promise<EntitlementAuthorityApplyResult> {
+    return this.apply(sessionId, input);
+  }
+
+  /** Settle a pending grant's inclusion classification (v3.7 §2.3). */
+  async resolveGrantInclusion(
+    sessionId: string,
+    input: Extract<EntitlementAuthorityOp, { type: "resolve_grant_inclusion" }>,
+  ): Promise<EntitlementAuthorityApplyResult> {
+    return this.apply(sessionId, input);
   }
 }
