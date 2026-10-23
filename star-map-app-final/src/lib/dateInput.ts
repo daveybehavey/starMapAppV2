@@ -138,32 +138,45 @@ export function combineDateTime(date: string, time: string, timezone?: string, f
   if (!date) return null;
   const normalizedTime = normalizeTimeInput(time, fallback);
 
-  if (!timezone || timezone === "UTC") {
+  if (!timezone) {
+    // No zone supplied: legacy device-local parse.
     const combined = new Date(`${date}T${normalizedTime}`);
+    if (!Number.isFinite(combined.getTime())) return null;
+    return combined.toISOString();
+  }
+
+  if (timezone === "UTC") {
+    // An explicit "UTC" is a real zone, not the omitted-zone case above:
+    // parse with a Z suffix so the instant is the entered wall time in
+    // UTC on every device (A2-4). The no-suffix parse would read it in
+    // the device's own timezone and shift the sky by the device offset.
+    const combined = new Date(`${date}T${normalizedTime}Z`);
     if (!Number.isFinite(combined.getTime())) return null;
     return combined.toISOString();
   }
 
   try {
     const [yearStr, monthStr, dayStr] = date.split("-");
-    const [hourStr, minuteStr] = normalizedTime.split(":");
+    const [hourStr, minuteStr, secondStr] = normalizedTime.split(":");
     const year = Number(yearStr);
     const month = Number(monthStr);
     const day = Number(dayStr);
     const hour = Number(hourStr);
     const minute = Number(minuteStr);
+    const second = secondStr === undefined ? 0 : Number(secondStr);
 
     if (
       !Number.isFinite(year) ||
       !Number.isFinite(month) ||
       !Number.isFinite(day) ||
       !Number.isFinite(hour) ||
-      !Number.isFinite(minute)
+      !Number.isFinite(minute) ||
+      !Number.isFinite(second)
     ) {
       return null;
     }
 
-    const testDate = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
+    const testDate = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
     const formatter = new Intl.DateTimeFormat("en-US", {
       timeZone: timezone,
       year: "numeric",
@@ -175,25 +188,42 @@ export function combineDateTime(date: string, time: string, timezone?: string, f
       hour12: false,
     });
 
+    // Wall fields of `instant` in the target zone. Some engines report
+    // midnight as hour 24 with the day already advanced; normalize it
+    // (as dateTime.ts's zoned helper does) or Date.UTC counts the day
+    // twice and the instant lands a day early. Seconds ride along: the
+    // entered time's seconds are part of the requested instant (A2-8),
+    // and zones with sub-minute historical offsets need them for an
+    // exact probe.
+    const wallFieldsOf = (instant: Date) => {
+      const parts = formatter.formatToParts(instant);
+      const localHourPart = Number(parts.find((p) => p.type === "hour")?.value);
+      return {
+        year: Number(parts.find((p) => p.type === "year")?.value),
+        month: Number(parts.find((p) => p.type === "month")?.value),
+        day: Number(parts.find((p) => p.type === "day")?.value),
+        hour: localHourPart === 24 ? 0 : localHourPart,
+        minute: Number(parts.find((p) => p.type === "minute")?.value),
+        second: Number(parts.find((p) => p.type === "second")?.value),
+      };
+    };
+
     // Zone offset in force at `instant`: the instant minus its own wall
     // fields read as UTC (negative east of Greenwich).
     const probeOffsetMs = (instant: Date): number => {
-      const parts = formatter.formatToParts(instant);
-      const localYear = Number(parts.find((p) => p.type === "year")?.value);
-      const localMonth = Number(parts.find((p) => p.type === "month")?.value);
-      const localDay = Number(parts.find((p) => p.type === "day")?.value);
-      const localHourPart = Number(parts.find((p) => p.type === "hour")?.value);
-      // Some engines report midnight as hour 24 with the day already
-      // advanced; normalize it (as dateTime.ts's zoned helper does) or
-      // Date.UTC counts the day twice and the instant lands a day early.
-      const localHour = localHourPart === 24 ? 0 : localHourPart;
-      const localMinute = Number(parts.find((p) => p.type === "minute")?.value);
-
-      const localMs = Date.UTC(localYear, localMonth - 1, localDay, localHour, localMinute, 0);
+      const local = wallFieldsOf(instant);
+      const localMs = Date.UTC(
+        local.year,
+        local.month - 1,
+        local.day,
+        local.hour,
+        local.minute,
+        local.second,
+      );
       return instant.getTime() - localMs;
     };
 
-    const targetLocalMs = Date.UTC(year, month - 1, day, hour, minute, 0);
+    const targetLocalMs = Date.UTC(year, month - 1, day, hour, minute, second);
 
     // The offset must be the one in force at the RESULTING instant, not
     // only at the entered wall time read as UTC: beside a DST transition
@@ -214,6 +244,28 @@ export function combineDateTime(date: string, time: string, timezone?: string, f
     }
 
     if (!Number.isFinite(result.getTime())) return null;
+
+    // Round-trip guard (A2-7): the resulting instant must display back
+    // as exactly the entered wall fields. A wall time inside a DST gap
+    // (e.g. 02:30 on spring-forward day) does not exist — the refinement
+    // above oscillates between the two neighbouring offsets and settles
+    // on an instant displaying a DIFFERENT wall time, silently
+    // substituting an hour the customer never picked. Reject it (null
+    // is this function's invalid-input signal; the field handlers keep
+    // the previously stored instant) instead of returning the
+    // substitution. Fold times are unaffected: both occurrences display
+    // as the entered fields, so they pass and resolve to the first.
+    const roundTrip = wallFieldsOf(result);
+    if (
+      roundTrip.year !== year ||
+      roundTrip.month !== month ||
+      roundTrip.day !== day ||
+      roundTrip.hour !== hour ||
+      roundTrip.minute !== minute ||
+      roundTrip.second !== second
+    ) {
+      return null;
+    }
     return result.toISOString();
   } catch (error) {
     console.warn("Failed to convert timezone in combineDateTime:", timezone, error);
