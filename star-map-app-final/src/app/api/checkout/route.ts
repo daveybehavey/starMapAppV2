@@ -1146,13 +1146,16 @@ async function createCheckoutSession(input: {
       (sum, item) => sum + item.amountCents,
       0
     );
-    const merchandiseAfterDiscountCents = Math.max(
-      0,
-      merchandiseSubtotalCents - estimatedPromotionDiscountCents
-    );
+    // Free shipping is decided on the PRE-discount merchandise subtotal —
+    // the same basis the storefront promise uses (printFreeShipping
+    // display helpers qualify via getPrintMerchandiseSubtotalCents, and
+    // the offer copy states the threshold on merchandise). Deciding on
+    // the after-discount estimate broke that promise: the $106 framed +
+    // HD bundle dropped to ~$90 under a 15% promo and was charged
+    // shipping the site said was free (audit F4).
     const freeShippingSelection = applyPrintFreeShippingToCheckout(
       { shippingOptions: printShippingOptions, shippingChargeCents: printShippingChargeCents },
-      merchandiseAfterDiscountCents
+      merchandiseSubtotalCents
     );
     printShippingOptions = freeShippingSelection.shippingOptions;
     printShippingChargeCents = freeShippingSelection.shippingChargeCents;
