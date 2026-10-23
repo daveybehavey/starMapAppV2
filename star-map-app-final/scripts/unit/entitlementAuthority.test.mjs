@@ -1074,6 +1074,18 @@ const grantRewardOp = (grantId, amount = 1, over = {}) => ({
   grantId,
   amount,
   now: NOW,
+  // Supported-path defaults (G-dot conformance fix round): the
+  // machine requires the shell-attested registration outcome, and
+  // missing classification evidence is unresolved — never native
+  // admission. Bare calls present the attested leg plus P-c
+  // snapshot-order evidence (the identity postdates the seeded
+  // snapshot), the ordinary grant posture.
+  discoveryRegistration: "registered",
+  classificationEvidence: {
+    sessionCreatedAt: NOW + 86_400_000,
+    fencingCompletedAt: null,
+    witness: "absent",
+  },
   ...over,
 });
 const reverseRewardOp = (grantId, over = {}) => ({

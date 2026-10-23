@@ -59,8 +59,16 @@ import type { ReferralDiscoveryClient } from "@/lib/referralDiscoveryClient";
  * §5.3, §2.2). When supplied, the wrapper runs the ReferralDiscoveryDO
  * registration leg BEFORE the grant op (the shell leg: registration
  * precedes any fold effect) and presents the classification evidence
- * to the op, which classifies inside the serialized stream. When
- * absent, the grant takes the pre-classification native path.
+ * to the op, which classifies inside the serialized stream. The
+ * evidence is presented on EVERY discovery-supplied grant: omitting
+ * it never selects a native path (the machine treats missing
+ * evidence as unresolved and missing registration as a refusal), so
+ * a caller without a finalized witness presents the absence as the
+ * witness value "absent" and lets the provenance forms (P-b fencing,
+ * P-c snapshot order) decide — the grant pends when neither proves
+ * exclusion, which is the cleared fail-closed posture. When the
+ * discovery input itself is absent, the machine refuses the grant
+ * (discovery_attestation_missing) and the wrapper reports the skip.
  */
 export type ReferralGrantDiscoveryInput = {
   discoveryClient: ReferralDiscoveryClient;
@@ -72,12 +80,10 @@ export type ReferralGrantDiscoveryInput = {
   fencingCompletedAt: number | null;
   /**
    * The identity's landing witness, in its finalized form, when the
-   * caller has one. Omit to run the discovery leg WITHOUT presenting
-   * classification evidence (the op then takes the native path): the
-   * webhook's grant-time claim is a claim, not a finalized witness,
-   * and classification activates with the activation record that
-   * grounds P-b — passing a claim as evidence would pend every
-   * first-contact grant on a technicality the design does not intend.
+   * caller has one. Omit when the caller has none: the wrapper then
+   * presents "absent" (no landing evidence) rather than omitting
+   * the evidence bundle — the webhook's grant-time claim is a claim,
+   * not a finalized witness, and it is never dressed as one.
    */
   witness?:
     | "finalized_grant"
@@ -205,16 +211,15 @@ export async function grantReferralRewardViaAuthority(
     now,
     discoveryRegistration,
     terminalRecord,
-    classificationEvidence:
-      discovery && discovery.witness !== undefined
-        ? {
-            sessionCreatedAt: discovery.sessionCreatedAt,
-            fencingCompletedAt: discovery.fencingCompletedAt,
-            witness: discovery.witness,
-            operatorIncludedReceipt: discovery.operatorIncludedReceipt,
-            operatorExcludedReceipt: discovery.operatorExcludedReceipt,
-          }
-        : undefined,
+    classificationEvidence: discovery
+      ? {
+          sessionCreatedAt: discovery.sessionCreatedAt,
+          fencingCompletedAt: discovery.fencingCompletedAt,
+          witness: discovery.witness ?? "absent",
+          operatorIncludedReceipt: discovery.operatorIncludedReceipt,
+          operatorExcludedReceipt: discovery.operatorExcludedReceipt,
+        }
+      : undefined,
     presentingWriter: "stripe_webhook_w13",
   });
   if (!applied) return { status: "skipped", reason: "authority_unavailable" };
@@ -280,13 +285,18 @@ export async function reverseReferralRewardViaAuthority(
   // v3.6 §4.3): this wrapper no longer pre-checks state to decide
   // not_bucket_grant — a read may route (an unreachable authority
   // fails closed here), never decide. The one routing fact read here
-  // is baseline presence for the legacy posture: with no baseline at
-  // all, no journal exists for the op to classify against, and the
-  // pre-bucket answer stands as the built behaviour.
+  // is baseline presence: with no baseline at all, no journal exists
+  // for the op to classify against — and absence is UNRESOLVED, not
+  // a terminal zero: the reversal defers (dedupe unfinalized) until
+  // the identity has a journal home in which a positive ground (a
+  // settled inclusion, an operator receipt, a Discovery terminal
+  // decision) can be serialized. A terminal zero is issued only from
+  // such a ground, inside the op. (The S-OFF legacy posture lives in
+  // the webhook's own legacy path, not in this wrapper.)
   const state = await client.getState(referrerSessionId);
   if (!state) return { status: "authority_unavailable" };
   if (!state.baseline) {
-    return { status: "not_bucket_grant" };
+    return { status: "deferred" };
   }
 
   const applied = await client.apply(referrerSessionId, {
@@ -310,10 +320,15 @@ export async function reverseReferralRewardViaAuthority(
   }
   if (applied.outcome === "refused" && applied.refusal === "unknown_reward_grant") {
     // No folded grant, no pending entry, no settled inclusion, no
-    // receipt: the grant never entered this journal. With a baseline
-    // standing, the pre-bucket/legacy posture applies (the built
-    // behaviour the design grandfathers) — reclaimed zero, terminal.
-    return { status: "not_bucket_grant" };
+    // receipt: the identity's absence from this journal is
+    // UNRESOLVED — it is not positive evidence the grant was never a
+    // bucket grant, and it must not be converted into a terminal zero
+    // with no serialized reversal receipt and no Discovery terminal
+    // decision behind it. The reversal defers (the caller's dedupe
+    // stays unfinalized); the terminal answer arrives only when a
+    // positive ground lands in the journal and the op itself issues
+    // not_bucket_grant with its journaled receipt.
+    return { status: "deferred" };
   }
   // Any other refusal means the state disagrees with itself — fail
   // closed, reclaim nothing.

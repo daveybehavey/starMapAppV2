@@ -58,6 +58,10 @@ const {
   isEntitlementAuthorityRoutingEnabled,
   isTransientReferralGrantReason,
 } = await import("../../src/lib/referralRewardAuthority.ts");
+const {
+  createReferralDiscoveryClient,
+  __resetReferralDiscoveryMemoryForTests,
+} = await import("../../src/lib/referralDiscoveryClient.ts");
 
 const NOW = Date.UTC(2026, 9, 22, 13, 0, 0);
 const HOUR = 60 * 60 * 1000;
@@ -80,8 +84,23 @@ const record = (over = {}) => ({
 
 function freshClient() {
   __resetEntitlementAuthorityMemoryForTests();
+  __resetReferralDiscoveryMemoryForTests();
   return createEntitlementAuthorityClient();
 }
+
+/**
+ * Discovery input for wrapper grants (G-dot conformance fix round):
+ * the wrapper runs the ReferralDiscoveryDO registration leg and
+ * presents the classification evidence on every grant — a grant
+ * without it is refused at the machine boundary. The referred
+ * session postdates the referrer's migration snapshot (P-c
+ * snapshot-order evidence), the ordinary landing posture.
+ */
+const discoveryFor = () => ({
+  discoveryClient: createReferralDiscoveryClient(),
+  sessionCreatedAt: NOW + 86_400_000,
+  fencingCompletedAt: null,
+});
 
 /* ---------------- baseline builder: settled shapes ---------------- */
 
@@ -291,7 +310,7 @@ test("referral grant migrates the referrer and lands in the bucket, idempotently
   const rec = record({ plan: "single", creditsTotal: 1, creditsRemaining: 0, lastConsumeToken: "tok-old", lastConsumeAt: NOW - 72 * HOUR });
   const load = async () => rec;
 
-  const granted = await grantReferralRewardViaAuthority(client, referrer, "cs_referred_1", 1, load, NOW);
+  const granted = await grantReferralRewardViaAuthority(client, referrer, "cs_referred_1", 1, load, NOW, discoveryFor());
   assert.equal(granted.status, "granted");
   let state = await client.getState(referrer);
   assert.ok(state.baseline, "grant must migrate the referrer first");
@@ -299,7 +318,7 @@ test("referral grant migrates the referrer and lands in the bucket, idempotently
   // Purchased side: spent 1 of 1 → 0. Total spendable is the bucket only.
   assert.equal(deriveRemainingAllowance(state), 1);
 
-  const replay = await grantReferralRewardViaAuthority(client, referrer, "cs_referred_1", 1, load, NOW);
+  const replay = await grantReferralRewardViaAuthority(client, referrer, "cs_referred_1", 1, load, NOW, discoveryFor());
   assert.equal(replay.status, "already_granted");
   state = await client.getState(referrer);
   assert.equal(state.rewardBucketBalance, 1);
@@ -324,7 +343,7 @@ test("referral reversal claws back only the unspent bucket; purchased value unre
   const referrer = sid();
   const rec = record(); // pack3: purchased remaining 2
   const load = async () => rec;
-  await grantReferralRewardViaAuthority(client, referrer, "cs_referred_1", 1, load, NOW);
+  await grantReferralRewardViaAuthority(client, referrer, "cs_referred_1", 1, load, NOW, discoveryFor());
 
   // Spend the reward on a file (commit spends the bucket first).
   const committed = await client.apply(referrer, {
@@ -351,22 +370,28 @@ test("referral reversal claws back only the unspent bucket; purchased value unre
   assert.equal(replay.status, "already_reversed");
 });
 
-test("referral reversal of a pre-bucket grant reclaims zero and creates no baseline", async () => {
+test("referral reversal of an unresolved absence defers and creates no baseline", async () => {
   const client = freshClient();
   const referrer = sid();
   // Referrer migrates through an unrelated path; the historical grant
-  // lives inside the legacy balance, not the bucket.
+  // lives inside the legacy balance, not the bucket. Unresolved
+  // absence is NOT a terminal zero (G-dot conformance: no terminal
+  // absence answer without a settled inclusion, an operator receipt,
+  // or a Discovery terminal decision behind it) — the authority-routed
+  // reversal DEFERS and dedupe stays unfinalized for redelivery. (The
+  // terminal pre-bucket answer survives only in the S-OFF legacy
+  // posture, in the webhook's own legacy path, not this wrapper.)
   await ensureEntitlementMigrated(client, referrer, async () => record(), NOW);
   const reversal = await reverseReferralRewardViaAuthority(client, referrer, "cs_legacy_grant", NOW);
-  assert.equal(reversal.status, "not_bucket_grant");
+  assert.equal(reversal.status, "deferred");
   const state = await client.getState(referrer);
   assert.equal(deriveRemainingAllowance(state), 2); // legacy bucket untouched
 
-  // A never-migrated referrer: reversal is a no-op and must not create a
+  // A never-migrated referrer: reversal defers and must not create a
   // baseline as a side effect.
   const stranger = sid();
   const res2 = await reverseReferralRewardViaAuthority(client, stranger, "cs_legacy_grant", NOW);
-  assert.equal(res2.status, "not_bucket_grant");
+  assert.equal(res2.status, "deferred");
   const strangerState = await client.getState(stranger);
   assert.equal(strangerState.baseline, null);
 });
@@ -376,7 +401,7 @@ test("referral round trip: unspent reward is clawed back exactly once", async ()
   const referrer = sid();
   const rec = record({ plan: "single", creditsTotal: 1, creditsRemaining: 1, lastConsumeToken: undefined, lastConsumeAt: undefined });
   const load = async () => rec;
-  await grantReferralRewardViaAuthority(client, referrer, "cs_referred_9", 1, load, NOW);
+  await grantReferralRewardViaAuthority(client, referrer, "cs_referred_9", 1, load, NOW, discoveryFor());
   let state = await client.getState(referrer);
   assert.equal(deriveRemainingAllowance(state), 2); // 1 purchased + 1 reward
 

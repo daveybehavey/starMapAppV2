@@ -673,11 +673,13 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
             timestamp,
             {
               // DL-1 v3.8 §5: the discovery registration leg runs
-              // inside the grant (before any fold effect). No
-              // classification evidence is presented here — the
-              // grant-time claim is not a finalized witness, and
-              // P-b's fencing timestamp arrives with the activation
-              // record at the Slice 6 cutover.
+              // inside the grant (before any fold effect). The
+              // classification evidence is presented with NO witness
+              // (the grant-time claim is not a finalized witness, so
+              // the wrapper presents "absent"): the machine decides
+              // on the provenance forms alone, and P-b's fencing
+              // timestamp arrives with the activation record at the
+              // Slice 6 cutover.
               discoveryClient: createReferralDiscoveryClient(),
               sessionCreatedAt: (session.created ?? 0) * 1000,
               fencingCompletedAt: null,

@@ -266,6 +266,21 @@ export type SettledInclusionEntry = {
   settledAt: number;
   /** "operator_receipt" | "by_construction" (own purchase). */
   basis: string;
+  /**
+   * The terminal-obligation lineage citation the identity carried
+   * into its included settlement (DL-1 v3.10 §5), preserved durably
+   * on the settlement record: an included settlement retires the
+   * pending entry, and the citation must survive that retirement —
+   * it is the reconciliation record's proof of which terminal
+   * decision the identity was admitted under. Null when the identity
+   * carried no terminal obligation (the ordinary case); absent on
+   * entries written before the citation was preserved.
+   */
+  terminalObligation?: {
+    referredSessionId: string;
+    lineageRef: string;
+    recordedAt: number;
+  } | null;
 };
 
 /**
@@ -784,10 +799,13 @@ export type EntitlementAuthorityOp =
        * Shell-attested discovery registration outcome (DL-1 v3.8
        * §5.3): produced only by the grant shell's ReferralDiscoveryDO
        * leg, which runs BEFORE the state machine is invoked for the
-       * fold. Absent on direct/local calls (unit suites, the inert
-       * surface); when present the machine decides on it: unavailable
-       * pends the grant, conflict refuses, registered_after_terminal
-       * admits born-reversed (or pends with the terminal obligation).
+       * fold. REQUIRED at the machine boundary: an op that reaches a
+       * conferring path without it is refused
+       * (discovery_attestation_missing) — the leg's absence is never
+       * a silent pass. When present the machine decides on it:
+       * unavailable pends the grant, conflict refuses,
+       * registered_after_terminal admits born-reversed (or pends with
+       * the terminal obligation).
        */
       discoveryRegistration?:
         | "registered"
@@ -802,8 +820,9 @@ export type EntitlementAuthorityOp =
        * amended by v3.10 §3 receipt precedence and v3.11 §2
        * provenance). When supplied, the op classifies the grant
        * against the creation snapshot before any fold effect. When
-       * absent, the grant takes the native path (pre-classification
-       * callers and unit suites).
+       * absent, the classification is UNRESOLVED — missing evidence
+       * pends the grant, never native admission (the lost-witness
+       * rule: omission is not provenance).
        */
       classificationEvidence?: {
         /** The referred session's Stripe creation time. */
@@ -922,6 +941,11 @@ export type EntitlementAuthorityRefusal =
   | "grant_after_terminal_receipt"
   /** Discovery registration reports a conflicting association (v3.8 §5.2). */
   | "discovery_conflict"
+  /** Grant presented with NO shell-attested discovery registration:
+   *  the registration leg never ran, so no conferring path may
+   *  proceed — registration is required at the machine boundary,
+   *  not only in the wrapper (v3.8 §5.1/§5.3). */
+  | "discovery_attestation_missing"
   /** Compensating reversal carried under a non-terminal attestation. */
   | "discovery_attestation_mismatch"
   /** Terminal-attested grant presented without its compensating reversal path. */
@@ -1360,6 +1384,15 @@ export function isValidEntitlementAuthorityState(
     if (!isRecord(entry)) return false;
     if ((entry as SettledInclusionEntry).grantId !== grantId) return false;
     if (!isNonNegativeInt((entry as SettledInclusionEntry).amount)) return false;
+    // The preserved terminal-obligation citation (v3.10 §5), when the
+    // entry carries the field, must be a well-formed citation or null.
+    const obligation = (entry as SettledInclusionEntry).terminalObligation;
+    if (obligation !== undefined && obligation !== null) {
+      if (!isRecord(obligation)) return false;
+      if (typeof obligation.referredSessionId !== "string") return false;
+      if (typeof obligation.lineageRef !== "string") return false;
+      if (!isFiniteNumber(obligation.recordedAt)) return false;
+    }
   }
   const receipts = s.reversalReceipts ?? {};
   if (!isRecord(receipts)) return false;
@@ -1570,13 +1603,31 @@ export function buildCreationSnapshotFromBaseline(
  * the debit's reward portion is attributed to the oldest folded grant
  * with unspent, unreversed-at-commit remainder, and the attribution
  * is recorded immutably on the debit entry. No later op re-selects.
+ *
+ * "Oldest" is JOURNAL order — the grant entry's own sequence —
+ * never wall-clock timestamps or identity strings: two grants folded
+ * in the same millisecond still have a journal order, and it is the
+ * order the ledger committed them in. Compatibility rule for entries
+ * written before grant sequences were recorded: an entry WITHOUT a
+ * sequence predates every sequenced entry (its fold belongs to the
+ * pre-sequence journal), and unsequenced entries order among
+ * themselves by the legacy (grantedAt, grantId) order — the best
+ * available reconstruction of their journal order, superseded the
+ * moment any sequenced entry exists.
  */
 function selectFundingGrant(
   state: EntitlementAuthorityState,
 ): { grantId: string; grant: RewardGrantEntry } | null {
   const candidates = Object.entries(state.rewardGrants)
     .filter(([, g]) => !g.reversed && rewardGrantResidual(g) > 0)
-    .sort((a, b) => a[1].grantedAt - b[1].grantedAt || a[0].localeCompare(b[0]));
+    .sort((a, b) => {
+      const aSeq = a[1].seq;
+      const bSeq = b[1].seq;
+      if (aSeq !== undefined && bSeq !== undefined) return aSeq - bSeq;
+      if (aSeq !== undefined) return 1; // b is unsequenced → older
+      if (bSeq !== undefined) return -1; // a is unsequenced → older
+      return a[1].grantedAt - b[1].grantedAt || a[0].localeCompare(b[0]);
+    });
   if (candidates.length === 0) return null;
   return { grantId: candidates[0][0], grant: candidates[0][1] };
 }
@@ -1708,8 +1759,9 @@ function grant(
   // provenance, fingerprint and commit time are never rewritten by
   // recovery. (Codex P2 on PR #362.)
   if (state.ownedFiles[op.artifactId]) {
+    const seq = nextSeq(state);
     return result(
-      { ...state, recoveryDecision: "granted", updatedAt: op.now },
+      { ...state, recoveryDecision: "granted", journalHead: seq, updatedAt: op.now },
       true,
       "already_owned",
     );
@@ -1722,11 +1774,17 @@ function grant(
     source: "legacy",
     rewardFunded: false,
   };
+  // The grant consumes the mutually exclusive recovery decision and
+  // records ownership — an accounting mutation in the attested
+  // journal, so it advances the journal head like every other
+  // mutation the exact-head attestation covers (v3.6 §2.4).
+  const seq = nextSeq(state);
   return result(
     {
       ...state,
       ownedFiles: { ...state.ownedFiles, [op.artifactId]: entry },
       recoveryDecision: "granted",
+      journalHead: seq,
       updatedAt: op.now,
     },
     true,
@@ -1771,13 +1829,22 @@ function compensate(
   }
 
   // Restores exactly one baseline credit via the derived formula and marks
-  // the decision. It NEVER removes a ledger entry (v3.5 §2.4).
+  // the decision. It NEVER removes a ledger entry (v3.5 §2.4). The
+  // compensation ADVANCES THE JOURNAL HEAD: it changes the fold
+  // (baselineCompensationCount is a fold input), and every accounting
+  // mutation the exact-head attestation covers must move its binding
+  // version — otherwise a checkpoint prepared before the compensation
+  // would record against the new fold while citing the old head,
+  // certifying an unchanged head across a monetary mutation
+  // (v3.6 §2.4/§3; T-C12's binding applied to every covered op).
+  const seq = nextSeq(state);
   return result(
     {
       ...state,
       recoveryDecision: "compensated",
       compensatedConsumeToken: op.consumeToken,
       baselineCompensationCount: state.baselineCompensationCount + 1,
+      journalHead: seq,
       updatedAt: op.now,
     },
     true,
@@ -2181,6 +2248,18 @@ function grantReward(
     return refused(state, "subscription_plan");
   }
 
+  // Registration is required AT THE MACHINE BOUNDARY (v3.8 §5.1):
+  // every path below this point confers or journals an accounting
+  // fact (a fold, a born-reversed pair, a settled-inclusion
+  // observation, a pendency). An op arriving without the shell's
+  // attested registration outcome never ran the leg — it is refused,
+  // not silently admitted. (The dispatch branches above confer
+  // nothing: an existing entry, pendency, or settled inclusion
+  // resolves the presentation without the leg's evidence.)
+  if (op.discoveryRegistration === undefined) {
+    return refused(state, "discovery_attestation_missing");
+  }
+
   // Discovery attestation (v3.8 §5.3): the shell leg ran before this
   // op was invoked. Conflict refuses; unavailable pends.
   if (op.discoveryRegistration === "conflict") {
@@ -2209,10 +2288,14 @@ function grantReward(
   // a compensating reversal (discovery_attestation_mismatch likewise).
 
   // Classification (v3.8 §2.2 as amended), inside the op, before any
-  // fold effect. Callers that present no evidence take the native
-  // path (pre-classification callers: unit suites, the inert surface).
-  if (op.classificationEvidence) {
-    const { classification } = classifyReferralGrant(state, op.classificationEvidence);
+  // fold effect. Missing evidence is UNRESOLVED, never native
+  // admission (the lost-witness rule, v3.11 §2): an omitted evidence
+  // bundle proves nothing about the identity's landing, so the grant
+  // pends exactly as an explicitly unresolved classification does.
+  const classification: GrantClassification = op.classificationEvidence
+    ? classifyReferralGrant(state, op.classificationEvidence).classification
+    : "unresolved";
+  {
     if (classification === "included") {
       // Observation: zero fold effect, the identity is recorded as
       // settled-included so a later reversal takes basis (a).
@@ -2227,6 +2310,17 @@ function grantReward(
               amount: op.amount,
               settledAt: op.now,
               basis: "operator_receipt",
+              // The terminal lineage citation survives the admission
+              // on the settlement record itself (v3.10 §5): an
+              // identity admitted included while a terminal record
+              // stands keeps its reconciliation citation durably.
+              terminalObligation: afterTerminal
+                ? {
+                    referredSessionId: op.grantId,
+                    lineageRef: op.terminalRecord?.lineageRef ?? "",
+                    recordedAt: op.terminalRecord?.recordedAt ?? op.now,
+                  }
+                : null,
             },
           },
           journalHead: seq,
@@ -2682,9 +2776,16 @@ function recordCheckpoint(
  *   carrying a terminal obligation settles excluded as the
  *   atomically born-reversed pair (v3.10 §5), its reversal receipt
  *   citing the terminal record from the obligation field.
- * Settlement to `included` requires an operator receipt or the
- * late-snapshot by-construction path; late evidence alone settles
- * only to `excluded` (v3.8 §2.3).
+ * Settlement to `included` requires an operator receipt, or the
+ * late-snapshot by-construction path — and that path belongs to the
+ * OWN-PURCHASE family only, under its snapshot conditions (a
+ * baseline/creation snapshot standing, the same ground on which
+ * purchase_grant observes by construction). A reward-family grant
+ * settles included on an operator receipt or not at all; late
+ * evidence alone settles only to `excluded` (v3.8 §2.3).
+ * An included settlement preserves the pending entry's terminal
+ * obligation on the settlement record (v3.10 §5): retiring the
+ * pendency must not drop the lineage citation.
  */
 function resolveGrantInclusion(
   state: EntitlementAuthorityState,
@@ -2703,14 +2804,21 @@ function resolveGrantInclusion(
     // the absence of a terminal-negative record (Codex re-gate F-E).
     return refused(state, "discovery_registration_required");
   }
-  if (
-    op.classification === "included" &&
-    op.evidence !== "operator_receipt" &&
-    op.evidence !== "late_snapshot"
-  ) {
-    // A late-finalizing witness updates evidence; it settles nothing
-    // to `included` by itself (v3.8 §2.3).
-    return refused(state, "grant_inclusion_unresolved");
+  if (op.classification === "included" && op.evidence !== "operator_receipt") {
+    // The by-construction path is the own-purchase family's alone,
+    // and only on its actual snapshot conditions (a baseline or
+    // creation snapshot standing — purchase_grant's observation
+    // ground). A reward-family identity has no by-construction
+    // inclusion: without an operator receipt it stays unresolved,
+    // and a late-finalizing witness by itself settles nothing to
+    // `included` (v3.8 §2.3).
+    const lateSnapshotConforms =
+      op.evidence === "late_snapshot" &&
+      pending.family === "own_purchase" &&
+      Boolean(state.baseline || state.creationSnapshot);
+    if (!lateSnapshotConforms) {
+      return refused(state, "grant_inclusion_unresolved");
+    }
   }
   const restPending = { ...pendingGrantsOf(state) };
   delete restPending[op.grantId];
@@ -2731,6 +2839,11 @@ function resolveGrantInclusion(
             amount: pending.amount,
             settledAt: op.now,
             basis: op.evidence === "late_snapshot" ? "by_construction" : "operator_receipt",
+            // The pending entry's terminal obligation survives its
+            // retirement on the settlement record (v3.10 §5) — the
+            // reconciliation citation is durable, not a pendency
+            // ephemeron.
+            terminalObligation: pending.terminalObligation ?? null,
           },
         },
         journalHead: seq,

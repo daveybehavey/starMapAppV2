@@ -86,8 +86,12 @@ const {
   __resetEntitlementAuthorityMemoryForTests,
   ENTITLEMENT_AUTHORITY_PROJECTION_KV_KEY,
 } = await import("../../src/lib/entitlementAuthority.ts");
-const { reverseReferralRewardViaAuthority } = await import(
-  "../../src/lib/referralRewardAuthority.ts"
+const {
+  grantReferralRewardViaAuthority,
+  reverseReferralRewardViaAuthority,
+} = await import("../../src/lib/referralRewardAuthority.ts");
+const { createReferralDiscoveryClient } = await import(
+  "../../src/lib/referralDiscoveryClient.ts"
 );
 
 const NOW = Date.UTC(2026, 9, 23, 12, 0, 0);
@@ -136,6 +140,19 @@ const grantRewardOp = (grantId, amount, over = {}) => ({
   grantId,
   amount,
   now: NOW,
+  // Supported-path defaults (G-dot conformance fix round): the
+  // machine requires the shell-attested registration outcome, and
+  // missing classification evidence is unresolved — never native
+  // admission. Bare calls present the attested leg plus P-c
+  // snapshot-order evidence (the identity postdates the seeded
+  // snapshot), the ordinary grant posture; classification and
+  // registration tests override either field explicitly.
+  discoveryRegistration: "registered",
+  classificationEvidence: {
+    sessionCreatedAt: NOW + 86_400_000,
+    fencingCompletedAt: null,
+    witness: "absent",
+  },
   ...over,
 });
 
@@ -1419,4 +1436,363 @@ test("RG2: checkpoint acceptance aligns with persisted-state validation — a ne
   assert.equal(deriveSignedPurchasedPosition(granted.state), 0); // purchased side unchanged
   assert.equal(deriveRemainingAllowance(granted.state), 1); // reward credit spendable in full
   reload(granted.state);
+});
+
+/* ---------------- G-dot conformance fix round (RG3) ----------------
+ *
+ * The conformance recheck at a656b7f returned BLOCK with six findings.
+ * Each test below pins one finding's cleared requirement: RG3-F1a/F1b
+ * (classification is not bypassable at admission or settlement),
+ * RG3-F2 (registration is required at the machine boundary), RG3-F3
+ * (unresolved absence defers — no terminal zero without a serialized
+ * ground), RG3-F4 (every attestation-covered accounting mutation
+ * advances the journal head), RG3-F5 (FIFO is journal order, with the
+ * unsequenced-compatibility rule), RG3-F6 (included settlement keeps
+ * the terminal-obligation citation — T-C50's pair, extended).
+ */
+
+test("RG3-F1a: missing classification evidence pends — never native admission, even in the lost-witness posture", () => {
+  const s = seeded({
+    baselineOver: { allowance: 4, legacyRemainingBalance: 4, legacySpentCount: 0 },
+  });
+  // Registration attested, evidence omitted entirely: the grant pends
+  // unresolved with zero fold effect. Before the fix, omission
+  // selected native admission and folded.
+  const pended = applyEntitlementAuthorityOp(s, grantRewardOp("cs_rg3a", 1, {
+    classificationEvidence: undefined,
+  }));
+  assert.equal(pended.outcome, "grant_pending");
+  assert.equal(pended.pendingKind, "inclusion");
+  assert.equal(pended.state.rewardBucketBalance, 0);
+  assert.equal(pended.state.rewardGrants["cs_rg3a"], undefined);
+
+  // The lost-witness posture (the construction the cleared text
+  // returns for a legacy grant already contributing to the opening):
+  // the same pend — never a second fold of that grant — and the
+  // terminal obligation rides the pending entry.
+  const pended2 = applyEntitlementAuthorityOp(s, grantRewardOp("cs_rg3a2", 1, {
+    classificationEvidence: undefined,
+    discoveryRegistration: "registered_after_terminal",
+    terminalRecord: { lineageRef: "lin-rg3", recordedAt: NOW - 5_000 },
+  }));
+  assert.equal(pended2.outcome, "grant_pending");
+  assert.deepEqual(
+    pendingGrantsOf(pended2.state)["cs_rg3a2"].terminalObligation,
+    { referredSessionId: "cs_rg3a2", lineageRef: "lin-rg3", recordedAt: NOW - 5_000 },
+  );
+  assert.equal(pended2.state.rewardBucketBalance, 0);
+});
+
+test("RG3-F1b: late_snapshot settles only the own-purchase path under its snapshot — reward-family inclusion keeps its receipt requirement", () => {
+  // Reward-family pendency: late_snapshot inclusion refuses (the
+  // family has no snapshot of the referred purchase; before the fix
+  // it settled included/by_construction — even with no snapshot in
+  // the state at all).
+  const s = seeded({
+    baselineOver: { allowance: 4, legacyRemainingBalance: 4, legacySpentCount: 0 },
+  });
+  const pended = applyEntitlementAuthorityOp(s, grantRewardOp("cs_rg3b", 1, {
+    classificationEvidence: {
+      sessionCreatedAt: NOW - 300_000,
+      fencingCompletedAt: null,
+      witness: "unfinalized",
+    },
+  }));
+  assert.equal(pended.outcome, "grant_pending");
+  const refusedSettle = applyEntitlementAuthorityOp(pended.state, {
+    type: "resolve_grant_inclusion",
+    grantId: "cs_rg3b",
+    classification: "included",
+    evidence: "late_snapshot",
+    now: NOW + 1,
+  });
+  assert.equal(refusedSettle.outcome, "refused");
+  assert.equal(refusedSettle.refusal, "grant_inclusion_unresolved");
+  assert.ok(pendingGrantsOf(refusedSettle.state)["cs_rg3b"]); // nothing finalized
+
+  // The cleared own-purchase path is unchanged (T-C31's shape): a
+  // birth pendency settles included/by_construction once its own
+  // baseline snapshot exists.
+  let own = createEmptyEntitlementAuthorityState("cs_rg3b_own_er");
+  own = applyEntitlementAuthorityOp(own, {
+    type: "sync_facts",
+    facts: facts(),
+    now: NOW - 1000,
+  }).state;
+  const presented = applyEntitlementAuthorityOp(own, {
+    type: "purchase_grant",
+    amount: 3,
+    sessionCreatedAt: null,
+    authorityEraStart: NOW - 500_000,
+    now: NOW,
+  });
+  assert.equal(presented.outcome, "grant_pending");
+  assert.equal(presented.pendingKind, "birth");
+  own = applyEntitlementAuthorityOp(presented.state, {
+    type: "capture_baseline",
+    baseline: baseline({ allowance: 3, legacyRemainingBalance: 1, legacySpentCount: 2 }),
+    now: NOW + 1,
+  }).state;
+  const ownPending = Object.keys(pendingGrantsOf(own));
+  assert.equal(ownPending.length, 1);
+  const settled = applyEntitlementAuthorityOp(own, {
+    type: "resolve_grant_inclusion",
+    grantId: ownPending[0],
+    classification: "included",
+    evidence: "late_snapshot",
+    now: NOW + 2,
+  });
+  assert.equal(settled.outcome, "inclusion_settled");
+  assert.equal(settledInclusionsOf(settled.state)[ownPending[0]].basis, "by_construction");
+});
+
+test("RG3-F2: registration is required at the machine boundary — refusal via the DO apply path, the client, and the wrapper", async () => {
+  // Pure machine: no discoveryRegistration → dedicated refusal, no fold.
+  const s = seeded();
+  const refused = applyEntitlementAuthorityOp(s, {
+    type: "grant_reward",
+    grantId: "cs_rg3f2",
+    amount: 1,
+    now: NOW,
+    classificationEvidence: {
+      sessionCreatedAt: NOW + 86_400_000,
+      fencingCompletedAt: null,
+      witness: "absent",
+    },
+  });
+  assert.equal(refused.outcome, "refused");
+  assert.equal(refused.refusal, "discovery_attestation_missing");
+  assert.equal(refused.state.rewardBucketBalance, 0);
+
+  // The supported DO apply path (client.apply — the DO's own route
+  // into the machine) refuses identically; the wrapper without a
+  // discovery input surfaces the refusal as a skip, fail-closed.
+  __resetEntitlementAuthorityMemoryForTests();
+  const client = createEntitlementAuthorityClient();
+  const REF = "cs_rg3f2_referrer";
+  await client.apply(REF, { type: "sync_facts", facts: facts(), now: NOW - 1000 });
+  await client.apply(REF, { type: "capture_baseline", baseline: baseline(), now: NOW - 900 });
+  const viaClient = await client.apply(REF, {
+    type: "grant_reward",
+    grantId: "cs_rg3f2c",
+    amount: 1,
+    now: NOW,
+  });
+  assert.equal(viaClient.outcome, "refused");
+  assert.equal(viaClient.refusal, "discovery_attestation_missing");
+  const viaWrapper = await grantReferralRewardViaAuthority(
+    client,
+    REF,
+    "cs_rg3f2w",
+    1,
+    async () => null,
+    NOW,
+  );
+  // The wrapper's public skip vocabulary collapses machine refusals
+  // to the settled "refused" skip — the specific refusal is pinned
+  // at the machine and client layers above; the funding failure is
+  // the observable fact here: nothing landed.
+  assert.equal(viaWrapper.status, "skipped");
+  assert.equal(viaWrapper.reason, "refused");
+  assert.equal((await client.getState(REF)).rewardBucketBalance, 0);
+
+  // With the discovery input present (registration attested by the
+  // shell leg), the same grant funds.
+  const funded = await grantReferralRewardViaAuthority(
+    client,
+    REF,
+    "cs_rg3f2w",
+    1,
+    async () => null,
+    NOW,
+    {
+      discoveryClient: createReferralDiscoveryClient(),
+      sessionCreatedAt: NOW + 86_400_000,
+      fencingCompletedAt: null,
+    },
+  );
+  assert.equal(funded.status, "granted");
+  const after = await client.getState(REF);
+  assert.equal(after.rewardBucketBalance, 1);
+});
+
+test("RG3-F3: unresolved absence defers in the authority-routed path; a terminal zero needs its serialized ground", async () => {
+  __resetEntitlementAuthorityMemoryForTests();
+  const client = createEntitlementAuthorityClient();
+  const REF = "cs_rg3f3_referrer";
+  await client.apply(REF, { type: "sync_facts", facts: facts(), now: NOW - 1000 });
+  await client.apply(REF, { type: "capture_baseline", baseline: baseline(), now: NOW - 900 });
+
+  // Baseline standing, grant unknown to the journal: DEFERRED (the
+  // webhook leaves dedupe unfinalized) — never a terminal zero with
+  // no serialized reversal receipt behind it.
+  const unknown = await reverseReferralRewardViaAuthority(client, REF, "cs_rg3f3_unknown", NOW);
+  assert.equal(unknown.status, "deferred");
+
+  // No baseline at all: likewise deferred, and nothing is created.
+  const stranger = "cs_rg3f3_stranger";
+  const noBaseline = await reverseReferralRewardViaAuthority(client, stranger, "cs_rg3f3_unknown", NOW);
+  assert.equal(noBaseline.status, "deferred");
+  const strangerState = await client.getState(stranger);
+  assert.equal(strangerState?.baseline ?? null, null);
+
+  // The terminal zero survives exactly where its ground is
+  // serialized: an operator-receipt reversal journals the receipt and
+  // answers not_bucket_grant from inside the op.
+  const s = seeded();
+  const receipted = applyEntitlementAuthorityOp(s, {
+    type: "reverse_reward",
+    grantId: "cs_rg3f3_receipted",
+    now: NOW,
+    operatorReceipt: { basis: "operator_excluded_receipt", lineageRef: "lin-rg3f3", recordedAt: NOW },
+  });
+  assert.equal(receipted.outcome, "not_bucket_grant");
+  assert.equal(receipted.rewardClawed, 0);
+  assert.equal(
+    reversalReceiptsOf(receipted.state)["cs_rg3f3_receipted"].basis,
+    "operator_receipt",
+  );
+});
+
+test("RG3-F4: a monetary mutation invalidates exact-head attestation — the interleaved compensation", () => {
+  let s = seeded({
+    baselineOver: { allowance: 3, legacyRemainingBalance: 0, legacySpentCount: 3 },
+  });
+  const headBefore = journalHeadOf(s);
+  // Attestation is prepared against headBefore; the legacy
+  // compensation then lands (fold 0 → 1). Before the fix the head
+  // stayed put and the stale attestation recorded against fold 1.
+  const comp = applyEntitlementAuthorityOp(s, {
+    type: "compensate",
+    consumeToken: "tok-1", // the seeded baseline's last consume token
+    now: NOW,
+  });
+  assert.equal(comp.outcome, "compensated");
+  assert.equal(journalHeadOf(comp.state), headBefore + 1);
+  s = comp.state;
+  const stale = applyEntitlementAuthorityOp(s, {
+    type: "record_checkpoint",
+    verifiedOpening: -1,
+    attestedJournalHead: headBefore,
+    snapshotFigureEcho: 0,
+    now: NOW + 1,
+  });
+  assert.equal(stale.outcome, "refused");
+  assert.equal(stale.refusal, "attestation_head_mismatch");
+  // Re-attested at the new head, the checkpoint records — and its
+  // receipt honestly reports the fold it installed against.
+  const fresh = applyEntitlementAuthorityOp(s, {
+    type: "record_checkpoint",
+    verifiedOpening: -1,
+    attestedJournalHead: journalHeadOf(s),
+    snapshotFigureEcho: 0,
+    now: NOW + 2,
+  });
+  assert.equal(fresh.outcome, "checkpoint_recorded");
+  assert.equal(fresh.state.verificationReceipt.journalFoldAtInstall, 1);
+  reload(fresh.state);
+
+  // The legacy grant decision is head-binding the same way (audit
+  // companion): it consumes the mutually exclusive recovery decision,
+  // so it too advances the head.
+  const s2 = seeded(); // default baseline carries a legacy spend
+  const h2 = journalHeadOf(s2);
+  const g = applyEntitlementAuthorityOp(s2, {
+    type: "grant",
+    artifactId: "art-rg3f4",
+    mapId: "map-1",
+    fingerprint: "fp-art-rg3f4",
+    finalized: true,
+    now: NOW,
+  });
+  assert.equal(g.outcome, "granted");
+  assert.ok(journalHeadOf(g.state) > h2);
+});
+
+test("RG3-F5: FIFO attribution is journal order — equal timestamps, reverse-lexical ids, through persist/reload", () => {
+  let s = seeded({
+    baselineOver: { allowance: 4, legacyRemainingBalance: 4, legacySpentCount: 0 },
+  });
+  // Journal order: cs_z_first folds first (lower sequence),
+  // cs_a_second second — at the SAME grantedAt timestamp. Lexical
+  // order would pick cs_a_second; journal order must pick cs_z_first.
+  s = applyEntitlementAuthorityOp(s, grantRewardOp("cs_z_first", 1)).state;
+  s = applyEntitlementAuthorityOp(s, grantRewardOp("cs_a_second", 1)).state;
+  s = reload(s); // sequences survive persist/reload
+  const c = applyEntitlementAuthorityOp(s, commitOp("art-rg3f5", { consumeToken: "ct-rg3f5" }));
+  assert.equal(c.outcome, "committed");
+  assert.equal(c.state.ownedFiles["art-rg3f5"].fundingGrantId, "cs_z_first");
+
+  // Compatibility rule: an entry WITHOUT a sequence (a pre-sequence
+  // journal fold) precedes every sequenced entry.
+  let m = seeded({
+    baselineOver: { allowance: 4, legacyRemainingBalance: 4, legacySpentCount: 0 },
+  });
+  m = applyEntitlementAuthorityOp(m, grantRewardOp("cs_seq_a", 1)).state;
+  m = applyEntitlementAuthorityOp(m, grantRewardOp("cs_seq_b", 1)).state;
+  const stripped = JSON.parse(JSON.stringify(m));
+  delete stripped.rewardGrants["cs_seq_b"].seq;
+  const cm = applyEntitlementAuthorityOp(stripped, commitOp("art-rg3f5m", { consumeToken: "ct-rg3f5m" }));
+  assert.equal(cm.state.ownedFiles["art-rg3f5m"].fundingGrantId, "cs_seq_b");
+
+  // Both unsequenced: the legacy (grantedAt, grantId) order is the
+  // reconstruction — equal timestamps fall to lexical, as before.
+  const strippedBoth = JSON.parse(JSON.stringify(m));
+  delete strippedBoth.rewardGrants["cs_seq_a"].seq;
+  delete strippedBoth.rewardGrants["cs_seq_b"].seq;
+  const cb = applyEntitlementAuthorityOp(strippedBoth, commitOp("art-rg3f5b", { consumeToken: "ct-rg3f5b" }));
+  assert.equal(cb.state.ownedFiles["art-rg3f5b"].fundingGrantId, "cs_seq_a");
+});
+
+test("RG3-F6: included settlement preserves the terminal-obligation citation — the T-C50 pair, asserted after reload", () => {
+  const s = seeded({
+    baselineOver: { allowance: 4, legacyRemainingBalance: 4, legacySpentCount: 0 },
+  });
+  const pended = applyEntitlementAuthorityOp(s, grantRewardOp("cs_rg3f6", 1, {
+    discoveryRegistration: "registered_after_terminal",
+    terminalRecord: { lineageRef: "lin-rg3f6", recordedAt: NOW - 1_000 },
+    classificationEvidence: {
+      sessionCreatedAt: NOW - 300_000,
+      fencingCompletedAt: null,
+      witness: "unfinalized",
+    },
+  }));
+  assert.equal(pended.outcome, "grant_pending");
+  const settled = applyEntitlementAuthorityOp(reload(pended.state), {
+    type: "resolve_grant_inclusion",
+    grantId: "cs_rg3f6",
+    classification: "included",
+    evidence: "operator_receipt",
+    now: NOW + 1,
+  });
+  assert.equal(settled.outcome, "inclusion_settled");
+  // The citation pair survives on the settlement record — and after
+  // persist/reload, not just in the returned state.
+  const citation = {
+    referredSessionId: "cs_rg3f6",
+    lineageRef: "lin-rg3f6",
+    recordedAt: NOW - 1_000,
+  };
+  assert.deepEqual(settledInclusionsOf(settled.state)["cs_rg3f6"].terminalObligation, citation);
+  assert.deepEqual(
+    settledInclusionsOf(reload(settled.state))["cs_rg3f6"].terminalObligation,
+    citation,
+  );
+
+  // Immediate included admission carries the citation too.
+  const immediate = applyEntitlementAuthorityOp(s, grantRewardOp("cs_rg3f6b", 1, {
+    discoveryRegistration: "registered_after_terminal",
+    terminalRecord: { lineageRef: "lin-rg3f6b", recordedAt: NOW - 2_000 },
+    classificationEvidence: {
+      sessionCreatedAt: NOW - 300_000,
+      fencingCompletedAt: null,
+      witness: "finalized_grant",
+      operatorIncludedReceipt: true,
+    },
+  }));
+  assert.equal(immediate.outcome, "already_included_in_opening");
+  assert.deepEqual(
+    settledInclusionsOf(immediate.state)["cs_rg3f6b"].terminalObligation,
+    { referredSessionId: "cs_rg3f6b", lineageRef: "lin-rg3f6b", recordedAt: NOW - 2_000 },
+  );
 });
