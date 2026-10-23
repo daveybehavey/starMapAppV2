@@ -1415,6 +1415,364 @@ test("A2-3 driver never submits an uncertain retry through a different provider"
   }
 });
 
+/* ------------- A2-3 gate fix round 3 (Codex findings) ------------- */
+
+test("A2-3 an uncertain cancellation without a guarantee rearms to blocked, never claimable", () => {
+  const t0 = NOW;
+  let state = subscribedState("hash-r3-unsub-ambiguous-sg", t0);
+  const claimed = stateLib.applyClaimPromotionJob(state, {
+    kind: "coupon",
+    now: t0,
+    attemptProvider: "sendgrid",
+    attemptIdempotencyGuaranteed: false,
+  });
+  assert.ok(claimed.claim);
+  state = claimed.state;
+  // The subscriber opts out while the SendGrid submission is in flight.
+  state = stateLib.applyUnsubscribePromotion(state, {
+    emailHash: "hash-r3-unsub-ambiguous-sg",
+    now: t0 + 1000,
+    reason: "email_link",
+    facts: noFacts,
+  }).state;
+  assert.equal(state.jobs.coupon?.status, "attempting");
+  // The response is lost: SendGrid may have accepted the send, and it
+  // offers no idempotency guarantee to dedupe a second submission.
+  state = stateLib.applyCompletePromotionJob(state, {
+    kind: "coupon",
+    now: t0 + 2000,
+    outcome: {
+      type: "ambiguous",
+      provider: "sendgrid",
+      idempotencyGuaranteed: false,
+      error: "response lost",
+    },
+  }).state;
+  assert.equal(state.jobs.coupon?.status, "cancelled");
+  assert.deepEqual(
+    state.jobs.coupon?.uncertainCancellation,
+    { provider: "sendgrid", idempotencyGuaranteed: false },
+    "the cancellation records the attempt's uncertainty",
+  );
+  // Renewed consent does not prove the original attempt was not
+  // accepted: the resubscribe rearms the job to blocked, not pending.
+  const re = stateLib.applySubscribePromotion(state, {
+    emailHash: "hash-r3-unsub-ambiguous-sg",
+    source: "test",
+    now: t0 + 3000,
+    facts: noFacts,
+    couponPayload: preparePromotionCouponPayload("pure@example.com", "FIRST50"),
+  });
+  assert.equal(re.state.unsubscribedAt, null);
+  assert.equal(
+    re.state.jobs.coupon?.status,
+    "blocked",
+    "an uncovered uncertain cancellation rearms to blocked",
+  );
+  const claim = stateLib.applyClaimPromotionJob(re.state, {
+    kind: "coupon",
+    now: t0 + 4000,
+    attemptProvider: "sendgrid",
+    attemptIdempotencyGuaranteed: false,
+  });
+  assert.equal(claim.claim, null, "a blocked job is never claimable");
+});
+
+test("A2-3 an uncertain cancellation under a live guarantee rearms to pending and retries with the identical key", () => {
+  const t0 = NOW;
+  let state = subscribedState("hash-r3-unsub-ambiguous-rs", t0);
+  const claimed = stateLib.applyClaimPromotionJob(state, {
+    kind: "coupon",
+    now: t0,
+    attemptProvider: "resend",
+    attemptIdempotencyGuaranteed: true,
+  });
+  assert.ok(claimed.claim);
+  const key = claimed.claim.providerIdempotencyKey;
+  state = claimed.state;
+  state = stateLib.applyUnsubscribePromotion(state, {
+    emailHash: "hash-r3-unsub-ambiguous-rs",
+    now: t0 + 1000,
+    reason: "email_link",
+    facts: noFacts,
+  }).state;
+  // Resend accepted the send but its response was lost while the
+  // subscriber was opting out: the job cancels, with the guarantee
+  // covering its key recorded.
+  state = stateLib.applyCompletePromotionJob(state, {
+    kind: "coupon",
+    now: t0 + 2000,
+    outcome: {
+      type: "ambiguous",
+      provider: "resend",
+      idempotencyGuaranteed: true,
+      error: "response lost",
+    },
+  }).state;
+  assert.equal(state.jobs.coupon?.status, "cancelled");
+  assert.deepEqual(state.jobs.coupon?.uncertainCancellation, {
+    provider: "resend",
+    idempotencyGuaranteed: true,
+  });
+  // Inside the guarantee window, the resubscribe rearms to pending…
+  const re = stateLib.applySubscribePromotion(state, {
+    emailHash: "hash-r3-unsub-ambiguous-rs",
+    source: "test",
+    now: t0 + 3000,
+    facts: noFacts,
+    couponPayload: preparePromotionCouponPayload("pure@example.com", "FIRST50"),
+  });
+  assert.equal(
+    re.state.jobs.coupon?.status,
+    "pending",
+    "a guarantee-covered cancellation rearms to pending",
+  );
+  // …and the retry is claimable under the same provider, reusing the
+  // job's identical idempotency key (the provider dedupes it).
+  const retry = stateLib.applyClaimPromotionJob(re.state, {
+    kind: "coupon",
+    now: t0 + 3000,
+    attemptProvider: "resend",
+    attemptIdempotencyGuaranteed: true,
+  });
+  assert.ok(retry.claim, "the covered retry is claimable");
+  assert.equal(retry.claim.providerIdempotencyKey, key);
+});
+
+test("A2-3 an uncertain cancellation whose guarantee window lapsed rearms to blocked", () => {
+  const t0 = NOW;
+  let state = subscribedState("hash-r3-unsub-ambiguous-expired", t0);
+  const claimed = stateLib.applyClaimPromotionJob(state, {
+    kind: "coupon",
+    now: t0,
+    attemptProvider: "resend",
+    attemptIdempotencyGuaranteed: true,
+  });
+  assert.ok(claimed.claim);
+  state = claimed.state;
+  state = stateLib.applyUnsubscribePromotion(state, {
+    emailHash: "hash-r3-unsub-ambiguous-expired",
+    now: t0 + 1000,
+    reason: "email_link",
+    facts: noFacts,
+  }).state;
+  state = stateLib.applyCompletePromotionJob(state, {
+    kind: "coupon",
+    now: t0 + 2000,
+    outcome: {
+      type: "ambiguous",
+      provider: "resend",
+      idempotencyGuaranteed: true,
+      error: "response lost",
+    },
+  }).state;
+  assert.equal(state.jobs.coupon?.status, "cancelled");
+  // The resubscribe arrives only after the 24h guarantee window has
+  // lapsed: the same-key retry is no longer dedupe-safe, so the job
+  // rearms to blocked for an operator instead of pending.
+  const re = stateLib.applySubscribePromotion(state, {
+    emailHash: "hash-r3-unsub-ambiguous-expired",
+    source: "test",
+    now: t0 + stateLib.PROVIDER_IDEMPOTENCY_WINDOW_MS + 1000,
+    facts: noFacts,
+    couponPayload: preparePromotionCouponPayload("pure@example.com", "FIRST50"),
+  });
+  assert.equal(re.state.jobs.coupon?.status, "blocked");
+});
+
+test("A2-3 a stale claim cancelled by the alarm without a guarantee rearms to blocked", () => {
+  const t0 = NOW;
+  let state = subscribedState("hash-r3-alarm-unsub-sg", t0);
+  const claimed = stateLib.applyClaimPromotionJob(state, {
+    kind: "coupon",
+    now: t0,
+    attemptProvider: "sendgrid",
+    attemptIdempotencyGuaranteed: false,
+  });
+  assert.ok(claimed.claim);
+  state = claimed.state;
+  // The driver dies before the outcome is known; the subscriber opts
+  // out while the claim is in flight, and the alarm cancels the stale
+  // claim. The cancelled attempt is just as uncertain as a completed
+  // one — SendGrid may have accepted it.
+  state = stateLib.applyUnsubscribePromotion(state, {
+    emailHash: "hash-r3-alarm-unsub-sg",
+    now: t0 + 1000,
+    reason: "email_link",
+    facts: noFacts,
+  }).state;
+  const alarmed = stateLib.applyPromotionAlarm(state, {
+    now: t0 + stateLib.PROMOTION_JOB_ATTEMPT_STALE_MS + 2000,
+  });
+  state = alarmed.state;
+  assert.equal(state.jobs.coupon?.status, "cancelled");
+  assert.deepEqual(
+    state.jobs.coupon?.uncertainCancellation,
+    { provider: "sendgrid", idempotencyGuaranteed: false },
+    "the alarm's cancellation records the stale claim's uncertainty from its stamp",
+  );
+  const re = stateLib.applySubscribePromotion(state, {
+    emailHash: "hash-r3-alarm-unsub-sg",
+    source: "test",
+    now: t0 + stateLib.PROMOTION_JOB_ATTEMPT_STALE_MS + 3000,
+    facts: noFacts,
+    couponPayload: preparePromotionCouponPayload("pure@example.com", "FIRST50"),
+  });
+  assert.equal(
+    re.state.jobs.coupon?.status,
+    "blocked",
+    "the resubscribe cannot rearm an uncovered uncertain cancellation to a deliverable job",
+  );
+  const claim = stateLib.applyClaimPromotionJob(re.state, {
+    kind: "coupon",
+    now: t0 + stateLib.PROMOTION_JOB_ATTEMPT_STALE_MS + 4000,
+    attemptProvider: "sendgrid",
+    attemptIdempotencyGuaranteed: false,
+  });
+  assert.equal(claim.claim, null);
+});
+
+test("A2-3 a pending job carrying an uncovered uncertain cancellation is refused at claim and blocked", () => {
+  const t0 = NOW;
+  const base = subscribedState("hash-r3-backstop", t0);
+  // A record that predates (or bypassed) the certainty-aware rearm: a
+  // pending job whose earlier uncertain attempt has no idempotency
+  // guarantee. The claim transition itself must fail closed on it.
+  const coupon = base.jobs.coupon;
+  assert.ok(coupon);
+  const state = {
+    ...base,
+    jobs: {
+      ...base.jobs,
+      coupon: {
+        ...coupon,
+        provider: "sendgrid",
+        firstAttemptAt: t0,
+        attemptCount: 1,
+        uncertainCancellation: { provider: "sendgrid", idempotencyGuaranteed: false },
+      },
+    },
+  };
+  const refused = stateLib.applyClaimPromotionJob(state, {
+    kind: "coupon",
+    now: t0 + 1000,
+    attemptProvider: "sendgrid",
+    attemptIdempotencyGuaranteed: false,
+  });
+  assert.equal(refused.claim, null, "the claim is refused (fail closed)");
+  assert.equal(
+    refused.state.jobs.coupon?.status,
+    "blocked",
+    "the job is blocked for an operator instead of left claimable",
+  );
+});
+
+test("A2-3 an unconfigured completion backs off the next alarm instead of refiring immediately", () => {
+  const t0 = NOW;
+  let state = subscribedState("hash-r3-unconfigured-backoff", t0);
+  // Attempt 1: ambiguous under Resend's guarantee → pending with a
+  // scheduled retry.
+  const claimed = stateLib.applyClaimPromotionJob(state, {
+    kind: "coupon",
+    now: t0,
+    attemptProvider: "resend",
+    attemptIdempotencyGuaranteed: true,
+  });
+  assert.ok(claimed.claim);
+  state = stateLib.applyCompletePromotionJob(claimed.state, {
+    kind: "coupon",
+    now: t0,
+    outcome: {
+      type: "ambiguous",
+      provider: "resend",
+      idempotencyGuaranteed: true,
+      error: "response lost",
+    },
+  }).state;
+  assert.equal(state.jobs.coupon?.status, "pending");
+  const retryAt = state.jobs.coupon?.nextAttemptAt;
+  assert.equal(retryAt, t0 + stateLib.PROMOTION_JOB_RETRY_DELAY_MS);
+  assert.ok(retryAt !== null);
+  // The retry comes due and is claimed, but by then every provider is
+  // unconfigured: the attempt resolves without any provider call.
+  const claimed2 = stateLib.applyClaimPromotionJob(state, {
+    kind: "coupon",
+    now: retryAt,
+    attemptProvider: null,
+    attemptIdempotencyGuaranteed: null,
+  });
+  assert.ok(claimed2.claim);
+  const completedAt = retryAt + 1000;
+  state = stateLib.applyCompletePromotionJob(claimed2.state, {
+    kind: "coupon",
+    now: completedAt,
+    outcome: { type: "unconfigured" },
+  }).state;
+  assert.equal(state.jobs.coupon?.status, "pending");
+  assert.ok(
+    (state.jobs.coupon?.nextAttemptAt ?? 0) > completedAt,
+    "the restored job is backed off, not left with its already-due retry time",
+  );
+  const alarmAt = stateLib.nextPromotionAlarmAt(state, completedAt);
+  assert.ok(
+    alarmAt !== null && alarmAt > completedAt,
+    "the next alarm is scheduled in the future, not in the past",
+  );
+});
+
+test("A2-3 an unconfigured completion after an unsubscribe cancels with no retry scheduled", () => {
+  const t0 = NOW;
+  let state = subscribedState("hash-r3-unconfigured-unsub", t0);
+  const claimed = stateLib.applyClaimPromotionJob(state, {
+    kind: "coupon",
+    now: t0,
+    attemptProvider: "resend",
+    attemptIdempotencyGuaranteed: true,
+  });
+  assert.ok(claimed.claim);
+  state = stateLib.applyCompletePromotionJob(claimed.state, {
+    kind: "coupon",
+    now: t0,
+    outcome: {
+      type: "ambiguous",
+      provider: "resend",
+      idempotencyGuaranteed: true,
+      error: "response lost",
+    },
+  }).state;
+  const retryAt = state.jobs.coupon?.nextAttemptAt;
+  assert.ok(retryAt !== null);
+  // The retry is claimed (the job still carries its due retry time)…
+  const claimed2 = stateLib.applyClaimPromotionJob(state, {
+    kind: "coupon",
+    now: retryAt,
+    attemptProvider: null,
+    attemptIdempotencyGuaranteed: null,
+  });
+  assert.ok(claimed2.claim);
+  state = claimed2.state;
+  // …the subscriber opts out mid-claim, and the attempt then resolves
+  // unconfigured: the job cancels and keeps no schedule.
+  state = stateLib.applyUnsubscribePromotion(state, {
+    emailHash: "hash-r3-unconfigured-unsub",
+    now: retryAt + 500,
+    reason: "email_link",
+    facts: noFacts,
+  }).state;
+  assert.equal(state.jobs.coupon?.status, "attempting");
+  state = stateLib.applyCompletePromotionJob(state, {
+    kind: "coupon",
+    now: retryAt + 1000,
+    outcome: { type: "unconfigured" },
+  }).state;
+  assert.equal(state.jobs.coupon?.status, "cancelled");
+  assert.equal(
+    state.jobs.coupon?.nextAttemptAt,
+    null,
+    "a cancelled job carries no retry schedule",
+  );
+});
+
 /* ------------------------------ wiring ------------------------------ */
 
 test("wiring: coordinator binding, migration, and worker export exist", () => {

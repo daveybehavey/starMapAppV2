@@ -375,6 +375,21 @@ export type PromotionJob = {
    *  without one it blocks instead of risking a duplicate send. */
   attemptProvider: string | null;
   attemptIdempotencyGuaranteed: boolean | null;
+  /** Uncertainty left behind when a job is CANCELLED out of an
+   *  in-flight attempt whose acceptance was never resolved: the
+   *  ambiguous completion that lands after an opt-out, or the alarm
+   *  cancelling a stale claim on an opted-out account. The named
+   *  provider may already hold an acceptance for this job's key;
+   *  `idempotencyGuaranteed` records whether that provider guaranteed
+   *  dedupe for the attempt (the 24h window is enforced from
+   *  firstAttemptAt at rearm and at claim). Null whenever no such
+   *  unresolved attempt is outstanding — jobs cancelled before any
+   *  attempt, definitive outcomes, and accepted jobs carry none. A
+   *  resubscribe rearms an uncertain cancellation to `pending` ONLY
+   *  while the guarantee is live; otherwise it rearms to `blocked`,
+   *  because renewed consent does not prove the original attempt was
+   *  not accepted (S3-A). */
+  uncertainCancellation: { provider: string | null; idempotencyGuaranteed: boolean } | null;
   lastError: string | null;
   updatedAt: number;
 };
@@ -418,6 +433,7 @@ export function isValidPromotionJob(value: unknown): value is PromotionJob {
   if (!value || typeof value !== "object") return false;
   const job = value as Record<string, unknown>;
   const payload = job.payload as Record<string, unknown> | null;
+  const uncertain = job.uncertainCancellation as Record<string, unknown> | null | undefined;
   return (
     nonEmptyString(job.jobId) !== null &&
     (job.kind === "coupon" || job.kind === "followup") &&
@@ -441,6 +457,11 @@ export function isValidPromotionJob(value: unknown): value is PromotionJob {
     (job.attemptIdempotencyGuaranteed === null ||
       job.attemptIdempotencyGuaranteed === undefined ||
       typeof job.attemptIdempotencyGuaranteed === "boolean") &&
+    (uncertain === null ||
+      uncertain === undefined ||
+      (typeof uncertain === "object" &&
+        (uncertain.provider === null || nonEmptyString(uncertain.provider) !== null) &&
+        typeof uncertain.idempotencyGuaranteed === "boolean")) &&
     finiteNumber(job.updatedAt) !== null
   );
 }
@@ -499,6 +520,7 @@ function legacyAcceptedJob(
     providerMessageId: null,
     attemptProvider: null,
     attemptIdempotencyGuaranteed: null,
+    uncertainCancellation: null,
     lastError: null,
     updatedAt: now,
   };
@@ -594,9 +616,23 @@ function createPendingJob(
     providerMessageId: null,
     attemptProvider: null,
     attemptIdempotencyGuaranteed: null,
+    uncertainCancellation: null,
     lastError: null,
     updatedAt: now,
   };
+}
+
+/** Whether a job's recorded uncertain cancellation is covered by a
+ *  LIVE provider idempotency guarantee: the cancelled attempt's
+ *  provider guaranteed dedupe for the job's key AND the guarantee
+ *  window (24h from the first attempt) is still open. Only then may a
+ *  same-key retry be scheduled — the provider dedupes it (S3-A). */
+function uncertainAttemptCovered(job: PromotionJob, now: number): boolean {
+  const uncertain = job.uncertainCancellation;
+  if (!uncertain || uncertain.idempotencyGuaranteed !== true) return false;
+  return (
+    job.firstAttemptAt !== null && now <= job.firstAttemptAt + PROVIDER_IDEMPOTENCY_WINDOW_MS
+  );
 }
 
 export function applySubscribePromotion(
@@ -621,24 +657,53 @@ export function applySubscribePromotion(
   const isNewSubscriber = !hadSubscription;
 
   const jobs = { ...current.jobs };
-  // A fresh subscribe is a new business event: jobs that provably never
-  // produced an accepted send (cancelled before any claim, or a
-  // definitive provider rejection — the provider answered, so there is
-  // no acceptance ambiguity) become attemptable again under the SAME
-  // job id and idempotency key. Blocked jobs stay blocked: their
-  // ambiguity outlived the provider window and only an operator may
-  // reopen them. Accepted jobs are never touched.
+  // A fresh subscribe is a new business event, but which cancelled
+  // jobs it may rearm depends on the certainty the job was cancelled
+  // with:
+  // - Jobs that provably never produced an accepted send (cancelled
+  //   before any claim, or a definitive provider rejection — the
+  //   provider answered, so there is no acceptance ambiguity) become
+  //   attemptable again under the SAME job id and idempotency key.
+  // - A job cancelled out of an UNCERTAIN attempt (recorded in
+  //   uncertainCancellation: its provider may already have accepted)
+  //   rearms to pending ONLY while that provider's idempotency
+  //   guarantee is live — the retry reuses the same key and the
+  //   provider dedupes it. Without a live guarantee it rearms to
+  //   BLOCKED instead: renewed consent does not prove the original
+  //   attempt was not accepted, so the no-guarantee block survives
+  //   the rearm and only an operator may reopen the job.
+  // Blocked jobs otherwise stay blocked: their ambiguity outlived the
+  // provider window and only an operator may reopen them. Accepted
+  // jobs are never touched.
   for (const kind of ["coupon", "followup"] as const) {
     const job = jobs[kind];
-    if (job && (job.status === "cancelled" || job.status === "failed")) {
+    if (!job || (job.status !== "cancelled" && job.status !== "failed")) continue;
+    if (
+      job.status === "cancelled" &&
+      job.uncertainCancellation &&
+      !uncertainAttemptCovered(job, input.now)
+    ) {
       jobs[kind] = {
         ...job,
-        status: "pending",
+        status: "blocked",
         claimedAt: null,
         nextAttemptAt: null,
+        lastError:
+          job.lastError ??
+          (job.uncertainCancellation.idempotencyGuaranteed
+            ? "idempotency_window_expired"
+            : "ambiguous_without_idempotency"),
         updatedAt: input.now,
       };
+      continue;
     }
+    jobs[kind] = {
+      ...job,
+      status: "pending",
+      claimedAt: null,
+      nextAttemptAt: null,
+      updatedAt: input.now,
+    };
   }
   if (!jobs.coupon) {
     jobs.coupon = createPendingJob(input.emailHash, input.couponPayload, input.now);
@@ -767,6 +832,31 @@ export function applyClaimPromotionJob(
       claim: null,
     };
   }
+  if (job.uncertainCancellation && job.uncertainCancellation.idempotencyGuaranteed !== true) {
+    // Backstop: a job cancelled out of an uncertain attempt at a
+    // provider with NO idempotency guarantee must never be claimed
+    // again — the original submission may already have been accepted
+    // and nothing can dedupe a second one. applySubscribePromotion
+    // rearms such jobs to blocked, so a pending one here means the
+    // record predates or bypassed that rule: fail closed and block it
+    // for an operator, like every other uncovered ambiguity (S3-A).
+    // (A guaranteed record falls through: the window check above has
+    // already bounded it, and the pin below keeps the retry on the
+    // provider whose guarantee covers the key.)
+    const blocked: PromotionJob = {
+      ...job,
+      status: "blocked",
+      claimedAt: null,
+      nextAttemptAt: null,
+      lastError: job.lastError ?? "ambiguous_without_idempotency",
+      updatedAt: input.now,
+    };
+    return {
+      state: { ...state, jobs: { ...state.jobs, [input.kind]: blocked } },
+      changed: true,
+      claim: null,
+    };
+  }
   if (
     job.provider !== null &&
     (input.attemptProvider ?? null) !== null &&
@@ -848,6 +938,7 @@ export function applyCompletePromotionJob(
       nextAttemptAt: null,
       attemptProvider: null,
       attemptIdempotencyGuaranteed: null,
+      uncertainCancellation: null,
       lastError: null,
       updatedAt: input.now,
     };
@@ -869,8 +960,16 @@ export function applyCompletePromotionJob(
   }
 
   if (outcome.type === "unconfigured") {
-    // No provider was attempted at all: restore the claim untouched so
-    // a later subscribe (or a configured provider) can drive the job.
+    // No provider was attempted at all: restore the claim so a later
+    // subscribe (or a configured provider) can drive the job — but
+    // back the retry off by the standard delay. The job may carry an
+    // already-due nextAttemptAt from the schedule that made it
+    // claimable; keeping it would schedule the next alarm in the past
+    // (nextPromotionAlarmAt prefers that field) and the alarm would
+    // refire immediately, spinning on null-selection claims until
+    // configuration returns or the window expires. Any recorded
+    // uncertainCancellation is preserved: no send happened here, so a
+    // prior attempt's uncertainty is exactly as outstanding as before.
     // After an unsubscribe, though, restoring a pending job would
     // leave a deliverable job on an opted-out account — cancel it
     // instead; a fresh subscribe re-arms cancelled jobs.
@@ -878,6 +977,8 @@ export function applyCompletePromotionJob(
       ...job,
       status: state.unsubscribedAt !== null ? "cancelled" : "pending",
       claimedAt: null,
+      nextAttemptAt:
+        state.unsubscribedAt !== null ? null : input.now + PROMOTION_JOB_RETRY_DELAY_MS,
       attemptCount: Math.max(0, job.attemptCount - 1),
       firstAttemptAt: job.attemptCount <= 1 ? null : job.firstAttemptAt,
       attemptProvider: null,
@@ -896,6 +997,7 @@ export function applyCompletePromotionJob(
       provider: outcome.provider,
       attemptProvider: null,
       attemptIdempotencyGuaranteed: null,
+      uncertainCancellation: null,
       lastError: outcome.error ?? "definitive_failure",
       updatedAt: input.now,
     };
@@ -906,8 +1008,11 @@ export function applyCompletePromotionJob(
   if (state.unsubscribedAt !== null) {
     // The account opted out while this attempt was in flight. Whether
     // or not the provider accepted, no retry may be scheduled: end the
-    // job as cancelled (a later explicit subscribe re-arms it under
-    // the same job id and idempotency key).
+    // job as cancelled, and record the attempt's uncertainty on the
+    // job — a later explicit subscribe rearms it to pending ONLY while
+    // this provider's idempotency guarantee is live; without one it
+    // rearms to blocked (see applySubscribePromotion). Renewed consent
+    // alone does not make a second submission safe.
     jobs[input.kind] = {
       ...job,
       status: "cancelled",
@@ -916,6 +1021,10 @@ export function applyCompletePromotionJob(
       provider: outcome.provider,
       attemptProvider: null,
       attemptIdempotencyGuaranteed: null,
+      uncertainCancellation: {
+        provider: outcome.provider,
+        idempotencyGuaranteed: outcome.idempotencyGuaranteed,
+      },
       lastError: outcome.error ?? "ambiguous_after_unsubscribe",
       updatedAt: input.now,
     };
@@ -933,6 +1042,7 @@ export function applyCompletePromotionJob(
       provider: outcome.provider,
       attemptProvider: null,
       attemptIdempotencyGuaranteed: null,
+      uncertainCancellation: null,
       lastError:
         outcome.error ??
         (outcome.idempotencyGuaranteed ? "idempotency_window_expired" : "ambiguous_without_idempotency"),
@@ -948,6 +1058,7 @@ export function applyCompletePromotionJob(
     provider: outcome.provider,
     attemptProvider: null,
     attemptIdempotencyGuaranteed: null,
+    uncertainCancellation: null,
     lastError: outcome.error ?? "ambiguous",
     updatedAt: input.now,
   };
@@ -968,9 +1079,11 @@ export function applyCompletePromotionJob(
  * subscriber has opted out, a stale claim is CANCELLED instead —
  * unsubscribe cancels pending jobs but cannot touch an in-flight
  * claim, and the crash-recovery path must not resurrect one into a
- * deliverable retry for an opted-out account (a later explicit
- * subscribe re-arms a cancelled job). Returns the kinds due for an
- * attempt — always empty on an opted-out account.
+ * deliverable retry for an opted-out account. The cancellation
+ * records the attempt's uncertainty from its claim stamp, so a later
+ * explicit subscribe re-arms the job only under a live idempotency
+ * guarantee (otherwise it rearms to blocked). Returns the kinds due
+ * for an attempt — always empty on an opted-out account.
  */
 export function applyPromotionAlarm(
   state: PromotionCoordinatorState,
@@ -988,7 +1101,10 @@ export function applyPromotionAlarm(
     if (state.unsubscribedAt !== null) {
       // The opt-out landed while this attempt was in flight. Whether
       // or not the provider accepted it, no retry may be scheduled:
-      // cancel the job, mirroring the ambiguous-completion rule.
+      // cancel the job, mirroring the ambiguous-completion rule, and
+      // record the cancelled attempt's uncertainty from its claim
+      // stamp (a missing stamp fails closed as no guarantee) so a
+      // later resubscribe rearms it only under a live guarantee.
       jobs[kind] = {
         ...job,
         status: "cancelled",
@@ -997,6 +1113,10 @@ export function applyPromotionAlarm(
         provider: job.attemptProvider ?? job.provider,
         attemptProvider: null,
         attemptIdempotencyGuaranteed: null,
+        uncertainCancellation: {
+          provider: job.attemptProvider ?? job.provider,
+          idempotencyGuaranteed: job.attemptIdempotencyGuaranteed === true,
+        },
         lastError: job.lastError ?? "attempt_cancelled_after_unsubscribe",
         updatedAt: input.now,
       };
