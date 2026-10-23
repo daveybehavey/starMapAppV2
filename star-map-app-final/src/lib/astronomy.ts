@@ -84,13 +84,15 @@ export const toUTCDateFromLocal = (dateStr: string, timeStr: string, timezone: s
 
   // Parse as local time in the specified timezone, then convert to UTC.
   // CONTRACT: genuine wall-time input only (a user picking a date + time).
-  // The offset is sampled once at a probe, so on DST transition days a wall
-  // time can resolve an hour off, and the fold hour's two occurrences cannot
-  // be distinguished at all — the wall fields have already destroyed that
-  // information. Never use this to rebuild a stored instant for rendering;
-  // pass the instant itself (VisibleStarParams.datetimeISO) instead.
+  // The offset is resolved at the RESULTING instant (two refinement
+  // passes, mirroring dateInput.combineDateTime), so wall times on DST
+  // transition days land correctly. The fold hour's two occurrences
+  // still cannot be distinguished — the wall fields have already
+  // destroyed that information; the refinement deterministically
+  // settles on the first occurrence. Never use this to rebuild a stored
+  // instant for rendering; pass the instant itself
+  // (VisibleStarParams.datetimeISO) instead.
   try {
-    // Create a test date at the target time to get the offset for THAT specific moment
     const testDate = new Date(Date.UTC(yearRaw, monthRaw - 1, dayRaw, hour, minute, 0));
     const formatter = new Intl.DateTimeFormat("en-US", {
       timeZone: timezone,
@@ -103,22 +105,41 @@ export const toUTCDateFromLocal = (dateStr: string, timeStr: string, timezone: s
       hour12: false,
     });
 
-    // Format the test date in the target timezone
-    const parts = formatter.formatToParts(testDate);
-    const localYear = Number(parts.find(p => p.type === "year")?.value);
-    const localMonth = Number(parts.find(p => p.type === "month")?.value);
-    const localDay = Number(parts.find(p => p.type === "day")?.value);
-    const localHour = Number(parts.find(p => p.type === "hour")?.value);
-    const localMinute = Number(parts.find(p => p.type === "minute")?.value);
+    // Zone offset in force at `instant`: the instant minus its own wall
+    // fields read as UTC (negative east of Greenwich). Some engines
+    // report midnight as hour 24 with the day already advanced;
+    // normalize it (as dateTime.ts's zoned helper does) or Date.UTC
+    // counts the day twice and the instant lands a day early (A2-5).
+    const probeOffsetMs = (instant: Date): number => {
+      const parts = formatter.formatToParts(instant);
+      const localYear = Number(parts.find(p => p.type === "year")?.value);
+      const localMonth = Number(parts.find(p => p.type === "month")?.value);
+      const localDay = Number(parts.find(p => p.type === "day")?.value);
+      const localHourPart = Number(parts.find(p => p.type === "hour")?.value);
+      const localHour = localHourPart === 24 ? 0 : localHourPart;
+      const localMinute = Number(parts.find(p => p.type === "minute")?.value);
 
-    // Calculate the offset by comparing what we wanted vs what we got
-    const localMs = Date.UTC(localYear, localMonth - 1, localDay, localHour, localMinute, 0);
-    const utcMs = testDate.getTime();
-    const offsetMs = utcMs - localMs;
+      const localMs = Date.UTC(localYear, localMonth - 1, localDay, localHour, localMinute, 0);
+      return instant.getTime() - localMs;
+    };
 
-    // Apply this offset to our target date/time
     const targetLocalMs = Date.UTC(yearRaw, monthRaw - 1, dayRaw, hour, minute, 0);
-    return new Date(targetLocalMs + offsetMs);
+
+    // Sample the offset at the entered wall time read as UTC, then
+    // re-sample at each candidate instant: beside a DST transition the
+    // two offsets differ by an hour, and only the offset in force at
+    // the result is correct (A2-6). A stable offset short-circuits, so
+    // non-transition inputs keep the exact single-pass result.
+    let offsetMs = probeOffsetMs(testDate);
+    let result = new Date(targetLocalMs + offsetMs);
+    for (let pass = 0; pass < 2; pass += 1) {
+      if (!Number.isFinite(result.getTime())) break;
+      const refinedOffsetMs = probeOffsetMs(result);
+      if (refinedOffsetMs === offsetMs) break;
+      offsetMs = refinedOffsetMs;
+      result = new Date(targetLocalMs + offsetMs);
+    }
+    return result;
   } catch (error) {
     console.warn("Failed to convert timezone:", timezone, error);
     // Fallback to treating as UTC

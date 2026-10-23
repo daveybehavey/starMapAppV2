@@ -101,15 +101,17 @@ function formatTimeInput(date: Date) {
  * the place's timezone when one is known (same contract as
  * SimplifiedEditor's getDateTimeInputValues). Falls back to device-local
  * fields when no timezone is supplied or the zone cannot resolve the
- * instant. The bare "UTC" placeholder carried by name-only drafts is a
- * legacy sentinel, not a real zone: combineDateTime deliberately treats
- * it as device-local, so the fields render in the device-local frame too
- * — only real IANA zones take the zoned branch. Purely presentational —
- * the stored instant is never rewritten here; onChange only fires from
- * the field handlers above.
+ * instant. The bare "UTC" placeholder carried by name-only drafts takes
+ * the zoned branch like any real zone: combineDateTime parses an
+ * explicit "UTC" as UTC (A2-4), so the fields render in the UTC frame
+ * too and the read/write frames agree. (Before A2-4 the write side read
+ * "UTC" as device-local and this function mirrored that sentinel frame;
+ * the frames now agree on UTC instead.) Purely presentational — the
+ * stored instant is never rewritten here; onChange only fires from the
+ * field handlers above.
  */
 function getDateTimeInputValues(dateTime: string, timezone: string | undefined, parsed: Date) {
-  if (timezone && timezone !== "UTC") {
+  if (timezone) {
     const byTimezone = formatDateTimeForLocation(dateTime, timezone);
     if (byTimezone) {
       return { dateValue: byTimezone.date, timeValue: `${byTimezone.time}:00` };

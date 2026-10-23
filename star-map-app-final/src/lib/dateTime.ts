@@ -174,29 +174,51 @@ function zonedWallTimeToUtcDate(
       second: "2-digit",
       hour12: false,
     });
-    const parts = formatter.formatToParts(testDate);
-    const get = (type: Intl.DateTimeFormatPartTypes) =>
-      Number(parts.find((part) => part.type === type)?.value);
-    const localYear = get("year");
-    const localMonth = get("month");
-    const localDay = get("day");
-    let localHour = get("hour");
-    const localMinute = get("minute");
-    // Some engines report midnight as 24.
-    if (localHour === 24) localHour = 0;
 
-    if (
-      ![localYear, localMonth, localDay, localHour, localMinute].every((value) =>
-        Number.isFinite(value)
-      )
-    ) {
-      return null;
-    }
+    // Zone offset in force at `instant`: the instant minus its own wall
+    // fields read as UTC (negative east of Greenwich).
+    const probeOffsetMs = (instant: Date): number => {
+      const parts = formatter.formatToParts(instant);
+      const get = (type: Intl.DateTimeFormatPartTypes) =>
+        Number(parts.find((part) => part.type === type)?.value);
+      const localYear = get("year");
+      const localMonth = get("month");
+      const localDay = get("day");
+      let localHour = get("hour");
+      const localMinute = get("minute");
+      // Some engines report midnight as 24.
+      if (localHour === 24) localHour = 0;
 
-    const localMs = Date.UTC(localYear, localMonth - 1, localDay, localHour, localMinute, 0);
-    const offsetMs = testDate.getTime() - localMs;
+      if (
+        ![localYear, localMonth, localDay, localHour, localMinute].every((value) =>
+          Number.isFinite(value)
+        )
+      ) {
+        return Number.NaN;
+      }
+
+      const localMs = Date.UTC(localYear, localMonth - 1, localDay, localHour, localMinute, 0);
+      return instant.getTime() - localMs;
+    };
+
     const targetLocalMs = Date.UTC(year, month - 1, day, hour, minute, 0);
-    const result = new Date(targetLocalMs + offsetMs);
+
+    // The offset must be the one in force at the RESULTING instant, not
+    // only at the entered wall time read as UTC: beside a DST transition
+    // the two differ by an hour, so a single-pass conversion of an
+    // evening wall time on transition day lands an hour off (A2-6, same
+    // refinement as dateInput.combineDateTime). A stable offset
+    // short-circuits, so non-transition inputs are unchanged.
+    let offsetMs = probeOffsetMs(testDate);
+    if (!Number.isFinite(offsetMs)) return null;
+    let result = new Date(targetLocalMs + offsetMs);
+    for (let pass = 0; pass < 2; pass += 1) {
+      if (!Number.isFinite(result.getTime())) break;
+      const refinedOffsetMs = probeOffsetMs(result);
+      if (!Number.isFinite(refinedOffsetMs) || refinedOffsetMs === offsetMs) break;
+      offsetMs = refinedOffsetMs;
+      result = new Date(targetLocalMs + offsetMs);
+    }
     if (!Number.isFinite(result.getTime())) return null;
     return result;
   } catch {

@@ -15,8 +15,11 @@
  * These tests pin the astronomy layer's contract:
  *  - a `datetimeISO` param is computed as `new Date(iso)` — proven by
  *    equality with a direct-UTC-frame computation of the same instant;
- *  - the legacy wall-field path (genuine wall-time inputs) is byte-for-byte
- *    the pre-fix behaviour, including its transition-window quirk;
+ *  - the legacy wall-field path (genuine wall-time inputs) resolves
+ *    existent wall times to the same instant as the exact path — its
+ *    transition-window quirk (offset sampled once at the probe) was
+ *    fixed by A2-6's two-pass refinement; only the fold hour remains
+ *    unnameable through wall fields (first occurrence wins);
  *  - ordinary days and fixed-offset zones are bit-identical either way.
  *
  * The galactic-band / worker / computeSky wiring is pinned at source level
@@ -86,12 +89,14 @@ test("E-1 spring forward: stored 2026-03-08 03:30 EDT renders the 03:30 sky, not
   assert.ok(exact.stars.length > 0, "expected a non-empty sky for the proof instant");
   // The instant path computes exactly the instant.
   assert.deepEqual(exact, skyOracle(iso));
-  // The pre-fix route rendered this stored instant one hour late.
+  // The wall path resolves this existent wall time to the same instant
+  // since A2-6: its offset is resolved at the resulting instant, where
+  // the pre-fix single-pass probe read back 08:30Z (04:30 EDT). (At
+  // E-1's landing the wall path's 08:30Z result was pinned as
+  // untouched legacy behaviour; A2-6 fixed the converter itself.)
   const legacy = skyForWall("2026-03-08", "03:30");
-  assert.notDeepEqual(exact, legacy);
-  // …and the wall path itself is untouched: it still resolves those wall
-  // fields to 08:30Z (04:30 EDT), the pre-fix behaviour, pinned.
-  assert.deepEqual(legacy, skyOracle("2026-03-08T08:30:00.000Z"));
+  assert.deepEqual(legacy, exact);
+  assert.deepEqual(legacy, skyOracle("2026-03-08T07:30:00.000Z"));
 });
 
 test("E-1 fall back: the fold hour's second occurrence renders its own sky", () => {
@@ -107,11 +112,12 @@ test("E-1 fall back: the fold hour's second occurrence renders its own sky", () 
   assert.notDeepEqual(exactSecond, legacy);
   // The first occurrence happens to be exact through both paths.
   assert.deepEqual(skyForInstant(firstOccurrence), legacy);
-  // Post-fold morning window: a stored 03:30 EST instant rendered an hour
-  // early pre-fix; the instant path is exact.
+  // Post-fold morning window: a stored 03:30 EST instant rendered an
+  // hour early through the pre-A2-6 wall path; since the converter fix
+  // the wall path resolves the existent 03:30 to the same instant.
   const morning = "2026-11-01T08:30:00.000Z"; // 03:30 EST
   assert.deepEqual(skyForInstant(morning), skyOracle(morning));
-  assert.notDeepEqual(skyForInstant(morning), skyForWall("2026-11-01", "03:30"));
+  assert.deepEqual(skyForInstant(morning), skyForWall("2026-11-01", "03:30"));
 });
 
 test("E-1 control: ordinary day is bit-identical through both paths", () => {
