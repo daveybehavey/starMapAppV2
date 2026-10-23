@@ -6,10 +6,10 @@
  * The instance holds the authoritative suppression flag for review
  * requests, and its `dispatch` RPC is the ONLY component that may call the
  * email provider for a review request (T-T1 revised design): the final
- * suppression check, the ledger's dispatch commit with its fresh-clock
- * deadline check, the single provider call with the frozen payload, and
- * the outcome recording all happen behind this one door, so no other code
- * path can send around the gate.
+ * suppression check, the ledger's dispatch commit, the deadline re-check
+ * at the point of invocation, the single provider call with the frozen
+ * payload, and the outcome recording all happen behind this one door, so
+ * no other code path can send around the gate.
  */
 import { DurableObject } from "cloudflare:workers";
 import { createReviewLedgerClient } from "../lib/reviewRequestLedger";
@@ -29,8 +29,16 @@ type SuppressionRow = {
 };
 
 async function sendViaResend(input: ReviewSendInput): Promise<ReviewSendResult> {
+  // From and Reply-To come from the FROZEN payload (frozen at first
+  // claim), never re-derived from the environment per attempt — a config
+  // change between attempts must not diverge a retry from the first send.
+  // A payload frozen before the freeze covered these fields carries
+  // `undefined`: pass that through so the adapter's env default applies,
+  // exactly as it did when the payload was frozen.
   const result = await sendResendEmail({
     to: input.to,
+    from: input.from || undefined,
+    replyTo: input.replyTo,
     subject: input.subject,
     html: input.html,
     text: input.text,

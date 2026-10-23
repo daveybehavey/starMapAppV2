@@ -107,6 +107,11 @@ function envRecordFromBindings(env: unknown): Record<string, string | undefined>
     "PROMOTION_UNSUBSCRIBE_SECRET",
     "NEXT_PUBLIC_SITE_URL",
     "NEXT_PUBLIC_SUPPORT_EMAIL",
+    // Sender identity: snapshotted into the config so it can be frozen
+    // into the payload at first claim (never re-derived at send time).
+    "RESEND_FROM_EMAIL",
+    "RESEND_FROM_NAME",
+    "RESEND_REPLY_TO",
   ]) {
     if (record[key] === undefined && process.env[key]) {
       record[key] = process.env[key];

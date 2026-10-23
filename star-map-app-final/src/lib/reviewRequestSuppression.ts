@@ -14,10 +14,11 @@
  *  2. The dispatch coordinator (executeReviewDispatch): the ONLY component
  *     that may call the email provider for a review request. It runs the
  *     final suppression check, commits the ledger's irreversible
- *     `dispatching` transition, samples a fresh clock for the deadline
- *     check inside that transition, calls the provider exactly once with
- *     the frozen payload, and records the definitive outcome. Ambiguous
- *     outcomes terminalize as `uncertain` in the ledger — never resent.
+ *     `dispatching` transition, re-checks the absolute deadline against a
+ *     fresh clock at the point of invocation, calls the provider exactly
+ *     once with the frozen payload, and records the definitive outcome.
+ *     Ambiguous outcomes terminalize as `uncertain` in the ledger — never
+ *     resent.
  *
  * Storage modes are explicit (design: fail-closed storage). Live mode with
  * a missing/unavailable namespace reports unavailable — the in-process
@@ -120,8 +121,9 @@ async function sendWithTimeout(
 
 /**
  * The single send path. Ordering is the safety property:
- *   suppression check → begin_dispatch (fresh-clock deadline check,
- *   frozen payload read) → FINAL suppression re-check → ONE provider
+ *   suppression check → begin_dispatch (deadline check against the
+ *   pre-commit clock sample, frozen payload read) → FINAL suppression
+ *   re-check → point-of-invocation deadline re-check → ONE provider
  *   call → resolve_dispatch.
  * The provider is called only with the payload frozen in the ledger row —
  * never with a caller-supplied re-render. The final re-check exists
@@ -130,7 +132,11 @@ async function sendWithTimeout(
  * is acknowledged) while it is in flight would otherwise be sent to.
  * Between the final re-check's read and the provider-call invocation
  * there is no external await, so no suppression write can slip between
- * the decision and the send.
+ * the decision and the send. The deadline is fenced at the same point
+ * for the same reason: the begin_dispatch check runs against a clock
+ * sampled BEFORE that RPC, so a slow commit could return at/after the
+ * absolute deadline with the check already passed — the invocation-point
+ * re-check, sampled after the last await, is the one that binds.
  */
 export async function executeReviewDispatch(
   input: { sessionId: string; claimId: string },
@@ -196,6 +202,21 @@ export async function executeReviewDispatch(
     return { outcome: "suppressed" };
   }
 
+  // POINT-OF-INVOCATION deadline fence: the deadline check inside
+  // begin_dispatch ran against a clock sampled before that RPC, and the
+  // final suppression re-check awaited again — either can carry the
+  // invocation past the absolute deadline (e.g. the commit lands at
+  // deadline−1ms and returns at deadline+1ms). Sample a fresh clock NOW,
+  // after the last await: between this sample and the provider-call
+  // invocation inside sendWithTimeout there is no await, so the check
+  // binds the actual send. No provider call is made on this path, so the
+  // committed row settles truthfully as terminal `expired`.
+  const retryDeadlineAt = begun.state.retryDeadlineAt;
+  if (retryDeadlineAt !== null && now() >= retryDeadlineAt) {
+    await resolve({ type: "expired" });
+    return { outcome: "expired" };
+  }
+
   const timed = await sendWithTimeout(
     deps.send,
     payload,
@@ -251,7 +272,13 @@ export type ReviewSuppressionClient = {
   clear(name: string, now: number): Promise<boolean>;
   /** Erasure: removes the record entirely. Returns whether it landed. */
   erase(name: string): Promise<boolean>;
-  /** null = coordinator unreachable (fail closed; claim not consumed). */
+  /**
+   * null = no outcome could be obtained: the coordinator was unreachable
+   * OR its response was lost after the dispatch executed. Fail closed —
+   * a null result does NOT prove nothing was sent; the caller's recovery
+   * (release_claim) is safe only because the ledger machine's release is
+   * state- and token-guarded and no-ops once a dispatch has committed.
+   */
   dispatch(input: {
     sessionId: string;
     claimId: string;

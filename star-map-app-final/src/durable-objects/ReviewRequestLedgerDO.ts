@@ -6,14 +6,19 @@
  * transitions for a session are serialized inside a single instance.
  *
  * REVISED (T-T1): the row carries the frozen provider payload, the absolute
- * retry deadline, and the PII-lifecycle timestamps. Three alarm duties:
+ * retry deadline, and the PII-lifecycle timestamps. Four alarm duties:
  *  - a `dispatching` row whose resolution never arrives (worker crash
  *    between the provider call and its recording) is settled as terminal
  *    `uncertain` after a grace window — never reclaimed, never resent;
  *  - a `claimed` row whose claimant died before dispatching (worker
  *    eviction between claim and dispatch/release) is expired back to a
  *    due retry after the stale-claim window — no provider call can have
- *    started from `claimed`, so the ask and its payload survive;
+ *    started from `claimed`, so the ask and its payload survive (or, if
+ *    eligibility has already ended, terminalized as `expired`);
+ *  - a `retry` row whose last dispatch boundary (eligibility end or
+ *    retry deadline) has passed is expired with its PII stripped — the
+ *    tick will never claim it again, so without this duty its recipient
+ *    and frozen payload would strand forever;
  *  - an `uncertain` row's retained recipient is redacted within 15 minutes.
  * Rows written by the PR #348 machine are migrated on load (legacy
  * `sending`/payload-less `retry` rows quarantined as `uncertain`, legacy
@@ -230,6 +235,13 @@ export class ReviewRequestLedgerDO extends DurableObject {
       target = (state.updatedAt ?? Date.now()) + REVIEW_DISPATCH_RESOLUTION_GRACE_MS;
     } else if (state.status === "claimed") {
       target = (state.claimedAt ?? state.updatedAt ?? Date.now()) + REVIEW_REQUEST_CLAIM_STALE_MS;
+    } else if (state.status === "retry") {
+      // The row's last possible dispatch boundary: at/after it the row
+      // can never be sent again and must expire with its PII stripped.
+      const boundaries = [state.eligibilityEndsAt, state.retryDeadlineAt].filter(
+        (value): value is number => value !== null
+      );
+      target = boundaries.length > 0 ? Math.min(...boundaries) : null;
     } else if (
       state.status === "uncertain" &&
       state.redactedAt === null &&
@@ -268,6 +280,12 @@ export class ReviewRequestLedgerDO extends DurableObject {
         claimId: state.claimId,
         now,
       });
+      if (result.changed) this.writeState(result.state);
+      await this.syncAlarm(result.state);
+      return;
+    }
+    if (state.status === "retry") {
+      const result = applyReviewLedgerOp(state, { type: "expire_retry", now });
       if (result.changed) this.writeState(result.state);
       await this.syncAlarm(result.state);
       return;

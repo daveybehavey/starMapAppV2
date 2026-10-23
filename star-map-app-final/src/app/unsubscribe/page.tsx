@@ -32,12 +32,31 @@ export default async function UnsubscribePage({ searchParams }: PageProps) {
 
   const valid = isValidPromotionEmail(email) && verifyPromotionUnsubscribeToken(email, token);
 
-  let status: "invalid" | "unsubscribed" | "already_unsubscribed" = "invalid";
+  let status: "invalid" | "unsubscribed" | "already_unsubscribed" | "error" = "invalid";
 
   if (valid) {
     const key = emailStateKey(email);
     const existing = await kv.get<PromotionEmailState>(key);
-    if (existing?.unsubscribedAt) {
+    // AUTHORITATIVE suppression first (T-T1): a promotions unsubscribe is
+    // also a review-request suppression source, and this page — like the
+    // review opt-out route — may only acknowledge after the authoritative
+    // suppression record has landed. That includes the already-unsubscribed
+    // path: the KV row alone never proved the authoritative record exists,
+    // so it is (idempotently) established here too. If the record cannot
+    // be established, nothing is written and nothing is acknowledged: the
+    // page reports the failure instead of claiming an unsubscribe it did
+    // not record.
+    const secret = getReviewOptOutSecret();
+    const recorded = secret
+      ? await createReviewSuppressionClient().record(
+          deriveReviewSuppressionName(email, secret),
+          "promotions_unsubscribe",
+          Date.now(),
+        )
+      : false;
+    if (!recorded) {
+      status = "error";
+    } else if (existing?.unsubscribedAt) {
       status = "already_unsubscribed";
     } else {
       await kv.set<PromotionEmailState>(key, {
@@ -49,18 +68,6 @@ export default async function UnsubscribePage({ searchParams }: PageProps) {
         updatedAt: Date.now(),
         lastSource: existing?.lastSource,
       });
-      // A promotions unsubscribe also suppresses review requests (the
-      // engine treats it as a suppression source). Record it in the
-      // authoritative suppression store too (T-T1) — best-effort here
-      // because the KV state above already stands and the tick reads it;
-      // the review opt-out route is the path that must not ack without
-      // the authoritative write.
-      const secret = getReviewOptOutSecret();
-      if (secret) {
-        await createReviewSuppressionClient()
-          .record(deriveReviewSuppressionName(email, secret), "promotions_unsubscribe", Date.now())
-          .catch(() => false);
-      }
       status = "unsubscribed";
     }
   }
@@ -72,14 +79,18 @@ export default async function UnsubscribePage({ searchParams }: PageProps) {
         <h1 className="mt-3 text-3xl font-semibold text-white">
           {status === "invalid"
             ? "This unsubscribe link is invalid"
-            : status === "already_unsubscribed"
-              ? "You are already unsubscribed"
-              : "You have been unsubscribed"}
+            : status === "error"
+              ? "We couldn't record your unsubscribe"
+              : status === "already_unsubscribed"
+                ? "You are already unsubscribed"
+                : "You have been unsubscribed"}
         </h1>
         <p className="mt-4 text-sm text-neutral-300">
           {status === "invalid"
             ? "The link may be malformed or expired. If you still want help, contact support@starmapco.com."
-            : `We will stop sending promo updates to ${email}. You can subscribe again any time from the site.`}
+            : status === "error"
+              ? "Nothing was changed. Please try again in a few minutes, or reply to any StarMapCo email and ask to be removed — we'll do it manually."
+              : `We will stop sending promo updates to ${email}. You can subscribe again any time from the site.`}
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <Link

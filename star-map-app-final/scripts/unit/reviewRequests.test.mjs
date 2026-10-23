@@ -10,7 +10,13 @@
  *   erasure, and legacy-row quarantine;
  * - the dispatch coordinator: suppression as the final send gate, exactly
  *   one provider call with the frozen payload, ambiguous outcomes terminal
- *   `uncertain` (never resent), deadline refusal before the provider;
+ *   `uncertain` (never resent), deadline refusal before the provider —
+ *   including at the point of invocation, after the commit RPC returns;
+ * - the G-dot gate fix round: frozen From/Reply-To (never re-derived from
+ *   env per attempt), `retry`-row boundary expiry so PII cannot strand,
+ *   legacy-migration error sanitization, release_claim safety under
+ *   dispatch-response loss, and the promotions unsubscribe page writing
+ *   the authoritative suppression record BEFORE acknowledging;
  * - fail-closed storage modes (live mode NEVER falls back to process
  *   memory — not even with CI/local env vars set);
  * - due evaluation for both branches at their exact window boundaries,
@@ -99,6 +105,8 @@ const ADDRESS = "StarMapCo, PO Box 123, Victoria BC";
 function frozenPayload(sessionId, overrides = {}) {
   return {
     to: "buyer@example.com",
+    from: "StarMapCo <orders@starmapco.com>",
+    replyTo: "support@starmapco.com",
     subject: REVIEW_REQUEST_SUBJECT,
     html: "<p>review ask</p>",
     text: "review ask",
@@ -253,6 +261,82 @@ test("ledger: expire_claim NEVER reclaims a committed dispatch", () => {
   assert.equal(result.state.status, "dispatching");
 });
 
+test("ledger: expire_claim after eligibility ends terminalizes — PII never drops into a dead retry", () => {
+  // Eligibility ends 5 minutes after the claim; the claimant dies and the
+  // stale-claim sweep only runs after eligibility is over.
+  const claimed = claim(createEmptyReviewLedgerState("cs_live_ece"), "c1", NOW, {
+    eligibilityEndsAt: NOW + 5 * 60 * 1000,
+  }).state;
+  const result = applyReviewLedgerOp(claimed, {
+    type: "expire_claim",
+    now: NOW + REVIEW_REQUEST_CLAIM_STALE_MS,
+  });
+  assert.equal(result.outcome, "expired");
+  assert.equal(result.state.status, "expired");
+  assert.equal(result.state.email, null); // terminal strip
+  assert.equal(result.state.payload, null);
+  assert.equal(result.state.claimId, null);
+});
+
+test("ledger: expire_retry expires a stranded retry at its boundary — and only there", () => {
+  const claimed = claim(createEmptyReviewLedgerState("cs_live_er"), "c1", NOW).state;
+  const retry = resolveDispatch(dispatch(claimed, "c1", NOW).state, "c1", {
+    type: "rejected",
+    error: "resend_http_500:boom",
+    permanent: false,
+  }, NOW).state;
+  assert.equal(retry.status, "retry");
+  // The boundary is min(eligibility end, retry deadline) = NOW + 23h here
+  // (first dispatch NOW, eligibility NOW + 10d).
+  const boundary = NOW + REVIEW_REQUEST_RETRY_DEADLINE_MS;
+  const early = applyReviewLedgerOp(retry, { type: "expire_retry", now: boundary - 1 });
+  assert.equal(early.outcome, "no_change");
+  assert.equal(early.state.status, "retry");
+  assert.ok(early.state.payload); // still sendable — PII legitimately held
+  const atBoundary = applyReviewLedgerOp(retry, { type: "expire_retry", now: boundary });
+  assert.equal(atBoundary.outcome, "expired");
+  assert.equal(atBoundary.state.status, "expired");
+  assert.equal(atBoundary.state.email, null);
+  assert.equal(atBoundary.state.payload, null);
+  // Non-retry rows are untouched by the retry sweep.
+  const claimedRow = claim(createEmptyReviewLedgerState("cs_live_er2"), "c1", NOW).state;
+  assert.equal(
+    applyReviewLedgerOp(claimedRow, { type: "expire_retry", now: NOW + 365 * DAY }).outcome,
+    "no_change",
+  );
+  const dispatchingRow = dispatch(claimedRow, "c1", NOW).state;
+  assert.equal(
+    applyReviewLedgerOp(dispatchingRow, { type: "expire_retry", now: NOW + 365 * DAY }).outcome,
+    "no_change",
+  );
+});
+
+test("ledger: release_claim on a COMMITTED dispatch is a no-op — the response-loss guard", () => {
+  // The Q2(b) safety property: a caller whose dispatch RPC response was
+  // lost will attempt release_claim believing nothing was sent. The
+  // machine — not that belief — is what keeps the committed dispatch
+  // from being resurrected into a blind retry.
+  const claimed = claim(createEmptyReviewLedgerState("cs_live_rl"), "c1", NOW).state;
+  const dispatching = dispatch(claimed, "c1", NOW).state;
+  const released = applyReviewLedgerOp(dispatching, {
+    type: "release_claim",
+    claimId: "c1", // even the OWNER token cannot release a committed dispatch
+    now: NOW + 1000,
+  });
+  assert.equal(released.outcome, "no_change");
+  assert.equal(released.changed, false);
+  assert.equal(released.state.status, "dispatching");
+  assert.equal(released.state.attempts, 1);
+  // The committed row settles through the dispatch lifecycle instead.
+  const settled = applyReviewLedgerOp(released.state, {
+    type: "expire_dispatch",
+    claimId: "c1",
+    now: NOW + HOUR,
+  });
+  assert.equal(settled.outcome, "uncertain");
+  assert.equal(settled.state.status, "uncertain");
+});
+
 test("ledger: absolute deadline — persisted at first dispatch, enforced at equality", () => {
   assert.equal(REVIEW_REQUEST_RETRY_DEADLINE_MS, 23 * HOUR);
   // Eligibility ends in 1h: the deadline is the eligibility end, not +23h.
@@ -367,6 +451,8 @@ test("ledger: frozen payload — a divergent retry claim terminalizes instead of
     text: reordered.text,
     html: reordered.html,
     subject: reordered.subject,
+    replyTo: reordered.replyTo,
+    from: reordered.from,
     to: reordered.to,
   };
   assert.equal(reviewPayloadsEqual(reordered, shuffled), true); // key order is not divergence
@@ -479,6 +565,47 @@ test("ledger: legacy rows are quarantined on migration — never reset to empty"
   const untouched = migrateLegacyReviewLedgerState(fresh, NOW);
   assert.equal(untouched.changed, false);
   assert.equal(untouched.state.status, "claimed");
+});
+
+test("ledger: legacy migration sanitizes stored diagnostics — an address in lastError cannot survive", () => {
+  // G-dot's acceptance fixture: a legacy terminal row whose lastError
+  // embeds the recipient address (the old machine stored raw errors).
+  const legacyFailed = {
+    ...createEmptyReviewLedgerState("cs_live_leg5"),
+    status: "failed",
+    kind: "digital",
+    email: "buyer@example.com",
+    providerId: "msg_old",
+    claimId: "old-claim",
+    lastError: "resend_http_422:bad address buyer@example.com rejected",
+    createdAt: NOW - 4 * DAY,
+    updatedAt: NOW - DAY,
+  };
+  const migrated = migrateLegacyReviewLedgerState(legacyFailed, NOW);
+  assert.equal(migrated.changed, true);
+  assert.equal(migrated.state.status, "failed");
+  assert.equal(migrated.state.email, null);
+  assert.ok(!migrated.state.lastError.includes("buyer@example.com"));
+  assert.ok(migrated.state.lastError.includes("[redacted]"));
+
+  // A dirty lastError ALONE triggers the rewrite — even when every PII
+  // field is already empty, the address baked into the error must go.
+  const onlyErrorDirty = {
+    ...legacyFailed,
+    sessionId: "cs_live_leg6",
+    email: null,
+    providerId: null,
+    claimId: null,
+  };
+  const rewritten = migrateLegacyReviewLedgerState(onlyErrorDirty, NOW);
+  assert.equal(rewritten.changed, true);
+  assert.ok(!rewritten.state.lastError.includes("buyer@example.com"));
+
+  // A clean legacy terminal row is left exactly as it is.
+  const clean = { ...onlyErrorDirty, sessionId: "cs_live_leg7", lastError: "resend_http_422:invalid" };
+  const untouched = migrateLegacyReviewLedgerState(clean, NOW);
+  assert.equal(untouched.changed, false);
+  assert.equal(untouched.state.lastError, "resend_http_422:invalid");
 });
 
 test("ledger: stored errors are sanitized — no recipient addresses persist", () => {
@@ -638,6 +765,62 @@ test("coordinator: deadline refusal happens BEFORE the provider is called", asyn
   assert.equal(outcome.outcome, "expired");
   assert.equal(sender.calls.length, 0);
   assert.equal(ledger.rows.get("cs_live_cdl").status, "expired");
+});
+
+test("coordinator: deadline is fenced at the POINT OF INVOCATION — a slow commit RPC cannot carry the send past it", async () => {
+  // G-dot's construction: the deadline is t=10000. begin_dispatch commits
+  // at t=9999 (its pre-RPC clock sample passes), but the RPC returns at
+  // t=10001 — without an invocation-point re-check the provider would be
+  // called 1ms past the absolute deadline.
+  const ledger = createFakeLedger();
+  await ledger.apply("cs_live_cinv", {
+    type: "begin_claim",
+    claimId: "claim-1",
+    kind: "digital",
+    email: "buyer@example.com",
+    anchorAt: 1000,
+    dueAt: 2000,
+    eligibilityEndsAt: 10_000,
+    payload: frozenPayload("cs_live_cinv"),
+    now: 9000,
+  });
+  let samples = 0;
+  const driftingNow = () => (samples++ === 0 ? 9999 : 10_001);
+  const sender = createFakeSender();
+  const outcome = await executeReviewDispatch(
+    { sessionId: "cs_live_cinv", claimId: "claim-1" },
+    { ledger, isSuppressed: async () => false, send: sender.send, now: driftingNow },
+  );
+  assert.equal(outcome.outcome, "expired");
+  assert.equal(sender.calls.length, 0); // the provider was NEVER called
+  const row = ledger.rows.get("cs_live_cinv");
+  assert.equal(row.status, "expired"); // truthful terminal — not uncertain
+  assert.equal(row.lastError, "retry_deadline_passed");
+  assert.equal(row.email, null);
+  assert.equal(row.payload, null);
+  assert.equal(row.attempts, 1); // the commit counted; the send did not happen
+
+  // Same setup, but the invocation-point sample lands 1ms INSIDE the
+  // deadline: the send proceeds normally.
+  const ledger2 = createFakeLedger();
+  await ledger2.apply("cs_live_cinv2", {
+    type: "begin_claim",
+    claimId: "claim-1",
+    kind: "digital",
+    email: "buyer@example.com",
+    anchorAt: 1000,
+    dueAt: 2000,
+    eligibilityEndsAt: 10_000,
+    payload: frozenPayload("cs_live_cinv2"),
+    now: 9000,
+  });
+  const sender2 = createFakeSender({ ok: true, id: "msg_in_time" });
+  const outcome2 = await executeReviewDispatch(
+    { sessionId: "cs_live_cinv2", claimId: "claim-1" },
+    { ledger: ledger2, isSuppressed: async () => false, send: sender2.send, now: () => 9999 },
+  );
+  assert.equal(outcome2.outcome, "sent");
+  assert.equal(sender2.calls.length, 1);
 });
 
 test("coordinator: ambiguous outcomes are terminal uncertain — timeout, throw, no-id", async () => {
@@ -953,6 +1136,8 @@ function enabledConfig(overrides = {}) {
     siteUrl: "https://starmapco.com",
     supportEmail: "support@starmapco.com",
     resendConfigured: true,
+    fromAddress: "StarMapCo <orders@starmapco.com>",
+    replyTo: "support@starmapco.com",
     ...overrides,
   };
 }
@@ -1025,6 +1210,10 @@ test("tick: happy path — claim, freeze, dispatch once, sent tombstone", async 
   assert.equal(sender.calls.length, 1);
   const sent = sender.calls[0];
   assert.equal(sent.to, "buyer@example.com");
+  // From / Reply-To are part of the frozen request (config snapshot at
+  // claim time), not re-derived by the adapter at send time.
+  assert.equal(sent.from, "StarMapCo <orders@starmapco.com>");
+  assert.equal(sent.replyTo, "support@starmapco.com");
   assert.equal(sent.subject, REVIEW_REQUEST_SUBJECT);
   assert.equal(sent.idempotencyKey, "review-request:cs_live_happy");
   assert.match(sent.headers["List-Unsubscribe"], /\/api\/reviews\/opt-out\?e=/);
@@ -1165,14 +1354,25 @@ test("tick: transient failure retries with the FROZEN payload; permanent failure
   assert.equal(tooSoon.inFlightOrBackoff, 1);
   assert.equal(sender.calls.length, 1);
 
+  // The retry tick runs under a CHANGED sender config: the frozen
+  // payload — From and Reply-To included — must still win over the
+  // current config (the adapter never re-derives them per attempt).
   const retried = await runReviewRequestTick(
-    tickDeps(store, ledger, sender, enabledConfig(), NOW + HOUR).deps,
+    tickDeps(
+      store,
+      ledger,
+      sender,
+      enabledConfig({ fromAddress: "Changed <changed@starmapco.com>", replyTo: null }),
+      NOW + HOUR,
+    ).deps,
   );
   assert.equal(retried.sent, 1);
   assert.equal(sender.calls.length, 2);
   // The retry dispatched the frozen payload byte-for-byte — no re-render,
   // same idempotency key (T-T1 frozen payload).
   assert.deepEqual(sender.calls[1], sender.calls[0]);
+  assert.equal(sender.calls[1].from, "StarMapCo <orders@starmapco.com>");
+  assert.equal(sender.calls[1].replyTo, "support@starmapco.com");
   assert.equal(sender.calls[0].idempotencyKey, "review-request:cs_live_retry");
 
   const store2 = createFakeStore({ [sessionKey("cs_live_perm")]: digitalEntitlement() });
@@ -1243,6 +1443,35 @@ test("tick: coordinator unavailable releases the claim unconsumed — nothing se
   );
   assert.equal(recovered.sent, 1);
   assert.equal(sender.calls.length, 1);
+});
+
+test("tick: dispatch RESPONSE LOSS — the release cannot resurrect a committed dispatch", async () => {
+  // The coordinator executed and the ledger committed `dispatching`,
+  // but the response never reached the tick (dispatch returns null).
+  // The tick's release_claim must no-op against the committed row: it
+  // stays dispatching (to settle as uncertain via expire_dispatch),
+  // never a due retry that could send a second time.
+  const store = createFakeStore({ [sessionKey("cs_live_lost")]: digitalEntitlement() });
+  const ledger = createFakeLedger();
+  const sender = createFakeSender();
+  const lossyClient = {
+    check: async () => false,
+    record: async () => true,
+    clear: async () => true,
+    erase: async () => true,
+    dispatch: async ({ sessionId, claimId }) => {
+      await ledger.apply(sessionId, { type: "begin_dispatch", claimId, now: NOW });
+      return null; // the outcome existed — only the response was lost
+    },
+  };
+  const summary = await runReviewRequestTick(
+    tickDeps(store, ledger, sender, enabledConfig(), NOW, lossyClient).deps,
+  );
+  assert.equal(summary.suppressionUnavailable, 1);
+  assert.equal(summary.sent, 0);
+  const row = ledger.rows.get("cs_live_lost");
+  assert.equal(row.status, "dispatching"); // NOT released back to retry
+  assert.equal(row.attempts, 1); // the commit stands
 });
 
 test("tick: per-candidate fresh clock — eligibility is re-decided at send time, not scan time", async () => {
@@ -1415,6 +1644,8 @@ test("config: flags require the exact string 'true'; defaults are inert", () => 
   assert.equal(config.physicalEnabled, false);
   assert.equal(config.mailingAddress, "");
   assert.equal(config.signingSecret, null);
+  assert.equal(config.fromAddress, "");
+  assert.equal(config.replyTo, null);
   const armed = resolveReviewEngineConfig(
     {
       REVIEW_REQUESTS_ENABLED: "true",
@@ -1425,6 +1656,26 @@ test("config: flags require the exact string 'true'; defaults are inert", () => 
   );
   assert.equal(armed.enabled, true);
   assert.equal(armed.signingSecret, SECRET);
+});
+
+test("config: sender identity is snapshotted for the payload freeze", () => {
+  const config = resolveReviewEngineConfig(
+    {
+      RESEND_FROM_EMAIL: "orders@starmapco.com",
+      RESEND_FROM_NAME: "StarMapCo",
+      RESEND_REPLY_TO: "support@starmapco.com",
+    },
+    { resendConfigured: true },
+  );
+  // Same composition the Resend adapter applies to its env default.
+  assert.equal(config.fromAddress, "StarMapCo <orders@starmapco.com>");
+  assert.equal(config.replyTo, "support@starmapco.com");
+  const bare = resolveReviewEngineConfig(
+    { RESEND_FROM_EMAIL: "orders@starmapco.com" },
+    { resendConfigured: true },
+  );
+  assert.equal(bare.fromAddress, "orders@starmapco.com");
+  assert.equal(bare.replyTo, null);
 });
 
 // ---------------------------------------------------------------------------
@@ -1482,6 +1733,48 @@ test("resend wrapper: Idempotency-Key is an HTTP header; message headers ride th
   }
 });
 
+test("resend wrapper: an explicit Reply-To is authoritative — a frozen null never falls back to env", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalEnv = { ...process.env };
+  process.env.RESEND_API_KEY = "re_test_key";
+  process.env.RESEND_FROM_EMAIL = "orders@starmapco.com";
+  process.env.RESEND_REPLY_TO = "env-default@starmapco.com";
+  const bodies = [];
+  globalThis.fetch = async (url, init) => {
+    bodies.push(JSON.parse(init.body));
+    return new Response(JSON.stringify({ id: "msg_rt" }), { status: 200 });
+  };
+  try {
+    // Absent property: the env default applies (legacy callers).
+    await sendResendEmail({ to: "buyer@example.com", subject: "s", html: "<p>x</p>" });
+    assert.equal(bodies[0].reply_to, "env-default@starmapco.com");
+    // Explicit value: used verbatim, env ignored.
+    await sendResendEmail({
+      to: "buyer@example.com",
+      subject: "s",
+      html: "<p>x</p>",
+      from: "StarMapCo <orders@starmapco.com>",
+      replyTo: "frozen@starmapco.com",
+    });
+    assert.equal(bodies[1].reply_to, "frozen@starmapco.com");
+    assert.equal(bodies[1].from, "StarMapCo <orders@starmapco.com>");
+    // Frozen null: NO reply_to at all — the env default must not leak in.
+    await sendResendEmail({
+      to: "buyer@example.com",
+      subject: "s",
+      html: "<p>x</p>",
+      replyTo: null,
+    });
+    assert.equal(bodies[2].reply_to, undefined);
+  } finally {
+    globalThis.fetch = originalFetch;
+    for (const key of Object.keys(process.env)) {
+      if (!(key in originalEnv)) delete process.env[key];
+    }
+    Object.assign(process.env, originalEnv);
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Wiring construction pins
 // ---------------------------------------------------------------------------
@@ -1516,6 +1809,24 @@ test("wiring: coordinator-only provider access — the tick and its runtime hold
     "utf8",
   );
   assert.ok(coordinator.includes("executeReviewDispatch"));
+});
+
+test("wiring: promotions unsubscribe establishes the AUTHORITATIVE suppression record before any acknowledgement", () => {
+  const page = readFileSync(new URL("src/app/unsubscribe/page.tsx", appRoot), "utf8");
+  const recordCall = page.indexOf("createReviewSuppressionClient().record(");
+  const kvWrite = page.indexOf("await kv.set");
+  const alreadyAck = page.indexOf('status = "already_unsubscribed"');
+  const successAck = page.indexOf('status = "unsubscribed"');
+  assert.ok(recordCall !== -1, "the page must write the authoritative suppression record");
+  // The authoritative write precedes the KV write AND both success
+  // acknowledgements — including the already-unsubscribed one, which
+  // previously skipped the authoritative write entirely.
+  assert.ok(kvWrite !== -1 && recordCall < kvWrite, "authoritative record must land before the KV write");
+  assert.ok(alreadyAck !== -1 && recordCall < alreadyAck, "already-unsubscribed must not ack before the record");
+  assert.ok(successAck !== -1 && recordCall < successAck, "unsubscribed must not ack before the record");
+  // A failed authoritative write surfaces an error state, never a success.
+  assert.ok(page.includes('status = "error"'), "record failure must produce the error state");
+  assert.ok(!page.includes("best-effort"), "the best-effort rationale must not return");
 });
 
 test("wiring: shippedAt is persisted before the shipping email send", () => {

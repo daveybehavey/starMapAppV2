@@ -130,6 +130,14 @@ export type ReviewEngineConfig = {
   siteUrl: string;
   supportEmail: string;
   resendConfigured: boolean;
+  /**
+   * Sender identity snapshotted with the rest of the config so the exact
+   * From / Reply-To can be FROZEN into the payload at first claim — the
+   * send adapter must not re-derive them from the environment per
+   * attempt (a config change would diverge retries from the first send).
+   */
+  fromAddress: string;
+  replyTo: string | null;
 };
 
 export type ReviewEngineDeps = {
@@ -148,6 +156,11 @@ export function resolveReviewEngineConfig(
   env: Record<string, string | undefined>,
   probes: { resendConfigured: boolean },
 ): ReviewEngineConfig {
+  // From composition mirrors the Resend adapter's default exactly
+  // (RESEND_FROM_NAME <RESEND_FROM_EMAIL>) so the value frozen at claim
+  // time is the value the adapter would have used for the first send.
+  const fromEmail = env.RESEND_FROM_EMAIL?.trim() ?? "";
+  const fromName = env.RESEND_FROM_NAME?.trim() ?? "";
   return {
     enabled: env.REVIEW_REQUESTS_ENABLED?.trim() === "true",
     physicalEnabled: env.REVIEW_REQUESTS_PHYSICAL_ENABLED?.trim() === "true",
@@ -156,6 +169,8 @@ export function resolveReviewEngineConfig(
     siteUrl: env.NEXT_PUBLIC_SITE_URL?.trim() || "https://starmapco.com",
     supportEmail: env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim() || "support@starmapco.com",
     resendConfigured: probes.resendConfigured,
+    fromAddress: fromEmail ? (fromName ? `${fromName} <${fromEmail}>` : fromEmail) : "",
+    replyTo: env.RESEND_REPLY_TO?.trim() || null,
   };
 }
 
@@ -360,7 +375,8 @@ export type ReviewTickSummary = {
   alreadyResolved: number;
   inFlightOrBackoff: number;
   ledgerUnavailable: number;
-  /** Coordinator unreachable: claim released unconsumed, nothing sent. */
+  /** No dispatch outcome obtained (unreachable or response lost): the
+   * claim release was attempted — it lands only if never dispatched. */
   suppressionUnavailable: number;
   /** Dispatches whose provider outcome is unknowable — terminal, never resent. */
   uncertain: number;
@@ -624,6 +640,11 @@ export async function runReviewRequestTick(deps: ReviewEngineDeps): Promise<Revi
           });
           payload = {
             to: fresh.email,
+            // From / Reply-To freeze HERE, from the config snapshot —
+            // the complete provider request includes them, so a sender
+            // config change after this claim cannot diverge a retry.
+            from: config.fromAddress,
+            replyTo: config.replyTo,
             subject: built.subject,
             html: built.html,
             text: built.text,
@@ -686,9 +707,14 @@ export async function runReviewRequestTick(deps: ReviewEngineDeps): Promise<Revi
         name: suppressionName,
       });
       if (dispatch === null || dispatch.outcome === "unavailable") {
-        // The coordinator never started a dispatch: release the claim
-        // unconsumed so a later tick can retry — nothing was sent and
-        // nothing is ambiguous.
+        // A null/unavailable result does NOT prove the coordinator never
+        // started: the dispatch may have committed (even sent) with only
+        // its response lost. The release is safe anyway — release_claim
+        // is state- and token-guarded in the ledger machine, so it
+        // returns the row to a due retry ONLY while the claim is still
+        // undispatched (`claimed`); once a dispatch has committed it
+        // no-ops, and the row settles through the dispatch lifecycle
+        // (expire_dispatch → `uncertain`) instead of a blind retry.
         await deps.ledger.apply(sessionId, {
           type: "release_claim",
           claimId,

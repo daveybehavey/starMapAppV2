@@ -16,8 +16,10 @@
  *  - The 1h/6h/24h backoff ladder could reach ~t0+31h. Retries are now
  *    bounded by an immutable absolute deadline persisted at first dispatch:
  *    retryDeadlineAt = min(eligibilityEndsAt, firstDispatchAt + 23h).
- *    The coordinator samples a fresh clock before every provider invocation
- *    (see begin_dispatch) and refuses at/after the deadline.
+ *    begin_dispatch refuses at/after the deadline, and the coordinator
+ *    re-checks against a fresh clock sample at the point of provider
+ *    invocation (no await between that check and the call), so a slow
+ *    commit RPC cannot carry a send past the deadline.
  *  - Retries used to re-render the email under the same session key, so the
  *    payload could silently diverge from the first attempt. The complete
  *    provider request is now frozen into the row at first claim; a later
@@ -55,10 +57,17 @@ export type ReviewLedgerStatus =
 
 /**
  * The complete provider request, frozen at first claim (design: frozen
- * payload). Retries dispatch this exact object — never a re-render.
+ * payload). Retries dispatch this exact object — never a re-render. From
+ * and Reply-To are part of the frozen request: the send adapter must NOT
+ * re-derive them from the environment per attempt, or a config change
+ * between attempts would silently diverge the retry from the first send.
+ * (`replyTo: null` is a frozen decision too — it means "no Reply-To",
+ * not "fall back to whatever the environment says at send time".)
  */
 export type FrozenReviewPayload = {
   to: string;
+  from: string;
+  replyTo: string | null;
   subject: string;
   html: string;
   text: string;
@@ -176,7 +185,16 @@ export type ReviewDispatchResult =
    * sole send path) attests no provider call was made, so the committed
    * row truthfully settles as terminal `suppressed` instead of `uncertain`.
    */
-  | { type: "suppressed" };
+  | { type: "suppressed" }
+  /**
+   * The coordinator's point-of-invocation deadline fence tripped AFTER
+   * the dispatch committed but BEFORE the provider was invoked: the
+   * commit RPC consumed the remaining window, so the fresh clock at the
+   * invocation point is at/after the absolute deadline. The coordinator
+   * attests no provider call was made, so the committed row truthfully
+   * settles as terminal `expired` instead of `uncertain`.
+   */
+  | { type: "expired" };
 
 export type ReviewLedgerOp =
   | {
@@ -192,6 +210,7 @@ export type ReviewLedgerOp =
     }
   | { type: "release_claim"; claimId: string; now: number }
   | { type: "expire_claim"; now: number }
+  | { type: "expire_retry"; now: number }
   | { type: "begin_dispatch"; claimId: string; now: number }
   | { type: "resolve_dispatch"; claimId: string; result: ReviewDispatchResult; now: number }
   | { type: "expire_dispatch"; claimId: string; now: number }
@@ -348,9 +367,14 @@ function releaseClaim(
   if (state.claimId !== op.claimId) {
     return { state, changed: false, outcome: "not_claim_owner" };
   }
-  // The dispatch never started (the coordinator was unavailable), so no
-  // attempt is consumed and nothing about the send is ambiguous: the row
-  // returns to a due retry carrying the same frozen payload.
+  // The dispatch never started under this claim — guaranteed HERE, by
+  // the state + token guard above (a committed dispatch would have moved
+  // the row out of `claimed`, and release is then a no-op). That guard,
+  // not a caller's belief that nothing was sent, is what makes a release
+  // safe: a caller whose dispatch RPC response was lost cannot resurrect
+  // a committed dispatch into a blind retry. No attempt is consumed and
+  // nothing about the send is ambiguous: the row returns to a due retry
+  // carrying the same frozen payload.
   return {
     state: {
       ...state,
@@ -382,6 +406,22 @@ function expireClaim(
   if (op.now - (state.claimedAt ?? op.now) < REVIEW_REQUEST_CLAIM_STALE_MS) {
     return { state, changed: false, outcome: "no_change" };
   }
+  if (state.eligibilityEndsAt !== null && op.now >= state.eligibilityEndsAt) {
+    // Eligibility ended while the claim sat abandoned: the ask can never
+    // be sent, so the row terminalizes here instead of dropping into a
+    // retry that would retain the recipient + frozen payload forever
+    // with nothing left to ever claim it.
+    return {
+      state: stripTerminalPii({
+        ...state,
+        status: "expired",
+        lastError: "claim_abandoned_after_eligibility",
+        updatedAt: op.now,
+      }),
+      changed: true,
+      outcome: "expired",
+    };
+  }
   // The claimant died between begin_claim and dispatch/release (e.g. the
   // scheduled worker was evicted mid-tick). No provider call can have
   // started — the send path requires begin_dispatch under the claim token
@@ -400,6 +440,49 @@ function expireClaim(
     },
     changed: true,
     outcome: "released",
+  };
+}
+
+/**
+ * A `retry` row's independent expiry (driven by the ledger DO's alarm):
+ * once the row's last possible dispatch boundary has passed — the earlier
+ * of the eligibility end and the persisted retry deadline — no dispatch
+ * can ever commit again (begin_dispatch refuses at/after the deadline
+ * and classification refuses at/after eligibility), yet the row still
+ * holds the recipient and the frozen payload. Without this transition
+ * that PII strands indefinitely: the tick never claims an ineligible row,
+ * and `redact` covers only `uncertain`. Terminalize as `expired` with
+ * the standard PII strip.
+ */
+function expireRetry(
+  state: ReviewLedgerState,
+  op: Extract<ReviewLedgerOp, { type: "expire_retry" }>
+): ReviewLedgerApplyResult {
+  if (state.status === null) return { state, changed: false, outcome: "no_row" };
+  if (isReviewLedgerTerminal(state.status)) {
+    return { state, changed: false, outcome: "already_resolved" };
+  }
+  if (state.status !== "retry") {
+    return { state, changed: false, outcome: "no_change" };
+  }
+  const boundaries = [state.eligibilityEndsAt, state.retryDeadlineAt].filter(
+    (value): value is number => value !== null
+  );
+  if (boundaries.length === 0) {
+    return { state, changed: false, outcome: "no_change" };
+  }
+  if (op.now < Math.min(...boundaries)) {
+    return { state, changed: false, outcome: "no_change" };
+  }
+  return {
+    state: stripTerminalPii({
+      ...state,
+      status: "expired",
+      lastError: "retry_window_ended",
+      updatedAt: op.now,
+    }),
+    changed: true,
+    outcome: "expired",
   };
 }
 
@@ -495,6 +578,22 @@ function resolveDispatch(
       state: stripTerminalPii({ ...state, status: "suppressed", updatedAt: op.now }),
       changed: true,
       outcome: "suppressed",
+    };
+  }
+
+  if (result.type === "expired") {
+    // The point-of-invocation deadline fence tripped after the commit
+    // but before the provider call (the coordinator attests no call was
+    // made): settle truthfully as expired, with the standard strip.
+    return {
+      state: stripTerminalPii({
+        ...state,
+        status: "expired",
+        lastError: "retry_deadline_passed",
+        updatedAt: op.now,
+      }),
+      changed: true,
+      outcome: "expired",
     };
   }
 
@@ -681,6 +780,8 @@ export function applyReviewLedgerOp(state: ReviewLedgerState, op: ReviewLedgerOp
       return releaseClaim(state, op);
     case "expire_claim":
       return expireClaim(state, op);
+    case "expire_retry":
+      return expireRetry(state, op);
     case "begin_dispatch":
       return beginDispatch(state, op);
     case "resolve_dispatch":
@@ -703,7 +804,9 @@ export function applyReviewLedgerOp(state: ReviewLedgerState, op: ReviewLedgerOp
  * terminal rows retain PII. Applied by the ledger DO on load:
  *  - legacy `sending` / payload-less `retry` → `uncertain`, PII stripped
  *    immediately (no redaction window for rows nobody is dispatching);
- *  - legacy terminal rows (`sent`/`failed`) → same status, PII stripped.
+ *  - legacy terminal rows (`sent`/`failed`) → same status, PII stripped
+ *    and stored diagnostics sanitized (the old machine kept raw errors,
+ *    which can embed a recipient address).
  * New-machine rows pass through untouched.
  */
 export function migrateLegacyReviewLedgerState(
@@ -731,16 +834,23 @@ export function migrateLegacyReviewLedgerState(
       outcome: "uncertain",
     };
   }
-  if (
-    (legacyStatus === "sent" || legacyStatus === "failed") &&
-    (state.email !== null || state.payload !== null || state.providerId !== null || state.claimId !== null)
-  ) {
+  if (legacyStatus === "sent" || legacyStatus === "failed") {
     const base = { ...createEmptyReviewLedgerState(state.sessionId), ...state } as ReviewLedgerState;
-    return {
-      state: { ...stripTerminalPii(base), updatedAt: now },
-      changed: true,
-      outcome: "redacted",
-    };
+    // The old machine stored diagnostics unsanitized: a legacy row's
+    // lastError can carry a raw recipient address. Sanitizing it is part
+    // of the migration, and a dirty lastError ALONE is enough to trigger
+    // the rewrite — otherwise a terminal row whose PII fields happen to
+    // be empty would keep the address forever.
+    const sanitizedError = base.lastError ? sanitizeReviewError(base.lastError) : base.lastError;
+    const carriesPii =
+      base.email !== null || base.payload !== null || base.providerId !== null || base.claimId !== null;
+    if (carriesPii || sanitizedError !== base.lastError) {
+      return {
+        state: { ...stripTerminalPii(base), lastError: sanitizedError, updatedAt: now },
+        changed: true,
+        outcome: "redacted",
+      };
+    }
   }
   return { state: state as ReviewLedgerState, changed: false, outcome: "no_change" };
 }
