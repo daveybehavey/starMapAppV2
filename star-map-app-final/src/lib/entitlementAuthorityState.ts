@@ -2036,6 +2036,41 @@ function grantReward(
   const existingPending = pendingGrantsOf(state)[op.grantId];
   if (existingPending) {
     if (existingPending.amount !== op.amount) return refused(state, "invalid_reward");
+    // Retry after a terminal record landed during the pendency
+    // (v3.8 §5.3 retry + v3.10 §5): the re-run registration leg
+    // returns registered_after_terminal, so the terminal obligation
+    // attaches to the pending entry now — its excluded settlement
+    // will be the born-reversed pair, exactly as if the obligation
+    // had been recorded at first admission.
+    if (
+      op.discoveryRegistration === "registered_after_terminal" &&
+      !existingPending.terminalObligation
+    ) {
+      const seq = nextSeq(state);
+      return result(
+        {
+          ...state,
+          pendingGrants: {
+            ...pendingGrantsOf(state),
+            [op.grantId]: {
+              ...existingPending,
+              terminalObligation: {
+                referredSessionId: op.grantId,
+                lineageRef: op.terminalRecord?.lineageRef ?? "",
+                recordedAt: op.terminalRecord?.recordedAt ?? op.now,
+              },
+            },
+          },
+          journalHead: seq,
+          updatedAt: op.now,
+        },
+        true,
+        "grant_pending",
+        null,
+        0,
+        { pendingKind: existingPending.kind },
+      );
+    }
     return result(state, false, "grant_pending", null, 0, {
       pendingKind: existingPending.kind,
     });

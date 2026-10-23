@@ -832,22 +832,31 @@ test("T-C39/T-C34: pending discovery → refund records terminal → retry settl
   assert.equal(isDiscoveryAbsence(row), true);
   const rec = recordTerminalNegative(row, { lineageRef: "lin-1", now: NOW + 1 });
   assert.equal(rec.outcome, "recorded");
-  // Retry re-runs the leg: registered_after_terminal; settlement IS the pair.
+  // Retry re-runs the leg: registered_after_terminal — the terminal
+  // obligation attaches to the pending entry on redelivery dispatch,
+  // so its excluded settlement IS the born-reversed pair (the T-C50
+  // path, reached here through the retry rather than first admission).
   const reg = registerDiscovery(rec.row, { referrerSessionId: "cs_r", grantId: "cs_s", now: NOW + 2 });
   assert.equal(reg.outcome, "registered_after_terminal");
-  const settled = applyEntitlementAuthorityOp(s, {
+  const redispatched = applyEntitlementAuthorityOp(s, grantRewardOp("cs_s", 1, {
+    discoveryRegistration: "registered_after_terminal",
+    terminalRecord: { lineageRef: "lin-1", recordedAt: NOW + 1 },
+  }));
+  assert.equal(redispatched.outcome, "grant_pending");
+  assert.equal(
+    pendingGrantsOf(redispatched.state)["cs_s"].terminalObligation.lineageRef,
+    "lin-1",
+  );
+  const settled = applyEntitlementAuthorityOp(redispatched.state, {
     type: "resolve_grant_inclusion",
     grantId: "cs_s",
     classification: "excluded",
     evidence: "era_proof",
     now: NOW + 3,
   });
-  // The pending entry carried no terminal obligation (it pended on
-  // discovery, before the terminal record existed), so settlement
-  // folds — and the terminal record governs the NEXT presentation.
-  // (The obligation-carrying path is T-C50, below.)
   assert.equal(settled.outcome, "inclusion_settled");
-  assert.equal(settled.state.rewardGrants["cs_s"].reversed, false);
+  assert.equal(settled.state.rewardGrants["cs_s"].reversed, true);
+  assert.equal(settled.state.rewardBucketBalance, 0); // pair: net zero
 
   // Conflict leg: a second referrer for the same referred id refuses
   // (evaluated against the row that now carries the association).
