@@ -23,6 +23,15 @@
  * reward-family grant and asserts both families' figures, per the
  * family-scoped counter domains (v3.9 §3.3): the design's "position 4"
  * is the spendable total; the purchased position is asserted separately.
+ *
+ * Codex re-gate FIX ROUND 1 (2026-10-23): five P2 findings against
+ * c37aaaf, each source-verified and fixed within the cleared design —
+ * the RG1 tests at the end of this file pin them: F-A (restorations
+ * un-spend attribution: net selection), F-B (terminal status survives
+ * registration retries), F-C (by-construction settlement retires the
+ * birth pendency atomically), F-D (pending authority grants defer
+ * their reversal at the webhook), F-E (no settlement of a discovery
+ * pendency before its registration leg completes).
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -858,14 +867,15 @@ test("T-C39/T-C34: pending discovery → refund records terminal → retry settl
   assert.equal(settled.state.rewardGrants["cs_s"].reversed, true);
   assert.equal(settled.state.rewardBucketBalance, 0); // pair: net zero
 
-  // Conflict leg: a second referrer for the same referred id refuses
-  // (evaluated against the row that now carries the association).
+  // Conflict leg: re-registering the same triple is idempotent —
+  // and because the row carries the terminal record, the answer
+  // keeps naming it (RG1 F-B); a different referrer conflicts.
   const sameAgain = registerDiscovery(reg.row, {
     referrerSessionId: "cs_r",
     grantId: "cs_s",
     now: NOW + 4,
   });
-  assert.equal(sameAgain.outcome, "already_registered");
+  assert.equal(sameAgain.outcome, "registered_after_terminal");
   const conflict = registerDiscovery(reg.row, {
     referrerSessionId: "cs_other",
     grantId: "cs_s",
@@ -1132,4 +1142,221 @@ test("wiring: REFERRAL_DISCOVERY binding, v4 migration, worker export; routes ke
     assert.match(src, /status: 409/);
     assert.match(src, /status: 503/);
   }
+});
+
+/* ---------------- Codex re-gate round 1 (RG1) ---------------- */
+
+test("RG1 F-A: a restoration un-spends attribution — the restored grant funds the next debit, and its reversal then refuses that debit's compensation", () => {
+  // Opening 0 (allowance 3, spent 3): every commit draws the bucket.
+  let s = seeded({ baselineOver: { allowance: 3, legacyRemainingBalance: 0, legacySpentCount: 3 } });
+  s = applyEntitlementAuthorityOp(s, grantRewardOp("cs_g", 1)).state; // bucket 1
+  const a = applyEntitlementAuthorityOp(s, commitOp("art-a", { consumeToken: "ct-a" }));
+  assert.equal(a.outcome, "committed");
+  assert.equal(a.state.ownedFiles["art-a"].fundingGrantId, "cs_g");
+  assert.equal(a.state.rewardBucketBalance, 0);
+  // Compensate A: the bucket refills AND the grant's attribution
+  // un-spends (v3.10 §2.2) — its unspent remainder is 1 again.
+  const compA = applyEntitlementAuthorityOp(a.state, {
+    type: "compensate_debit",
+    consumeToken: "ct-a",
+    now: NOW + 1,
+  });
+  assert.equal(compA.outcome, "compensated");
+  assert.equal(compA.state.rewardBucketBalance, 1);
+  assert.equal(rewardGrantResidual(compA.state.rewardGrants["cs_g"]), 1);
+  // Commit B spends the restored credit: §4.3 selection must name
+  // the grant (pre-fix: fundingGrantId null — no grant had remainder
+  // under gross attribution, so §4.2 had nothing to read).
+  const b = applyEntitlementAuthorityOp(compA.state, commitOp("art-b", { consumeToken: "ct-b" }));
+  assert.equal(b.outcome, "committed");
+  assert.equal(b.state.ownedFiles["art-b"].fundingGrantId, "cs_g");
+  // Reverse G, then compensate B: the claw takes 0 (B already spent
+  // the credit — the pooled bound), but the grant stands REVERSED,
+  // so B's reward portion is non-restorable (pre-fix: the null
+  // attribution let the compensation restore a reversed reward,
+  // raising the bucket to 1).
+  const rev = applyEntitlementAuthorityOp(b.state, {
+    type: "reverse_reward",
+    grantId: "cs_g",
+    now: NOW + 2,
+  });
+  assert.equal(rev.rewardClawed, 0);
+  assert.equal(rev.state.rewardGrants["cs_g"].reversed, true);
+  const compB = applyEntitlementAuthorityOp(rev.state, {
+    type: "compensate_debit",
+    consumeToken: "ct-b",
+    now: NOW + 3,
+  });
+  assert.equal(compB.outcome, "refused");
+  assert.equal(compB.refusal, "funding_grant_reversed");
+  assert.equal(compB.state.rewardBucketBalance, 0);
+  reload(compB.state);
+});
+
+test("RG1 F-B: re-registration over a standing terminal record still answers registered_after_terminal", () => {
+  let row = createEmptyReferralDiscoveryRow("cs_s");
+  row = recordTerminalNegative(row, { lineageRef: "lin-1", now: NOW }).row;
+  const first = registerDiscovery(row, {
+    referrerSessionId: "cs_r",
+    grantId: "cs_s",
+    now: NOW + 1,
+  });
+  assert.equal(first.outcome, "registered_after_terminal");
+  // The grant op failed before committing; the redelivery re-runs
+  // the leg against the now-registered row. The terminal fact is
+  // part of the leg's answer on every delivery (pre-fix: the retry
+  // heard only "already_registered" and admitted an ordinary grant
+  // where v3.9 §4 mandates the born-reversed one).
+  const retry = registerDiscovery(first.row, {
+    referrerSessionId: "cs_r",
+    grantId: "cs_s",
+    now: NOW + 2,
+  });
+  assert.equal(retry.outcome, "registered_after_terminal");
+  assert.equal(retry.row.terminalNegative.lineageRef, "lin-1");
+  // Control: without a terminal record the retry stays plain.
+  let plain = createEmptyReferralDiscoveryRow("cs_t");
+  plain = registerDiscovery(plain, {
+    referrerSessionId: "cs_r",
+    grantId: "cs_t",
+    now: NOW,
+  }).row;
+  const plainRetry = registerDiscovery(plain, {
+    referrerSessionId: "cs_r",
+    grantId: "cs_t",
+    now: NOW + 1,
+  });
+  assert.equal(plainRetry.outcome, "already_registered");
+});
+
+test("RG1 F-C: purchase_grant replay after a late baseline retires the birth pendency in the same commit", () => {
+  let s = createEmptyEntitlementAuthorityState("cs_old2");
+  s = applyEntitlementAuthorityOp(s, { type: "sync_facts", facts: facts(), now: NOW - 1000 }).state;
+  const presented = applyEntitlementAuthorityOp(s, {
+    type: "purchase_grant",
+    amount: 3,
+    sessionCreatedAt: null,
+    authorityEraStart: NOW - 500_000,
+    now: NOW,
+  });
+  assert.equal(presented.outcome, "grant_pending");
+  assert.equal(presented.pendingKind, "birth");
+  s = applyEntitlementAuthorityOp(presented.state, {
+    type: "capture_baseline",
+    baseline: baseline({ allowance: 3, legacyRemainingBalance: 1, legacySpentCount: 2 }),
+    now: NOW + 1,
+  }).state;
+  assert.ok(pendingGrantsOf(s)["cs_old2"]); // the pendency still stands
+  // W1 redelivery: the by-construction inclusion must retire the
+  // pendency atomically (pre-fix: settled written, pending kept —
+  // a persisted state the exactly-one-home validator rejects).
+  const replay = applyEntitlementAuthorityOp(s, {
+    type: "purchase_grant",
+    amount: 3,
+    sessionCreatedAt: null,
+    authorityEraStart: NOW - 500_000,
+    now: NOW + 2,
+  });
+  assert.equal(replay.outcome, "already_included_in_opening");
+  assert.equal(pendingGrantsOf(replay.state)["cs_old2"], undefined);
+  assert.equal(settledInclusionsOf(replay.state)["cs_old2"].basis, "by_construction");
+  reload(replay.state); // exactly one home per identity
+  const again = applyEntitlementAuthorityOp(replay.state, {
+    type: "purchase_grant",
+    amount: 3,
+    sessionCreatedAt: null,
+    authorityEraStart: NOW - 500_000,
+    now: NOW + 3,
+  });
+  assert.equal(again.outcome, "already_included_in_opening");
+  assert.equal(again.changed, false);
+});
+
+test("RG1 F-E: a discovery pendency cannot settle before its registration leg completes; the retry records the leg, then settlement folds", () => {
+  let s = seeded({ sid: "cs_r" });
+  const pended = applyEntitlementAuthorityOp(s, grantRewardOp("cs_s", 1, {
+    discoveryRegistration: "unavailable",
+  }));
+  assert.equal(pended.outcome, "grant_pending");
+  assert.equal(pended.pendingKind, "discovery");
+  s = pended.state;
+  // The Codex reproduction: an operator receipt settles `excluded`
+  // and folds — with no registration ever recorded. The receipt
+  // proves exclusion from the opening, not registration (§5.1).
+  const early = applyEntitlementAuthorityOp(s, {
+    type: "resolve_grant_inclusion",
+    grantId: "cs_s",
+    classification: "excluded",
+    evidence: "operator_receipt",
+    now: NOW + 1,
+  });
+  assert.equal(early.outcome, "refused");
+  assert.equal(early.refusal, "discovery_registration_required");
+  assert.equal(early.state.rewardBucketBalance, 0);
+  assert.ok(pendingGrantsOf(early.state)["cs_s"]);
+  const earlyIn = applyEntitlementAuthorityOp(s, {
+    type: "resolve_grant_inclusion",
+    grantId: "cs_s",
+    classification: "included",
+    evidence: "operator_receipt",
+    now: NOW + 1,
+  });
+  assert.equal(earlyIn.outcome, "refused");
+  assert.equal(earlyIn.refusal, "discovery_registration_required");
+  // The designed resolution (§5.3): redelivery re-runs the leg; its
+  // completion is recorded on the entry...
+  const retry = applyEntitlementAuthorityOp(s, grantRewardOp("cs_s", 1, {
+    discoveryRegistration: "registered",
+  }));
+  assert.equal(retry.outcome, "grant_pending");
+  assert.equal(pendingGrantsOf(retry.state)["cs_s"].discoveryRegistered, true);
+  // ...and only then may settlement confer the value.
+  const settled = applyEntitlementAuthorityOp(retry.state, {
+    type: "resolve_grant_inclusion",
+    grantId: "cs_s",
+    classification: "excluded",
+    evidence: "operator_receipt",
+    now: NOW + 2,
+  });
+  assert.equal(settled.outcome, "inclusion_settled");
+  assert.equal(settled.state.rewardBucketBalance, 1);
+  assert.ok(settled.state.rewardGrants["cs_s"]);
+  reload(settled.state);
+});
+
+test("RG1 F-D: the wrapper defers a pending grant's reversal until settlement, then reverses the folded grant", async () => {
+  __resetEntitlementAuthorityMemoryForTests();
+  const client = createEntitlementAuthorityClient();
+  const REF = "cs_fd_referrer";
+  await client.apply(REF, { type: "sync_facts", facts: facts(), now: NOW - 1000 });
+  await client.apply(REF, { type: "capture_baseline", baseline: baseline(), now: NOW - 900 });
+  await client.apply(REF, grantRewardOp("cs_fd", 1, { discoveryRegistration: "unavailable" }));
+  // The refund reaches the authority while the grant pends:
+  // outcome 3 — deferred, dedupe must not finalize (v3.7 §2.3).
+  const d1 = await reverseReferralRewardViaAuthority(client, REF, "cs_fd", NOW + 1);
+  assert.deepEqual(d1, { status: "deferred" });
+  // Settlement (leg recorded on retry, then excluded): the grant
+  // folds — and the still-retryable reversal now claws it.
+  await client.apply(REF, grantRewardOp("cs_fd", 1, { discoveryRegistration: "registered" }));
+  await client.apply(REF, {
+    type: "resolve_grant_inclusion",
+    grantId: "cs_fd",
+    classification: "excluded",
+    evidence: "operator_receipt",
+    now: NOW + 2,
+  });
+  const d2 = await reverseReferralRewardViaAuthority(client, REF, "cs_fd", NOW + 3);
+  assert.deepEqual(d2, { status: "reversed", clawed: 1 });
+});
+
+test("RG1 F-D wiring: the webhook reversal consults the authority for pending-grant records before finalizing", () => {
+  const route = readFileSync(
+    path.join(appRoot, "src", "app", "api", "stripe", "webhook", "route.ts"),
+    "utf8",
+  );
+  // The pending/terminal distinction is the recorded skip reason,
+  // and the consult gate includes the pending case (KV granted 0).
+  assert.match(route, /authority_grant_discovery_unresolved/);
+  assert.match(route, /authority_grant_inclusion_unresolved/);
+  assert.match(route, /pendingAuthorityGrant/);
 });
