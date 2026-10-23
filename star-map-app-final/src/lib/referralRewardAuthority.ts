@@ -53,19 +53,52 @@ import {
 } from "@/lib/entitlementMigration";
 import type { StripeSessionEntitlement } from "@/lib/entitlementsStore";
 
+export type ReferralGrantSkipReason =
+  | MigrationPendingReason
+  | "invalid_baseline"
+  | "no_record"
+  | "authority_unavailable"
+  | "migration_busy"
+  | "refused";
+
 export type ReferralRewardGrantResult =
   | { status: "granted" }
   | { status: "already_granted" }
-  | {
-      status: "skipped";
-      reason:
-        | MigrationPendingReason
-        | "invalid_baseline"
-        | "no_record"
-        | "authority_unavailable"
-        | "migration_busy"
-        | "refused";
-    };
+  | { status: "skipped"; reason: ReferralGrantSkipReason };
+
+/**
+ * Skip reasons that are TRANSIENT (Codex P2, PR #367): the grant failed
+ * only because the authority was contended or briefly unreachable, so
+ * the reward must stay retryable — the webhook rolls back its
+ * idempotency claim and lets Stripe redelivery complete the grant.
+ * Every other skip is a settled fact about the record (ambiguous
+ * history, no record, a state-machine refusal) and is terminal.
+ */
+export function isTransientReferralGrantReason(reason: ReferralGrantSkipReason): boolean {
+  return reason === "migration_busy" || reason === "authority_unavailable";
+}
+
+/**
+ * Thrown by the webhook's grant path after a transient skip (with the
+ * idempotency claim already rolled back) so the fulfillment pass can
+ * answer Stripe with its retryable outcome instead of finalizing.
+ */
+export class ReferralGrantTransientError extends Error {
+  readonly code = "referral_grant_transient";
+  constructor(reason: string) {
+    super(`referral grant transiently skipped: ${reason}`);
+    this.name = "ReferralGrantTransientError";
+  }
+}
+
+export function isReferralGrantTransientError(error: unknown): boolean {
+  return (
+    error instanceof ReferralGrantTransientError ||
+    (typeof error === "object" &&
+      error !== null &&
+      (error as { code?: unknown }).code === "referral_grant_transient")
+  );
+}
 
 export async function grantReferralRewardViaAuthority(
   client: EntitlementAuthorityClient,

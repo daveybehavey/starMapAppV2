@@ -55,6 +55,7 @@ const {
   grantReferralRewardViaAuthority,
   reverseReferralRewardViaAuthority,
   isEntitlementAuthorityRoutingEnabled,
+  isTransientReferralGrantReason,
 } = await import("../../src/lib/referralRewardAuthority.ts");
 
 const NOW = Date.UTC(2026, 9, 22, 13, 0, 0);
@@ -476,4 +477,31 @@ test("routing gate: default off; only explicit truthy values enable it", () => {
   assert.equal(isEntitlementAuthorityRoutingEnabled({ DL1_AUTHORITY_ROUTING_ENABLED: "1" }), true);
   assert.equal(isEntitlementAuthorityRoutingEnabled({ DL1_AUTHORITY_ROUTING_ENABLED: "true" }), true);
   assert.equal(isEntitlementAuthorityRoutingEnabled({ DL1_AUTHORITY_ROUTING_ENABLED: " YES " }), true);
+});
+
+test("transient grant reasons: only contention and outage are retryable", () => {
+  assert.equal(isTransientReferralGrantReason("migration_busy"), true);
+  assert.equal(isTransientReferralGrantReason("authority_unavailable"), true);
+  assert.equal(isTransientReferralGrantReason("balance_out_of_range"), false);
+  assert.equal(isTransientReferralGrantReason("no_record"), false);
+  assert.equal(isTransientReferralGrantReason("invalid_baseline"), false);
+  assert.equal(isTransientReferralGrantReason("refused"), false);
+});
+
+test("authority outage surfaces as transient statuses on both referral paths", async () => {
+  const deadClient = { getState: async () => null, apply: async () => null };
+  const grant = await grantReferralRewardViaAuthority(
+    deadClient,
+    sid(),
+    "cs_referred_outage",
+    1,
+    async () => record(),
+    NOW,
+  );
+  assert.equal(grant.status, "skipped");
+  assert.equal(grant.reason, "authority_unavailable");
+  assert.equal(isTransientReferralGrantReason(grant.reason), true);
+
+  const reversal = await reverseReferralRewardViaAuthority(deadClient, sid(), "cs_referred_outage", NOW);
+  assert.equal(reversal.status, "authority_unavailable");
 });

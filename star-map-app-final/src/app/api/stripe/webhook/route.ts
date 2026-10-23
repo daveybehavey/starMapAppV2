@@ -13,8 +13,11 @@ import {
 import { appendReferralEvent, getReferralEvents } from "@/lib/referralLedger";
 import { createEntitlementAuthorityClient } from "@/lib/entitlementAuthority";
 import {
+  ReferralGrantTransientError,
   grantReferralRewardViaAuthority,
   isEntitlementAuthorityRoutingEnabled,
+  isReferralGrantTransientError,
+  isTransientReferralGrantReason,
   reverseReferralRewardViaAuthority,
 } from "@/lib/referralRewardAuthority";
 import type { StripeSessionEntitlement } from "@/lib/entitlementsStore";
@@ -670,6 +673,19 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
           );
           if (grantResult.status === "granted" || grantResult.status === "already_granted") {
             rewardGranted = referralRewardCredits;
+          } else if (isTransientReferralGrantReason(grantResult.reason)) {
+            // Transient contention/outage (Codex P2, PR #367): recording
+            // this as a settled skip would lose an eligible reward for
+            // good — the claim above already persisted `rewarded: true`
+            // and the entry guard would refuse every redelivery. Roll
+            // the claim back and signal retryable instead, so Stripe
+            // redelivery re-runs the grant once the authority clears.
+            if (existingRewardState) {
+              await kv.set(rewardStateKey, existingRewardState);
+            } else {
+              await kv.deleteDurable(rewardStateKey);
+            }
+            throw new ReferralGrantTransientError(grantResult.reason);
           } else {
             rewardSkipReason = `authority_${grantResult.reason}`;
           }
@@ -787,6 +803,43 @@ async function reverseReferralReward(sessionId: string, reason: "refund" | "disp
   }
 
   const timestamp = Date.now();
+  const routingEnabled = isEntitlementAuthorityRoutingEnabled();
+
+  // When authority routing is enabled, the clawback runs BEFORE any
+  // bookkeeping below is finalized (Codex P2, PR #367): a transient
+  // authority outage must not be recorded as a completed zero-credit
+  // reversal — the finalized flags would refuse every later attempt and
+  // leave unspent rewards spendable for good. On `authority_unavailable`
+  // nothing is written at all, so the reversal stays retryable by any
+  // later delivery that reaches this path for the session.
+  let authorityClawed: number | null = null;
+  let referrer: SessionRecord | null = null;
+  if (!rewardAlreadyReversed && rewardGranted > 0) {
+    referrer = await kv.get<SessionRecord>(sessionKey(rewardState.referrerSessionId));
+    if (referrer && referrer.plan !== "subscription" && routingEnabled) {
+      // DL-1 Slice 3 (R1-A): the clawback runs against the authority's
+      // reward bucket only — it removes at most this grant's unspent
+      // bucket credits. A grant that predates the bucket (inside the
+      // migrated legacy balance) reclaims ZERO: the legacy bucket is
+      // never debited by a referral reversal, purchased credits are
+      // unreachable, and no debt is created when the reward was spent.
+      const reversal = await reverseReferralRewardViaAuthority(
+        createEntitlementAuthorityClient(),
+        rewardState.referrerSessionId,
+        sessionId,
+        timestamp,
+      );
+      if (reversal.status === "authority_unavailable") {
+        console.warn("Referral reversal deferred: entitlement authority unavailable", {
+          sessionId,
+          reason,
+        });
+        return;
+      }
+      authorityClawed = reversal.status === "reversed" ? reversal.clawed : 0;
+    }
+  }
+
   const nextReferralRecord: ReferralRecord = {
     ...referralRecord,
     conversions:
@@ -802,35 +855,20 @@ async function reverseReferralReward(sessionId: string, reason: "refund" | "disp
 
   let rewardReclaimed = 0;
   if (!rewardAlreadyReversed && rewardGranted > 0) {
-    const referrer = await kv.get<SessionRecord>(sessionKey(rewardState.referrerSessionId));
-    if (referrer && referrer.plan !== "subscription") {
-      if (isEntitlementAuthorityRoutingEnabled()) {
-        // DL-1 Slice 3 (R1-A): the clawback runs against the authority's
-        // reward bucket only — it removes at most this grant's unspent
-        // bucket credits. A grant that predates the bucket (inside the
-        // migrated legacy balance) reclaims ZERO: the legacy bucket is
-        // never debited by a referral reversal, purchased credits are
-        // unreachable, and no debt is created when the reward was spent.
-        const reversal = await reverseReferralRewardViaAuthority(
-          createEntitlementAuthorityClient(),
-          rewardState.referrerSessionId,
-          sessionId,
-          timestamp,
-        );
-        rewardReclaimed = reversal.status === "reversed" ? reversal.clawed : 0;
-      } else {
-        // Routing gated off (see the grant path): the grant was credited
-        // to the legacy KV counter, so the clawback debits that same
-        // counter — the pre-slice behaviour, kept symmetric with the
-        // grant until the Slice 6 activation enables the bucket.
-        const currentCredits = Math.max(0, referrer.creditsRemaining ?? 0);
-        rewardReclaimed = Math.min(currentCredits, rewardGranted);
-        await kv.set(sessionKey(rewardState.referrerSessionId), {
-          ...referrer,
-          paid: true,
-          creditsRemaining: Math.max(0, currentCredits - rewardReclaimed),
-        });
-      }
+    if (authorityClawed !== null) {
+      rewardReclaimed = authorityClawed;
+    } else if (!routingEnabled && referrer && referrer.plan !== "subscription") {
+      // Routing gated off (see the grant path): the grant was credited
+      // to the legacy KV counter, so the clawback debits that same
+      // counter — the pre-slice behaviour, kept symmetric with the
+      // grant until the Slice 6 activation enables the bucket.
+      const currentCredits = Math.max(0, referrer.creditsRemaining ?? 0);
+      rewardReclaimed = Math.min(currentCredits, rewardGranted);
+      await kv.set(sessionKey(rewardState.referrerSessionId), {
+        ...referrer,
+        paid: true,
+        creditsRemaining: Math.max(0, currentCredits - rewardReclaimed),
+      });
     }
   }
 
@@ -1575,6 +1613,15 @@ async function processCheckoutFulfillment(
       return { retryable: true };
     }
     if (isDurableKvPersistenceError(error)) {
+      return { retryable: true };
+    }
+    // Referral grant hit transient authority contention/outage: its
+    // idempotency claim was rolled back, so redelivery can complete the
+    // grant. Do not finalize dedupe (Codex P2, PR #367).
+    if (isReferralGrantTransientError(error)) {
+      console.warn("Referral grant transiently skipped; Stripe event remains retryable", {
+        sessionId: session.id,
+      });
       return { retryable: true };
     }
     throw error;
