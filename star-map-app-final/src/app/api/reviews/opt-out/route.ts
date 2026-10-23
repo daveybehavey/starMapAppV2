@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { normalizePromotionEmail } from "@/lib/promotionSubscriptions";
 import { getReviewOptOutSecret, verifyReviewOptOutToken } from "@/lib/reviewRequestEmail";
 import { recordReviewOptOut } from "@/lib/reviewRequests";
+import { createReviewSuppressionClient, deriveReviewSuppressionName } from "@/lib/reviewRequestSuppression";
 import { createWrapperKvScanStore } from "@/lib/reviewRequestRuntime";
 import { escapeHtml } from "@/lib/transactionalEmailLayout";
 
@@ -19,6 +20,12 @@ export const runtime = "nodejs";
  *
  * The opt-out suppresses review requests only; it does not touch order or
  * shipping emails.
+ *
+ * REVISED (T-T1): the POST writes the AUTHORITATIVE suppression record
+ * (suppression DO, HMAC-keyed) and only acknowledges after that write
+ * lands; the KV opt-out row is kept as a secondary source the tick reads.
+ * If the authoritative write cannot land, the route answers 503 instead
+ * of claiming an unsubscribe it did not record.
  */
 
 const NO_STORE = { "Cache-Control": "no-store" } as const;
@@ -56,7 +63,7 @@ export async function GET(req: NextRequest) {
     return page(
       "Unsubscribe unavailable",
       `<p>We can't process unsubscribe links right now. Reply to any StarMapCo email and ask to be removed from review requests — we'll do it manually.</p>`,
-      503,
+      503
     );
   }
   const { email, token } = readCredentials(req);
@@ -64,7 +71,7 @@ export async function GET(req: NextRequest) {
     return page(
       "This link isn't valid",
       `<p>This unsubscribe link is invalid or has expired. If you'd like to stop review requests, reply to any StarMapCo email and let us know.</p>`,
-      400,
+      400
     );
   }
   const form = `<form method="post" action="/api/reviews/opt-out">
@@ -81,7 +88,7 @@ export async function POST(req: NextRequest) {
     return page(
       "Unsubscribe unavailable",
       `<p>We can't process unsubscribe links right now. Reply to any StarMapCo email and ask to be removed from review requests — we'll do it manually.</p>`,
-      503,
+      503
     );
   }
   let form: FormData | null = null;
@@ -96,18 +103,31 @@ export async function POST(req: NextRequest) {
     return page(
       "This link isn't valid",
       `<p>This unsubscribe link is invalid or has expired. No changes were made.</p>`,
-      400,
+      400
     );
   }
   const oneClick = (form?.get("List-Unsubscribe")?.toString() ?? "") === "One-Click";
-  await recordReviewOptOut(
-    createWrapperKvScanStore(),
-    email,
-    Date.now(),
-    oneClick ? "list_unsubscribe" : "opt_out_page",
-  );
+  const source = oneClick ? "list_unsubscribe" : "opt_out_page";
+  const now = Date.now();
+  const secret = getReviewOptOutSecret();
+  const normalized = normalizePromotionEmail(email);
+  const recorded = secret
+    ? await createReviewSuppressionClient().record(
+        deriveReviewSuppressionName(normalized, secret),
+        source,
+        now
+      )
+    : false;
+  if (!recorded) {
+    return page(
+      "Unsubscribe unavailable",
+      `<p>We couldn't record your unsubscribe just now, so nothing was changed. Please try again in a few minutes, or reply to any StarMapCo email and ask to be removed from review requests — we'll do it manually.</p>`,
+      503
+    );
+  }
+  await recordReviewOptOut(createWrapperKvScanStore(), email, now, source);
   return page(
     "You're unsubscribed",
-    `<p>You won't receive review-request emails from StarMapCo again. Order and shipping emails are unaffected.</p>`,
+    `<p>You won't receive review-request emails from StarMapCo again. Order and shipping emails are unaffected.</p>`
   );
 }

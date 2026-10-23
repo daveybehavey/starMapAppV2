@@ -17,7 +17,13 @@ export type ResendEmailInput = {
   html: string;
   text?: string;
   from?: string;
-  replyTo?: string;
+  /**
+   * Reply-To. `undefined` = fall back to the RESEND_REPLY_TO env default.
+   * `null` = explicitly NO Reply-To (never the env default) — callers
+   * that freeze their request (e.g. the review engine's frozen payload)
+   * use this so a later env change cannot alter a retry.
+   */
+  replyTo?: string | null;
   tags?: Record<string, string>;
   /**
    * Per-message email headers, sent in the Resend payload's `headers` field
@@ -88,7 +94,12 @@ export async function sendResendEmail(input: ResendEmailInput): Promise<ResendSe
     html: input.html,
   };
   if (input.text) body.text = input.text;
-  const replyTo = input.replyTo?.trim() || getDefaultReplyTo();
+  const replyTo =
+    input.replyTo === null
+      ? ""
+      : input.replyTo !== undefined
+        ? input.replyTo.trim()
+        : getDefaultReplyTo();
   if (replyTo) body.reply_to = replyTo;
   if (input.tags) {
     body.tags = Object.entries(input.tags).map(([name, value]) => ({ name, value }));
