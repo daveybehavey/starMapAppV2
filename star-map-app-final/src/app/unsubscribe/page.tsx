@@ -8,6 +8,11 @@ import {
   verifyPromotionUnsubscribeToken,
   type PromotionEmailState,
 } from "@/lib/promotionSubscriptions";
+import { getReviewOptOutSecret } from "@/lib/reviewRequestEmail";
+import {
+  createReviewSuppressionClient,
+  deriveReviewSuppressionName,
+} from "@/lib/reviewRequestSuppression";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -44,6 +49,18 @@ export default async function UnsubscribePage({ searchParams }: PageProps) {
         updatedAt: Date.now(),
         lastSource: existing?.lastSource,
       });
+      // A promotions unsubscribe also suppresses review requests (the
+      // engine treats it as a suppression source). Record it in the
+      // authoritative suppression store too (T-T1) — best-effort here
+      // because the KV state above already stands and the tick reads it;
+      // the review opt-out route is the path that must not ack without
+      // the authoritative write.
+      const secret = getReviewOptOutSecret();
+      if (secret) {
+        await createReviewSuppressionClient()
+          .record(deriveReviewSuppressionName(email, secret), "promotions_unsubscribe", Date.now())
+          .catch(() => false);
+      }
       status = "unsubscribed";
     }
   }

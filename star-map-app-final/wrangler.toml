@@ -175,6 +175,19 @@ class_name = "EntitlementAuthorityDO"
 tag = "v3-entitlement-authority"
 new_sqlite_classes = ["EntitlementAuthorityDO"]
 
+# Per-recipient review-request suppression record + dispatch coordinator
+# (T-T1 revised design). The coordinator is the only component that may
+# call the email provider for a review request. INERT in practice until
+# the engine's own activation gates pass — the binding existing changes
+# nothing while REVIEW_REQUESTS_ENABLED is unset.
+[[durable_objects.bindings]]
+name = "REVIEW_REQUEST_SUPPRESSION"
+class_name = "ReviewRequestSuppressionDO"
+
+[[migrations]]
+tag = "v4-review-request-suppression"
+new_sqlite_classes = ["ReviewRequestSuppressionDO"]
+
 # Persist Worker console logs in Cloudflare dashboard (Workers Logs).
 # Logging in checkout is structured and excludes PII/secrets; see checkoutResilience.ts.
 [observability]

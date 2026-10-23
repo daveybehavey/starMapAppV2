@@ -1,7 +1,11 @@
 /**
- * Runtime wiring for the review-request engine: KV store adapters, the
- * production sender (Resend), and the scheduled-tick entry point used by
- * cloudflare-worker.ts.
+ * Runtime wiring for the review-request engine: KV store adapters and the
+ * scheduled-tick entry point used by cloudflare-worker.ts.
+ *
+ * REVISED (T-T1): the tick no longer holds a sender. Dispatch goes through
+ * the suppression coordinator (ReviewRequestSuppressionDO), which is the
+ * only component that may call the provider — the Resend adapter lives
+ * behind its dispatch RPC, not here.
  *
  * Configuration is snapshotted from the Worker handler's env argument
  * (critique D2 — the scheduled path never assumes process.env); the Resend
@@ -11,16 +15,15 @@
  * its log line instead of sending.
  */
 import { kv } from "@/lib/kv";
-import { isResendConfigured, sendResendEmail } from "@/lib/resend";
+import { isResendConfigured } from "@/lib/resend";
 import { createReviewLedgerClient } from "@/lib/reviewRequestLedger";
+import { createReviewSuppressionClient } from "@/lib/reviewRequestSuppression";
 import {
   resolveReviewEngineConfig,
   runReviewRequestTick,
   REVIEW_SCAN_PAGE_SIZE,
   type ReviewEngineDeps,
   type ReviewScanStore,
-  type ReviewSendInput,
-  type ReviewSendResult,
   type ReviewTickSummary,
 } from "@/lib/reviewRequests";
 
@@ -86,22 +89,6 @@ export function createWrapperKvScanStore(): ReviewScanStore {
   };
 }
 
-async function sendViaResend(input: ReviewSendInput): Promise<ReviewSendResult> {
-  const result = await sendResendEmail({
-    to: input.to,
-    subject: input.subject,
-    html: input.html,
-    text: input.text,
-    headers: input.headers,
-    idempotencyKey: input.idempotencyKey,
-    tags: input.tags,
-  });
-  if (result.ok) {
-    return { ok: true, id: result.id || null };
-  }
-  return { ok: false, error: result.error };
-}
-
 function envRecordFromBindings(env: unknown): Record<string, string | undefined> {
   const record: Record<string, string | undefined> = {};
   if (env && typeof env === "object") {
@@ -137,7 +124,7 @@ export function buildScheduledReviewDeps(env: unknown): ReviewEngineDeps {
   return {
     store: createRawKvScanStore(envRecord.STAR_MAP_KV),
     ledger: createReviewLedgerClient(env),
-    send: sendViaResend,
+    suppression: createReviewSuppressionClient(env),
     config: resolveReviewEngineConfig(envRecordFromBindings(env), {
       resendConfigured: isResendConfigured(),
     }),
