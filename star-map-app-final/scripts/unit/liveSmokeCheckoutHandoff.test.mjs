@@ -11,10 +11,14 @@ const C_PAY = "https://checkout.stripe.com/c/pay/cs_live_abc";
 const F_PAY = "https://checkout.stripe.com/f/pay/cs_live_abc";
 const F_PAY_TEST = "https://checkout.stripe.com/f/pay/cs_test_abc";
 const C_PAY_TEST = "https://checkout.stripe.com/c/pay/cs_test_abc";
+const G_PAY = "https://checkout.stripe.com/g/pay/cs_live_abc";
+const G_PAY_TEST = "https://checkout.stripe.com/g/pay/cs_test_abc";
 const C_PAY_FRAG = `${C_PAY}#fidfragment`;
 const F_PAY_FRAG = `${F_PAY}#fidfragment`;
 
 test("POST JSON extractor accepts /c/pay and /f/pay urls", () => {
+  assert.equal(extractPostCheckoutJsonUrl(JSON.stringify({ url: G_PAY })), G_PAY);
+  assert.equal(extractPostCheckoutJsonUrl(JSON.stringify({ url: G_PAY_TEST })), G_PAY_TEST);
   assert.equal(extractPostCheckoutJsonUrl(JSON.stringify({ url: C_PAY })), C_PAY);
   assert.equal(extractPostCheckoutJsonUrl(JSON.stringify({ url: F_PAY })), F_PAY);
   assert.equal(extractPostCheckoutJsonUrl(JSON.stringify({ url: C_PAY_TEST })), C_PAY_TEST);
@@ -38,8 +42,8 @@ test("POST JSON extractor rejects missing/malformed JSON bodies", () => {
   assert.equal(extractPostCheckoutJsonUrl(JSON.stringify({ url: "   " })), "");
 });
 
-test("strict allowlist accepts valid /c/pay and /f/pay JSON urls", () => {
-  for (const url of [C_PAY, F_PAY, C_PAY_TEST, F_PAY_TEST, C_PAY_FRAG, F_PAY_FRAG]) {
+test("strict allowlist accepts valid /c/pay, /f/pay and /g/pay JSON urls", () => {
+  for (const url of [C_PAY, F_PAY, G_PAY, C_PAY_TEST, F_PAY_TEST, G_PAY_TEST, C_PAY_FRAG, F_PAY_FRAG]) {
     const extracted = extractPostCheckoutJsonUrl(JSON.stringify({ url }));
     assert.equal(isStrictStripeCheckoutHandoffUrl(extracted), true, url);
   }
