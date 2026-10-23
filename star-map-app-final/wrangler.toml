@@ -163,6 +163,18 @@ class_name = "ReviewRequestLedgerDO"
 tag = "v2-review-request-ledger"
 new_sqlite_classes = ["ReviewRequestLedgerDO"]
 
+# Per-entitlement DL-1 entitlement authority (owned-files ledger, legacy
+# recovery decision, capability generation). INERT in Slice 2: the binding
+# exists but no route calls it; the legacy consume/compensate routes remain
+# the live accounting writers until later DL-1 slices fence them.
+[[durable_objects.bindings]]
+name = "ENTITLEMENT_AUTHORITY"
+class_name = "EntitlementAuthorityDO"
+
+[[migrations]]
+tag = "v3-entitlement-authority"
+new_sqlite_classes = ["EntitlementAuthorityDO"]
+
 # Persist Worker console logs in Cloudflare dashboard (Workers Logs).
 # Logging in checkout is structured and excludes PII/secrets; see checkoutResilience.ts.
 [observability]
