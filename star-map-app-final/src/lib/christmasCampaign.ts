@@ -89,8 +89,9 @@ const BOXING_DAY = "2026-12-26";
 function getOrderByBannerLine(): string {
   const earliest = getEarliestChristmasCutoff();
   return (
-    `Order by these dates for Christmas delivery — earliest cutoff: ${getEarliestCutoffLabel()} ` +
-    `US ${earliest.unitedStates} · Canada ${earliest.canada}. ` +
+    `Order by these dates for Christmas delivery — earliest cutoffs: ` +
+    `US ${earliest.unitedStates} (${formatEarliestProductsLabel(earliest.unitedStatesProducts)}) · ` +
+    `Canada ${earliest.canada} (${formatEarliestProductsLabel(earliest.canadaProducts)}). ` +
     `Framed/canvas: US ${formatOrderByDisplayDate("framed_us")} · Canada ${formatOrderByDisplayDate("framed_ca")} · rest of world: order early. ` +
     `Posters: US ${formatOrderByDisplayDate("poster_us")} · Canada ${formatOrderByDisplayDate("poster_ca")} · rest of world: order early.`
   );
@@ -458,6 +459,10 @@ const ORDER_BY_PRODUCT_CUTOFFS: ReadonlyArray<{
 export type ChristmasEarliestCutoff = {
   /** Products tied at the earliest date in either country, in table order. */
   products: string[];
+  /** Products tied at the earliest Canada date, in table order. */
+  canadaProducts: string[];
+  /** Products tied at the earliest US date, in table order. */
+  unitedStatesProducts: string[];
   /** Display dates (e.g. "Dec 8") of the earliest Canada / US cutoffs. */
   canada: string;
   unitedStates: string;
@@ -468,7 +473,12 @@ export type ChristmasEarliestCutoff = {
  * product, derived from CHRISTMAS_ORDER_BY_DATES. Today that is the
  * framed print and canvas wrap in Canada (Dec 3) and the mug and
  * keepsake card in the US (Dec 7) — the deadlines the banner and the
- * landing bullets lead with (persona sweep U05).
+ * landing bullets lead with (persona sweep U05). The per-country
+ * product lists stay separate on purpose: one combined label paired
+ * with both countries' dates read as a second, wrong US date for
+ * framed/canvas (Dec 7 next to the framed line's Dec 8 — flagged
+ * 2026-10-24), so surfaces name each country's products with its
+ * own date.
  */
 export function getEarliestChristmasCutoff(): ChristmasEarliestCutoff {
   // The cutoff table is never empty, so seeding from its first entry is safe.
@@ -487,16 +497,25 @@ export function getEarliestChristmasCutoff(): ChristmasEarliestCutoff {
   }
 
   const products: string[] = [];
+  const canadaProducts: string[] = [];
+  const unitedStatesProducts: string[] = [];
   for (const entry of ORDER_BY_PRODUCT_CUTOFFS) {
-    const tied =
-      CHRISTMAS_ORDER_BY_DATES[entry.canadaKey] === CHRISTMAS_ORDER_BY_DATES[earliestCanadaKey] ||
+    const canadaTied =
+      CHRISTMAS_ORDER_BY_DATES[entry.canadaKey] === CHRISTMAS_ORDER_BY_DATES[earliestCanadaKey];
+    const unitedStatesTied =
       CHRISTMAS_ORDER_BY_DATES[entry.unitedStatesKey] ===
-        CHRISTMAS_ORDER_BY_DATES[earliestUnitedStatesKey];
-    if (tied && !products.includes(entry.product)) products.push(entry.product);
+      CHRISTMAS_ORDER_BY_DATES[earliestUnitedStatesKey];
+    if (canadaTied) canadaProducts.push(entry.product);
+    if (unitedStatesTied) unitedStatesProducts.push(entry.product);
+    if ((canadaTied || unitedStatesTied) && !products.includes(entry.product)) {
+      products.push(entry.product);
+    }
   }
 
   return {
     products,
+    canadaProducts,
+    unitedStatesProducts,
     canada: formatOrderByDisplayDate(earliestCanadaKey),
     unitedStates: formatOrderByDisplayDate(earliestUnitedStatesKey),
   };
@@ -511,8 +530,8 @@ const EARLIEST_CUTOFF_LABEL_PARTS: Record<string, string> = {
   "Keepsake card": "keepsake cards",
 };
 
-function getEarliestCutoffLabel(): string {
-  const parts = getEarliestChristmasCutoff().products.map(
+function formatEarliestProductsLabel(products: string[]): string {
+  const parts = products.map(
     (product) => EARLIEST_CUTOFF_LABEL_PARTS[product] ?? product.toLowerCase()
   );
   if (parts.length <= 1) return parts[0] ?? "";
@@ -528,13 +547,10 @@ function getEarliestCutoffLabel(): string {
  */
 export function getChristmasOrderBySummaryLines(): string[] {
   const earliest = getEarliestChristmasCutoff();
-  const earliestLabel = getEarliestCutoffLabel();
-  const capitalizedEarliestLabel =
-    earliestLabel.charAt(0).toUpperCase() + earliestLabel.slice(1);
   const line = (label: string, unitedStatesKey: ChristmasCutoffKey, canadaKey: ChristmasCutoffKey) =>
     `${label}: United States ${formatOrderByDisplayDate(unitedStatesKey)} · Canada ${formatOrderByDisplayDate(canadaKey)} · rest of world: order early`;
   return [
-    `${capitalizedEarliestLabel} — earliest cutoff: United States ${earliest.unitedStates} · Canada ${earliest.canada} · rest of world: order early`,
+    `Earliest cutoffs: United States ${earliest.unitedStates} (${formatEarliestProductsLabel(earliest.unitedStatesProducts)}) · Canada ${earliest.canada} (${formatEarliestProductsLabel(earliest.canadaProducts)}) · rest of world: order early`,
     line("Framed & canvas", "framed_us", "framed_ca"),
     line("Posters", "poster_us", "poster_ca"),
   ];
