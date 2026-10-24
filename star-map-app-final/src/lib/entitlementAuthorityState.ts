@@ -50,7 +50,12 @@
  * the customer's existing total intact as the legacy (purchased-side)
  * bucket, historical referral rewards included (see entitlementMigration.ts).
  */
+import { createHash } from "node:crypto";
 import type { CheckoutPlan } from "@/lib/pricing";
+import {
+  ARCHIVE_PROTOCOL_MARKER,
+  DESCRIPTOR_TTL_MS,
+} from "@/lib/downloadArchiveIdentity";
 
 /** Facts about the entitlement as last observed from the grant-side record. */
 export type EntitlementFacts = {
@@ -421,6 +426,140 @@ export type AccountingLease = {
   expiresAt: number;
 };
 
+/* ---------------- DL-1 Slice 4 publication surface (brief §5.3) ----------------
+ * Artifact publication state, additive on the entitlement document
+ * (absent = empty, the journal-surface precedent). Publication ops write
+ * ONLY these fields: they never write accounting fields (baseline,
+ * ownedFiles, the reward bucket, the recovery decision,
+ * capabilityGeneration) and never advance journalHead — the §5.3 purity
+ * fence, test-asserted in scripts/unit/dl1Slice4Publication.test.mjs. */
+
+export type PublicationIntent = {
+  /** = descriptorId for descriptor-form prepares; route-minted unique id
+   * for the fused form. */
+  intentId: string;
+  /** §5.1 artifactId. */
+  artifactKey: string;
+  sessionId: string;
+  mapId: string;
+  /** Verbatim canonical binding (§5.1), persisted — reconciliation never
+   * re-derives it (§5.2). */
+  canonicalBinding: string;
+  fingerprint: string;
+  contractVersion: number;
+  rendererVersion: number;
+  /** SHA-256 hex of the validated bytes (§5.10 step 4). */
+  digest: string;
+  stagingKey: string;
+  /** Binding-derived (§5.1); derived by the machine on every path,
+   * never copied, never trusted from a presentation (v3.2 clause V-6). */
+  expectedWidth: number;
+  expectedHeight: number;
+  createdAt: number;
+  expiresAt: number;
+  /** ALLOCATED BY THE MACHINE inside apply — never caller-supplied. */
+  generation: number;
+};
+
+export type PublicationIntentJoin = {
+  /** The JOINING descriptor's id — the record's key. */
+  intentId: string;
+  /** The intent joined at join time (audit reference; intents are never
+   * deleted, so it always resolves). */
+  governingIntentId: string;
+  artifactKey: string;
+  sessionId: string;
+  mapId: string;
+  canonicalBinding: string;
+  fingerprint: string;
+  contractVersion: number;
+  rendererVersion: number;
+  /** THE digest this descriptor is permanently bound to (§5.7). */
+  digest: string;
+  stagingKey: string;
+  /** The descriptor's signed expiry (§5.7 payload) — a descriptor fact;
+   * a JN1→R7 promotion does NOT inherit it (v3.2 V-2β as corrected by
+   * v3.3 W-1: the promoted intent's expiry is machine-stamped). */
+  expiresAt: number;
+  joinedAt: number;
+};
+
+export type ArchiveEmailRecord = {
+  state: "pending" | "claimed" | "dispatched";
+  claimedAt: number | null;
+  dispatchedAt: number | null;
+  /** Generation fencing (v3.2 clause V-10): 0 while pending before any
+   * claim; +1 on every claim/re-claim; a record is accepted only from
+   * the claim whose generation it carries. */
+  claimGeneration: number;
+};
+
+export type ArtifactRegistryEntry = {
+  artifactKey: string;
+  sessionId: string;
+  mapId: string;
+  canonicalBinding: string;
+  fingerprint: string;
+  contractVersion: number;
+  rendererVersion: number;
+  digest: string;
+  /** Copied from the governing intent at finalize. */
+  expectedWidth: number;
+  expectedHeight: number;
+  state: "finalized" | "conflicted";
+  finalizedAt: number | null;
+  /** Structured, support-readable (§5.5 Table 2 F7 evidence). */
+  conflictEvidence: unknown | null;
+  archiveEmail: ArchiveEmailRecord;
+  /** Post-finalization contradictions (§5.5 F1/F2), append-only, cap 8. */
+  integrityAlerts: unknown[];
+  /** Saturation signal (v3.2 clause V-11.3): absent = false; set when an
+   * append would exceed the cap of 8 — the append is dropped, the eight
+   * retained verbatim, and the transition reports changed = true once. */
+  integrityAlertsSaturated?: boolean;
+};
+
+/** The finalize observation (§5.4 — complete; the only transport). */
+export type FinalizeObservation = {
+  finalObjectPresent: boolean;
+  /** Null when the object is absent OR its metadata is unreadable /
+   * incomplete; the storage layer never fabricates fields. */
+  finalMetadata: {
+    protocol: string;
+    artifactKey: string;
+    digest: string;
+    bindingDigest: string;
+  } | null;
+  /** Set ONLY when the caller actually read and hashed the final
+   * object's body in this request. */
+  bodyVerifiedDigest: string | null;
+};
+
+/** The intent as presented to register_publication_intent: the machine
+ * allocates `generation` and stamps `createdAt` from `now` (§5.4). */
+export type PublicationIntentInput = Omit<PublicationIntent, "generation" | "createdAt">;
+
+/** Op-specific payload carried on publication apply results (§5.4). */
+export type PublicationApplyDetail = {
+  intentId: string | null;
+  governingIntentId: string | null;
+  generation: number | null;
+  entry: ArtifactRegistryEntry | null;
+  claimGeneration: number | null;
+  /** For claim outcomes: the entry was already dispatched (the outcome
+   * is an idempotence receipt, NOT a send authorisation — v3.2 V-10). */
+  dispatched: boolean;
+};
+
+/**
+ * Archive-email claim lease (§5.9 / RES-3 rule-specified constant, set by
+ * the lane): a claimed entry whose claimedAt is older than this at a
+ * later claim attempt is re-claimable. Must exceed the dispatch path's
+ * worst-case send duration (Resend send + record write) by a stated
+ * margin: 120 s is >10× that path's worst case.
+ */
+export const DISPATCH_CLAIM_LEASE_MS = 120_000;
+
 export type EntitlementAuthorityState = {
   sessionId: string;
   facts: EntitlementFacts | null;
@@ -484,6 +623,24 @@ export type EntitlementAuthorityState = {
   installedOpeningBase?: number | null;
   /** Folded own-purchase grant total (grant_fact initializations). */
   foldedOwnGrantTotal?: number;
+  /* ---- DL-1 Slice 4 publication surface (§5.3). All optional in stored
+   * documents: pre-S4 documents carry none of them and read as empty. ---- */
+  publicationIntents?: Record<string, PublicationIntent>;
+  /** artifactKey → governing (latest-registered) intentId. Governance is
+   * a transition-time derivation over liveness (§5.5), never this field
+   * alone (RES-2). Structural rule: absent when a registry entry exists. */
+  publicationIntentByArtifact?: Record<string, string>;
+  artifactRegistry?: Record<string, ArtifactRegistryEntry>;
+  publicationGenerations?: Record<string, number>;
+  publicationIntentJoins?: Record<string, PublicationIntentJoin>;
+  /**
+   * The most recently REGISTERED canonical candidate per map (pointer
+   * amendment P-1): values are §5.1 artifactIds, never storage paths.
+   * Written ONLY by register_publication_intent's R7 transition (P-3),
+   * atomically with intent creation. Absent = empty (P-1:
+   * createEmptyEntitlementAuthorityState omits the field).
+   */
+  canonicalArtifactByMap?: Record<string, string>;
 };
 
 /** Finite plan allowances (build plan): single = 1 file, pack3 = 3 files. */
@@ -526,6 +683,13 @@ export function createEmptyEntitlementAuthorityState(
     verificationReceipt: null,
     installedOpeningBase: null,
     foldedOwnGrantTotal: 0,
+    publicationIntents: {},
+    publicationIntentByArtifact: {},
+    artifactRegistry: {},
+    publicationGenerations: {},
+    publicationIntentJoins: {},
+    // canonicalArtifactByMap deliberately omitted (pointer amendment
+    // P-1: absent = empty; the first R7 write creates the field).
   };
 }
 
@@ -936,6 +1100,35 @@ export type EntitlementAuthorityOp =
       /** Fresh TTL granted from `now` when the seal succeeds. */
       ttlMs: number;
       now: number;
+    }
+  /* ---- DL-1 Slice 4 publication ops (§5.4) — a closed list (source
+   * pin (iv)). All R2/storage reads complete BEFORE apply; observations
+   * ride as op inputs. The AccountingLease is never used here. ---- */
+  | {
+      type: "register_publication_intent";
+      intent: PublicationIntentInput;
+      now: number;
+    }
+  | {
+      type: "finalize_publication";
+      artifactKey: string;
+      /** Presenter pair: correlates the caller's retry, never arbitrates
+       * (§5.5 presenter independence). */
+      intentId: string;
+      generation: number;
+      observation: FinalizeObservation;
+      /** The binding string the caller derived in this request (upload /
+       * fused paths); absent on standalone reconcile (§5.4, v3.1 A-2). */
+      presentedBinding?: string | null;
+      now: number;
+    }
+  | { type: "claim_archive_email_dispatch"; artifactKey: string; now: number }
+  | {
+      type: "record_archive_email_dispatch";
+      artifactKey: string;
+      /** The generation the caller's own claim outcome carried (V-10). */
+      claimGeneration: number;
+      now: number;
     };
 
 export type EntitlementAuthorityOutcome =
@@ -971,6 +1164,14 @@ export type EntitlementAuthorityOutcome =
   | "inclusion_settled"
   /** record_checkpoint installed the verified opening (v3.6 §3). */
   | "checkpoint_recorded"
+  /* DL-1 Slice 4 publication outcomes (§5.4). */
+  | "publication_intent_recorded"
+  | "publication_intent_joined"
+  | "publication_finalized"
+  | "publication_already_finalized"
+  | "publication_conflicted"
+  | "archive_email_claimed"
+  | "archive_email_dispatch_recorded"
   | "refused";
 
 export type EntitlementAuthorityRefusal =
@@ -1033,7 +1234,16 @@ export type EntitlementAuthorityRefusal =
   /** Settlement evidence cannot settle to `included` (v3.8 §2.3). */
   | "grant_inclusion_unresolved"
   /** Settlement of a discovery pendency before its registration leg completed (v3.8 §5.1). */
-  | "discovery_registration_required";
+  | "discovery_registration_required"
+  /* DL-1 Slice 4 publication refusals (§5.4). */
+  | "publication_conflict"
+  | "intent_payload_conflict"
+  | "already_finalized"
+  | "finalization_pending"
+  | "identity_rejected"
+  | "archive_email_already_claimed"
+  | "archive_email_not_claimed"
+  | "archive_email_claim_stale";
 
 export type EntitlementAuthorityApplyResult = {
   state: EntitlementAuthorityState;
@@ -1062,6 +1272,11 @@ export type EntitlementAuthorityApplyResult = {
     rewardRefusal: "funding_grant_reversed" | null;
     fundingGrantId: string | null;
   } | null;
+  /** DL-1 Slice 4 publication detail (§5.4): intent/generation carried by
+   * register outcomes, the registry entry carried by R3/R4 refusals and
+   * finalize outcomes, the claim generation + dispatched fact carried by
+   * claim outcomes. Null for every accounting op. */
+  publication: PublicationApplyDetail | null;
 };
 
 function result(
@@ -1074,6 +1289,7 @@ function result(
     reversalBasis?: string | null;
     pendingKind?: PendingGrantKind | null;
     restoration?: EntitlementAuthorityApplyResult["restoration"];
+    publication?: PublicationApplyDetail | null;
   } = {},
 ): EntitlementAuthorityApplyResult {
   return {
@@ -1086,6 +1302,7 @@ function result(
     reversalBasis: extra.reversalBasis ?? null,
     pendingKind: extra.pendingKind ?? null,
     restoration: extra.restoration ?? null,
+    publication: extra.publication ?? null,
   };
 }
 
@@ -1537,6 +1754,222 @@ export function isValidEntitlementAuthorityState(
     ) {
       return false;
     }
+  }
+  // DL-1 Slice 4 publication surface — validator rules 1–9 (§5.3, as
+  // amended by pointer P-2 and v3.2 clauses V-1/V-5/V-10/V-11.3). All
+  // publication fields are optional in stored documents (absent =
+  // empty); a PRESENT field must be well-formed and cross-consistent —
+  // a document violating any rule fails closed at load.
+  const HEX64 = /^[0-9a-f]{64}$/;
+  const pubIntents = s.publicationIntents ?? {};
+  const pubJoins = s.publicationIntentJoins ?? {};
+  const pubRegistry = s.artifactRegistry ?? {};
+  const pubByArtifact = s.publicationIntentByArtifact ?? {};
+  const pubGenerations = s.publicationGenerations ?? {};
+  if (s.publicationIntents !== undefined && !isRecord(s.publicationIntents)) return false;
+  if (s.publicationIntentJoins !== undefined && !isRecord(s.publicationIntentJoins)) {
+    return false;
+  }
+  if (s.artifactRegistry !== undefined && !isRecord(s.artifactRegistry)) return false;
+  if (
+    s.publicationIntentByArtifact !== undefined &&
+    !isRecord(s.publicationIntentByArtifact)
+  ) {
+    return false;
+  }
+  if (s.publicationGenerations !== undefined && !isRecord(s.publicationGenerations)) {
+    return false;
+  }
+  if (s.canonicalArtifactByMap !== undefined && !isRecord(s.canonicalArtifactByMap)) {
+    return false;
+  }
+  const bindingByArtifact = new Map<string, string>();
+  const noteBinding = (artifactKey: string, binding: unknown): boolean => {
+    if (typeof binding !== "string" || binding.length === 0) return false;
+    const seen = bindingByArtifact.get(artifactKey);
+    if (seen !== undefined && seen !== binding) return false; // rule 6
+    bindingByArtifact.set(artifactKey, binding);
+    return true;
+  };
+  // Rules 1 + 9 (intents).
+  for (const [intentId, raw] of Object.entries(pubIntents)) {
+    if (!isRecord(raw)) return false;
+    const intent = raw as unknown as PublicationIntent;
+    if (intent.intentId !== intentId) return false;
+    if (intent.sessionId !== state.sessionId) return false; // rule 9
+    if (typeof intent.mapId !== "string" || intent.mapId.length === 0) return false;
+    if (!HEX64.test(intent.fingerprint) || !HEX64.test(intent.digest)) return false;
+    if (!isNonNegativeInt(intent.contractVersion)) return false;
+    if (!isNonNegativeInt(intent.rendererVersion)) return false;
+    if (
+      intent.artifactKey !==
+      publicationArtifactId(
+        intent.sessionId,
+        intent.mapId,
+        intent.fingerprint,
+        intent.contractVersion,
+        intent.rendererVersion,
+      )
+    ) {
+      return false; // rule 1: artifactId recomputes from the fields
+    }
+    const dims = publicationDimsForBinding(intent.canonicalBinding);
+    if (!dims) return false;
+    if (intent.expectedWidth !== dims.expectedWidth) return false;
+    if (intent.expectedHeight !== dims.expectedHeight) return false;
+    if (intent.stagingKey !== publicationStagingKey(intentId)) return false;
+    if (!isFiniteNumber(intent.createdAt) || !isFiniteNumber(intent.expiresAt)) {
+      return false;
+    }
+    if (!isNonNegativeInt(intent.generation) || intent.generation < 1) return false;
+    const genCap = pubGenerations[intent.artifactKey];
+    if (genCap === undefined || intent.generation > genCap) return false;
+    if (!noteBinding(intent.artifactKey, intent.canonicalBinding)) return false;
+  }
+  // Rule 2: the generations map is exactly the per-artifact maximum.
+  for (const [artifactKey, gen] of Object.entries(pubGenerations)) {
+    if (!isNonNegativeInt(gen) || gen < 1) return false;
+    let max = 0;
+    for (const intent of Object.values(pubIntents)) {
+      const i = intent as unknown as PublicationIntent;
+      if (i.artifactKey === artifactKey && i.generation > max) max = i.generation;
+    }
+    if (max !== gen) return false;
+  }
+  // Rule 3 (structural only): the by-artifact pointer names an existing
+  // intent for the artifact at the current generation; when a registry
+  // entry exists for the artifactKey the pointer is ABSENT.
+  for (const [artifactKey, intentId] of Object.entries(pubByArtifact)) {
+    if (typeof intentId !== "string") return false;
+    const intent = pubIntents[intentId] as unknown as PublicationIntent | undefined;
+    if (!intent || intent.artifactKey !== artifactKey) return false;
+    if (intent.generation !== pubGenerations[artifactKey]) return false;
+    if (pubRegistry[artifactKey] !== undefined) return false;
+  }
+  // Rule 4 (+ V-10 claimGeneration, + V-11.3 saturation) and rule 9
+  // (registry entries).
+  for (const [artifactKey, raw] of Object.entries(pubRegistry)) {
+    if (!isRecord(raw)) return false;
+    const entry = raw as unknown as ArtifactRegistryEntry;
+    if (entry.artifactKey !== artifactKey) return false;
+    if (entry.sessionId !== state.sessionId) return false; // rule 9
+    if (
+      artifactKey !==
+      publicationArtifactId(
+        entry.sessionId,
+        entry.mapId,
+        entry.fingerprint,
+        entry.contractVersion,
+        entry.rendererVersion,
+      )
+    ) {
+      return false;
+    }
+    if (!HEX64.test(entry.fingerprint) || !HEX64.test(entry.digest)) return false;
+    const entryDims = publicationDimsForBinding(entry.canonicalBinding);
+    if (!entryDims) return false;
+    if (entry.expectedWidth !== 6000) return false;
+    if (entry.expectedHeight !== entryDims.expectedHeight) return false;
+    if (!Number.isInteger(entry.expectedWidth) || entry.expectedWidth <= 0) return false;
+    if (!Number.isInteger(entry.expectedHeight) || entry.expectedHeight <= 0) return false;
+    if (entry.state === "finalized") {
+      if (entry.finalizedAt === null || !isFiniteNumber(entry.finalizedAt)) return false;
+      if (entry.conflictEvidence !== null) return false;
+      if (!isRecord(entry.archiveEmail)) return false;
+    } else if (entry.state === "conflicted") {
+      if (entry.finalizedAt !== null) return false;
+      if (entry.conflictEvidence === null || entry.conflictEvidence === undefined) {
+        return false;
+      }
+    } else {
+      return false;
+    }
+    if (!Array.isArray(entry.integrityAlerts) || entry.integrityAlerts.length > 8) {
+      return false;
+    }
+    if (entry.integrityAlertsSaturated === true && entry.integrityAlerts.length !== 8) {
+      return false; // V-11.3: saturated ⟹ length 8
+    }
+    if (entry.integrityAlertsSaturated !== undefined &&
+        typeof entry.integrityAlertsSaturated !== "boolean") {
+      return false;
+    }
+    const email = entry.archiveEmail as ArchiveEmailRecord;
+    if (!isRecord(email)) return false;
+    if (!isNonNegativeInt(email.claimGeneration)) return false; // V-10
+    if (email.state === "pending") {
+      if (email.claimedAt !== null || email.dispatchedAt !== null) return false;
+    } else if (email.state === "claimed") {
+      if (email.claimedAt === null || !isFiniteNumber(email.claimedAt)) return false;
+      if (email.dispatchedAt !== null) return false;
+      if (email.claimGeneration < 1) return false; // V-10: claimed ⟹ ≥ 1
+    } else if (email.state === "dispatched") {
+      if (email.dispatchedAt === null || !isFiniteNumber(email.dispatchedAt)) {
+        return false;
+      }
+    } else {
+      return false;
+    }
+    if (!noteBinding(artifactKey, entry.canonicalBinding)) return false;
+  }
+  // Rule 7 (+ the V-1 sole exception) and rule 9 (join records).
+  for (const [intentId, raw] of Object.entries(pubJoins)) {
+    if (!isRecord(raw)) return false;
+    const join = raw as unknown as PublicationIntentJoin;
+    if (join.intentId !== intentId) return false;
+    if (join.sessionId !== state.sessionId) return false; // rule 9
+    if (!pubIntents[join.governingIntentId]) return false;
+    if (
+      join.artifactKey !==
+      publicationArtifactId(
+        join.sessionId,
+        join.mapId,
+        join.fingerprint,
+        join.contractVersion,
+        join.rendererVersion,
+      )
+    ) {
+      return false;
+    }
+    if (!HEX64.test(join.fingerprint) || !HEX64.test(join.digest)) return false;
+    if (join.stagingKey !== publicationStagingKey(intentId)) return false;
+    if (!isFiniteNumber(join.expiresAt) || !isFiniteNumber(join.joinedAt)) return false;
+    // V-1 sole exception: after a JN1→R7 promotion the descriptorId owns
+    // BOTH the retained join record (audit) and the promoted intent (the
+    // classifying record) — and then the intent's payload must equal the
+    // join record's payload on every field the join record carries
+    // (expiresAt excluded: it is machine-stamped at promotion, W-1;
+    // dimensions excluded: they are binding-derived, V-6).
+    const coexisting = pubIntents[intentId] as unknown as PublicationIntent | undefined;
+    if (coexisting) {
+      const carried = [
+        "artifactKey",
+        "sessionId",
+        "mapId",
+        "canonicalBinding",
+        "fingerprint",
+        "contractVersion",
+        "rendererVersion",
+        "digest",
+        "stagingKey",
+      ] as const;
+      for (const field of carried) {
+        if (coexisting[field] !== join[field]) return false;
+      }
+    }
+    if (!noteBinding(join.artifactKey, join.canonicalBinding)) return false;
+  }
+  // Rule 8 (pointer amendment P-2): every pointer entry must be warranted
+  // by a retained intent in the same document with matching mapId +
+  // artifactKey (recomputed per rule 1 above). A registry entry alone
+  // does NOT satisfy the rule. Absence is valid.
+  for (const [mapId, artifactKey] of Object.entries(s.canonicalArtifactByMap ?? {})) {
+    if (typeof artifactKey !== "string") return false;
+    const warranted = Object.values(pubIntents).some((raw) => {
+      const intent = raw as unknown as PublicationIntent;
+      return intent.mapId === mapId && intent.artifactKey === artifactKey;
+    });
+    if (!warranted) return false;
   }
   if (
     state.recoveryDecision !== "unresolved" &&
@@ -3136,7 +3569,730 @@ export function applyEntitlementAuthorityOp(
       return releaseAccountingLease(state, op);
     case "seal_accounting_lease":
       return sealAccountingLease(state, op);
+    case "register_publication_intent":
+      return registerPublicationIntent(state, op);
+    case "finalize_publication":
+      return finalizePublication(state, op);
+    case "claim_archive_email_dispatch":
+      return claimArchiveEmailDispatch(state, op);
+    case "record_archive_email_dispatch":
+      return recordArchiveEmailDispatch(state, op);
   }
+}
+
+/* ================= DL-1 Slice 4 publication machine (§5.4/§5.5) =================
+ * The transaction is the DO's serialized apply over freshly read state
+ * (§4): all external reads complete before apply, and the machine
+ * arbitrates observations against persisted state presenter-independently.
+ * Publication ops never touch accounting fields or journalHead (purity
+ * fence, §5.3) and never use the AccountingLease (DRIFT-3). */
+
+function sha256HexOfString(value: string): string {
+  return createHash("sha256").update(value, "utf8").digest("hex");
+}
+
+function publicationArtifactId(
+  sessionId: string,
+  mapId: string,
+  fingerprint: string,
+  contractVersion: number,
+  rendererVersion: number,
+): string {
+  return `hd1:${sessionId}:${mapId}:${fingerprint}:c${contractVersion}:r${rendererVersion}`;
+}
+
+function publicationStagingKey(intentId: string): string {
+  return `download-archive/staging/${intentId}.png`;
+}
+
+/** §5.1 derivation, asserted over persisted state by validator rule 1:
+ * dimensions are a pure function of the binding's aspectRatio. */
+function publicationDimsForBinding(
+  canonicalBinding: string,
+): { expectedWidth: number; expectedHeight: number } | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(canonicalBinding);
+  } catch {
+    return null;
+  }
+  if (!isRecord(parsed)) return null;
+  const aspect = parsed.aspectRatio;
+  const ratio = aspect === "3:4" ? 3 / 4 : aspect === "2:3" ? 2 / 3 : aspect === "4:5" ? 4 / 5 : 1;
+  return { expectedWidth: 6000, expectedHeight: Math.max(1, Math.round(6000 / ratio)) };
+}
+
+function pubIntentsOf(
+  state: EntitlementAuthorityState,
+): Record<string, PublicationIntent> {
+  return state.publicationIntents ?? {};
+}
+function pubJoinsOf(
+  state: EntitlementAuthorityState,
+): Record<string, PublicationIntentJoin> {
+  return state.publicationIntentJoins ?? {};
+}
+function pubRegistryOf(
+  state: EntitlementAuthorityState,
+): Record<string, ArtifactRegistryEntry> {
+  return state.artifactRegistry ?? {};
+}
+
+/** §5.5 governance derivation: the intent named by the by-artifact pointer
+ * governs IFF live at `now` (live iff now < expiresAt; at now === expiresAt
+ * it is expired). An expired named intent governs nothing until a fresh
+ * R7 registration overwrites the pointer. No retirement write exists. */
+function governingPublicationIntent(
+  state: EntitlementAuthorityState,
+  artifactKey: string,
+  now: number,
+): PublicationIntent | null {
+  const intentId = (state.publicationIntentByArtifact ?? {})[artifactKey];
+  if (!intentId) return null;
+  const intent = pubIntentsOf(state)[intentId];
+  if (!intent || intent.artifactKey !== artifactKey) return null;
+  return now < intent.expiresAt ? intent : null;
+}
+
+/** The artifactId's persisted binding over the full retained record set
+ * (v3.1 A-2): registry entry, every retained intent live or expired,
+ * every join record. Validator rule 6 asserts they are one string. */
+function persistedPublicationBinding(
+  state: EntitlementAuthorityState,
+  artifactKey: string,
+): string | null {
+  const entry = pubRegistryOf(state)[artifactKey];
+  if (entry) return entry.canonicalBinding;
+  for (const intent of Object.values(pubIntentsOf(state))) {
+    if (intent.artifactKey === artifactKey) return intent.canonicalBinding;
+  }
+  for (const join of Object.values(pubJoinsOf(state))) {
+    if (join.artifactKey === artifactKey) return join.canonicalBinding;
+  }
+  return null;
+}
+
+function pubDetail(
+  partial: Partial<PublicationApplyDetail>,
+): PublicationApplyDetail {
+  return {
+    intentId: null,
+    governingIntentId: null,
+    generation: null,
+    entry: null,
+    claimGeneration: null,
+    dispatched: false,
+    ...partial,
+  };
+}
+
+function pubRefused(
+  state: EntitlementAuthorityState,
+  refusal: EntitlementAuthorityRefusal,
+  detail: Partial<PublicationApplyDetail> = {},
+): EntitlementAuthorityApplyResult {
+  return result(state, false, "refused", refusal, 0, {
+    publication: pubDetail(detail),
+  });
+}
+
+const PUBLICATION_INTENT_COMPARED_FIELDS = [
+  "artifactKey",
+  "sessionId",
+  "mapId",
+  "canonicalBinding",
+  "fingerprint",
+  "contractVersion",
+  "rendererVersion",
+  "digest",
+  "stagingKey",
+  "expectedWidth",
+  "expectedHeight",
+  "expiresAt",
+] as const;
+
+/** The fields a join record carries (§5.4: for a join record, the
+ * comparison runs over the fields it carries — dimensions are NOT
+ * carried; they are derived from the binding, clause V-6). */
+const PUBLICATION_JOIN_CARRIED_FIELDS = [
+  "artifactKey",
+  "sessionId",
+  "mapId",
+  "canonicalBinding",
+  "fingerprint",
+  "contractVersion",
+  "rendererVersion",
+  "digest",
+  "stagingKey",
+  "expiresAt",
+] as const;
+
+function registerPublicationIntent(
+  state: EntitlementAuthorityState,
+  op: Extract<EntitlementAuthorityOp, { type: "register_publication_intent" }>,
+): EntitlementAuthorityApplyResult {
+  const presented = op.intent;
+  // Validator rule 9's transition guard (clause V-5): the persisted
+  // record's sessionId is the document's session, never a presented
+  // value — a mismatch is refused before the table is evaluated.
+  if (presented.sessionId !== state.sessionId) {
+    return pubRefused(state, "identity_rejected");
+  }
+  // Clause V-6: dimensions are derived on every path from the presented
+  // binding — never copied, never trusted from the presentation.
+  const dims = publicationDimsForBinding(presented.canonicalBinding);
+  if (
+    !dims ||
+    presented.expectedWidth !== dims.expectedWidth ||
+    presented.expectedHeight !== dims.expectedHeight
+  ) {
+    return pubRefused(state, "intent_payload_conflict");
+  }
+  // The artifactKey must recompute from the identity components
+  // (validator rule 1 is maintained at the door).
+  if (
+    presented.artifactKey !==
+    publicationArtifactId(
+      presented.sessionId,
+      presented.mapId,
+      presented.fingerprint,
+      presented.contractVersion,
+      presented.rendererVersion,
+    )
+  ) {
+    return pubRefused(state, "intent_payload_conflict");
+  }
+
+  const intents = pubIntentsOf(state);
+  const joins = pubJoinsOf(state);
+  const registry = pubRegistryOf(state);
+  const artifactKey = presented.artifactKey;
+
+  // R0 — the collision scan, evaluated FIRST (v3.1 A-1): any persisted
+  // record for this artifactId (entry, live governing intent, retained
+  // expired/superseded intent, join record) holding a DIFFERENT canonical
+  // binding classifies the presentation as a collision — before the
+  // payload-comparison rows R2/JN2 and every terminal refusal.
+  const entry = registry[artifactKey];
+  if (entry && entry.canonicalBinding !== presented.canonicalBinding) {
+    return pubRefused(state, "publication_conflict", { entry });
+  }
+  for (const intent of Object.values(intents)) {
+    if (
+      intent.artifactKey === artifactKey &&
+      intent.canonicalBinding !== presented.canonicalBinding
+    ) {
+      return pubRefused(state, "publication_conflict", { entry: entry ?? null });
+    }
+  }
+  for (const join of Object.values(joins)) {
+    if (
+      join.artifactKey === artifactKey &&
+      join.canonicalBinding !== presented.canonicalBinding
+    ) {
+      return pubRefused(state, "publication_conflict", { entry: entry ?? null });
+    }
+  }
+
+  let effective: PublicationIntentInput = presented;
+  let fromJoin = false;
+  const existingIntent = intents[presented.intentId];
+  const existingJoin = joins[presented.intentId];
+  if (existingIntent) {
+    // R1 — immutable payload identical → idempotent replay.
+    const identical = PUBLICATION_INTENT_COMPARED_FIELDS.every(
+      (field) => presented[field] === existingIntent[field],
+    );
+    // Clause V-1 coexistence: after a JN1→R7 promotion the descriptorId
+    // owns BOTH the retained join record and the promoted intent, whose
+    // expiresAt is machine-stamped (V-2 as corrected by W-1) rather than
+    // copied from the record. A presentation identical to the JOIN
+    // record on every carried field is the same replay — the stamp is
+    // the one designed divergence, never a payload conflict.
+    const identicalToJoin =
+      existingJoin !== undefined &&
+      PUBLICATION_JOIN_CARRIED_FIELDS.every(
+        (field) => presented[field] === existingJoin[field],
+      );
+    if (identical || identicalToJoin) {
+      return result(state, false, "publication_intent_recorded", null, 0, {
+        publication: pubDetail({
+          intentId: existingIntent.intentId,
+          generation: existingIntent.generation,
+        }),
+      });
+    }
+    // R2 — payload differs (R0 did not fire: the divergence is in a
+    // non-binding compared field).
+    return pubRefused(state, "intent_payload_conflict");
+  }
+  if (existingJoin) {
+    const identical = PUBLICATION_JOIN_CARRIED_FIELDS.every(
+      (field) => presented[field] === existingJoin[field],
+    );
+    // JN2 — the descriptor is permanently bound to its recorded payload.
+    if (!identical) return pubRefused(state, "intent_payload_conflict");
+    // JN1 — proceed to rows R3–R7 with the RECORDED payload (R0 has
+    // already been evaluated and did not fire; R1/R2 do not apply).
+    fromJoin = true;
+    const joinDims = publicationDimsForBinding(existingJoin.canonicalBinding);
+    if (!joinDims) return pubRefused(state, "intent_payload_conflict");
+    effective = {
+      intentId: existingJoin.intentId,
+      artifactKey: existingJoin.artifactKey,
+      sessionId: existingJoin.sessionId,
+      mapId: existingJoin.mapId,
+      canonicalBinding: existingJoin.canonicalBinding,
+      fingerprint: existingJoin.fingerprint,
+      contractVersion: existingJoin.contractVersion,
+      rendererVersion: existingJoin.rendererVersion,
+      digest: existingJoin.digest,
+      stagingKey: existingJoin.stagingKey,
+      expectedWidth: joinDims.expectedWidth,
+      expectedHeight: joinDims.expectedHeight,
+      expiresAt: existingJoin.expiresAt,
+    };
+  }
+
+  // R3 / R4 — terminal registry entry (R0 did not fire).
+  if (entry) {
+    if (entry.state === "finalized") {
+      return pubRefused(state, "already_finalized", { entry });
+    }
+    return pubRefused(state, "publication_conflict", { entry });
+  }
+
+  const governing = governingPublicationIntent(state, artifactKey, op.now);
+  if (governing) {
+    // R5 — live governing intent, same binding, DIFFERENT digest: the
+    // contender is refused at admission; no registry write.
+    if (governing.digest !== effective.digest) {
+      return pubRefused(state, "publication_conflict");
+    }
+    // R6 — same digest: persist the join record under the presented
+    // intentId; no new intent. (JN1→R6: the record already persists
+    // identically — a no-op carrying the current governing pair, and
+    // the canonical pointer is unmoved, P-3/P-4.)
+    if (fromJoin) {
+      return result(state, false, "publication_intent_joined", null, 0, {
+        publication: pubDetail({
+          intentId: governing.intentId,
+          governingIntentId: governing.intentId,
+          generation: governing.generation,
+        }),
+      });
+    }
+    const join: PublicationIntentJoin = {
+      intentId: presented.intentId,
+      governingIntentId: governing.intentId,
+      artifactKey: effective.artifactKey,
+      sessionId: effective.sessionId,
+      mapId: effective.mapId,
+      canonicalBinding: effective.canonicalBinding,
+      fingerprint: effective.fingerprint,
+      contractVersion: effective.contractVersion,
+      rendererVersion: effective.rendererVersion,
+      digest: effective.digest,
+      stagingKey: effective.stagingKey,
+      expiresAt: presented.expiresAt,
+      joinedAt: op.now,
+    };
+    const next: EntitlementAuthorityState = {
+      ...state,
+      publicationIntentJoins: { ...joins, [join.intentId]: join },
+      updatedAt: op.now,
+    };
+    return result(next, true, "publication_intent_joined", null, 0, {
+      publication: pubDetail({
+        intentId: governing.intentId,
+        governingIntentId: governing.intentId,
+        generation: governing.generation,
+      }),
+    });
+  }
+
+  // R7 — no live governing intent. Expiry sourcing (§5.4 as amended by
+  // V-2/W-1): descriptor-form first registration presents the
+  // descriptor's signed expiresAt; the fused form is route-stamped
+  // issuedAt + TTL; a JN1→R7 promotion is MACHINE-STAMPED
+  // now + DESCRIPTOR_TTL_MS and never copies the join record's expiry.
+  const effectiveExpiresAt = fromJoin ? op.now + DESCRIPTOR_TTL_MS : effective.expiresAt;
+  // R7 guard (defence in depth, W-1.4): never persist an intent that is
+  // non-governing at its own creation, and never burn a generation on one.
+  if (!(effectiveExpiresAt > op.now)) {
+    return pubRefused(state, "identity_rejected");
+  }
+  const generations = state.publicationGenerations ?? {};
+  const generation = (generations[artifactKey] ?? 0) + 1;
+  const intent: PublicationIntent = {
+    ...effective,
+    createdAt: op.now,
+    expiresAt: effectiveExpiresAt,
+    generation,
+  };
+  const next: EntitlementAuthorityState = {
+    ...state,
+    publicationIntents: { ...intents, [intent.intentId]: intent },
+    publicationIntentByArtifact: {
+      ...(state.publicationIntentByArtifact ?? {}),
+      [artifactKey]: intent.intentId,
+    },
+    publicationGenerations: { ...generations, [artifactKey]: generation },
+    // P-3: ONLY R7 moves the canonical pointer, atomically with intent
+    // creation (JN1→R7 likewise).
+    canonicalArtifactByMap: {
+      ...(state.canonicalArtifactByMap ?? {}),
+      [intent.mapId]: intent.artifactKey,
+    },
+    updatedAt: op.now,
+  };
+  return result(next, true, "publication_intent_recorded", null, 0, {
+    publication: pubDetail({ intentId: intent.intentId, generation }),
+  });
+}
+
+/** F1/F2 evidence append with V-11.3 saturation semantics. */
+function appendIntegrityAlert(
+  entry: ArtifactRegistryEntry,
+  alert: Record<string, unknown>,
+): { entry: ArtifactRegistryEntry; changed: boolean } {
+  if (entry.integrityAlerts.length < 8) {
+    return {
+      entry: { ...entry, integrityAlerts: [...entry.integrityAlerts, alert] },
+      changed: true,
+    };
+  }
+  if (!entry.integrityAlertsSaturated) {
+    // The append is dropped, the existing eight retained verbatim, and
+    // saturation itself is the durable signal — reported changed once.
+    return { entry: { ...entry, integrityAlertsSaturated: true }, changed: true };
+  }
+  return { entry, changed: false };
+}
+
+function finalizePublication(
+  state: EntitlementAuthorityState,
+  op: Extract<EntitlementAuthorityOp, { type: "finalize_publication" }>,
+): EntitlementAuthorityApplyResult {
+  const registry = pubRegistryOf(state);
+  const entry = registry[op.artifactKey];
+
+  // §5.5 presented-binding comparison (v3.1 A-2), computed BEFORE the
+  // digest determination whenever a binding string is presented: the
+  // target is the artifactId's persisted binding over the full record
+  // set (retained expired intents and join records included). A
+  // divergence is a collision refusal with no state change — in every
+  // governance configuration, the retained-expired-only case included.
+  // An absent string performs no comparison; an empty record set makes
+  // it vacuous.
+  if (op.presentedBinding !== undefined && op.presentedBinding !== null) {
+    const persisted = persistedPublicationBinding(state, op.artifactKey);
+    if (persisted !== null && persisted !== op.presentedBinding) {
+      return pubRefused(state, "publication_conflict", { entry: entry ?? null });
+    }
+  }
+
+  const governing = governingPublicationIntent(state, op.artifactKey, op.now);
+
+  /* Digest determination (§5.5): exactly one per finalize call.
+   * Trusted digest sources, in precedence: (a) bodyVerifiedDigest (the
+   * body is ground truth and outranks metadata); (b) finalMetadata.digest
+   * when the metadata is TRUSTED — protocol marker + artifactKey +
+   * bindingDigest === SHA-256 of the persisted canonicalBinding.
+   * Metadata failing any check is foreign/corrupt and supplies no digest,
+   * ever: it can manufacture neither a finalization nor a conflict. */
+  const obs = op.observation;
+  const trustBinding = entry?.canonicalBinding ?? governing?.canonicalBinding ?? null;
+  const metadata = obs.finalObjectPresent ? obs.finalMetadata : null;
+  const metadataTrusted =
+    metadata !== null &&
+    trustBinding !== null &&
+    metadata.protocol === ARCHIVE_PROTOCOL_MARKER &&
+    metadata.artifactKey === op.artifactKey &&
+    metadata.bindingDigest === sha256HexOfString(trustBinding);
+  type Determination =
+    | { kind: "absent" }
+    | { kind: "trusted"; digest: string; source: "body" | "metadata" }
+    | { kind: "undetermined" };
+  let determination: Determination;
+  if (!obs.finalObjectPresent) {
+    determination = { kind: "absent" };
+  } else if (obs.bodyVerifiedDigest) {
+    determination = { kind: "trusted", digest: obs.bodyVerifiedDigest, source: "body" };
+  } else if (metadataTrusted && metadata) {
+    determination = { kind: "trusted", digest: metadata.digest, source: "metadata" };
+  } else {
+    determination = { kind: "undetermined" };
+  }
+  // Metadata-discrepancy flag: body hash exists, metadata is trusted,
+  // and the two digests differ — the trusted digest is the body hash and
+  // the divergence is recorded as metadata-integrity evidence on every
+  // row that appends evidence.
+  const metadataDiscrepancy =
+    obs.bodyVerifiedDigest !== null &&
+    metadataTrusted &&
+    metadata !== null &&
+    metadata.digest !== obs.bodyVerifiedDigest;
+
+  if (entry) {
+    if (entry.state === "conflicted") {
+      // F4 — idempotent.
+      return result(state, false, "publication_conflicted", null, 0, {
+        publication: pubDetail({ entry }),
+      });
+    }
+    // Entry finalized (F1–F3): the winner is never displaced.
+    if (determination.kind !== "trusted") {
+      // F3 — absence/inconclusiveness is not positive contradictory
+      // evidence: no alert is appended.
+      return result(state, false, "publication_already_finalized", null, 0, {
+        publication: pubDetail({ entry }),
+      });
+    }
+    if (determination.digest === entry.digest && !metadataDiscrepancy) {
+      // F1 (clean) — no-op.
+      return result(state, false, "publication_already_finalized", null, 0, {
+        publication: pubDetail({ entry }),
+      });
+    }
+    // F1-discrepancy (body agrees, trusted metadata names a different
+    // digest) or F2 (trusted digest differs): append the evidence;
+    // entry identity/digest/state unchanged.
+    const alert: Record<string, unknown> =
+      determination.digest === entry.digest
+        ? {
+            kind: "metadata_discrepancy",
+            entryDigest: entry.digest,
+            metadataDigest: metadata?.digest ?? null,
+            bodyVerifiedDigest: obs.bodyVerifiedDigest,
+            observedAt: op.now,
+          }
+        : {
+            kind: "digest_contradiction",
+            entryDigest: entry.digest,
+            observedDigest: determination.digest,
+            source: determination.source,
+            metadataDiscrepancy,
+            observedAt: op.now,
+          };
+    const appended = appendIntegrityAlert(entry, alert);
+    if (!appended.changed) {
+      return result(state, false, "publication_already_finalized", null, 0, {
+        publication: pubDetail({ entry }),
+      });
+    }
+    const next: EntitlementAuthorityState = {
+      ...state,
+      artifactRegistry: { ...registry, [entry.artifactKey]: appended.entry },
+      updatedAt: op.now,
+    };
+    return result(next, true, "publication_already_finalized", null, 0, {
+      publication: pubDetail({ entry: appended.entry }),
+    });
+  }
+
+  // No entry: an expired intent can never finalize anything — every
+  // entry-writing row below requires a LIVE governing intent.
+  if (!governing) {
+    // F5 — retryable; the stored object waits, unfinalized and unharmed.
+    return pubRefused(state, "finalization_pending");
+  }
+  if (determination.kind !== "trusted") {
+    // F8 — absent or undeterminable: never guessed in either direction.
+    return pubRefused(state, "finalization_pending");
+  }
+  const byArtifact = { ...(state.publicationIntentByArtifact ?? {}) };
+  delete byArtifact[op.artifactKey];
+  if (determination.digest === governing.digest) {
+    // F6 — write the finalized entry (identity + dimensions copied from
+    // the governing intent); the durable email record opens "pending"
+    // atomically with the entry (§5.9).
+    const newEntry: ArtifactRegistryEntry = {
+      artifactKey: governing.artifactKey,
+      sessionId: governing.sessionId,
+      mapId: governing.mapId,
+      canonicalBinding: governing.canonicalBinding,
+      fingerprint: governing.fingerprint,
+      contractVersion: governing.contractVersion,
+      rendererVersion: governing.rendererVersion,
+      digest: governing.digest,
+      expectedWidth: governing.expectedWidth,
+      expectedHeight: governing.expectedHeight,
+      state: "finalized",
+      finalizedAt: op.now,
+      conflictEvidence: null,
+      archiveEmail: {
+        state: "pending",
+        claimedAt: null,
+        dispatchedAt: null,
+        claimGeneration: 0,
+      },
+      integrityAlerts: [],
+    };
+    const next: EntitlementAuthorityState = {
+      ...state,
+      artifactRegistry: { ...registry, [op.artifactKey]: newEntry },
+      publicationIntentByArtifact: byArtifact,
+      updatedAt: op.now,
+    };
+    return result(next, true, "publication_finalized", null, 0, {
+      publication: pubDetail({
+        intentId: governing.intentId,
+        governingIntentId: governing.intentId,
+        generation: governing.generation,
+        entry: newEntry,
+      }),
+    });
+  }
+  // F7 — trusted digest differs from the governing digest: write the
+  // conflicted entry with full evidence; the identity is terminal and
+  // recovery is the support path. (Presenter-independent: a stale pair
+  // presenting this state produces exactly this row — clause V-3.)
+  const conflictedEntry: ArtifactRegistryEntry = {
+    artifactKey: governing.artifactKey,
+    sessionId: governing.sessionId,
+    mapId: governing.mapId,
+    canonicalBinding: governing.canonicalBinding,
+    fingerprint: governing.fingerprint,
+    contractVersion: governing.contractVersion,
+    rendererVersion: governing.rendererVersion,
+    digest: governing.digest,
+    expectedWidth: governing.expectedWidth,
+    expectedHeight: governing.expectedHeight,
+    state: "conflicted",
+    finalizedAt: null,
+    conflictEvidence: {
+      governingIntentId: governing.intentId,
+      generation: governing.generation,
+      governingDigest: governing.digest,
+      observedDigest: determination.digest,
+      source: determination.source,
+      metadataDiscrepancy,
+    },
+    archiveEmail: {
+      state: "pending",
+      claimedAt: null,
+      dispatchedAt: null,
+      claimGeneration: 0,
+    },
+    integrityAlerts: [],
+  };
+  const next: EntitlementAuthorityState = {
+    ...state,
+    artifactRegistry: { ...registry, [op.artifactKey]: conflictedEntry },
+    publicationIntentByArtifact: byArtifact,
+    updatedAt: op.now,
+  };
+  return result(next, true, "publication_conflicted", null, 0, {
+    publication: pubDetail({
+      intentId: governing.intentId,
+      governingIntentId: governing.intentId,
+      generation: governing.generation,
+      entry: conflictedEntry,
+    }),
+  });
+}
+
+function claimArchiveEmailDispatch(
+  state: EntitlementAuthorityState,
+  op: Extract<EntitlementAuthorityOp, { type: "claim_archive_email_dispatch" }>,
+): EntitlementAuthorityApplyResult {
+  const registry = pubRegistryOf(state);
+  const entry = registry[op.artifactKey];
+  if (!entry || entry.state !== "finalized") {
+    return pubRefused(state, "not_finalized");
+  }
+  const email = entry.archiveEmail;
+  if (email.state === "dispatched") {
+    // Idempotent receipt carrying the dispatched fact (clause V-10
+    // caller rule): an outcome a driver must NOT send on.
+    return result(state, false, "archive_email_claimed", null, 0, {
+      publication: pubDetail({
+        entry,
+        claimGeneration: email.claimGeneration,
+        dispatched: true,
+      }),
+    });
+  }
+  if (email.state === "claimed") {
+    // Lease live iff now - claimedAt < DISPATCH_CLAIM_LEASE_MS.
+    const leaseLive =
+      email.claimedAt !== null && op.now - email.claimedAt < DISPATCH_CLAIM_LEASE_MS;
+    if (leaseLive) return pubRefused(state, "archive_email_already_claimed");
+    // Lease expired: re-claim (the previous holder is presumed dead),
+    // incrementing the claim generation (V-10).
+  }
+  const claimGeneration = email.claimGeneration + 1;
+  const nextEntry: ArtifactRegistryEntry = {
+    ...entry,
+    archiveEmail: {
+      state: "claimed",
+      claimedAt: op.now,
+      dispatchedAt: null,
+      claimGeneration,
+    },
+  };
+  const next: EntitlementAuthorityState = {
+    ...state,
+    artifactRegistry: { ...registry, [op.artifactKey]: nextEntry },
+    updatedAt: op.now,
+  };
+  return result(next, true, "archive_email_claimed", null, 0, {
+    publication: pubDetail({ entry: nextEntry, claimGeneration, dispatched: false }),
+  });
+}
+
+function recordArchiveEmailDispatch(
+  state: EntitlementAuthorityState,
+  op: Extract<EntitlementAuthorityOp, { type: "record_archive_email_dispatch" }>,
+): EntitlementAuthorityApplyResult {
+  const registry = pubRegistryOf(state);
+  const entry = registry[op.artifactKey];
+  if (!entry || entry.state !== "finalized") {
+    return pubRefused(state, "not_finalized");
+  }
+  const email = entry.archiveEmail;
+  if (email.state === "dispatched") {
+    return result(state, false, "archive_email_dispatch_recorded", null, 0, {
+      publication: pubDetail({
+        entry,
+        claimGeneration: email.claimGeneration,
+        dispatched: true,
+      }),
+    });
+  }
+  if (email.state === "pending") {
+    // A record can never substitute for a send that bypassed the claim.
+    return pubRefused(state, "archive_email_not_claimed");
+  }
+  // Generation fencing (clause V-10): a stale (less-than) generation's
+  // record may not mark another holder's claim; a greater-than
+  // generation is presentable by no honest caller and is refused
+  // identically.
+  if (op.claimGeneration !== email.claimGeneration) {
+    return pubRefused(state, "archive_email_claim_stale");
+  }
+  const nextEntry: ArtifactRegistryEntry = {
+    ...entry,
+    archiveEmail: {
+      state: "dispatched",
+      claimedAt: email.claimedAt,
+      dispatchedAt: op.now,
+      claimGeneration: email.claimGeneration,
+    },
+  };
+  const next: EntitlementAuthorityState = {
+    ...state,
+    artifactRegistry: { ...registry, [op.artifactKey]: nextEntry },
+    updatedAt: op.now,
+  };
+  return result(next, true, "archive_email_dispatch_recorded", null, 0, {
+    publication: pubDetail({
+      entry: nextEntry,
+      claimGeneration: email.claimGeneration,
+      dispatched: true,
+    }),
+  });
 }
 
 /** Non-authoritative display projection of the authority state (v3.5 §6.3:

@@ -210,7 +210,7 @@ function validateInflatedData(
 ): Promise<boolean> {
   return new Promise((resolve) => {
     const inflater = createInflate();
-    let leftover = Buffer.alloc(0);
+    let leftover: Buffer = Buffer.alloc(0);
     let total = 0;
     let settled = false;
     const finish = (value: boolean) => {
