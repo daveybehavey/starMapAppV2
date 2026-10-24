@@ -36,6 +36,10 @@ export default defineConfig({
       STRIPE_SECRET_KEY: "sk_test_playwright_dummy",
       STRIPE_WEBHOOK_SECRET: "whsec_playwright_dummy",
       NEXT_PUBLIC_DISABLE_PROMO_POPUP: "true",
+      // DL-1 Slice 3: the local test server explicitly opts into the
+      // entitlement authority's in-memory fallback by name (a bare CI=1 no
+      // longer permits it; production never sets this).
+      STARMAP_ENTITLEMENT_AUTHORITY_LOCAL: "1",
       NEXT_DIST_DIR: ".next-playwright",
     },
   },

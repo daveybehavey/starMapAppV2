@@ -7,6 +7,7 @@ export { ReviewRequestLedgerDO } from "./src/durable-objects/ReviewRequestLedger
 export { ReviewRequestSuppressionDO } from "./src/durable-objects/ReviewRequestSuppressionDO";
 export { EntitlementAuthorityDO } from "./src/durable-objects/EntitlementAuthorityDO";
 export { ConsistencyCoordinatorDO } from "./src/durable-objects/ConsistencyCoordinatorDO";
+export { ReferralDiscoveryDO } from "./src/durable-objects/ReferralDiscoveryDO";
 
 export default {
   fetch: handler.fetch,

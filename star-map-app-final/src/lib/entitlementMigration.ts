@@ -1,0 +1,587 @@
+/**
+ * DL-1 Slice 3 — one-time migration baseline + legacy writer fencing.
+ *
+ * The migration half of the entitlement authority: it converts a settled
+ * legacy KV session record (`stripe:session:{id}`) into the authority's
+ * facts + immutable baseline (shapes in entitlementAuthorityState.ts), and
+ * it is the ONLY bridge between the two accounting worlds.
+ *
+ * Safety posture (cleared design: v3.6 §2.1 snapshot, v3.7 §7.2 matrix):
+ * - Lazy trigger: migration runs before the first accounting operation for
+ *   an entitlement (the referral grant/reversal path in the webhook), never
+ *   from a projection/display read.
+ * - Fail closed: a record whose settled history cannot be established
+ *   unambiguously yields `migration_pending` with a reason — the baseline
+ *   is never guessed. Ambiguous records are a support-resolution path,
+ *   not a silent approximation. NOTE (v3.7 §7.2, correcting the
+ *   pre-matrix text): once routing is ON, an underivable opening does
+ *   NOT "continue on a legacy path" — its W13 grants skip-record
+ *   (SKIP-R), its D1 serving is operator-gated, and its record is
+ *   frozen like every other. The matrix has no legacy cell at
+ *   S-ACTIVE/S-SAFE; the legacy writers exist only at S-OFF.
+ * - No term synthesis: the baseline records established access terms as
+ *   evidence; it never derives an access-expiry boundary from claim-token
+ *   expiry and never resets an established term (no-expiry decision).
+ * - Idempotent: the baseline is immutable once captured (the authority
+ *   refuses a second capture), so re-running migration — including against
+ *   a KV record changed after capture — can never reset the baseline or
+ *   restore spent credits.
+ *
+ * R1 (David, 2026-10-22 — option A): the pre-migration balance is captured
+ * WHOLE as the baseline's legacy bucket. Historical referral rewards are
+ * indistinguishable from purchased credits in the legacy record (the old
+ * writers mixed them into one counter), so no retroactive paid-vs-reward
+ * split is attempted or fabricated. Only grants made after capture land in
+ * the authority's separate reward bucket.
+ *
+ * Fencing: once a baseline exists, the legacy consume/compensate routes
+ * must not mutate accounting state outside the authority; the referral
+ * grant/reversal writers are routed through the authority outright
+ * (referralRewardAuthority.ts), so after capture no legacy writer can
+ * move a migrated entitlement's balance at all. When the authority
+ * cannot be reached, the fence reports `authority_unavailable` and
+ * callers fail closed — an unreachable authority is never treated as
+ * proof that no baseline exists.
+ *
+ * Exclusion (Codex P1, PR #367): a read-only fence is NOT enough — a
+ * legacy route could load its record, observe "open", and write its
+ * debit back AFTER a concurrent migration captured the pre-debit
+ * record, losing the debit from the baseline. The legacy routes and
+ * migration therefore hold a shared accounting lease in the authority
+ * (serialized by the DO) across their whole critical sections: the
+ * routes across load→mutate→KV-write, migration across load→capture.
+ * A migration that finds a legacy writer mid-flight waits briefly,
+ * then captures the record the writer settled — never the stale one.
+ */
+import {
+  PLAN_ALLOWANCE,
+  type CreationSnapshot,
+  type EntitlementAuthorityState,
+  type EntitlementBaseline,
+  type EntitlementFacts,
+} from "@/lib/entitlementAuthorityState";
+import type { EntitlementAuthorityClient } from "@/lib/entitlementAuthority";
+import type { StripeSessionEntitlement } from "@/lib/entitlementsStore";
+
+/** Reasons a legacy record cannot be baselined yet (support resolution). */
+export type MigrationPendingReason =
+  | "record_not_paid"
+  | "missing_plan"
+  | "missing_credits_total"
+  | "missing_credits_remaining"
+  | "allowance_below_plan"
+  | "balance_out_of_range"
+  | "inconsistent_consume_evidence";
+
+export type BaselineBuildResult =
+  | { status: "ready"; facts: EntitlementFacts; baseline: EntitlementBaseline }
+  | { status: "pending"; reason: MigrationPendingReason };
+
+function isInt(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value);
+}
+
+/** Grant-side facts (overlap contract O1) read straight off the record. */
+export function buildEntitlementFactsFromRecord(
+  record: StripeSessionEntitlement,
+): EntitlementFacts | null {
+  if (!record.plan) return null;
+  return {
+    plan: record.plan,
+    paid: record.paid === true,
+    revoked: record.revoked === true,
+    subscriptionActive: record.subscriptionActive === true,
+    mapId: typeof record.mapId === "string" && record.mapId ? record.mapId : null,
+  };
+}
+
+/**
+ * Derive facts + baseline from a settled legacy record. Pure and total:
+ * every ambiguous shape returns a named pending reason instead of a guess.
+ */
+export function buildBaselineFromLegacyRecord(
+  record: StripeSessionEntitlement,
+  now: number,
+): BaselineBuildResult {
+  const facts = buildEntitlementFactsFromRecord(record);
+  if (!facts) return { status: "pending", reason: "missing_plan" };
+  if (record.paid !== true) return { status: "pending", reason: "record_not_paid" };
+
+  const lastConsumeToken =
+    typeof record.lastConsumeToken === "string" && record.lastConsumeToken
+      ? record.lastConsumeToken
+      : null;
+  const lastCompensatedToken =
+    typeof record.lastCompensatedToken === "string" && record.lastCompensatedToken
+      ? record.lastCompensatedToken
+      : null;
+  // A compensated consume is a consume: compensation evidence without a
+  // consume token is an inconsistent record (the authority's baseline
+  // validator rejects the same shape).
+  if (lastCompensatedToken && !lastConsumeToken) {
+    return { status: "pending", reason: "inconsistent_consume_evidence" };
+  }
+  const lastConsumeAt = isInt(record.lastConsumeAt) ? record.lastConsumeAt : null;
+
+  const createdNote =
+    typeof record.created === "number" && Number.isFinite(record.created)
+      ? `legacy record created ${new Date(record.created).toISOString()}`
+      : "legacy record creation time unknown";
+  const r1Note =
+    "pre-migration balance captured whole as the legacy bucket, historical referral rewards included (DL-1 R1 option A)";
+
+  if (facts.plan === "subscription") {
+    // A subscription's access is unlimited-while-active; the legacy consume
+    // helper never debited it, so any consume/compensate evidence on the
+    // record contradicts the plan and cannot be baselined safely. (Credit
+    // counters, when present, are checkout-derivation leftovers the
+    // subscription flow never reads — they are ignored, not evidence.)
+    if (lastConsumeToken || lastCompensatedToken) {
+      return { status: "pending", reason: "inconsistent_consume_evidence" };
+    }
+    return {
+      status: "ready",
+      facts,
+      baseline: {
+        plan: "subscription",
+        allowance: null,
+        legacyRemainingBalance: null,
+        legacySpentCount: 0,
+        lastConsumeToken: null,
+        lastConsumeAt: null,
+        lastCompensatedToken: null,
+        purchaseMapId: facts.mapId,
+        accessTermsNote: `${createdNote}; subscription access through the paid period per the record's facts; ${r1Note}`,
+        capturedAt: now,
+      },
+    };
+  }
+
+  // Finite plans. The settled original allowance is the record's
+  // creditsTotal: markSessionPaid writes it from the plan/credits metadata,
+  // and the legacy referral grant RAISED it alongside the balance — so a
+  // total above the plan's nominal allowance is the settled record of
+  // historical rewards inside the legacy bucket, not an inconsistency. A
+  // total BELOW the plan allowance can never be a settled purchase record.
+  if (record.creditsTotal === undefined || record.creditsTotal === null) {
+    return { status: "pending", reason: "missing_credits_total" };
+  }
+  if (!isInt(record.creditsTotal) || record.creditsTotal < 0) {
+    return { status: "pending", reason: "balance_out_of_range" };
+  }
+  const allowance = record.creditsTotal;
+  if (allowance < PLAN_ALLOWANCE[facts.plan]) {
+    return { status: "pending", reason: "allowance_below_plan" };
+  }
+  if (record.creditsRemaining === undefined || record.creditsRemaining === null) {
+    return { status: "pending", reason: "missing_credits_remaining" };
+  }
+  if (!isInt(record.creditsRemaining)) {
+    return { status: "pending", reason: "balance_out_of_range" };
+  }
+  const legacyRemainingBalance = record.creditsRemaining;
+  if (legacyRemainingBalance < 0 || legacyRemainingBalance > allowance) {
+    return { status: "pending", reason: "balance_out_of_range" };
+  }
+  const legacySpentCount = allowance - legacyRemainingBalance;
+  const abovePlanNote =
+    allowance > PLAN_ALLOWANCE[facts.plan]
+      ? `; settled total ${allowance} exceeds the ${facts.plan} plan allowance ${PLAN_ALLOWANCE[facts.plan]} (historical referral rewards inside the legacy balance)`
+      : "";
+  return {
+    status: "ready",
+    facts,
+    baseline: {
+      plan: facts.plan,
+      allowance,
+      legacyRemainingBalance,
+      legacySpentCount,
+      lastConsumeToken,
+      lastConsumeAt,
+      lastCompensatedToken,
+      purchaseMapId: facts.mapId,
+      accessTermsNote: `${createdNote}; ${r1Note}${abovePlanNote}`,
+      capturedAt: now,
+    },
+  };
+}
+
+/**
+ * Build the creation snapshot from the SAME record read that produced
+ * the baseline figure (DL-1 v3.6 §2.1 / v3.7 §2.1): figure,
+ * fingerprints, and the unexplained reward aggregate — a census figure
+ * with no identity content, never a classification input (v3.10 §3.3).
+ * The access fingerprint preserves the record's revocation fields
+ * VERBATIM, including the legacy subscription handler's conflation
+ * (revoked: true beside reason "subscription_inactive"): the import
+ * preserves, never reinterprets (v3.6 §6.1, v3.7 §5.3's two axes).
+ */
+export function buildCreationSnapshot(
+  record: StripeSessionEntitlement,
+  baseline: EntitlementBaseline,
+  journalHead: number,
+  now: number,
+): CreationSnapshot {
+  const aggregate =
+    baseline.plan !== "subscription" && baseline.allowance !== null
+      ? Math.max(0, baseline.allowance - PLAN_ALLOWANCE[baseline.plan])
+      : 0;
+  return {
+    figure: baseline.legacyRemainingBalance,
+    allowance: baseline.allowance,
+    unexplainedRewardAggregate: aggregate,
+    accountingFingerprint: legacyAccountingFingerprint(record),
+    accessFingerprint: {
+      revoked: record.revoked === true,
+      revokedAt: typeof record.revokedAt === "number" ? record.revokedAt : null,
+      reason: typeof record.reason === "string" && record.reason ? record.reason : null,
+      subscriptionActive: record.subscriptionActive === true,
+    },
+    snapshotJournalHead: journalHead,
+    capturedAt: baseline.capturedAt ?? now,
+  };
+}
+
+export type EnsureMigratedResult =
+  | { status: "already_migrated"; state: EntitlementAuthorityState }
+  | { status: "migrated"; state: EntitlementAuthorityState }
+  | { status: "migration_pending"; reason: MigrationPendingReason | "invalid_baseline" }
+  | { status: "no_record" }
+  | { status: "migration_busy" }
+  | { status: "authority_unavailable" };
+
+/** How long an accounting lease may be held before it is treated as abandoned. */
+export const ACCOUNTING_LEASE_TTL_MS = 15_000;
+
+const LEASE_RETRY_INTERVAL_MS = 150;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function newLeaseId(): string {
+  const c = globalThis.crypto;
+  if (c && typeof c.randomUUID === "function") return c.randomUUID();
+  return `lease-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+export type AccountingLeaseResult =
+  | { status: "acquired"; leaseId: string }
+  | { status: "fenced" }
+  | { status: "busy" }
+  | { status: "authority_unavailable" };
+
+/**
+ * Acquire the shared accounting lease for one entitlement through the
+ * authority. `legacy_write` acquires are refused permanently once a
+ * baseline exists (`fenced` — the fence outcome of the read-only probe,
+ * now enforced atomically); a live lease held by someone else is `busy`
+ * until the retry deadline passes. Every other outcome fails closed.
+ */
+export async function acquireAccountingLease(
+  client: EntitlementAuthorityClient,
+  sessionId: string,
+  kind: "legacy_write" | "migration",
+  opts: { now?: number; retryDeadlineMs?: number } = {},
+): Promise<AccountingLeaseResult> {
+  const leaseId = newLeaseId();
+  const deadline = Date.now() + (opts.retryDeadlineMs ?? 0);
+  for (;;) {
+    const now = opts.now ?? Date.now();
+    const res = await client.apply(sessionId, {
+      type: "acquire_accounting_lease",
+      leaseId,
+      kind,
+      ttlMs: ACCOUNTING_LEASE_TTL_MS,
+      now,
+    });
+    if (!res) return { status: "authority_unavailable" };
+    if (res.outcome === "lease_acquired") return { status: "acquired", leaseId };
+    if (res.refusal === "already_migrated") return { status: "fenced" };
+    if (res.refusal === "lease_held") {
+      if (Date.now() >= deadline) return { status: "busy" };
+      await sleep(Math.min(LEASE_RETRY_INTERVAL_MS, Math.max(1, deadline - Date.now())));
+      continue;
+    }
+    // Any other refusal (e.g. invalid_lease) is a programming error at
+    // this call site — fail closed rather than write unaccounted.
+    return { status: "authority_unavailable" };
+  }
+}
+
+/** Fresh TTL a successful seal grants for the holder's committing write. */
+export const ACCOUNTING_LEASE_SEAL_TTL_MS = 5_000;
+
+export type AccountingLeaseSealResult =
+  | { status: "sealed" }
+  | { status: "lost" }
+  | { status: "authority_unavailable" };
+
+/**
+ * Seal the lease immediately before the holder's KV write: proves the
+ * holder still owns the accounting (unexpired, same lease id) and
+ * extends the lease briefly for the write itself. `lost` means the
+ * lease expired or was taken — the caller MUST NOT write; nothing has
+ * been mutated, so aborting is clean (Codex P2, PR #367).
+ */
+export async function sealAccountingLease(
+  client: EntitlementAuthorityClient,
+  sessionId: string,
+  leaseId: string,
+  now: number = Date.now(),
+): Promise<AccountingLeaseSealResult> {
+  const res = await client.apply(sessionId, {
+    type: "seal_accounting_lease",
+    leaseId,
+    ttlMs: ACCOUNTING_LEASE_SEAL_TTL_MS,
+    now,
+  });
+  if (!res) return { status: "authority_unavailable" };
+  if (res.outcome === "lease_sealed") return { status: "sealed" };
+  return { status: "lost" };
+}
+
+/** The accounting-bearing fields of a legacy record (or a baseline). */
+export type LegacyAccountingFingerprint = {
+  creditsRemaining: number | null;
+  lastConsumeToken: string | null;
+  lastCompensatedToken: string | null;
+};
+
+export function legacyAccountingFingerprint(record: {
+  creditsRemaining?: number | null;
+  lastConsumeToken?: string | null;
+  lastCompensatedToken?: string | null;
+}): LegacyAccountingFingerprint {
+  return {
+    creditsRemaining:
+      typeof record.creditsRemaining === "number" ? record.creditsRemaining : null,
+    lastConsumeToken:
+      typeof record.lastConsumeToken === "string" && record.lastConsumeToken
+        ? record.lastConsumeToken
+        : null,
+    lastCompensatedToken:
+      typeof record.lastCompensatedToken === "string" && record.lastCompensatedToken
+        ? record.lastCompensatedToken
+        : null,
+  };
+}
+
+function fingerprintEquals(
+  a: LegacyAccountingFingerprint,
+  b: LegacyAccountingFingerprint,
+): boolean {
+  return (
+    a.creditsRemaining === b.creditsRemaining &&
+    a.lastConsumeToken === b.lastConsumeToken &&
+    a.lastCompensatedToken === b.lastCompensatedToken
+  );
+}
+
+function baselineMatchesFingerprint(
+  baseline: EntitlementBaseline,
+  fp: LegacyAccountingFingerprint,
+): boolean {
+  return (
+    baseline.legacyRemainingBalance === fp.creditsRemaining &&
+    baseline.lastConsumeToken === fp.lastConsumeToken &&
+    baseline.lastCompensatedToken === fp.lastCompensatedToken
+  );
+}
+
+export type LegacyWriteReconcileResult =
+  | "ok"
+  | "restored"
+  | "conflict"
+  | "authority_unavailable";
+
+/**
+ * Post-write backstop for the lease protocol (Codex P2, PR #367): after
+ * a legacy writer commits its KV write, verify the write and any
+ * concurrent baseline capture agree.
+ * - no baseline, or the baseline captured the post-write state → "ok";
+ * - the baseline captured the PRE-write state (this mutation missed
+ *   capture) and KV still holds exactly this write → the pre-image is
+ *   restored and the result is "restored" (the caller fails the
+ *   request; accounting is consistent again — KV and authority both
+ *   hold the pre-write state);
+ * - anything else (KV has moved on, or the baseline matches neither
+ *   side) → "conflict": the caller fails loudly and writes nothing
+ *   more; the divergence is bounded, logged, and support-visible
+ *   rather than silently successful.
+ */
+export async function reconcileLegacyWrite(
+  client: EntitlementAuthorityClient,
+  sessionId: string,
+  input: {
+    pre: LegacyAccountingFingerprint;
+    post: LegacyAccountingFingerprint;
+    loadCurrent: () => Promise<LegacyAccountingFingerprint | null>;
+    restorePre: () => Promise<void>;
+  },
+): Promise<LegacyWriteReconcileResult> {
+  const state = await client.getState(sessionId);
+  if (!state) return "authority_unavailable";
+  if (!state.baseline) return "ok";
+  if (baselineMatchesFingerprint(state.baseline, input.post)) return "ok";
+  if (baselineMatchesFingerprint(state.baseline, input.pre)) {
+    const current = await input.loadCurrent();
+    if (current && fingerprintEquals(current, input.post)) {
+      await input.restorePre();
+      return "restored";
+    }
+    return "conflict";
+  }
+  return "conflict";
+}
+
+/** Best-effort lease release; safe to call unconditionally in a finally. */
+export async function releaseAccountingLease(
+  client: EntitlementAuthorityClient,
+  sessionId: string,
+  leaseId: string,
+): Promise<void> {
+  try {
+    await client.apply(sessionId, {
+      type: "release_accounting_lease",
+      leaseId,
+      now: Date.now(),
+    });
+  } catch {
+    // A failed release only delays the next writer until the TTL lapse.
+  }
+}
+
+/**
+ * The lazy migration trigger. Runs before an entitlement's first
+ * accounting operation; safe to call repeatedly and concurrently — the
+ * capture runs under the shared accounting lease, so an in-flight legacy
+ * consume/compensate either settles first (and is captured) or starts
+ * after capture (and is fenced). An existing baseline is returned
+ * untouched (a changed KV record afterwards is never re-imported).
+ */
+export async function ensureEntitlementMigrated(
+  client: EntitlementAuthorityClient,
+  sessionId: string,
+  loadRecord: () => Promise<StripeSessionEntitlement | null>,
+  now: number = Date.now(),
+): Promise<EnsureMigratedResult> {
+  const existing = await client.getState(sessionId);
+  if (!existing) return { status: "authority_unavailable" };
+  if (existing.baseline) return { status: "already_migrated", state: existing };
+
+  // Hold the migration lease across load→capture: a legacy writer that
+  // began before us is waited out (its settled record is what we then
+  // read); one that arrives during capture is excluded until we finish.
+  // Capture is lease-conditional in the authority: if an attempt stalls
+  // past its TTL and an interleaved writer settles meanwhile, the
+  // capture is refused and the loop retries from a FRESH record load
+  // under a fresh lease (Codex P2, PR #367).
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const lease = await acquireAccountingLease(client, sessionId, "migration", {
+      now,
+      retryDeadlineMs: 3_000,
+    });
+    if (lease.status === "authority_unavailable") {
+      return { status: "authority_unavailable" };
+    }
+    if (lease.status === "busy") return { status: "migration_busy" };
+    if (lease.status === "fenced") {
+      // "migration" acquires are never fenced; this is unreachable, but
+      // the type is shared with the legacy path — fail closed.
+      return { status: "authority_unavailable" };
+    }
+
+    let captureLeaseLost = false;
+    try {
+      // Re-check inside the lease: a concurrent trigger may have captured
+      // while we waited for it.
+      const inside = await client.getState(sessionId);
+      if (!inside) return { status: "authority_unavailable" };
+      if (inside.baseline) return { status: "already_migrated", state: inside };
+
+      const record = await loadRecord();
+      if (!record) {
+        // A KV null is an OBSERVATION, never a birth fact (DL-1 v3.7
+        // §2.4): it classifies nothing. Callers that journal a grant
+        // on this outcome treat the birth as UNRESOLVED (pending,
+        // zero fold effect) — never as born-in-authority at full
+        // allowance.
+        return { status: "no_record" };
+      }
+
+      const built = buildBaselineFromLegacyRecord(record, now);
+      if (built.status === "pending") {
+        return { status: "migration_pending", reason: built.reason };
+      }
+
+      const synced = await client.apply(sessionId, {
+        type: "sync_facts",
+        facts: built.facts,
+        now,
+      });
+      if (!synced) return { status: "authority_unavailable" };
+
+      const captured = await client.apply(sessionId, {
+        type: "capture_baseline",
+        baseline: built.baseline,
+        snapshot: buildCreationSnapshot(record, built.baseline, 0, now),
+        expectedLeaseId: lease.leaseId,
+        now,
+      });
+      if (!captured) return { status: "authority_unavailable" };
+      if (captured.outcome === "baseline_captured") {
+        return { status: "migrated", state: captured.state };
+      }
+      if (captured.outcome === "baseline_already_captured") {
+        // A concurrent trigger won the capture race; its baseline governs.
+        return { status: "already_migrated", state: captured.state };
+      }
+      if (
+        captured.outcome === "refused" &&
+        (captured.refusal === "lease_not_held" || captured.refusal === "lease_expired")
+      ) {
+        // Our lease lapsed mid-attempt: the loaded record may be stale.
+        // Retry from a fresh load under a fresh lease.
+        captureLeaseLost = true;
+      } else {
+        // The builder pre-validates, so a refusal here means the record and
+        // the authority disagree about validity — fail closed as
+        // pending/support.
+        return { status: "migration_pending", reason: "invalid_baseline" };
+      }
+    } finally {
+      await releaseAccountingLease(client, sessionId, lease.leaseId);
+    }
+    if (!captureLeaseLost) {
+      // Unreachable: every non-retry path returns inside the try. Guard
+      // against future edits silently looping forever.
+      return { status: "authority_unavailable" };
+    }
+  }
+
+  // Repeatedly lost the lease to interleaved writers: report transient
+  // contention; the next trigger retries the migration.
+  return { status: "migration_busy" };
+}
+
+export type LegacyWriterFenceResult =
+  | { status: "fenced" }
+  | { status: "open" }
+  | { status: "authority_unavailable" };
+
+/**
+ * The fence the legacy consume/compensate routes consult before mutating:
+ * `fenced` once a baseline exists (accounting belongs to the authority),
+ * `open` when the entitlement is still purely legacy, and
+ * `authority_unavailable` when no authoritative answer exists — callers
+ * must fail closed on it, never treat it as `open`.
+ */
+export async function checkLegacyWriterFence(
+  client: EntitlementAuthorityClient,
+  sessionId: string,
+): Promise<LegacyWriterFenceResult> {
+  const state = await client.getState(sessionId);
+  if (!state) return { status: "authority_unavailable" };
+  return state.baseline ? { status: "fenced" } : { status: "open" };
+}
