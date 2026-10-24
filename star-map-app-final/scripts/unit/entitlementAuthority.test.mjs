@@ -987,7 +987,7 @@ test("wiring: DO binding, migration, and worker export exist", () => {
   assert.match(worker, /export \{ EntitlementAuthorityDO \}/);
 });
 
-test("wiring: only the fenced routes and the webhook reference the authority (Slice 3)", () => {
+test("wiring: only the fenced routes and the webhook reference the authority (Slices 3+4)", () => {
   const appDir = path.join(appRoot, "src/app");
   const referencers = [];
   const walk = (dir) => {
@@ -1014,6 +1014,10 @@ test("wiring: only the fenced routes and the webhook reference the authority (Sl
       path.join("api/entitlements/compensate/route.ts"),
       path.join("api/entitlements/consume/route.ts"),
       path.join("api/stripe/webhook/route.ts"),
+      // DL-1 Slice 4 (brief §5.4/§5.9): the archive route is the
+      // publication protocol's caller — it references the authority
+      // client for getState/apply of the four publication ops only.
+      path.join("api/download/archive/route.ts"),
     ].sort(),
   );
 

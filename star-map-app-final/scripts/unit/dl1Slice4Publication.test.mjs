@@ -1,0 +1,1294 @@
+/**
+ * dl1Slice4Publication.test.mjs — DL-1 Slice 4: artifact identity /
+ * prepare-descriptor authority (brief v3 §8 obligations, as amended by
+ * v3.1 A-1/A-2/A-3, pointer P-4, v3.2 V-1/V-3/V-5/V-6/V-7/V-8/V-10/V-11,
+ * and v3.3 W-1/W-2).
+ *
+ * Coverage named against the brief:
+ * - identity + keying vectors, contract-v1 vectors, two-maps-one-session,
+ *   key-length bounds (§5.1/§5.8 budget computed from constants);
+ * - descriptor set (bad signature / expired / session mismatch →
+ *   identity_rejected) incl. W-1's three expiry-relation cases;
+ * - §5.10 validation set (garbage IDAT with valid CRCs, bad CRC, trailing
+ *   bytes, wrong dims/features, counted-read boundary);
+ * - transition-table coverage: R0, R1, R2, JN1, JN2, R3–R7, F1–F8 named
+ *   per test; expiry executability + F5→R7→F6 chain; determination
+ *   coverage; collision in terminal/expired cases (A-1/A-2/A-3);
+ * - join permanence (N4) + V-1 coexistence + V-11.4 post-promotion state;
+ * - pointer maintenance (P-4: maintenance sequence, SEAM-2, both T34
+ *   orderings, expiry/finalization never move it);
+ * - email claim/record mechanism (N5 bound at the machine, V-10
+ *   generation fencing), V-11.3 alert saturation;
+ * - purity fence; validator rules 1–9;
+ * - race evidence Class A (serialized client + V-11.1 history/fold),
+ *   Class C (faithful fake R2), U-P2 boundary test;
+ * - source pins (i)–(v).
+ * Class B and the route-level sets live in dl1Slice4Route.test.mjs; the
+ * two §8 integration proofs (real R2 binding, deployed runtime) require a
+ * non-production deploy and are recorded as outstanding on the PR.
+ */
+import test from "node:test";
+import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { deflateSync } from "node:zlib";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { register } from "node:module";
+
+register("./tsAliasLoader.mjs", import.meta.url);
+register("./entitlementAuthority.hooks.mjs", import.meta.url);
+
+process.env.STARMAP_ENTITLEMENT_AUTHORITY_LOCAL = "1";
+process.env.STARMAP_KV_ALLOW_LOCAL = "1";
+process.env.DL1_DESCRIPTOR_SIGNING_SECRET = "s4-test-signing-secret-0123456789abcdef";
+
+const identity = await import("../../src/lib/downloadArchiveIdentity.ts");
+const png = await import("../../src/lib/pngValidation.ts");
+const sm = await import("../../src/lib/entitlementAuthorityState.ts");
+const storage = await import("../../src/lib/downloadArchiveStorage.ts");
+const clientMod = await import("../../src/lib/entitlementAuthority.ts");
+const { EntitlementAuthorityDO } = await import(
+  "../../src/durable-objects/EntitlementAuthorityDO.ts"
+);
+
+const NOW = Date.UTC(2026, 9, 24, 12, 0, 0);
+const SID = "cs_test_s4_session";
+const MAP = "map-s4-0001";
+const MAP2 = "map-s4-0002";
+const sha = (s) => createHash("sha256").update(s).digest("hex");
+const DIGEST_A = sha("artifact-bytes-a");
+const DIGEST_B = sha("artifact-bytes-b");
+const DESC_1 = "11".repeat(16);
+const DESC_2 = "22".repeat(16);
+const DESC_3 = "33".repeat(16);
+const DESC_4 = "44".repeat(16);
+
+const recipe = (over = {}) => ({
+  version: 1,
+  seed: "seed-1",
+  datetimeISO: "2026-01-01T00:00:00.000Z",
+  location: { name: "Victoria", latitude: 48.4, longitude: -123.4, timezone: "America/Vancouver" },
+  textBoxes: [{ text: "Hello", size: 42, fontFamily: "serif", color: "#fff", align: "center" }],
+  selectedStyle: "classic",
+  aspectRatio: "square",
+  shape: "rectangle",
+  renderOptions: {},
+  ...over,
+});
+
+const BINDING = identity.canonicalBindingForRecipe(recipe());
+const FINGERPRINT = identity.fingerprintForBinding(BINDING);
+const ARTIFACT = identity.buildArtifactId({ sessionId: SID, mapId: MAP, fingerprint: FINGERPRINT });
+const DIMS = identity.expectedDimensionsForBinding(BINDING);
+
+function intentInput(over = {}) {
+  return {
+    intentId: DESC_1,
+    artifactKey: ARTIFACT,
+    sessionId: SID,
+    mapId: MAP,
+    canonicalBinding: BINDING,
+    fingerprint: FINGERPRINT,
+    contractVersion: 1,
+    rendererVersion: 1,
+    digest: DIGEST_A,
+    stagingKey: identity.buildStagingKey(over.intentId ?? DESC_1),
+    expectedWidth: DIMS.expectedWidth,
+    expectedHeight: DIMS.expectedHeight,
+    expiresAt: NOW + 600_000,
+    ...over,
+  };
+}
+
+const s0 = () => sm.createEmptyEntitlementAuthorityState(SID);
+const reg = (state, over = {}, now = NOW) =>
+  sm.applyEntitlementAuthorityOp(state, {
+    type: "register_publication_intent",
+    intent: intentInput(over),
+    now,
+  });
+const fin = (state, over = {}, now = NOW) =>
+  sm.applyEntitlementAuthorityOp(state, {
+    type: "finalize_publication",
+    artifactKey: ARTIFACT,
+    intentId: DESC_1,
+    generation: 1,
+    observation: { finalObjectPresent: false, finalMetadata: null, bodyVerifiedDigest: null },
+    ...over,
+    now,
+  });
+const trustedMetadata = (digest, binding = BINDING) => ({
+  protocol: "dl1-archive-v1",
+  artifactKey: ARTIFACT,
+  digest,
+  bindingDigest: sha(binding),
+});
+const accountingSurface = (state) =>
+  JSON.stringify({
+    baseline: state.baseline,
+    ownedFiles: state.ownedFiles,
+    rewardBucketBalance: state.rewardBucketBalance,
+    rewardGrantedTotal: state.rewardGrantedTotal,
+    rewardSpentTotal: state.rewardSpentTotal,
+    rewardClawedTotal: state.rewardClawedTotal,
+    rewardGrants: state.rewardGrants,
+    recoveryDecision: state.recoveryDecision,
+    capabilityGeneration: state.capabilityGeneration,
+    journalHead: state.journalHead ?? 0,
+  });
+
+/* ------------------------------ identity ------------------------------ */
+
+test("identity: contract-v1 vector — fixed recipe → fixed binding → fixed fingerprint", () => {
+  const expectedBinding = JSON.stringify({
+    version: 1,
+    seed: "seed-1",
+    datetimeISO: "2026-01-01T00:00:00.000Z",
+    location: { name: "Victoria", latitude: 48.4, longitude: -123.4, timezone: "America/Vancouver" },
+    textBoxes: [{ text: "Hello", size: 42, fontFamily: "serif", color: "#fff", align: "center" }],
+    selectedStyle: "classic",
+    aspectRatio: "square",
+    shape: "rectangle",
+    renderOptions: {},
+  });
+  assert.equal(BINDING, expectedBinding);
+  assert.equal(FINGERPRINT, sha(expectedBinding));
+  assert.equal(ARTIFACT, `hd1:${SID}:${MAP}:${FINGERPRINT}:c1:r1`);
+});
+
+test("identity: dimension table verified for all four aspects (§5.1/OQ-2)", () => {
+  const heights = { square: 6000, "3:4": 8000, "2:3": 9000, "4:5": 7500 };
+  for (const [aspect, height] of Object.entries(heights)) {
+    const binding = identity.canonicalBindingForRecipe(recipe({ aspectRatio: aspect }));
+    assert.deepEqual(identity.expectedDimensionsForBinding(binding), {
+      expectedWidth: 6000,
+      expectedHeight: height,
+    });
+  }
+});
+
+test("identity: two maps under one sessionId → two distinct keys + artifacts", () => {
+  const a = identity.deriveArtifactIdentity({ sessionId: SID, mapId: MAP, recipe: recipe() });
+  const b = identity.deriveArtifactIdentity({ sessionId: SID, mapId: MAP2, recipe: recipe() });
+  assert.notEqual(a.artifactId, b.artifactId);
+  assert.notEqual(a.finalKey, b.finalKey);
+  assert.equal(
+    a.finalKey,
+    `download-archive/hd/${SID}/${MAP}-${FINGERPRINT}-c1-r1.png`,
+  );
+});
+
+test("identity: renderer + contract versions are identity components", () => {
+  const bumped = identity.buildArtifactId({
+    sessionId: SID,
+    mapId: MAP,
+    fingerprint: FINGERPRINT,
+    contractVersion: 2,
+  });
+  assert.notEqual(bumped, ARTIFACT);
+  assert.ok(bumped.endsWith(":c2:r1"));
+});
+
+test("identity: key-length bounds — boundary pairs (S7-A N6)", () => {
+  const okSession = "s".repeat(identity.MAX_SESSION_ID_LENGTH);
+  assert.ok(
+    identity.buildArtifactId({ sessionId: okSession, mapId: MAP, fingerprint: FINGERPRINT }),
+  );
+  assert.equal(
+    identity.buildArtifactId({
+      sessionId: "s".repeat(identity.MAX_SESSION_ID_LENGTH + 1),
+      mapId: MAP,
+      fingerprint: FINGERPRINT,
+    }),
+    null,
+  );
+  const okMap = "m".repeat(identity.MAX_MAP_ID_LENGTH);
+  assert.ok(identity.buildArtifactId({ sessionId: SID, mapId: okMap, fingerprint: FINGERPRINT }));
+  assert.equal(
+    identity.buildArtifactId({
+      sessionId: SID,
+      mapId: "m".repeat(identity.MAX_MAP_ID_LENGTH + 1),
+      fingerprint: FINGERPRINT,
+    }),
+    null,
+  );
+  assert.equal(
+    identity.buildArtifactId({ sessionId: "bad/session", mapId: MAP, fingerprint: FINGERPRINT }),
+    null,
+  );
+  assert.equal(identity.buildStagingKey("not-hex"), null);
+});
+
+test("identity: §5.8 metadata budget computed from the §5.1 constants", () => {
+  const worstArtifactId =
+    4 +
+    identity.MAX_SESSION_ID_LENGTH +
+    1 +
+    identity.MAX_MAP_ID_LENGTH +
+    1 +
+    64 +
+    2 +
+    6 +
+    2 +
+    6;
+  assert.equal(worstArtifactId, 278);
+  const valuesTotal = 14 + worstArtifactId + 64 + 64; // protocol + artifactKey + digest + bindingDigest
+  assert.equal(valuesTotal, 420);
+  assert.ok(valuesTotal < 1024, "worst-case metadata stays under 1 KiB");
+  assert.ok(valuesTotal < 8192, "against R2's 8,192-byte cap");
+  const worstFinalKey = 20 + identity.MAX_SESSION_ID_LENGTH + 1 + identity.MAX_MAP_ID_LENGTH + 1 + 64 + 2 + 6 + 2 + 6 + 4;
+  assert.equal(worstFinalKey, 298);
+  assert.ok(worstFinalKey < 1024, "R2 key limit");
+});
+
+/* ----------------------------- descriptor ----------------------------- */
+
+test("descriptor: issue + verify roundtrip; failures → identity_rejected", () => {
+  const issued = identity.issuePrepareDescriptor({
+    sessionId: SID,
+    mapId: MAP,
+    fingerprint: FINGERPRINT,
+    now: NOW,
+    descriptorId: DESC_1,
+  });
+  assert.ok(issued);
+  const ok = identity.verifyPrepareDescriptor(issued.descriptor, { now: NOW + 1000, sessionId: SID });
+  assert.equal(ok.ok, true);
+  assert.equal(ok.payload.descriptorId, DESC_1);
+  // tampered signature
+  const tampered = issued.descriptor.slice(0, -1) + (issued.descriptor.endsWith("0") ? "1" : "0");
+  assert.equal(identity.verifyPrepareDescriptor(tampered, { now: NOW + 1000, sessionId: SID }).ok, false);
+  // expired (at expiresAt exactly: liveness is now < expiresAt)
+  assert.equal(
+    identity.verifyPrepareDescriptor(issued.descriptor, { now: NOW + identity.DESCRIPTOR_TTL_MS, sessionId: SID }).ok,
+    false,
+  );
+  // session mismatch
+  assert.equal(
+    identity.verifyPrepareDescriptor(issued.descriptor, { now: NOW + 1000, sessionId: "cs_other" }).ok,
+    false,
+  );
+  // garbage
+  assert.equal(identity.verifyPrepareDescriptor("nonsense", { now: NOW, sessionId: SID }).ok, false);
+});
+
+test("descriptor: missing signing secret fails closed (OQ-3 accessor)", () => {
+  const env = {};
+  assert.equal(
+    identity.issuePrepareDescriptor({
+      sessionId: SID, mapId: MAP, fingerprint: FINGERPRINT, now: NOW, env,
+    }),
+    null,
+  );
+  const issued = identity.issuePrepareDescriptor({
+    sessionId: SID, mapId: MAP, fingerprint: FINGERPRINT, now: NOW, descriptorId: DESC_1,
+  });
+  assert.equal(
+    identity.verifyPrepareDescriptor(issued.descriptor, { now: NOW, sessionId: SID, env }).ok,
+    false,
+  );
+});
+
+/* --------------------------- PNG validation ---------------------------- */
+
+function chunk(type, data) {
+  const len = Buffer.alloc(4);
+  len.writeUInt32BE(data.length);
+  const typeAndData = Buffer.concat([Buffer.from(type, "ascii"), data]);
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(png.pngCrc32(typeAndData));
+  return Buffer.concat([len, typeAndData, crc]);
+}
+
+function buildPng({
+  width = 4,
+  height = 3,
+  colorType = 6,
+  bitDepth = 8,
+  interlace = 0,
+  rawRows = null,
+  idatOverride = null,
+  trailing = false,
+  corruptIendCrc = false,
+  omitIdat = false,
+} = {}) {
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = bitDepth;
+  ihdr[9] = colorType;
+  ihdr[10] = 0;
+  ihdr[11] = 0;
+  ihdr[12] = interlace;
+  const rows = rawRows ?? Buffer.alloc(height * (1 + width * 4));
+  const idat = idatOverride ?? deflateSync(rows);
+  const parts = [
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk("IHDR", ihdr),
+  ];
+  if (!omitIdat) parts.push(chunk("IDAT", idat));
+  parts.push(chunk("IEND", Buffer.alloc(0)));
+  let out = Buffer.concat(parts);
+  if (trailing) out = Buffer.concat([out, Buffer.from("XX")]);
+  if (corruptIendCrc) {
+    out = Buffer.from(out);
+    out[out.length - 1] ^= 0xff;
+  }
+  return out;
+}
+
+const SMALL = { expectedWidth: 4, expectedHeight: 3 };
+
+test("png: valid RGBA PNG validates; digest is SHA-256 of the bytes (§5.10 steps 2–4)", async () => {
+  const bytes = buildPng();
+  const result = await png.validatePngBytes(bytes, SMALL);
+  assert.equal(result.ok, true);
+  assert.equal(result.digest, sha(bytes));
+  assert.equal(result.colorType, 6);
+  assert.equal(result.bitDepth, 8);
+});
+
+test("png: garbage IDAT with valid chunk structure + CRCs is rejected (§5.10 step 3)", async () => {
+  const bytes = buildPng({ idatOverride: Buffer.from("this is not a zlib stream at all") });
+  const result = await png.validatePngBytes(bytes, SMALL);
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, "inflated_data_invalid");
+});
+
+test("png: structural rejection set — bad CRC, trailing bytes, missing IDAT, wrong dims, wrong features", async () => {
+  assert.equal((await png.validatePngBytes(buildPng({ corruptIendCrc: true }), SMALL)).reason, "bad_crc");
+  assert.equal(
+    (await png.validatePngBytes(buildPng({ trailing: true }), SMALL)).reason,
+    "trailing_bytes_after_iend",
+  );
+  assert.equal((await png.validatePngBytes(buildPng({ omitIdat: true }), SMALL)).reason, "missing_idat");
+  assert.equal(
+    (await png.validatePngBytes(buildPng(), { expectedWidth: 5, expectedHeight: 3 })).reason,
+    "dimension_mismatch",
+  );
+  assert.equal(
+    (await png.validatePngBytes(buildPng({ colorType: 2 }), SMALL)).reason,
+    "unpinned_png_feature_set",
+  );
+  assert.equal(
+    (await png.validatePngBytes(buildPng({ interlace: 1 }), SMALL)).reason,
+    "interlace_not_supported",
+  );
+  assert.equal((await png.validatePngBytes(Buffer.from("not a png"), SMALL)).ok, false);
+});
+
+test("png: illegal filter byte + short inflated stream are rejected (§5.10 step 3)", async () => {
+  const badFilterRows = Buffer.alloc(3 * (1 + 4 * 4));
+  for (let r = 0; r < 3; r++) badFilterRows[r * (1 + 4 * 4)] = 9;
+  assert.equal(
+    (await png.validatePngBytes(buildPng({ rawRows: badFilterRows }), SMALL)).reason,
+    "inflated_data_invalid",
+  );
+  const shortRows = Buffer.alloc(2 * (1 + 4 * 4)); // one row short
+  assert.equal(
+    (await png.validatePngBytes(buildPng({ rawRows: shortRows }), SMALL)).reason,
+    "inflated_data_invalid",
+  );
+});
+
+test("png: counted read boundary — exactly at the cap ok, cap+1 refused (§5.10 step 1)", async () => {
+  const source = (chunks) =>
+    (async function* () {
+      for (const c of chunks) yield c;
+    })();
+  const exact = await png.readCountedBody(source([Buffer.alloc(40), Buffer.alloc(60)]), 100);
+  assert.equal(exact.ok, true);
+  assert.equal(exact.bytes.length, 100);
+  const over = await png.readCountedBody(source([Buffer.alloc(40), Buffer.alloc(61)]), 100);
+  assert.equal(over.ok, false);
+  assert.equal(over.reason, "too_large");
+});
+
+test("png: full-width stream — 6000×6000 RGBA validates through the discard path", async () => {
+  const rows = Buffer.alloc(6000 * (1 + 6000 * 4));
+  const bytes = buildPng({ width: 6000, height: 6000, rawRows: rows });
+  const result = await png.validatePngBytes(bytes, { expectedWidth: 6000, expectedHeight: 6000 });
+  assert.equal(result.ok, true);
+});
+
+/* ------------------------- state machine: Table 1 ------------------------- */
+
+test("R7: first registration records the intent, allocates generation 1, sets both pointers", () => {
+  const r = reg(s0());
+  assert.equal(r.outcome, "publication_intent_recorded");
+  assert.equal(r.changed, true);
+  assert.equal(r.publication.intentId, DESC_1);
+  assert.equal(r.publication.generation, 1);
+  const intent = r.state.publicationIntents[DESC_1];
+  assert.equal(intent.generation, 1);
+  assert.equal(intent.createdAt, NOW);
+  assert.equal(r.state.publicationIntentByArtifact[ARTIFACT], DESC_1);
+  assert.equal(r.state.canonicalArtifactByMap[MAP], ARTIFACT);
+  assert.equal(sm.isValidEntitlementAuthorityState(r.state), true);
+});
+
+test("R1: identical replay → recorded outcome, no state change", () => {
+  const s1 = reg(s0()).state;
+  const r = reg(s1);
+  assert.equal(r.outcome, "publication_intent_recorded");
+  assert.equal(r.changed, false);
+  assert.equal(r.publication.generation, 1);
+});
+
+test("R2: replay differing only in a non-binding field (digest) → intent_payload_conflict", () => {
+  const s1 = reg(s0()).state;
+  const r = reg(s1, { digest: DIGEST_B });
+  assert.equal(r.outcome, "refused");
+  assert.equal(r.refusal, "intent_payload_conflict");
+  assert.equal(r.changed, false);
+});
+
+test("R0 (A-1): divergent binding under an existing intentId → collision, never payload conflict", () => {
+  const s1 = reg(s0()).state;
+  const divergent = BINDING + " ";
+  const r = reg(s1, { canonicalBinding: divergent });
+  assert.equal(r.outcome, "refused");
+  assert.equal(r.refusal, "publication_conflict");
+});
+
+test("R0: divergent binding under a fresh intentId → collision (registration site (b))", () => {
+  const s1 = reg(s0()).state;
+  const r = reg(s1, { intentId: DESC_2, canonicalBinding: BINDING + " " });
+  assert.equal(r.refusal, "publication_conflict");
+  assert.equal(r.state.publicationIntents[DESC_2], undefined);
+});
+
+test("R0: divergent binding after the first intent EXPIRED → refused at R0 (retained records scanned)", () => {
+  const s1 = reg(s0(), { expiresAt: NOW + 1000 }).state;
+  const r = reg(
+    s1,
+    { intentId: DESC_2, canonicalBinding: BINDING + " ", expiresAt: NOW + 2000 + 600_000 },
+    NOW + 2000,
+  );
+  assert.equal(r.refusal, "publication_conflict");
+});
+
+test("R5: live governing intent with a different digest → publication_conflict, no registry write", () => {
+  const s1 = reg(s0()).state;
+  const r = reg(s1, { intentId: DESC_2, digest: DIGEST_B });
+  assert.equal(r.refusal, "publication_conflict");
+  assert.equal(r.state.artifactRegistry[ARTIFACT], undefined);
+  assert.equal(r.state.publicationIntentJoins[DESC_2], undefined);
+});
+
+test("R6: same-digest second prepare JOINS — join record persisted, governing pair carried, pointer unmoved", () => {
+  const s1 = reg(s0()).state;
+  const pointerBefore = s1.canonicalArtifactByMap[MAP];
+  const r = reg(s1, { intentId: DESC_2 });
+  assert.equal(r.outcome, "publication_intent_joined");
+  assert.equal(r.changed, true);
+  assert.equal(r.publication.intentId, DESC_1); // governing intentId
+  assert.equal(r.publication.generation, 1);
+  const join = r.state.publicationIntentJoins[DESC_2];
+  assert.ok(join);
+  assert.equal(join.governingIntentId, DESC_1);
+  assert.equal(join.digest, DIGEST_A);
+  assert.equal(r.state.canonicalArtifactByMap[MAP], pointerBefore);
+  assert.equal(sm.isValidEntitlementAuthorityState(r.state), true);
+});
+
+test("JN2: joined descriptor presenting different bytes → intent_payload_conflict; recorded digest unchanged", () => {
+  let s = reg(s0()).state;
+  s = reg(s, { intentId: DESC_2 }).state; // join
+  const r = reg(s, { intentId: DESC_2, digest: DIGEST_B });
+  assert.equal(r.refusal, "intent_payload_conflict");
+  assert.equal(r.state.publicationIntentJoins[DESC_2].digest, DIGEST_A);
+});
+
+test("JN1→R7 (W-1 later case): joined descriptor re-presenting after governing expiry promotes with machine-stamped expiry; intent + retained join coexist (V-1)", () => {
+  let s = reg(s0(), { expiresAt: NOW + 1000 }).state; // governing expires at NOW+1000
+  s = reg(s, { intentId: DESC_2, expiresAt: NOW + 5000 }).state; // DESC_2 joins; its signed expiry is LATER
+  const promoteAt = NOW + 2000; // governing expired; descriptor still valid
+  const r = reg(s, { intentId: DESC_2, expiresAt: NOW + 5000 }, promoteAt);
+  assert.equal(r.outcome, "publication_intent_recorded");
+  assert.equal(r.publication.intentId, DESC_2);
+  const intent = r.state.publicationIntents[DESC_2];
+  assert.equal(intent.expiresAt, promoteAt + identity.DESCRIPTOR_TTL_MS); // machine-stamped, NOT the record's expiry
+  assert.equal(intent.digest, DIGEST_A);
+  assert.ok(r.state.publicationIntentJoins[DESC_2]); // retained, never deleted
+  assert.equal(r.state.canonicalArtifactByMap[MAP], ARTIFACT); // pointer set by the R7 transition
+  assert.equal(sm.isValidEntitlementAuthorityState(r.state), true); // V-1 coexistence loads as valid
+});
+
+test("JN1→R6: joined descriptor re-presenting while a new governing intent lives → joined no-op, pointer unmoved", () => {
+  let s = reg(s0(), { expiresAt: NOW + 1000 }).state;
+  s = reg(s, { intentId: DESC_2, expiresAt: NOW + 9000 }).state; // join under DESC_2
+  s = reg(s, { intentId: DESC_3, expiresAt: NOW + 9000 }, NOW + 2000).state; // fresh R7 (DESC_3 governs)
+  const before = JSON.stringify(s.publicationIntentJoins);
+  const r = reg(s, { intentId: DESC_2, expiresAt: NOW + 9000 }, NOW + 3000);
+  assert.equal(r.outcome, "publication_intent_joined");
+  assert.equal(r.publication.intentId, DESC_3);
+  assert.equal(r.changed, false);
+  assert.equal(JSON.stringify(r.state.publicationIntentJoins), before);
+});
+
+test("W-1 earlier/equal cases: an expired descriptor is refused at classification; join record + binding retained, pointer unmoved", () => {
+  // Governing intent expires at tG; the joining descriptor's signed expiry tD <= tG.
+  for (const [label, tD] of [["earlier", NOW + 500], ["equal", NOW + 1000]]) {
+    let s = reg(s0(), { expiresAt: NOW + 1000 }).state;
+    s = reg(s, { intentId: DESC_2, expiresAt: tD }).state; // join recorded while governing lived
+    const issued = identity.issuePrepareDescriptor({
+      sessionId: SID,
+      mapId: MAP,
+      fingerprint: FINGERPRINT,
+      now: NOW,
+      ttlMs: tD - NOW,
+      descriptorId: DESC_2,
+    });
+    assert.ok(issued, label);
+    // At any now >= tG the descriptor is already dead (tD <= tG): classification refuses.
+    const verdict = identity.verifyPrepareDescriptor(issued.descriptor, {
+      now: NOW + 1000,
+      sessionId: SID,
+    });
+    assert.equal(verdict.ok, false, label);
+    // The refusal is of the presentation, never the record.
+    assert.ok(s.publicationIntentJoins[DESC_2], label);
+    assert.equal(s.publicationIntentJoins[DESC_2].digest, DIGEST_A, label);
+    assert.equal(s.canonicalArtifactByMap[MAP], ARTIFACT, label);
+  }
+});
+
+test("R7 guard: a registration whose effective expiry is not in the future → identity_rejected, no generation burned", () => {
+  const r = reg(s0(), { expiresAt: NOW }); // expiresAt <= now
+  assert.equal(r.refusal, "identity_rejected");
+  assert.equal(r.state.publicationGenerations[ARTIFACT], undefined);
+});
+
+test("register guard (V-5): presented sessionId ≠ document session → identity_rejected before the table", () => {
+  const r = reg(s0(), { sessionId: "cs_other_session" });
+  assert.equal(r.refusal, "identity_rejected");
+});
+
+test("V-6: presented dimensions differing from the binding derivation → intent_payload_conflict", () => {
+  const r = reg(s0(), { expectedHeight: 1234 });
+  assert.equal(r.refusal, "intent_payload_conflict");
+});
+
+/* ------------------------- state machine: Table 2 ------------------------- */
+
+function finalizedState() {
+  let s = reg(s0()).state;
+  const r = fin(s, {
+    observation: {
+      finalObjectPresent: true,
+      finalMetadata: trustedMetadata(DIGEST_A),
+      bodyVerifiedDigest: null,
+    },
+  });
+  assert.equal(r.outcome, "publication_finalized");
+  return r.state;
+}
+
+test("F6: live governing intent + trusted metadata digest equal → finalized; entry opens archiveEmail pending; by-artifact pointer cleared", () => {
+  const s = finalizedState();
+  const entry = s.artifactRegistry[ARTIFACT];
+  assert.equal(entry.state, "finalized");
+  assert.equal(entry.finalizedAt, NOW);
+  assert.deepEqual(entry.archiveEmail, {
+    state: "pending",
+    claimedAt: null,
+    dispatchedAt: null,
+    claimGeneration: 0,
+  });
+  assert.equal(s.publicationIntentByArtifact[ARTIFACT], undefined);
+  assert.equal(s.canonicalArtifactByMap[MAP], ARTIFACT); // finalize never moves the canonical pointer (P-3)
+  assert.equal(sm.isValidEntitlementAuthorityState(s), true);
+});
+
+test("F5 + expiry executability: finalize at now === expiresAt → finalization_pending, NO entry written", () => {
+  const s1 = reg(s0(), { expiresAt: NOW + 1000 }).state;
+  const r = fin(
+    s1,
+    {
+      observation: {
+        finalObjectPresent: true,
+        finalMetadata: trustedMetadata(DIGEST_A),
+        bodyVerifiedDigest: DIGEST_A,
+      },
+    },
+    NOW + 1000, // exactly at expiry: expired
+  );
+  assert.equal(r.outcome, "refused");
+  assert.equal(r.refusal, "finalization_pending");
+  assert.equal(r.state.artifactRegistry[ARTIFACT], undefined);
+});
+
+test("F5→R7→F6 chain: fresh prepare after expiry finalizes the same stored object", () => {
+  let s = reg(s0(), { intentId: DESC_1, expiresAt: NOW + 1000 }).state;
+  const pending = fin(s, {
+    observation: {
+      finalObjectPresent: true,
+      finalMetadata: trustedMetadata(DIGEST_A),
+      bodyVerifiedDigest: DIGEST_A,
+    },
+  }, NOW + 2000);
+  assert.equal(pending.refusal, "finalization_pending");
+  s = reg(pending.state, { intentId: DESC_3, expiresAt: NOW + 2000 + 600_000 }, NOW + 2000).state;
+  const r = fin(
+    s,
+    {
+      intentId: DESC_3,
+      generation: 2,
+      observation: {
+        finalObjectPresent: true,
+        finalMetadata: trustedMetadata(DIGEST_A),
+        bodyVerifiedDigest: DIGEST_A,
+      },
+    },
+    NOW + 2000,
+  );
+  assert.equal(r.outcome, "publication_finalized");
+  assert.equal(r.state.artifactRegistry[ARTIFACT].digest, DIGEST_A);
+});
+
+test("F7: trusted digest differing from governing → conflicted entry with evidence; presenter-independent (V-3)", () => {
+  const build = () => reg(s0()).state;
+  const observation = {
+    finalObjectPresent: true,
+    finalMetadata: trustedMetadata(DIGEST_B),
+    bodyVerifiedDigest: DIGEST_B,
+  };
+  const byGoverning = fin(build(), { observation });
+  const byStale = fin(build(), { intentId: "stale-id", generation: 99, observation });
+  assert.equal(byGoverning.outcome, "publication_conflicted");
+  assert.equal(byStale.outcome, "publication_conflicted");
+  assert.deepEqual(
+    byStale.state.artifactRegistry[ARTIFACT],
+    byGoverning.state.artifactRegistry[ARTIFACT],
+  );
+  const evidence = byGoverning.state.artifactRegistry[ARTIFACT].conflictEvidence;
+  assert.equal(evidence.governingDigest, DIGEST_A);
+  assert.equal(evidence.observedDigest, DIGEST_B);
+  assert.equal(evidence.source, "body");
+});
+
+test("F8: foreign metadata only → finalization_pending, NEVER conflicted; same object with a body hash → F7 by hashed digest", () => {
+  const s1 = reg(s0()).state;
+  const foreign = {
+    finalObjectPresent: true,
+    finalMetadata: { protocol: "other", artifactKey: ARTIFACT, digest: DIGEST_B, bindingDigest: sha(BINDING) },
+    bodyVerifiedDigest: null,
+  };
+  const r1 = fin(s1, { observation: foreign });
+  assert.equal(r1.refusal, "finalization_pending");
+  assert.equal(r1.state.artifactRegistry[ARTIFACT], undefined);
+  const r2 = fin(s1, {
+    observation: { ...foreign, bodyVerifiedDigest: DIGEST_B },
+  });
+  assert.equal(r2.outcome, "publication_conflicted");
+});
+
+test("determination: trusted-shaped metadata whose bindingDigest fails → undetermined (no alert, no conflict)", () => {
+  const s1 = finalizedState();
+  const badBindingDigest = {
+    finalObjectPresent: true,
+    finalMetadata: { ...trustedMetadata(DIGEST_A), bindingDigest: sha("some other binding") },
+    bodyVerifiedDigest: null,
+  };
+  const r = fin(s1, { observation: badBindingDigest });
+  assert.equal(r.outcome, "publication_already_finalized"); // F3 path
+  assert.equal(r.state.artifactRegistry[ARTIFACT].integrityAlerts.length, 0);
+});
+
+test("F3: finalized entry + absent object → already_finalized, no alert appended", () => {
+  const s1 = finalizedState();
+  const r = fin(s1, {
+    observation: { finalObjectPresent: false, finalMetadata: null, bodyVerifiedDigest: null },
+  });
+  assert.equal(r.outcome, "publication_already_finalized");
+  assert.equal(r.changed, false);
+  assert.equal(r.state.artifactRegistry[ARTIFACT].integrityAlerts.length, 0);
+});
+
+test("F2: finalized entry + trusted digest different → already_finalized + evidence appended, winner unchanged", () => {
+  const s1 = finalizedState();
+  const r = fin(s1, {
+    observation: {
+      finalObjectPresent: true,
+      finalMetadata: trustedMetadata(DIGEST_B),
+      bodyVerifiedDigest: DIGEST_B,
+    },
+  });
+  assert.equal(r.outcome, "publication_already_finalized");
+  assert.equal(r.changed, true);
+  const entry = r.state.artifactRegistry[ARTIFACT];
+  assert.equal(entry.digest, DIGEST_A);
+  assert.equal(entry.integrityAlerts.length, 1);
+  assert.equal(entry.integrityAlerts[0].kind, "digest_contradiction");
+});
+
+test("F1 discrepancy: body hash matches entry, trusted metadata names a different digest → alert appended, entry unchanged", () => {
+  const s1 = finalizedState();
+  const r = fin(s1, {
+    observation: {
+      finalObjectPresent: true,
+      finalMetadata: trustedMetadata(DIGEST_B), // metadata lies; body is truth
+      bodyVerifiedDigest: DIGEST_A,
+    },
+  });
+  assert.equal(r.outcome, "publication_already_finalized");
+  const entry = r.state.artifactRegistry[ARTIFACT];
+  assert.equal(entry.digest, DIGEST_A);
+  assert.equal(entry.integrityAlerts.length, 1);
+  assert.equal(entry.integrityAlerts[0].kind, "metadata_discrepancy");
+});
+
+test("F4: conflicted entry is idempotent under any determination", () => {
+  let s = reg(s0()).state;
+  s = fin(s, {
+    observation: { finalObjectPresent: true, finalMetadata: trustedMetadata(DIGEST_B), bodyVerifiedDigest: DIGEST_B },
+  }).state;
+  const r = fin(s, {
+    observation: { finalObjectPresent: false, finalMetadata: null, bodyVerifiedDigest: null },
+  });
+  assert.equal(r.outcome, "publication_conflicted");
+  assert.equal(r.changed, false);
+});
+
+test("R3/R4: registration against a finalized entry → already_finalized carrying the entry; against conflicted → publication_conflict", () => {
+  const sFin = finalizedState();
+  const r3 = reg(sFin, { intentId: DESC_4 });
+  assert.equal(r3.refusal, "already_finalized");
+  assert.equal(r3.publication.entry.digest, DIGEST_A);
+  let sCon = reg(s0()).state;
+  sCon = fin(sCon, {
+    observation: { finalObjectPresent: true, finalMetadata: trustedMetadata(DIGEST_B), bodyVerifiedDigest: DIGEST_B },
+  }).state;
+  const r4 = reg(sCon, { intentId: DESC_4 });
+  assert.equal(r4.refusal, "publication_conflict");
+  assert.equal(r4.publication.entry.state, "conflicted");
+});
+
+test("A-2: finalize with divergent presentedBinding against retained-expired-only records → collision, F5 not reached; matching → F5; no records + string → F5", () => {
+  const s1 = reg(s0(), { expiresAt: NOW + 1000 }).state; // will be expired-only
+  const divergent = fin(
+    s1,
+    { presentedBinding: BINDING + " ", observation: { finalObjectPresent: false, finalMetadata: null, bodyVerifiedDigest: null } },
+    NOW + 2000,
+  );
+  assert.equal(divergent.refusal, "publication_conflict");
+  assert.equal(divergent.changed, false);
+  const matching = fin(
+    s1,
+    { presentedBinding: BINDING, observation: { finalObjectPresent: false, finalMetadata: null, bodyVerifiedDigest: null } },
+    NOW + 2000,
+  );
+  assert.equal(matching.refusal, "finalization_pending");
+  const noRecords = fin(
+    s0(),
+    { presentedBinding: BINDING, observation: { finalObjectPresent: false, finalMetadata: null, bodyVerifiedDigest: null } },
+  );
+  assert.equal(noRecords.refusal, "finalization_pending");
+});
+
+test("A-3 boundary pair: replay under existing intentId differing only in digest → R2 payload conflict; under existing join → JN2", () => {
+  let s = reg(s0()).state;
+  assert.equal(reg(s, { digest: DIGEST_B }).refusal, "intent_payload_conflict");
+  s = reg(s, { intentId: DESC_2 }).state; // join
+  assert.equal(reg(s, { intentId: DESC_2, digest: DIGEST_B }).refusal, "intent_payload_conflict");
+  // …while a divergent BINDING under the join classifies as collision (R0):
+  assert.equal(
+    reg(s, { intentId: DESC_2, canonicalBinding: BINDING + " " }).refusal,
+    "publication_conflict",
+  );
+});
+
+test("V-11.3 saturation: the 9th contradiction sets saturated (changed), the 10th changes nothing", () => {
+  let s = finalizedState();
+  const contradict = (digest, now) =>
+    fin(s, {
+      observation: { finalObjectPresent: true, finalMetadata: trustedMetadata(digest), bodyVerifiedDigest: digest },
+    }, now);
+  for (let i = 0; i < 8; i++) {
+    const r = contradict(sha(`other-${i}`), NOW + i);
+    assert.equal(r.changed, true);
+    s = r.state;
+  }
+  assert.equal(s.artifactRegistry[ARTIFACT].integrityAlerts.length, 8);
+  const ninth = contradict(sha("other-8"), NOW + 100);
+  assert.equal(ninth.changed, true);
+  assert.equal(ninth.state.artifactRegistry[ARTIFACT].integrityAlertsSaturated, true);
+  assert.equal(ninth.state.artifactRegistry[ARTIFACT].integrityAlerts.length, 8);
+  const tenth = fin(ninth.state, {
+    observation: { finalObjectPresent: true, finalMetadata: trustedMetadata(sha("other-9")), bodyVerifiedDigest: sha("other-9") },
+  }, NOW + 101);
+  assert.equal(tenth.changed, false);
+  assert.equal(sm.isValidEntitlementAuthorityState(tenth.state), true);
+});
+
+/* ------------------------------ email ops ------------------------------ */
+
+const claim = (state, now = NOW) =>
+  sm.applyEntitlementAuthorityOp(state, { type: "claim_archive_email_dispatch", artifactKey: ARTIFACT, now });
+const record = (state, claimGeneration, now = NOW) =>
+  sm.applyEntitlementAuthorityOp(state, {
+    type: "record_archive_email_dispatch",
+    artifactKey: ARTIFACT,
+    claimGeneration,
+    now,
+  });
+
+test("email: claim → generation 1; record with that generation → dispatched; claim on dispatched carries the dispatched fact (V-10)", () => {
+  const s = finalizedState();
+  const c = claim(s);
+  assert.equal(c.outcome, "archive_email_claimed");
+  assert.equal(c.publication.claimGeneration, 1);
+  assert.equal(c.publication.dispatched, false);
+  const r = record(c.state, 1);
+  assert.equal(r.outcome, "archive_email_dispatch_recorded");
+  assert.equal(r.state.artifactRegistry[ARTIFACT].archiveEmail.state, "dispatched");
+  const again = claim(r.state);
+  assert.equal(again.outcome, "archive_email_claimed");
+  assert.equal(again.changed, false);
+  assert.equal(again.publication.dispatched, true); // receipt, not an authorisation
+});
+
+test("email: record on a pending entry → archive_email_not_claimed; on absent/conflicted → not_finalized", () => {
+  const s = finalizedState();
+  assert.equal(record(s, 1).refusal, "archive_email_not_claimed");
+  assert.equal(record(s0(), 1).refusal, "not_finalized");
+  assert.equal(claim(s0()).refusal, "not_finalized");
+});
+
+test("email (V-10 fencing): lease-expired re-claim mints generation 2; a generation-1 record is refused stale; generation-2 record lands", () => {
+  const s = finalizedState();
+  const c1 = claim(s, NOW);
+  assert.equal(c1.publication.claimGeneration, 1);
+  const live = claim(c1.state, NOW + 1000);
+  assert.equal(live.refusal, "archive_email_already_claimed");
+  const afterLease = NOW + sm.DISPATCH_CLAIM_LEASE_MS + 1;
+  const c2 = claim(c1.state, afterLease);
+  assert.equal(c2.outcome, "archive_email_claimed");
+  assert.equal(c2.publication.claimGeneration, 2);
+  const stale = record(c2.state, 1, afterLease + 10);
+  assert.equal(stale.refusal, "archive_email_claim_stale");
+  assert.equal(stale.state.artifactRegistry[ARTIFACT].archiveEmail.state, "claimed");
+  const good = record(c2.state, 2, afterLease + 20);
+  assert.equal(good.outcome, "archive_email_dispatch_recorded");
+});
+
+/* --------------------------- purity + validator --------------------------- */
+
+test("purity fence: a full publication sequence leaves the accounting surface deep-equal", () => {
+  const before = s0();
+  const surfaceBefore = accountingSurface(before);
+  let s = reg(before).state;
+  s = reg(s, { intentId: DESC_2 }).state;
+  s = fin(s, {
+    observation: { finalObjectPresent: true, finalMetadata: trustedMetadata(DIGEST_A), bodyVerifiedDigest: null },
+  }).state;
+  s = claim(s).state;
+  s = record(s, 1).state;
+  assert.equal(accountingSurface(s), surfaceBefore);
+});
+
+test("validator rules: foreign-session records fail (rule 9); unwarranted pointer fails (rule 8); divergent bindings fail (rule 6)", () => {
+  const good = reg(s0()).state;
+  assert.equal(sm.isValidEntitlementAuthorityState(good), true);
+  const foreign = structuredClone(good);
+  foreign.publicationIntents[DESC_1].sessionId = "cs_attacker";
+  // (also breaks artifactKey recompute; session rule is asserted on the same path)
+  assert.equal(sm.isValidEntitlementAuthorityState(foreign), false);
+  const unwarranted = structuredClone(good);
+  unwarranted.canonicalArtifactByMap = { "map-with-no-intent": ARTIFACT };
+  assert.equal(sm.isValidEntitlementAuthorityState(unwarranted), false);
+  const divergent = structuredClone(good);
+  divergent.publicationIntentJoins["99".repeat(16)] = {
+    intentId: "99".repeat(16),
+    governingIntentId: DESC_1,
+    artifactKey: ARTIFACT,
+    sessionId: SID,
+    mapId: MAP,
+    canonicalBinding: BINDING + " ",
+    fingerprint: FINGERPRINT,
+    contractVersion: 1,
+    rendererVersion: 1,
+    digest: DIGEST_A,
+    stagingKey: identity.buildStagingKey("99".repeat(16)),
+    expiresAt: NOW + 1000,
+    joinedAt: NOW,
+  };
+  assert.equal(sm.isValidEntitlementAuthorityState(divergent), false);
+});
+
+test("validator: saturated without 8 alerts fails; claimed with claimGeneration 0 fails (V-10/V-11.3)", () => {
+  const s = finalizedState();
+  const saturatedBad = structuredClone(s);
+  saturatedBad.artifactRegistry[ARTIFACT].integrityAlertsSaturated = true;
+  assert.equal(sm.isValidEntitlementAuthorityState(saturatedBad), false);
+  const claimed = claim(s).state;
+  const genBad = structuredClone(claimed);
+  genBad.artifactRegistry[ARTIFACT].archiveEmail.claimGeneration = 0;
+  assert.equal(sm.isValidEntitlementAuthorityState(genBad), false);
+});
+
+/* ------------------------------ pointer P-4 ------------------------------ */
+
+test("pointer P-4: maintenance sequence, SEAM-2 join case, expiry/finalization stillness, both T34 orderings", () => {
+  const recipeY = recipe({ seed: "seed-2" });
+  const bindingY = identity.canonicalBindingForRecipe(recipeY);
+  const fpY = identity.fingerprintForBinding(bindingY);
+  const artifactY = identity.buildArtifactId({ sessionId: SID, mapId: MAP, fingerprint: fpY });
+  const dimsY = identity.expectedDimensionsForBinding(bindingY);
+  const regY = (state, over = {}, now = NOW) =>
+    sm.applyEntitlementAuthorityOp(state, {
+      type: "register_publication_intent",
+      intent: intentInput({
+        intentId: DESC_3,
+        artifactKey: artifactY,
+        canonicalBinding: bindingY,
+        fingerprint: fpY,
+        stagingKey: identity.buildStagingKey(DESC_3),
+        expectedWidth: dimsY.expectedWidth,
+        expectedHeight: dimsY.expectedHeight,
+        ...over,
+      }),
+      now,
+    });
+
+  // Maintenance sequence: R7(X) → X; R1 replay → X; R6 join → X; R7(Y) → Y.
+  let s = reg(s0()).state;
+  assert.equal(s.canonicalArtifactByMap[MAP], ARTIFACT);
+  s = reg(s).state;
+  assert.equal(s.canonicalArtifactByMap[MAP], ARTIFACT);
+  s = reg(s, { intentId: DESC_2 }).state; // join against X
+  assert.equal(s.canonicalArtifactByMap[MAP], ARTIFACT);
+  s = regY(s).state;
+  assert.equal(s.canonicalArtifactByMap[MAP], artifactY);
+  // SEAM-2: a join against X afterwards leaves the pointer at Y.
+  s = reg(s, { intentId: DESC_4 }).state; // DESC_4 joins X's intent (same digest)
+  assert.equal(s.canonicalArtifactByMap[MAP], artifactY);
+  // Finalization of X does not move it either.
+  const finX = sm.applyEntitlementAuthorityOp(s, {
+    type: "finalize_publication",
+    artifactKey: ARTIFACT,
+    intentId: DESC_1,
+    generation: 1,
+    observation: {
+      finalObjectPresent: true,
+      finalMetadata: { ...trustedMetadata(DIGEST_A), artifactKey: ARTIFACT },
+      bodyVerifiedDigest: null,
+    },
+    now: NOW,
+  });
+  assert.equal(finX.outcome, "publication_finalized");
+  assert.equal(finX.state.canonicalArtifactByMap[MAP], artifactY);
+
+  // Both T34 orderings: the pointer always names the SECOND registration.
+  const xy = regY(reg(s0()).state).state;
+  assert.equal(xy.canonicalArtifactByMap[MAP], artifactY);
+  const yx = reg(regY(s0()).state).state;
+  assert.equal(yx.canonicalArtifactByMap[MAP], ARTIFACT);
+});
+
+test("two maps under one session: distinct identities register + finalize independently", () => {
+  const idB = identity.deriveArtifactIdentity({ sessionId: SID, mapId: MAP2, recipe: recipe() });
+  let s = reg(s0()).state;
+  const rB = sm.applyEntitlementAuthorityOp(s, {
+    type: "register_publication_intent",
+    intent: intentInput({
+      intentId: DESC_2,
+      artifactKey: idB.artifactId,
+      mapId: MAP2,
+      stagingKey: identity.buildStagingKey(DESC_2),
+    }),
+    now: NOW,
+  });
+  assert.equal(rB.outcome, "publication_intent_recorded");
+  s = rB.state;
+  assert.equal(s.canonicalArtifactByMap[MAP], ARTIFACT);
+  assert.equal(s.canonicalArtifactByMap[MAP2], idB.artifactId);
+  assert.equal(sm.isValidEntitlementAuthorityState(s), true);
+});
+
+/* ------------------------------ race evidence ------------------------------ */
+
+test("Class A + V-11.1 fold: concurrent registrations through the serialised authority — different digests: one records, the loser conflicts; folding the recorded history reproduces the final state", async () => {
+  clientMod.__resetEntitlementAuthorityMemoryForTests();
+  const client = clientMod.createEntitlementAuthorityClient();
+  const opA = { type: "register_publication_intent", intent: intentInput({ intentId: DESC_1 }), now: NOW };
+  const opB = { type: "register_publication_intent", intent: intentInput({ intentId: DESC_2, digest: DIGEST_B }), now: NOW };
+  const [ra, rb] = await Promise.all([client.apply(SID, opA), client.apply(SID, opB)]);
+  const outcomes = [ra.outcome, rb.outcome].sort();
+  assert.deepEqual(outcomes, ["publication_intent_recorded", "refused"]);
+  const loser = ra.outcome === "refused" ? ra : rb;
+  assert.equal(loser.refusal, "publication_conflict");
+  const final = await client.getState(SID);
+  // History (authority-side submission order = [opA, opB]) folds to the state.
+  let folded = sm.createEmptyEntitlementAuthorityState(SID);
+  for (const op of [opA, opB]) folded = sm.applyEntitlementAuthorityOp(folded, op).state;
+  assert.deepEqual(folded.publicationIntents, final.publicationIntents);
+  assert.deepEqual(folded.publicationIntentJoins, final.publicationIntentJoins);
+  assert.deepEqual(folded.publicationGenerations, final.publicationGenerations);
+  assert.deepEqual(folded.canonicalArtifactByMap, final.canonicalArtifactByMap);
+});
+
+test("Class A: concurrent same-digest registrations → exactly one intent + one join", async () => {
+  clientMod.__resetEntitlementAuthorityMemoryForTests();
+  const client = clientMod.createEntitlementAuthorityClient();
+  const opA = { type: "register_publication_intent", intent: intentInput({ intentId: DESC_1 }), now: NOW };
+  const opB = { type: "register_publication_intent", intent: intentInput({ intentId: DESC_2 }), now: NOW };
+  const [ra, rb] = await Promise.all([client.apply(SID, opA), client.apply(SID, opB)]);
+  assert.deepEqual([ra.outcome, rb.outcome].sort(), [
+    "publication_intent_joined",
+    "publication_intent_recorded",
+  ]);
+  const final = await client.getState(SID);
+  assert.equal(Object.keys(final.publicationIntents).length, 1);
+  assert.equal(Object.keys(final.publicationIntentJoins).length, 1);
+  assert.equal(sm.isValidEntitlementAuthorityState(final), true);
+});
+
+test("email drivers: two concurrent claims through the authority → exactly one claim granted (at-least-once bound, N5)", async () => {
+  clientMod.__resetEntitlementAuthorityMemoryForTests();
+  const client = clientMod.createEntitlementAuthorityClient();
+  await client.apply(SID, { type: "register_publication_intent", intent: intentInput(), now: NOW });
+  await client.apply(SID, {
+    type: "finalize_publication",
+    artifactKey: ARTIFACT,
+    intentId: DESC_1,
+    generation: 1,
+    observation: {
+      finalObjectPresent: true,
+      finalMetadata: trustedMetadata(DIGEST_A),
+      bodyVerifiedDigest: null,
+    },
+    now: NOW,
+  });
+  const claimOp = { type: "claim_archive_email_dispatch", artifactKey: ARTIFACT, now: NOW };
+  const [c1, c2] = await Promise.all([client.apply(SID, claimOp), client.apply(SID, claimOp)]);
+  const granted = [c1, c2].filter((c) => c.outcome === "archive_email_claimed");
+  const refused = [c1, c2].filter((c) => c.outcome === "refused");
+  assert.equal(granted.length, 1);
+  assert.equal(refused.length, 1);
+  assert.equal(refused[0].refusal, "archive_email_already_claimed");
+});
+
+/** Faithful fake R2 (§8 Class C): honours onlyIf create-only, stores
+ * customMetadata verbatim, distinct bytes per key. */
+class FakeR2Bucket {
+  constructor() {
+    this.objects = new Map();
+    this.failPuts = 0;
+  }
+  async put(key, value, options = {}) {
+    if (this.failPuts > 0) {
+      this.failPuts--;
+      const err = new Error("Too many requests");
+      err.code = 10058;
+      throw err;
+    }
+    if (options.onlyIf?.etagDoesNotMatch === "*" && this.objects.has(key)) return null;
+    const bytes = Buffer.from(value);
+    this.objects.set(key, { bytes, customMetadata: { ...(options.customMetadata ?? {}) } });
+    return { key, etag: `"etag-${key}"`, httpEtag: `"etag-${key}"`, size: bytes.length, checksums: {}, uploaded: new Date() };
+  }
+  async head(key) {
+    const o = this.objects.get(key);
+    if (!o) return null;
+    return { key, etag: `"etag-${key}"`, httpEtag: `"etag-${key}"`, size: o.bytes.length, checksums: {}, uploaded: new Date(), customMetadata: o.customMetadata, httpMetadata: {} };
+  }
+  async get(key) {
+    const o = this.objects.get(key);
+    if (!o) return null;
+    return {
+      key,
+      etag: `"etag-${key}"`,
+      httpEtag: `"etag-${key}"`,
+      size: o.bytes.length,
+      checksums: {},
+      uploaded: new Date(),
+      customMetadata: o.customMetadata,
+      httpMetadata: {},
+      body: null,
+      bodyUsed: false,
+      arrayBuffer: async () => o.bytes.buffer.slice(o.bytes.byteOffset, o.bytes.byteOffset + o.bytes.byteLength),
+    };
+  }
+  async delete(key) {
+    this.objects.delete(key);
+  }
+}
+
+const metaFor = (digest) => ({
+  protocol: "dl1-archive-v1",
+  artifactKey: ARTIFACT,
+  digest,
+  bindingDigest: sha(BINDING),
+});
+
+test("Class C: two distinct bodies race one fresh key — exactly one created; the stored object is the winner's; loser retries settle as existed", async () => {
+  const bucket = new FakeR2Bucket();
+  const key = identity.buildFinalKey({
+    sessionId: SID, mapId: MAP, fingerprint: FINGERPRINT, contractVersion: 1, rendererVersion: 1,
+  });
+  const bytesA = new Uint8Array(Buffer.from("winner-or-loser-a"));
+  const bytesB = new Uint8Array(Buffer.from("winner-or-loser-b"));
+  // Barrier-forced simultaneity (no sleeps): both puts start before either resolves.
+  let release;
+  const barrier = new Promise((r) => (release = r));
+  const gatedPut = async (bytes, digest) => {
+    await barrier;
+    return storage.promoteCreateOnlyWithBucket(bucket, key, bytes, metaFor(digest), createHash("sha256").update(bytes).digest().buffer);
+  };
+  const p1 = gatedPut(bytesA, DIGEST_A);
+  const p2 = gatedPut(bytesB, DIGEST_B);
+  release();
+  const [r1, r2] = await Promise.all([p1, p2]);
+  assert.deepEqual([r1.outcome, r2.outcome].sort(), ["created", "existed"]);
+  const stored = bucket.objects.get(key);
+  const winnerBytes = r1.outcome === "created" ? bytesA : bytesB;
+  const winnerDigest = r1.outcome === "created" ? DIGEST_A : DIGEST_B;
+  assert.deepEqual(stored.bytes, Buffer.from(winnerBytes));
+  assert.equal(stored.customMetadata.digest, winnerDigest);
+  // The loser's bytes appear nowhere.
+  const loserRetry = await storage.promoteCreateOnlyWithBucket(
+    bucket, key, r1.outcome === "created" ? bytesB : bytesA,
+    metaFor(r1.outcome === "created" ? DIGEST_B : DIGEST_A),
+    new ArrayBuffer(32),
+  );
+  assert.equal(loserRetry.outcome, "existed");
+  assert.deepEqual(bucket.objects.get(key).bytes, Buffer.from(winnerBytes));
+});
+
+test("Class C: a thrown promotion (429-shaped) is UNKNOWN until reconciled — bounded retry then head-compare; head-missing never proves failure", async () => {
+  const bucket = new FakeR2Bucket();
+  bucket.failPuts = 1; // first attempt throws; the wrapper's bounded retry lands it
+  const key = "download-archive/hd/retry/key.png";
+  const bytes = new Uint8Array(Buffer.from("retry-body"));
+  const r = await storage.promoteCreateOnlyWithBucket(bucket, key, bytes, metaFor(DIGEST_A), new ArrayBuffer(32));
+  assert.equal(r.outcome, "created");
+  assert.deepEqual(bucket.objects.get(key).bytes, Buffer.from(bytes));
+  const deadBucket = new FakeR2Bucket();
+  deadBucket.failPuts = 99; // every attempt throws
+  const unknown = await storage.promoteCreateOnlyWithBucket(deadBucket, key, bytes, metaFor(DIGEST_A), new ArrayBuffer(32));
+  assert.equal(unknown.outcome, "error"); // outcome unknown to the caller: head alone cannot prove non-creation
+});
+
+test("U-P2 boundary test: create → delete → create-only put SUCCEEDS again (conditional creation is not lifetime immutability)", async () => {
+  const dir = path.join(process.cwd(), ".tmp", "dl1-s4-u-p2");
+  const { rm: rmStart } = await import("node:fs/promises");
+  await rmStart(dir, { recursive: true, force: true }); // hermetic across runs
+  process.env.STARMAP_DOWNLOAD_ARCHIVE_DIR = dir;
+  const key = "download-archive/hd/up2/key.png";
+  const bytes = new Uint8Array(Buffer.from("u-p2-body"));
+  const first = await storage.promoteArtifactCreateOnly(key, bytes, metaFor(DIGEST_A));
+  assert.equal(first.outcome, "created");
+  const { rm } = await import("node:fs/promises");
+  const { readdirSync: rd } = await import("node:fs");
+  for (const name of rd(dir)) await rm(path.join(dir, name), { force: true });
+  const second = await storage.promoteArtifactCreateOnly(key, bytes, metaFor(DIGEST_A));
+  assert.equal(second.outcome, "created"); // U-P2 labelled: proves the same observable locally
+  delete process.env.STARMAP_DOWNLOAD_ARCHIVE_DIR;
+});
+
+test("storage taxonomy: head/get distinguish present / genuinely absent / errors-throw", async () => {
+  const dir = path.join(process.cwd(), ".tmp", "dl1-s4-taxonomy");
+  process.env.STARMAP_DOWNLOAD_ARCHIVE_DIR = dir;
+  const key = "download-archive/staging/taxonomy.png";
+  await storage.putStagingObject(key, new Uint8Array(Buffer.from("staged")));
+  const head = await storage.headArtifactObject(key);
+  assert.equal(head.present, true);
+  const got = await storage.getArtifactObject(key);
+  assert.equal(Buffer.from(got.bytes).toString(), "staged");
+  const missing = await storage.headArtifactObject("download-archive/staging/nope.png");
+  assert.equal(missing.present, false);
+  assert.equal(await storage.getArtifactObject("download-archive/staging/nope.png"), null);
+  delete process.env.STARMAP_DOWNLOAD_ARCHIVE_DIR;
+});
+
+/* --------------------------- Durable Object --------------------------- */
+
+class FakeSqlStorage {
+  constructor(rows = new Map()) {
+    this.rows = rows;
+  }
+  exec(sql, ...params) {
+    const head = sql.trimStart().slice(0, 6).toUpperCase();
+    if (head.startsWith("CREATE")) return { toArray: () => [] };
+    if (head.startsWith("SELECT")) {
+      const row = this.rows.get(params[0]);
+      return { toArray: () => (row ? [row] : []) };
+    }
+    if (head.startsWith("INSERT")) {
+      const [sessionId, stateJson, updatedAt] = params;
+      this.rows.set(sessionId, { session_id: sessionId, state_json: stateJson, updated_at: updatedAt });
+      return { toArray: () => [] };
+    }
+    throw new Error(`unexpected SQL in fake: ${sql.slice(0, 80)}`);
+  }
+}
+
+test("DO: publication state survives an object restart (real EntitlementAuthorityDO class)", async () => {
+  const sql = new FakeSqlStorage();
+  const ctx = () => ({
+    storage: { sql },
+    blockConcurrencyWhile(fn) {
+      return fn();
+    },
+  });
+  const first = new EntitlementAuthorityDO(ctx(), {});
+  const applied = await first.apply(SID, {
+    type: "register_publication_intent",
+    intent: intentInput(),
+    now: NOW,
+  });
+  assert.equal(applied.outcome, "publication_intent_recorded");
+  const restarted = new EntitlementAuthorityDO(ctx(), {});
+  const state = await restarted.getState(SID);
+  assert.equal(state.publicationIntents[DESC_1].digest, DIGEST_A);
+  assert.equal(state.canonicalArtifactByMap[MAP], ARTIFACT);
+  assert.equal(sm.isValidEntitlementAuthorityState(state), true);
+});
+
+/* ------------------------------ source pins ------------------------------ */
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const appRoot = path.resolve(here, "..", "..");
+const readSrc = (rel) => readFileSync(path.join(appRoot, rel), "utf8");
+
+test("source pins: (v) GET segment is byte-identical to the base capture; (iii) staging keys never appear in it", () => {
+  const route = readSrc("src/app/api/download/archive/route.ts");
+  const fixture = readFileSync(path.join(here, "fixtures", "archiveRouteGet.base.txt"), "utf8");
+  const getStart = route.indexOf("export async function GET");
+  const getSegment = route.slice(getStart, getStart + fixture.length);
+  assert.equal(getSegment, fixture);
+  // The segment boundary is exact: the next character ends the function.
+  assert.equal(route[getStart + fixture.length], "\n");
+  assert.ok(!getSegment.includes("staging"));
+});
+
+test("source pins: (i) no unconditional final-key put in src; (ii) no S4 writer writes the legacy session key", () => {
+  const storageSrc = readSrc("src/lib/downloadArchiveStorage.ts");
+  const routeSrc = readSrc("src/app/api/download/archive/route.ts");
+  // (i) every bucket.put in the storage module is either staging (plain,
+  // staging-prefixed keys only at call sites) or the promotion put, which
+  // must carry the create-only condition.
+  const putCalls = storageSrc.match(/bucket\.put\(/g) ?? [];
+  assert.equal(putCalls.length, 2);
+  assert.ok(storageSrc.includes('etagDoesNotMatch: "*"'));
+  const routePuts = routeSrc.match(/\.put\(/g) ?? [];
+  assert.equal(routePuts.length, 0); // the route never writes storage directly
+  // (ii) hdArchiveKey (the legacy key builder) is referenced only by the
+  // pre-existing legacy READ paths (route GET segment; the storage module's
+  // base hdArchiveObjectExists head) — never in any S4 section, and never
+  // as a write target anywhere.
+  const routeS4Start = routeSrc.indexOf("/* ================= DL-1 Slice 4 publication protocol");
+  assert.ok(!routeSrc.slice(routeS4Start).includes("hdArchiveKey"));
+  const storageS4Start = storageSrc.indexOf("/* ================= DL-1 Slice 4 storage layer");
+  assert.ok(!storageSrc.slice(storageS4Start).includes("hdArchiveKey"));
+  assert.ok(!/\.put\([^)]*hdArchiveKey/.test(storageSrc + routeSrc));
+});
+
+test("source pins: (iv) the publication op list is the §5.4 closed list", () => {
+  const stateSrc = readSrc("src/lib/entitlementAuthorityState.ts");
+  const cases = stateSrc.match(/case "(register_publication_intent|finalize_publication|claim_archive_email_dispatch|record_archive_email_dispatch)"/g) ?? [];
+  assert.equal(cases.length, 4);
+});

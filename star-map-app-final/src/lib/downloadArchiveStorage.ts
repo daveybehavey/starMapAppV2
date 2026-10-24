@@ -69,12 +69,18 @@ export type ArtifactObjectMetadata = {
   bindingDigest: string;
 };
 
-const LOCAL_ARCHIVE_DIR =
-  process.env.STARMAP_DOWNLOAD_ARCHIVE_DIR?.trim() ||
-  path.join(process.cwd(), ".tmp", "download-archive");
+/** Resolved per call (not captured at module load) so the directory
+ * override behaves like the route's own local fallback and stays
+ * test-addressable. */
+function localArchiveDir(): string {
+  return (
+    process.env.STARMAP_DOWNLOAD_ARCHIVE_DIR?.trim() ||
+    path.join(process.cwd(), ".tmp", "download-archive")
+  );
+}
 
 function localFilePathForKey(key: string): string {
-  return path.join(LOCAL_ARCHIVE_DIR, Buffer.from(key, "utf8").toString("base64url"));
+  return path.join(localArchiveDir(), Buffer.from(key, "utf8").toString("base64url"));
 }
 
 function artifactMetadataFromCustom(
@@ -175,7 +181,7 @@ export async function putStagingObject(key: string, bytes: Uint8Array): Promise<
   if (!isLocalAuthorityFallbackAllowed()) {
     throw new Error("archive_storage_unavailable");
   }
-  await fs.mkdir(LOCAL_ARCHIVE_DIR, { recursive: true });
+  await fs.mkdir(localArchiveDir(), { recursive: true });
   await fs.writeFile(localFilePathForKey(key), bytes);
 }
 
@@ -226,7 +232,7 @@ export async function promoteCreateOnlyLocal(
   bytes: Uint8Array,
   metadata: ArtifactObjectMetadata,
 ): Promise<PromotionOutcome> {
-  await fs.mkdir(LOCAL_ARCHIVE_DIR, { recursive: true });
+  await fs.mkdir(localArchiveDir(), { recursive: true });
   const filePath = localFilePathForKey(key);
   let handle: fs.FileHandle;
   try {
