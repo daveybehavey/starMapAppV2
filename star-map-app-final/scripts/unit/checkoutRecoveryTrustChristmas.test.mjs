@@ -333,7 +333,7 @@ test("Christmas order-by summary lines carry no rest-of-world dates", async () =
   // tightening), mugs & keepsake cards in the US (Dec 7) — ahead of the
   // framed/poster lines.
   assert.deepEqual(lines, [
-    "Framed prints, canvas wraps, mugs & keepsake cards — earliest cutoff: United States Dec 7 · Canada Dec 3 · rest of world: order early",
+    "Earliest cutoffs: United States Dec 7 (mugs & keepsake cards) · Canada Dec 3 (framed prints & canvas wraps) · rest of world: order early",
     "Framed & canvas: United States Dec 8 · Canada Dec 3 · rest of world: order early",
     "Posters: United States Dec 9 · Canada Dec 10 · rest of world: order early",
   ]);
@@ -347,9 +347,14 @@ test("earliest Christmas cutoff derives from CHRISTMAS_ORDER_BY_DATES (U05)", as
 
   // Framed print + canvas wrap hold the tightest Canada deadline
   // (Dec 3); mug + keepsake card hold the tightest US one (Dec 7).
-  // A product is listed when it holds either country's earliest date.
+  // A product is listed in `products` when it holds either country's
+  // earliest date; the per-country lists keep each country's holders
+  // with its own date (a combined label read as a second, wrong US
+  // framed date — Dec 7 beside the framed line's Dec 8).
   assert.deepEqual(getEarliestChristmasCutoff(), {
     products: ["Framed print", "Canvas wrap", "Mug", "Keepsake card"],
+    canadaProducts: ["Framed print", "Canvas wrap"],
+    unitedStatesProducts: ["Mug", "Keepsake card"],
     canada: "Dec 3",
     unitedStates: "Dec 7",
   });
@@ -359,9 +364,9 @@ test("earliest Christmas cutoff derives from CHRISTMAS_ORDER_BY_DATES (U05)", as
   // plain order-by phase and in the promo phases that reuse the line.
   const at = (ymd) => Date.parse(`${ymd}T20:00:00.000Z`);
   const orderByPhase = getChristmasBannerContent(at("2026-10-13"), "$9");
-  assert.match(orderByPhase.message, /earliest cutoff: framed prints, canvas wraps, mugs & keepsake cards US Dec 7 · Canada Dec 3/);
+  assert.match(orderByPhase.message, /earliest cutoffs: US Dec 7 \(mugs & keepsake cards\) · Canada Dec 3 \(framed prints & canvas wraps\)/);
   const earlyPhase = getChristmasBannerContent(at("2026-11-15"), "$9");
-  assert.match(earlyPhase.message, /earliest cutoff: framed prints, canvas wraps, mugs & keepsake cards US Dec 7 · Canada Dec 3/);
+  assert.match(earlyPhase.message, /earliest cutoffs: US Dec 7 \(mugs & keepsake cards\) · Canada Dec 3 \(framed prints & canvas wraps\)/);
 });
 
 test("christmas order-by table wiring: page, component, footer and home links", () => {
