@@ -11,6 +11,7 @@ declare namespace Cloudflare {
 		REVIEW_REQUEST_LEDGER: DurableObjectNamespace /* ReviewRequestLedgerDO */;
 		REVIEW_REQUEST_SUPPRESSION: DurableObjectNamespace /* ReviewRequestSuppressionDO */;
 		ENTITLEMENT_AUTHORITY: DurableObjectNamespace /* EntitlementAuthorityDO */;
+		REFERRAL_DISCOVERY: DurableObjectNamespace /* ReferralDiscoveryDO */;
 		NEXTJS_ENV: "production";
 		NEXT_INC_CACHE_R2_PREFIX: "incremental-cache";
 		STRIPE_SECRET_KEY: string;

@@ -1,14 +1,16 @@
 /**
- * Client for the EntitlementAuthority Durable Object (DL-1 Slice 2, inert:
- * no route calls this yet).
+ * Client for the EntitlementAuthority Durable Object (DL-1 Slice 2;
+ * Slice 3 wires the first production callers — the legacy-writer fence and
+ * the referral reward path — through this client).
  *
  * Production: the DO is the sole accounting authority for HD downloads.
- * Local/CI unit tests: in-memory serialized store over the same pure state
- * machine. Missing DO in a non-local environment → fail closed (null), so
- * callers skip the entitlement instead of accounting against a fallback.
+ * Local unit tests / dev servers: in-memory serialized store over the same
+ * pure state machine. Missing DO in a non-local environment → fail closed
+ * (null), so callers skip the entitlement instead of accounting against a
+ * fallback.
  *
  * Every successful mutation also republishes the KV read projection
- * (non-authoritative, display only — v3 §2.2). A failed projection write
+ * (non-authoritative, display only — v3.5 §6.3). A failed projection write
  * never fails or alters the accounting result; the projection is rebuilt
  * from authoritative state on the next mutation.
  *
@@ -25,8 +27,21 @@ import {
 } from "@/lib/entitlementAuthorityState";
 import { kv } from "@/lib/kv";
 
-/** KV key of the non-authoritative read projection for one entitlement. */
+/**
+ * KV key of the non-authoritative read projection for one entitlement.
+ * The projection lives on its OWN key (DL-1 v3.5 §6.3), separate from
+ * both the DO state and the legacy session record (whose accounting
+ * fields are frozen at D1 — no D1 code writes them; they are retained
+ * as opening evidence only). Images carry the publisher's
+ * `includedThroughSeq` watermark (see the projection type). The
+ * pre-v3.5 key (`entitlement:authority:{id}`) is retained as a named
+ * constant for the repair loop's dual-read; nothing new publishes to
+ * it.
+ */
 export const ENTITLEMENT_AUTHORITY_PROJECTION_KV_KEY = (sessionId: string) =>
+  `entitlement:projection:${sessionId}`;
+
+export const ENTITLEMENT_AUTHORITY_LEGACY_PROJECTION_KV_KEY = (sessionId: string) =>
   `entitlement:authority:${sessionId}`;
 
 type AuthorityNamespace = {
@@ -51,9 +66,21 @@ export type EntitlementAuthorityClient = {
 const memoryStores = new Map<string, EntitlementAuthorityState>();
 const memoryLocks = new Map<string, Promise<void>>();
 
-function isLocalAuthorityFallbackAllowed(env: NodeJS.ProcessEnv = process.env): boolean {
+/**
+ * Whether the volatile in-memory store may stand in for the DO. Slice 3
+ * cutover hardening (ticketed on PR #362): a bare ambient `CI=1` NO LONGER
+ * permits the fallback — CI is set by all kinds of tooling, and a deployed
+ * worker that silently accounted against per-isolate memory would corrupt
+ * balances. Permission now requires the explicit named opt-in
+ * (STARMAP_ENTITLEMENT_AUTHORITY_LOCAL=1, set by unit suites and the
+ * Playwright local-server config) or a development/test NODE_ENV, neither
+ * of which a production deployment carries. Production behaviour with no
+ * DO binding resolved: fail closed (null).
+ */
+export function isLocalAuthorityFallbackAllowed(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
   if (env.STARMAP_ENTITLEMENT_AUTHORITY_LOCAL === "1") return true;
-  if (env.CI === "1") return true;
   const nodeEnv = env.NODE_ENV?.trim();
   return nodeEnv === "development" || nodeEnv === "test";
 }
@@ -114,7 +141,7 @@ async function publishProjection(state: EntitlementAuthorityState): Promise<void
     );
   } catch {
     // Non-authoritative display projection: a failed write must never fail
-    // or alter the accounting result (v3 §2.2). It is rebuilt from
+    // or alter the accounting result (v3.5 §6.3). It is rebuilt from
     // authoritative state on the next mutation.
   }
 }

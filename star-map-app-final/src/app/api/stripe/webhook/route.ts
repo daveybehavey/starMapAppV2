@@ -11,6 +11,17 @@ import {
   type ReferralRecord,
 } from "@/lib/referrals";
 import { appendReferralEvent, getReferralEvents } from "@/lib/referralLedger";
+import { createEntitlementAuthorityClient } from "@/lib/entitlementAuthority";
+import {
+  ReferralGrantTransientError,
+  grantReferralRewardViaAuthority,
+  isEntitlementAuthorityRoutingEnabled,
+  isReferralGrantTransientError,
+  isTransientReferralGrantReason,
+  reverseReferralRewardViaAuthority,
+} from "@/lib/referralRewardAuthority";
+import { createReferralDiscoveryClient } from "@/lib/referralDiscoveryClient";
+import type { StripeSessionEntitlement } from "@/lib/entitlementsStore";
 import { isPrintfulConfigured, submitPrintfulOrder } from "@/lib/printful";
 import { isPrintfulV2Configured, submitPrintfulV2CatalogOrder } from "@/lib/printfulV2Orders";
 import { PRINT_ASSET_ID_REGEX } from "@/lib/printAssets";
@@ -642,14 +653,73 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
         }
       }
       if (!rewardSkipReason) {
-        const nextCredits = Math.max(0, referrer.creditsRemaining ?? 0) + referralRewardCredits;
-        await kv.set(sessionKey(referrerSessionId), {
-          ...referrer,
-          paid: true,
-          creditsRemaining: nextCredits,
-          creditsTotal: Math.max(nextCredits, referrer.creditsTotal ?? 0),
-        });
-        rewardGranted = referralRewardCredits;
+        if (isEntitlementAuthorityRoutingEnabled()) {
+          // DL-1 Slice 3 (R1-A): the reward lands in the entitlement
+          // authority's separate reward bucket — never in the combined KV
+          // balance, where a later clawback could reach purchased credits.
+          // The grant migrates the referrer first (lazy trigger) and is
+          // idempotent on this checkout session id. If the referrer's
+          // legacy record cannot be baselined, the grant is skipped
+          // (fail closed) rather than written behind the authority's back.
+          const grantResult = await grantReferralRewardViaAuthority(
+            createEntitlementAuthorityClient(),
+            referrerSessionId,
+            session.id,
+            referralRewardCredits,
+            async () =>
+              (await kv.get<SessionRecord>(sessionKey(referrerSessionId))) as
+                | StripeSessionEntitlement
+                | null,
+            timestamp,
+            {
+              // DL-1 v3.8 §5: the discovery registration leg runs
+              // inside the grant (before any fold effect). The
+              // classification evidence is presented with NO witness
+              // (the grant-time claim is not a finalized witness, so
+              // the wrapper presents "absent"): the machine decides
+              // on the provenance forms alone, and P-b's fencing
+              // timestamp arrives with the activation record at the
+              // Slice 6 cutover.
+              discoveryClient: createReferralDiscoveryClient(),
+              sessionCreatedAt: (session.created ?? 0) * 1000,
+              fencingCompletedAt: null,
+            },
+          );
+          if (grantResult.status === "granted" || grantResult.status === "already_granted") {
+            rewardGranted = referralRewardCredits;
+          } else if (isTransientReferralGrantReason(grantResult.reason)) {
+            // Transient contention/outage (Codex P2, PR #367): recording
+            // this as a settled skip would lose an eligible reward for
+            // good — the claim above already persisted `rewarded: true`
+            // and the entry guard would refuse every redelivery. Roll
+            // the claim back and signal retryable instead, so Stripe
+            // redelivery re-runs the grant once the authority clears.
+            if (existingRewardState) {
+              await kv.set(rewardStateKey, existingRewardState);
+            } else {
+              await kv.deleteDurable(rewardStateKey);
+            }
+            throw new ReferralGrantTransientError(grantResult.reason);
+          } else {
+            rewardSkipReason = `authority_${grantResult.reason}`;
+          }
+        } else {
+          // Authority routing is GATED OFF (Codex P1, PR #367 — see
+          // referralRewardAuthority.ts): migrating a referrer today would
+          // fence their legacy consume while the download flow still has
+          // no authority debit path, leaving their downloads undebited.
+          // Until the owner enables the routing at the Slice 6 cutover,
+          // the grant takes its credit effect in the legacy KV counter,
+          // exactly as it did before this slice.
+          const nextCredits = Math.max(0, referrer.creditsRemaining ?? 0) + referralRewardCredits;
+          await kv.set(sessionKey(referrerSessionId), {
+            ...referrer,
+            paid: true,
+            creditsRemaining: nextCredits,
+            creditsTotal: Math.max(nextCredits, referrer.creditsTotal ?? 0),
+          });
+          rewardGranted = referralRewardCredits;
+        }
       }
     } else {
       rewardSkipReason = "subscription_referrer";
@@ -721,21 +791,32 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
   }
 }
 
-async function reverseReferralReward(sessionId: string, reason: "refund" | "dispute") {
-  if (!sessionId) return;
+/**
+ * Reverses a referral conversion + reward for a refunded/disputed
+ * referred purchase. Returns `deferred: true` when the clawback could
+ * not run because the entitlement authority was transiently
+ * unavailable: nothing is finalized in that case, and the caller keeps
+ * the Stripe event retryable (its dedupe is deferred — see POST) so a
+ * redelivery completes the reversal (Codex P2, PR #367).
+ */
+async function reverseReferralReward(
+  sessionId: string,
+  reason: "refund" | "dispute",
+): Promise<{ deferred: boolean }> {
+  if (!sessionId) return { deferred: false };
 
   const rewardStateKey = referralRewardedKey(sessionId);
   const rewardState = await kv.get<ReferralConversionState>(rewardStateKey);
-  if (!rewardState?.rewarded) return;
-  if (!rewardState.referralCode || !rewardState.referrerSessionId) return;
-  if (rewardState.conversionRecorded !== true) return;
+  if (!rewardState?.rewarded) return { deferred: false };
+  if (!rewardState.referralCode || !rewardState.referrerSessionId) return { deferred: false };
+  if (rewardState.conversionRecorded !== true) return { deferred: false };
 
   const referralCode = normalizeReferralCode(rewardState.referralCode);
-  if (!referralCode) return;
+  if (!referralCode) return { deferred: false };
   const rewardGranted = Math.max(0, Math.floor(rewardState.rewardGranted ?? 0));
   const conversionAlreadyReversed = rewardState.conversionReversed === true;
   const rewardAlreadyReversed = rewardGranted <= 0 || rewardState.rewardReversed === true;
-  if (conversionAlreadyReversed && rewardAlreadyReversed) return;
+  if (conversionAlreadyReversed && rewardAlreadyReversed) return { deferred: false };
 
   const referralRecord = await kv.get<ReferralRecord>(referralKey(referralCode));
   if (!referralRecord || referralRecord.sessionId !== rewardState.referrerSessionId) {
@@ -743,10 +824,72 @@ async function reverseReferralReward(sessionId: string, reason: "refund" | "disp
       ...rewardState,
       reversalReason: reason,
     });
-    return;
+    return { deferred: false };
   }
 
   const timestamp = Date.now();
+  const routingEnabled = isEntitlementAuthorityRoutingEnabled();
+
+  // A grant that journaled PENDING in the authority (discovery or
+  // inclusion unresolved) was finalized on the KV side as a
+  // zero-grant skip — but it is not a TERMINAL skip (Codex re-gate
+  // F-D): the machine pairs a reversal with the pendency
+  // (reversal_deferred — dedupe must NOT finalize), and a later
+  // settlement can still fold the grant. The recorded skip reason
+  // is the durable distinction, so this record's reversal consults
+  // the authority even though the KV side granted 0.
+  const pendingAuthorityGrant =
+    routingEnabled &&
+    rewardGranted <= 0 &&
+    (rewardState.rewardSkipReason === "authority_grant_discovery_unresolved" ||
+      rewardState.rewardSkipReason === "authority_grant_inclusion_unresolved");
+
+  // When authority routing is enabled, the clawback runs BEFORE any
+  // bookkeeping below is finalized (Codex P2, PR #367): a transient
+  // authority outage must not be recorded as a completed zero-credit
+  // reversal — the finalized flags would refuse every later attempt and
+  // leave unspent rewards spendable for good. On `authority_unavailable`
+  // nothing is written at all, so the reversal stays retryable by any
+  // later delivery that reaches this path for the session.
+  let authorityClawed: number | null = null;
+  let referrer: SessionRecord | null = null;
+  if ((!rewardAlreadyReversed && rewardGranted > 0) || pendingAuthorityGrant) {
+    referrer = await kv.get<SessionRecord>(sessionKey(rewardState.referrerSessionId));
+    if (referrer && referrer.plan !== "subscription" && routingEnabled) {
+      // DL-1 Slice 3 (R1-A): the clawback runs against the authority's
+      // reward bucket only — it removes at most this grant's unspent
+      // bucket credits. A grant that predates the bucket (inside the
+      // migrated legacy balance) reclaims ZERO: the legacy bucket is
+      // never debited by a referral reversal, purchased credits are
+      // unreachable, and no debt is created when the reward was spent.
+      const reversal = await reverseReferralRewardViaAuthority(
+        createEntitlementAuthorityClient(),
+        rewardState.referrerSessionId,
+        sessionId,
+        timestamp,
+      );
+      if (reversal.status === "authority_unavailable" || reversal.status === "deferred") {
+        // authority_unavailable: no authoritative answer exists.
+        // deferred: outcome 3 — the grant's inclusion classification
+        // is still pending (DL-1 v3.7 §2.3 pairing). Either way the
+        // dedupe must NOT finalize; the redelivery re-runs the chain.
+        console.warn("Referral reversal deferred: entitlement authority unavailable", {
+          sessionId,
+          reason,
+        });
+        return { deferred: true };
+      }
+      // A replayed reversal reports the ORIGINAL journaled claw
+      // (v3.6 §4.3 receipt): if this process died after the authority
+      // committed but before the KV finalization below, the
+      // redelivery finalizes with the true reclaimed amount.
+      authorityClawed =
+        reversal.status === "reversed" || reversal.status === "already_reversed"
+          ? reversal.clawed
+          : 0;
+    }
+  }
+
   const nextReferralRecord: ReferralRecord = {
     ...referralRecord,
     conversions:
@@ -762,8 +905,13 @@ async function reverseReferralReward(sessionId: string, reason: "refund" | "disp
 
   let rewardReclaimed = 0;
   if (!rewardAlreadyReversed && rewardGranted > 0) {
-    const referrer = await kv.get<SessionRecord>(sessionKey(rewardState.referrerSessionId));
-    if (referrer && referrer.plan !== "subscription") {
+    if (authorityClawed !== null) {
+      rewardReclaimed = authorityClawed;
+    } else if (!routingEnabled && referrer && referrer.plan !== "subscription") {
+      // Routing gated off (see the grant path): the grant was credited
+      // to the legacy KV counter, so the clawback debits that same
+      // counter — the pre-slice behaviour, kept symmetric with the
+      // grant until the Slice 6 activation enables the bucket.
       const currentCredits = Math.max(0, referrer.creditsRemaining ?? 0);
       rewardReclaimed = Math.min(currentCredits, rewardGranted);
       await kv.set(sessionKey(rewardState.referrerSessionId), {
@@ -772,20 +920,37 @@ async function reverseReferralReward(sessionId: string, reason: "refund" | "disp
         creditsRemaining: Math.max(0, currentCredits - rewardReclaimed),
       });
     }
+  } else if (pendingAuthorityGrant && authorityClawed !== null) {
+    // The pending grant settled and folded before this reversal
+    // landed: the authority's claw is the true reclaimed amount,
+    // recorded here even though the KV grant side stood at 0.
+    rewardReclaimed = authorityClawed;
   }
+
+  // The authority answered this record's reversal (granted path, or
+  // a pending grant's terminal answer): the reversal is final and
+  // is recorded as such, with the authority's amount.
+  const authorityReversalAnswered = pendingAuthorityGrant && authorityClawed !== null;
 
   await kv.set(rewardStateKey, {
     ...rewardState,
     conversionReversed: true,
     conversionReversedAt: conversionAlreadyReversed ? rewardState.conversionReversedAt : timestamp,
-    rewardReversed: rewardAlreadyReversed ? rewardState.rewardReversed : rewardGranted > 0,
+    rewardReversed: authorityReversalAnswered
+      ? true
+      : rewardAlreadyReversed
+        ? rewardState.rewardReversed
+        : rewardGranted > 0,
     rewardReversedAt:
-      rewardAlreadyReversed || rewardGranted <= 0
-        ? rewardState.rewardReversedAt
-        : timestamp,
+      authorityReversalAnswered || !(rewardAlreadyReversed || rewardGranted <= 0)
+        ? timestamp
+        : rewardState.rewardReversedAt,
     reversalReason: reason,
-    rewardReclaimed:
-      rewardAlreadyReversed || rewardGranted <= 0 ? rewardState.rewardReclaimed : rewardReclaimed,
+    rewardReclaimed: authorityReversalAnswered
+      ? rewardReclaimed
+      : rewardAlreadyReversed || rewardGranted <= 0
+        ? rewardState.rewardReclaimed
+        : rewardReclaimed,
   });
 
   if (!conversionAlreadyReversed) {
@@ -807,7 +972,10 @@ async function reverseReferralReward(sessionId: string, reason: "refund" | "disp
     });
   }
 
-  if (!rewardAlreadyReversed && rewardGranted > 0) {
+  if (
+    (!rewardAlreadyReversed && rewardGranted > 0) ||
+    (authorityReversalAnswered && rewardReclaimed > 0)
+  ) {
     await appendReferralEvent({
       code: referralCode,
       type: "reward_reversed",
@@ -825,6 +993,8 @@ async function reverseReferralReward(sessionId: string, reason: "refund" | "disp
       },
     });
   }
+
+  return { deferred: false };
 }
 
 async function queuePrintOrder(session: Stripe.Checkout.Session) {
@@ -1517,6 +1687,15 @@ async function processCheckoutFulfillment(
     if (isDurableKvPersistenceError(error)) {
       return { retryable: true };
     }
+    // Referral grant hit transient authority contention/outage: its
+    // idempotency claim was rolled back, so redelivery can complete the
+    // grant. Do not finalize dedupe (Codex P2, PR #367).
+    if (isReferralGrantTransientError(error)) {
+      console.warn("Referral grant transiently skipped; Stripe event remains retryable", {
+        sessionId: session.id,
+      });
+      return { retryable: true };
+    }
     throw error;
   }
   const deduped = await persistWebhookEventDedupe(eventDedupeKey);
@@ -1578,13 +1757,23 @@ export async function POST(req: Request) {
   const isCompletedCheckoutEvent = event.type === "checkout.session.completed";
   const isAsyncPaymentSucceededEvent = event.type === "checkout.session.async_payment_succeeded";
   const isAsyncPaymentFailedEvent = event.type === "checkout.session.async_payment_failed";
+  // Refund/dispute events drive the referral reversal; since DL-1 Slice 3
+  // that reversal can be transiently deferred by an authority outage, so
+  // these events defer dedupe too — a deferred reversal answers 503 and
+  // Stripe redelivery completes it, instead of the pre-processing dedupe
+  // acking the redelivery as a duplicate (Codex P2, PR #367).
+  const isReferralReversalEvent =
+    event.type === "charge.refunded" ||
+    event.type === "charge.dispute.created" ||
+    event.type === "charge.dispute.funds_withdrawn";
   // Defer dedupe finalization for events whose critical side effects must remain
   // Stripe-retryable when durable persistence fails mid-handling.
   const deferDedupeUntilSuccess =
     isExpiredCheckoutEvent ||
     isCompletedCheckoutEvent ||
     isAsyncPaymentSucceededEvent ||
-    isAsyncPaymentFailedEvent;
+    isAsyncPaymentFailedEvent ||
+    isReferralReversalEvent;
 
   // Unrelated Stripe event types keep pre-processing dedupe.
   // checkout.session.expired / checkout.session.completed / the async-payment
@@ -1607,6 +1796,7 @@ export async function POST(req: Request) {
   let expiredRecoveryRetryable = false;
   let completedCheckoutRetryable = false;
   let asyncPaymentFailedRetryable = false;
+  let referralReversalRetryable = false;
 
   switch (event.type) {
     case "checkout.session.completed": {
@@ -1683,7 +1873,8 @@ export async function POST(req: Request) {
         (await resolveSessionIdFromCharge(charge.id));
       if (sessionId) {
         await markSessionRevoked(sessionId, "refund");
-        await reverseReferralReward(sessionId, "refund");
+        const reversal = await reverseReferralReward(sessionId, "refund");
+        if (reversal.deferred) referralReversalRetryable = true;
       } else {
         if (!paymentIntentId) {
           paymentIntentId = await resolvePaymentIntentIdFromCharge(charge.id);
@@ -1705,7 +1896,8 @@ export async function POST(req: Request) {
         (await resolveSessionIdFromCharge(chargeId));
       if (sessionId) {
         await markSessionRevoked(sessionId, "dispute");
-        await reverseReferralReward(sessionId, "dispute");
+        const reversal = await reverseReferralReward(sessionId, "dispute");
+        if (reversal.deferred) referralReversalRetryable = true;
       } else {
         if (!paymentIntentId && chargeId) {
           paymentIntentId = await resolvePaymentIntentIdFromCharge(chargeId);
@@ -1720,14 +1912,29 @@ export async function POST(req: Request) {
       break;
   }
 
-  if (expiredRecoveryRetryable || completedCheckoutRetryable || asyncPaymentFailedRetryable) {
+  // Deferred-dedupe reversal events finalize their dedupe only on
+  // success (mirroring the checkout flows): a deferred reversal leaves
+  // no dedupe behind, so the 503 below buys a real redelivery.
+  if (isReferralReversalEvent && !referralReversalRetryable) {
+    const deduped = await persistWebhookEventDedupe(eventDedupeKey);
+    if (!deduped) referralReversalRetryable = true;
+  }
+
+  if (
+    expiredRecoveryRetryable ||
+    completedCheckoutRetryable ||
+    asyncPaymentFailedRetryable ||
+    referralReversalRetryable
+  ) {
     return NextResponse.json(
       {
         error: completedCheckoutRetryable
           ? "print_order_queue_retryable"
           : asyncPaymentFailedRetryable
             ? "async_payment_failed_finalize_retryable"
-            : "checkout_recovery_retryable",
+            : referralReversalRetryable
+              ? "referral_reversal_retryable"
+              : "checkout_recovery_retryable",
       },
       { status: 503 },
     );

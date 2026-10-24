@@ -164,9 +164,14 @@ tag = "v2-review-request-ledger"
 new_sqlite_classes = ["ReviewRequestLedgerDO"]
 
 # Per-entitlement DL-1 entitlement authority (owned-files ledger, legacy
-# recovery decision, capability generation). INERT in Slice 2: the binding
-# exists but no route calls it; the legacy consume/compensate routes remain
-# the live accounting writers until later DL-1 slices fence them.
+# recovery decision, capability generation, referral reward bucket).
+# Slice 3: the legacy consume/compensate routes hold its accounting lease
+# and refuse migrated entitlements; the Stripe webhook CAN route referral
+# grants/reversals through it, but that routing stays GATED OFF until the
+# owner sets DL1_AUTHORITY_ROUTING_ENABLED=true in the dashboard at the
+# Slice 6 cutover (when downloads gain an authority debit path) —
+# deliberately NOT a [vars] entry here, so activation is an explicit
+# owner action rather than a deploy side effect.
 [[durable_objects.bindings]]
 name = "ENTITLEMENT_AUTHORITY"
 class_name = "EntitlementAuthorityDO"
@@ -187,6 +192,19 @@ class_name = "ReviewRequestSuppressionDO"
 [[migrations]]
 tag = "v4-review-request-suppression"
 new_sqlite_classes = ["ReviewRequestSuppressionDO"]
+
+# DL-1 referral discovery authority (v3.8 §5.2): one instance per referred
+# checkout session id; registration inside the grant op precedes any fold
+# effect, and terminal negative lineage decisions are recorded here
+# before dedupe finalizes (v3.9 §4). Like the entitlement authority it is
+# inert until the owner activates D1 routing — no [vars] entry.
+[[durable_objects.bindings]]
+name = "REFERRAL_DISCOVERY"
+class_name = "ReferralDiscoveryDO"
+
+[[migrations]]
+tag = "v4-referral-discovery"
+new_sqlite_classes = ["ReferralDiscoveryDO"]
 
 # Persist Worker console logs in Cloudflare dashboard (Workers Logs).
 # Logging in checkout is structured and excludes PII/secrets; see checkoutResilience.ts.

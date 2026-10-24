@@ -138,9 +138,11 @@ test("route: completed and async_payment_succeeded run the same fulfillment pass
 });
 
 test("route: async settlement events defer dedupe until successful handling", () => {
+  // Refund/dispute events defer too since DL-1 Slice 3 (a transiently
+  // deferred referral reversal must be redeliverable — Codex P2, PR #367).
   assert.match(
     webhookSource,
-    /const deferDedupeUntilSuccess =\s*isExpiredCheckoutEvent \|\|\s*isCompletedCheckoutEvent \|\|\s*isAsyncPaymentSucceededEvent \|\|\s*isAsyncPaymentFailedEvent;/,
+    /const deferDedupeUntilSuccess =\s*isExpiredCheckoutEvent \|\|\s*isCompletedCheckoutEvent \|\|\s*isAsyncPaymentSucceededEvent \|\|\s*isAsyncPaymentFailedEvent \|\|\s*isReferralReversalEvent;/,
   );
 });
 
