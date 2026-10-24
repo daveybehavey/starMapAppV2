@@ -1,13 +1,11 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { kv } from "@/lib/kv";
 import {
-  emailStateKey,
   isValidPromotionEmail,
   normalizePromotionEmail,
   verifyPromotionUnsubscribeToken,
-  type PromotionEmailState,
 } from "@/lib/promotionSubscriptions";
+import { unsubscribePromotionFlow } from "@/lib/promotionCoordinator";
 import { getReviewOptOutSecret } from "@/lib/reviewRequestEmail";
 import {
   createReviewSuppressionClient,
@@ -35,12 +33,13 @@ export default async function UnsubscribePage({ searchParams }: PageProps) {
   let status: "invalid" | "unsubscribed" | "already_unsubscribed" | "error" = "invalid";
 
   if (valid) {
-    const key = emailStateKey(email);
-    const existing = await kv.get<PromotionEmailState>(key);
     // Two obligations, deliberately decoupled (T-T1 + Codex re-gate):
     //
     // (1) The PROMOTIONAL opt-out. A valid promotions unsubscribe token
-    // must always be able to record the KV opt-out below. Promotions
+    // must always be able to record the opt-out below (since T-SM-KVRACE
+    // the authoritative record is the per-email Consistency Coordinator,
+    // which also cancels eligible pending delivery jobs; its KV
+    // projection keeps the readers below working). Promotions
     // links may be signed with any supported promotions secret (the
     // promotionSubscriptions fallbacks), including configurations where
     // no purpose-built review opt-out secret exists — the promotional
@@ -73,19 +72,19 @@ export default async function UnsubscribePage({ searchParams }: PageProps) {
       : true;
     if (!suppressionSettled) {
       status = "error";
-    } else if (existing?.unsubscribedAt) {
-      status = "already_unsubscribed";
     } else {
-      await kv.set<PromotionEmailState>(key, {
-        subscribedAt: existing?.subscribedAt ?? Date.now(),
-        couponSentAt: existing?.couponSentAt,
-        followupSentAt: existing?.followupSentAt,
-        unsubscribedAt: Date.now(),
-        unsubscribeReason: "email_link",
-        updatedAt: Date.now(),
-        lastSource: existing?.lastSource,
-      });
-      status = "unsubscribed";
+      try {
+        const result = await unsubscribePromotionFlow({ email, reason: "email_link" });
+        if (result.wasAlreadyUnsubscribed) {
+          status = "already_unsubscribed";
+        } else {
+          status = "unsubscribed";
+        }
+      } catch {
+        // A coordinator failure fails the page closed, exactly like a
+        // suppression failure: nothing is written, nothing acknowledged.
+        status = "error";
+      }
     }
   }
 

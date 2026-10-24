@@ -1,21 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
-import { PROMOTION_COUPON_CODE, runPromotionAutomation, runPromotionFollowup } from "@/lib/promotions";
+import { PROMOTION_COUPON_CODE } from "@/lib/promotions";
+import { subscribePromotionFlow } from "@/lib/promotionCoordinator";
 import {
-  emailStateKey,
   isValidPromotionEmail,
-  LEGACY_FOLLOWUP_KEY,
-  LEGACY_SENT_KEY,
-  LEGACY_SUBSCRIPTION_KEY,
   normalizePromotionEmail,
-  type PromotionEmailState,
 } from "@/lib/promotionSubscriptions";
-
-async function inLegacyList(listKey: string, email: string) {
-  const list = await kv.get<string[]>(listKey);
-  return Boolean(list?.includes(email));
-}
 
 async function readEmail(req: NextRequest) {
   const contentType = req.headers.get("content-type") ?? "";
@@ -102,66 +92,43 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const now = Date.now();
-  const key = emailStateKey(email);
-  const existingState = await kv.get<PromotionEmailState>(key);
-  const [legacySubscribed, legacyCouponSent, legacyFollowupSent] = await Promise.all([
-    existingState?.subscribedAt ? Promise.resolve(false) : inLegacyList(LEGACY_SUBSCRIPTION_KEY, email),
-    existingState?.couponSentAt ? Promise.resolve(false) : inLegacyList(LEGACY_SENT_KEY, email),
-    existingState?.followupSentAt ? Promise.resolve(false) : inLegacyList(LEGACY_FOLLOWUP_KEY, email),
-  ]);
+  // A2-3 (T-SM-KVRACE): subscription state and delivery now run through
+  // the per-email Consistency Coordinator (design S3-A). The old
+  // sequence built the next state from a stale KV read, sent the emails,
+  // and only then wrote the sent markers — two concurrent subscribes
+  // both observed "not sent" and both sent. The coordinator creates a
+  // durable delivery job (frozen payload + provider idempotency key)
+  // before any send, claims it exactly once, and records acceptance
+  // transactionally; the response contract below is unchanged.
+  let flow: Awaited<ReturnType<typeof subscribePromotionFlow>>;
+  try {
+    flow = await subscribePromotionFlow({ email, source, couponCode: PROMOTION_COUPON_CODE });
+  } catch (error) {
+    console.error("promotion subscribe coordinator failure", { email, error });
+    if (shouldRedirectEditor) {
+      const redirectUrl = new URL("/editor", req.url);
+      redirectUrl.searchParams.set("mode", "quick");
+      redirectUrl.searchParams.set("promo", "error");
+      return NextResponse.redirect(redirectUrl, { status: 303 });
+    }
+    if (shouldRedirectHome) {
+      return NextResponse.redirect(new URL("/?promo=error", req.url), { status: 303 });
+    }
+    return NextResponse.json({ ok: false, error: "service_unavailable" }, { status: 503 });
+  }
 
-  const hadSubscription = Boolean(existingState?.subscribedAt) || legacySubscribed;
-  const isNewSubscriber = !hadSubscription;
-
-  const nextState: PromotionEmailState = {
-    subscribedAt: existingState?.unsubscribedAt ? now : existingState?.subscribedAt ?? now,
-    couponSentAt: existingState?.couponSentAt,
-    followupSentAt: existingState?.followupSentAt,
-    unsubscribedAt: undefined,
-    unsubscribeReason: undefined,
-    updatedAt: now,
-    lastSource: source || existingState?.lastSource,
+  const { isNewSubscriber } = flow;
+  const automationResult = {
+    delivered: flow.emailDelivered,
+    provider: flow.deliveryProvider,
   };
-
-  const alreadySent = Boolean(nextState.couponSentAt) || legacyCouponSent;
-  const automationResult = alreadySent
-    ? { delivered: true, provider: "none" as const }
-    : await runPromotionAutomation(email, PROMOTION_COUPON_CODE);
-
   if (!automationResult.delivered && automationResult.provider !== "none") {
     console.error("promotion delivery failed", {
       provider: automationResult.provider,
-      error: automationResult.error ?? "unknown",
+      error: flow.state.jobs.coupon?.lastError ?? "unknown",
       email,
     });
   }
-
-  if (!alreadySent && automationResult.delivered) {
-    nextState.couponSentAt = now;
-  }
-
-  const followupAlreadySent = Boolean(nextState.followupSentAt) || legacyFollowupSent;
-  const shouldAttemptFollowup = !followupAlreadySent && (automationResult.delivered || alreadySent);
-  if (shouldAttemptFollowup) {
-    try {
-      const followupResult = await runPromotionFollowup(email, PROMOTION_COUPON_CODE);
-      if (!followupResult.delivered && followupResult.provider !== "none") {
-        console.error("promotion followup failed", {
-          provider: followupResult.provider,
-          error: followupResult.error ?? "unknown",
-          email,
-        });
-      }
-      if (followupResult.delivered) {
-        nextState.followupSentAt = Date.now();
-      }
-    } catch (error) {
-      console.error("promotion followup scheduling failed", error);
-    }
-  }
-
-  await kv.set(key, nextState);
 
   if (shouldRedirectEditor) {
     const redirectUrl = new URL("/editor", req.url);

@@ -206,6 +206,19 @@ class_name = "ReferralDiscoveryDO"
 tag = "v4-referral-discovery"
 new_sqlite_classes = ["ReferralDiscoveryDO"]
 
+# Consistency Coordinator (T-SM-KVRACE): per-token / per-email authority
+# for the magic-token claim, the account email session index, and
+# promotions subscription + delivery jobs — three KV check-then-write
+# races (A2-1/A2-2/A2-3) that KV itself cannot close. One object per
+# token/email; legacy KV state imports lazily and monotonically.
+[[durable_objects.bindings]]
+name = "CONSISTENCY_COORDINATOR"
+class_name = "ConsistencyCoordinatorDO"
+
+[[migrations]]
+tag = "v5-consistency-coordinator"
+new_sqlite_classes = ["ConsistencyCoordinatorDO"]
+
 # Persist Worker console logs in Cloudflare dashboard (Workers Logs).
 # Logging in checkout is structured and excludes PII/secrets; see checkoutResilience.ts.
 [observability]
