@@ -46,7 +46,7 @@ const PRINT_VARIANT_BASE_CENTS: Record<PrintVariant, number> = {
   ),
   poster_unframed_16x16: getPublicNumber(
     "NEXT_PUBLIC_PRINT_UNFRAMED_16X16_PRICE_CENTS",
-    getPublicNumber("PRINT_UNFRAMED_16X16_PRICE_CENTS", 4900),
+    getPublicNumber("PRINT_UNFRAMED_16X16_PRICE_CENTS", 3900),
   ),
   poster_framed: getPublicNumber(
     "NEXT_PUBLIC_PRINT_FRAMED_PRICE_CENTS",

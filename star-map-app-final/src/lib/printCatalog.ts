@@ -29,8 +29,9 @@ export const PRINT_CATALOG = [
   {
     // S1 (issue #380): second square unframed poster, 16×16. Same Printful
     // product (Enhanced Matte Paper Poster) and shipping profile as the
-    // 18×18. Price set by delivered-margin parity with the 18×18 at $49
-    // (parity computes to $46.87; $49 is the nearest ladder rung — see #380).
+    // 18×18. Price: $39 entry pricing, chosen over the delivered-margin
+    // parity point with the 18×18 ($46.87); verified delivered margins at
+    // $39 are 54.45% US / 51.72% CA (see #380).
     // COGS default = verified Printful catalog price for variant 4465
     // ($12.75, read 2026-10-25). No Stripe Price ID yet: checkout uses the
     // price_data fallback until activation sets STRIPE_PRICE_ID_PRINT_UNFRAMED_16X16.
@@ -40,7 +41,7 @@ export const PRINT_CATALOG = [
     shippingProfile: "poster_unframed",
     includesFrame: false,
     labelFallback: "Museum-grade poster (16×16)",
-    priceFallbackCents: 4900,
+    priceFallbackCents: 3900,
     priceEnv: "PRINT_UNFRAMED_16X16_PRICE_CENTS",
     publicPriceEnv: "NEXT_PUBLIC_PRINT_UNFRAMED_16X16_PRICE_CENTS",
     labelEnv: "PRINT_UNFRAMED_16X16_LABEL",
