@@ -57,12 +57,20 @@ export function buildHdArchiveDownloadUrl(siteOrigin: string, claimToken: string
  */
 
 import fs from "node:fs/promises";
+import { createReadStream } from "node:fs";
 import path from "node:path";
 import { createHash, randomBytes } from "node:crypto";
 import { isLocalAuthorityFallbackAllowed } from "@/lib/entitlementAuthority";
 
-/** Provenance metadata written atomically with the body by promotion
- * (§5.8): exactly four fixed-shape fields (§5.5 trust rules). */
+/** Provenance metadata written by promotion (§5.8): exactly four
+ * fixed-shape fields (§5.5 trust rules). Publication is NOT atomic
+ * as a body/metadata pair on every backend: the R2 put carries body
+ * and metadata in one conditional write, but the local backend links
+ * the body into place and renames the sidecar immediately after, so
+ * a metadata failure leaves the body standing without its sidecar
+ * (see promoteCreateOnlyLocal). Metadata is therefore provenance
+ * evidence, never proof of the body — the finalize observation
+ * hashes the body itself (see observeArtifactObject). */
 export type ArtifactObjectMetadata = {
   protocol: string;
   artifactKey: string;
@@ -90,12 +98,18 @@ function localArchiveDir(): string {
  * length hash: the file name is the key's SHA-256 hex (64 bytes), in a
  * two-hex-char shard directory. Every component is bounded by
  * construction — 2 (shard) / 64 (name) / 74 (name + ".meta.json") /
- * ≤ 99 (temp names: name + ".tmp-" + pid + "-" + 16 hex) bytes — for
+ * 86 + pid digits (body temp: name + ".tmp-" + pid + "-" + 16 hex;
+ * ≤ 93 at the 7-digit pid ceiling) / 96 + pid digits (metadata temp:
+ * name + ".meta.json" + ".tmp-" + pid + "-" + 16 hex; ≤ 103 at the
+ * same ceiling) bytes — for
  * keys of ANY length or content (no key byte reaches a path, so keys
  * containing "/" or ".." are equally safe). The hash is collision-
  * resistant and the mapping is injective for every practical purpose;
  * metadata sidecars carry the key's provenance (§5.5 trust rules never
- * read a key back out of a path).
+ * read a key back out of a path). (Correction round 3, area 6: the
+ * round-2 text's "≤ 99" figure covered only the body temp name and
+ * omitted the longer metadata-temp suffix; the bounds stated above
+ * are the exact ones — G-dot re-check verdict 2026-10-25.)
  *
  * This ONE mapping serves every local operation — head, get, staging
  * write, promotion (source temps and destination) — with no per-call-
@@ -197,6 +211,98 @@ export async function getArtifactObject(
     metadata = null;
   }
   return { bytes, metadata };
+}
+
+/** The streaming-observation read window (correction round 3 — Codex
+ * P2-1): an observed body is hashed in chunks of at most this size,
+ * so the finalize observation never holds more than one window of
+ * the body beyond the digest state. The W-2 manifest charges the
+ * observation this window. */
+export const ARCHIVE_OBSERVE_CHUNK_BYTES = 64 * 1024;
+
+export type ArtifactObservation = {
+  metadata: ArtifactObjectMetadata | null;
+  /** SHA-256 hex of the body, computed incrementally. */
+  bodyDigest: string;
+};
+
+async function hashWebBodyStream(body: ReadableStream<Uint8Array>): Promise<string> {
+  const hash = createHash("sha256");
+  const reader = body.getReader();
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) hash.update(value);
+    }
+  } finally {
+    reader.releaseLock?.();
+  }
+  return hash.digest("hex");
+}
+
+/**
+ * Observe an artifact object for finalization (§5.8): presence,
+ * trusted-shape metadata, and the SHA-256 of the body — computed by
+ * STREAMING the body, never materialising it (correction round 3 —
+ * Codex P2-1, sustained by the G-dot re-check verdict 2026-10-25:
+ * the finalize observation previously read the whole object via
+ * getArtifactObject while the counted body was still referenced,
+ * holding a second full body on a path the area-8 harness never
+ * measured). Returns null only for a genuine not-found; storage
+ * errors and mid-stream read errors THROW (errors are never
+ * absence, §5.5). Exported with an explicit bucket so tests can
+ * drive a faithful fake.
+ */
+export async function observeArtifactObjectWithBucket(
+  bucket: R2Bucket,
+  key: string,
+): Promise<ArtifactObservation | null> {
+  const object = await bucket.get(key);
+  if (!object) return null;
+  const metadata = artifactMetadataFromCustom(object.customMetadata);
+  let bodyDigest: string;
+  if (object.body) {
+    bodyDigest = await hashWebBodyStream(object.body as ReadableStream<Uint8Array>);
+  } else {
+    // A runtime that offers no body stream: fall back to the
+    // buffered read for this object only (the digest must be over
+    // the real bytes; correctness never depends on which of the
+    // two reads a runtime offers).
+    bodyDigest = createHash("sha256").update(new Uint8Array(await object.arrayBuffer())).digest("hex");
+  }
+  return { metadata, bodyDigest };
+}
+
+/** Observe through the binding (or the local seam) — the semantics
+ * are observeArtifactObjectWithBucket's; the local backend streams
+ * the file in ARCHIVE_OBSERVE_CHUNK_BYTES windows and treats only
+ * ENOENT as absence. */
+export async function observeArtifactObject(key: string): Promise<ArtifactObservation | null> {
+  const bucket = await getDownloadArchiveR2Bucket();
+  if (bucket) return observeArtifactObjectWithBucket(bucket, key);
+  if (!isLocalAuthorityFallbackAllowed()) {
+    throw new Error("archive_storage_unavailable");
+  }
+  const filePath = localFilePathForKey(key);
+  const hash = createHash("sha256");
+  try {
+    const stream = createReadStream(filePath, { highWaterMark: ARCHIVE_OBSERVE_CHUNK_BYTES });
+    for await (const chunk of stream) {
+      hash.update(chunk as Buffer);
+    }
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException)?.code === "ENOENT") return null;
+    throw err;
+  }
+  let metadata: ArtifactObjectMetadata | null = null;
+  try {
+    const raw = await fs.readFile(localMetaPathForKey(key), "utf8");
+    metadata = artifactMetadataFromCustom(JSON.parse(raw) as Record<string, string>);
+  } catch {
+    metadata = null;
+  }
+  return { metadata, bodyDigest: hash.digest("hex") };
 }
 
 /** Staging write (§5.8): a plain put to the staging key — staging is

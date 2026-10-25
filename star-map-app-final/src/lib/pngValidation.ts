@@ -23,23 +23,30 @@
  * in storage in any form.
  *
  * Resource bound (W-2, as restructured by conformance fix round 2,
- * area 8 — G-dot re-check verdict 2026-10-24): the pipeline's
- * incremental working set W is ONE counted body buffer
- * (≤ ARCHIVE_MAX_BYTES: the counted read assembles into a single
- * preallocated buffer and never retains chunk copies or a second
- * concatenated body — the round-1 reader retained every chunk copy
- * AND the concatenated buffer, a ~two-body peak) + a presented-chunk
- * window allowance + bounded IDAT pump bookkeeping + one row buffer
- * (≤ 1 + 6000×4 bytes) + fixed SHA-256 state. The IDAT payload adds no
- * payload term: no span list is retained — the inflater is fed by a
- * second structural walk over the counted body, one live span view at
- * a time, with at most PNG_INFLATE_MAX_OUTSTANDING_WRITES write
- * callbacks outstanding; queued writes reference views into the body
- * and copy nothing. The decoder is node:zlib `createInflate` — a
- * streaming inflate with the format's fixed 32 KiB history window
- * plus fixed internal state; its declared documented workspace D and
- * the measured acceptance P ≤ B + W + D + H are recorded in the
- * round-2 measurement manifest + addendum (program records). The
+ * area 8, and corrected by correction round 3 — G-dot re-check
+ * verdicts 2026-10-24 and 2026-10-25): the pipeline's incremental
+ * working set W is ONE counted body buffer (≤ ARCHIVE_MAX_BYTES: the
+ * counted read assembles into a single preallocated buffer and never
+ * retains chunk copies or a second concatenated body — the round-1
+ * reader retained every chunk copy AND the concatenated buffer, a
+ * ~two-body peak) + bounded IDAT feeder bookkeeping + one row buffer
+ * (≤ 1 + 6000×4 bytes) + fixed SHA-256 state. No presented-chunk term
+ * is charged: a presented chunk is the request's own residency (the
+ * acceptance baseline B is measured with the body already resident),
+ * it is consumed slice-by-slice before the next is pulled, and it is
+ * never retained — the round-2 manifest's 1 MiB window allowance was
+ * neither enforced nor evidenced and is removed (round-3 manifest).
+ * The IDAT payload adds no payload term: no span list is retained —
+ * the inflater is fed by a second structural walk over the counted
+ * body, one live span view at a time; queued writes reference views
+ * into the body and copy nothing. The decoder is node:zlib
+ * `createInflate`; beyond the format's fixed 32 KiB history window
+ * its output side carries a streaming transient that scales with the
+ * pinned output chunk size (PNG_INFLATE_CHUNK_BYTES) — the round-3
+ * diagnosis measured it and the corrected decoder allowance D is
+ * derived from that pin. W, D, H and the measured acceptance
+ * P ≤ B + W + D + H are recorded in the round-3 measurement manifest
+ * (program record dl1-s4-r3-measurement-manifest-2026-10-25.md). The
  * inflater never accumulates decoded output: rows are discarded as
  * they decode, and the decoder aborts the byte the expected inflated
  * length is exceeded.
@@ -195,6 +202,30 @@ type PngStructure = {
   idatTotalBytes: number;
 };
 
+/**
+ * The critical chunk types this pipeline admits (correction round 3 —
+ * Codex P2-2 on the round-2 head, sustained by the G-dot re-check
+ * verdict 2026-10-25): the PNG standard's core set. A chunk type is
+ * CRITICAL when its first byte is an uppercase ASCII letter (the PNG
+ * specification's critical bit). An unknown critical chunk is fatal
+ * to decoders: the step-1 reproduction showed a CRC-valid unknown
+ * critical chunk ("ABCD") passing this validation while a real
+ * decoder (Sharp) rejects the file, so an artifact carrying one could
+ * be permanently finalized yet undecodable. Such chunks are therefore
+ * refused here, before anything is staged. Ancillary chunks
+ * (lowercase first byte) pass through untouched, exactly as before;
+ * PLTE is admitted as a standard critical type decoders handle (a
+ * palette image still fails the pinned feature set in
+ * `validatePngBytes`).
+ */
+const SUPPORTED_CRITICAL_CHUNK_TYPES = new Set(["IHDR", "PLTE", "IDAT", "IEND"]);
+
+function isUnsupportedCriticalChunk(type: string): boolean {
+  const firstByte = type.charCodeAt(0);
+  const critical = firstByte >= 0x41 && firstByte <= 0x5a; // 'A'..'Z'
+  return critical && !SUPPORTED_CRITICAL_CHUNK_TYPES.has(type);
+}
+
 function parsePngStructure(bytes: Uint8Array): PngStructure | { error: string } {
   const buf = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
   if (buf.length < PNG_SIGNATURE.length || !buf.subarray(0, 8).equals(PNG_SIGNATURE)) {
@@ -236,6 +267,8 @@ function parsePngStructure(bytes: Uint8Array): PngStructure | { error: string } 
     } else if (type === "IDAT") {
       idatChunkCount++;
       idatTotalBytes += length;
+    } else if (isUnsupportedCriticalChunk(type)) {
+      return { error: "unsupported_critical_chunk" };
     } else if (type === "IEND") {
       sawIend = true;
       offset = dataEnd + 4;
@@ -253,15 +286,36 @@ function parsePngStructure(bytes: Uint8Array): PngStructure | { error: string } 
 /* ------------------------- streaming inflate check ------------------------ */
 
 /**
- * The bounded IDAT pump bound (conformance fix round 2, area 8): at
- * most this many inflater write callbacks are outstanding at any
- * moment, so queued writes — views into the counted body, copying
- * nothing — are O(1) in count regardless of IDAT segmentation. The
- * W-2 working-set manifest charges the pump a fixed bookkeeping
- * allowance (per-callback closure + stream bookkeeping) derived from
- * this constant.
+ * The bounded IDAT feeder bound (conformance fix round 2, area 8;
+ * restructured in correction round 3): at most this many inflater
+ * writes are un-drained at any moment — the feeder writes bounded
+ * slices and waits for the stream to drain before writing more, so
+ * queued input is O(1) regardless of IDAT segmentation. The W-2
+ * working-set manifest charges the feeder a fixed bookkeeping
+ * allowance derived from this constant and
+ * PNG_INFLATE_FEED_SLICE_BYTES.
  */
-export const PNG_INFLATE_MAX_OUTSTANDING_WRITES = 64;
+export const PNG_INFLATE_MAX_OUTSTANDING_WRITES = 1;
+
+/** The inflater's output chunk size, pinned (correction round 3,
+ * area 8). The round-2 re-check diagnosis (program record
+ * dl1-s4-r3-measurement-manifest-2026-10-25.md) attributed the
+ * area-8 peak excess to the decoder's output-side transient on the
+ * pinned maximum inflated workload: with flowing consumption the
+ * zlib output pipeline runs ahead of the consumer and its residency
+ * scales with the output chunk size (~48 MB at the default 16 KiB
+ * with the round-2 pump; ~59 MB measured end-to-end). Consumption is
+ * now pull-based (async iteration) at this pinned 8 KiB chunk size,
+ * which measured a ~17 MB transient across repeated diagnostic runs
+ * at the maximum workload. The decoder allowance D in the manifest
+ * is derived from this pin. */
+export const PNG_INFLATE_CHUNK_BYTES = 8192;
+
+/** The feeder's input slice bound (correction round 3, area 8):
+ * IDAT spans are written to the inflater in slices of at most this
+ * many bytes — views into the counted body, copying nothing — with
+ * at most PNG_INFLATE_MAX_OUTSTANDING_WRITES un-drained at a time. */
+export const PNG_INFLATE_FEED_SLICE_BYTES = 16 * 1024;
 
 /**
  * Second structural walk over the counted body, yielding each
@@ -300,13 +354,21 @@ async function* idatSpanWalk(
  * Adler-32); a stream that inflates short, long, corrupt, or with an
  * illegal filter byte is rejected.
  *
- * Feeding is a bounded pump (fix round 2, area 8): spans are produced
- * by `idatSpanWalk` one at a time and written with at most
- * PNG_INFLATE_MAX_OUTSTANDING_WRITES callbacks outstanding — the
- * round-1 loop issued one write per IDAT chunk with no flow control,
- * so inflater-queued work grew with the chunk count. Decoded output
- * is handled as before: rows are discarded as they decode and the
- * decoder aborts the byte the expected inflated length is exceeded.
+ * Feeding is bounded (fix round 2, area 8; consumption restructured in
+ * correction round 3): spans are produced by `idatSpanWalk` one at a
+ * time and written in slices of at most PNG_INFLATE_FEED_SLICE_BYTES
+ * with at most PNG_INFLATE_MAX_OUTSTANDING_WRITES un-drained write at
+ * any moment. Decoded output is PULLED by the consumer (async
+ * iteration over an inflater created with the pinned
+ * PNG_INFLATE_CHUNK_BYTES) instead of pushed by a flowing 'data'
+ * handler — the round-3 diagnosis showed the flowing pipeline's
+ * output-side transient, not any retained allocation, was the area-8
+ * peak excess (see PNG_INFLATE_CHUNK_BYTES). Rows are discarded as
+ * they decode and the decoder aborts the byte the expected inflated
+ * length is exceeded. Observable verdicts are unchanged from the
+ * pump: exact-length equality, filter-byte legality, stream errors,
+ * and post-stream IDAT bytes tolerated exactly as before (the feeder
+ * writes every span; the zlib stream's own end decides the output).
  */
 function validateInflatedData(
   buf: Buffer,
@@ -314,90 +376,91 @@ function validateInflatedData(
   expectedInflatedLength: number,
   rowLength: number,
 ): Promise<boolean> {
-  return new Promise((resolve) => {
-    const inflater = createInflate();
-    let leftover: Buffer = Buffer.alloc(0);
-    let total = 0;
-    let settled = false;
-    const finish = (value: boolean) => {
+  const inflater = createInflate({ chunkSize: PNG_INFLATE_CHUNK_BYTES });
+  let settled = false;
+  let settle!: (value: boolean) => void;
+  const done = new Promise<boolean>((resolve) => {
+    settle = (value: boolean) => {
       if (settled) return;
       settled = true;
       resolve(value);
     };
-    // Pump progress signalling: any write callback, error, or close
-    // wakes a parked feeder, so the pump can never deadlock waiting
-    // for callbacks a failed stream will not deliver (a failed
-    // stream's outstanding write callbacks fire with the error).
-    let waiters: Array<() => void> = [];
-    const noteProgress = () => {
-      const pending = waiters;
-      waiters = [];
-      for (const wake of pending) wake();
-    };
-    const waitProgress = () =>
-      new Promise<void>((wake) => {
-        waiters.push(wake);
-      });
-    inflater.on("data", (chunk: Buffer) => {
-      total += chunk.length;
-      if (total > expectedInflatedLength) {
-        inflater.destroy();
-        finish(false);
-        return;
-      }
-      leftover = leftover.length === 0 ? chunk : Buffer.concat([leftover, chunk]);
-      while (leftover.length >= rowLength) {
-        const filterByte = leftover[0];
-        if (filterByte > 4) {
-          inflater.destroy();
-          finish(false);
+  });
+  // Consumer: pull the decoded stream. Exiting the iteration early
+  // (overlong output, illegal filter byte) destroys the inflater via
+  // the finally below; a stream error rejects the iteration and is
+  // mapped to the same invalid verdict the pump's error path gave.
+  void (async () => {
+    let leftover: Buffer = Buffer.alloc(0);
+    let total = 0;
+    try {
+      for await (const chunk of inflater) {
+        const data = chunk as Buffer;
+        total += data.length;
+        if (total > expectedInflatedLength) {
+          settle(false);
           return;
         }
-        leftover = leftover.subarray(rowLength);
-      }
-    });
-    inflater.on("error", () => {
-      noteProgress();
-      finish(false);
-    });
-    inflater.on("close", () => noteProgress());
-    inflater.on("end", () => finish(total === expectedInflatedLength && leftover.length === 0));
-    void (async () => {
-      const stats = { chunks: 0, totalBytes: 0 };
-      let outstanding = 0;
-      try {
-        for await (const span of idatSpanWalk(buf, stats)) {
-          while (!settled && outstanding >= PNG_INFLATE_MAX_OUTSTANDING_WRITES) {
-            await waitProgress();
-          }
-          if (settled) return;
-          outstanding++;
-          try {
-            inflater.write(span, () => {
-              outstanding--;
-              noteProgress();
-            });
-          } catch {
-            outstanding--;
-            finish(false);
+        leftover = leftover.length === 0 ? data : Buffer.concat([leftover, data]);
+        while (leftover.length >= rowLength) {
+          const filterByte = leftover[0];
+          if (filterByte > 4) {
+            settle(false);
             return;
           }
+          leftover = leftover.subarray(rowLength);
         }
-        // The feeder must reproduce pass 1's IDAT accounting exactly.
-        // The body is an immutable counted buffer, so a mismatch is a
-        // hard structural failure, never a data race.
-        if (stats.chunks !== expectedIdat.chunks || stats.totalBytes !== expectedIdat.totalBytes) {
-          inflater.destroy();
-          finish(false);
-          return;
-        }
-        if (!settled) inflater.end();
-      } catch {
-        inflater.destroy();
-        finish(false);
       }
-    })();
-  });
+      settle(total === expectedInflatedLength && leftover.length === 0);
+    } catch {
+      settle(false);
+    } finally {
+      inflater.destroy();
+    }
+  })();
+  // Feeder: a drain wait also wakes when the consumer settles, so the
+  // feeder can never deadlock against a stream the consumer has
+  // already finished or destroyed (an errored stream may never drain).
+  void (async () => {
+    const stats = { chunks: 0, totalBytes: 0 };
+    try {
+      for await (const span of idatSpanWalk(buf, stats)) {
+        let offset = 0;
+        while (offset < span.length) {
+          if (settled) return;
+          const slice = span.subarray(offset, offset + PNG_INFLATE_FEED_SLICE_BYTES);
+          offset += slice.length;
+          let accepted: boolean;
+          try {
+            accepted = inflater.write(slice);
+          } catch {
+            return; // destroyed/ended stream: the consumer settles the verdict
+          }
+          if (!accepted && !settled) {
+            await Promise.race([
+              new Promise<void>((wake) => {
+                inflater.once("drain", wake);
+              }),
+              done.then(() => undefined),
+            ]);
+          }
+        }
+      }
+      // The feeder must reproduce pass 1's IDAT accounting exactly.
+      // The body is an immutable counted buffer, so a mismatch is a
+      // hard structural failure, never a data race.
+      if (stats.chunks !== expectedIdat.chunks || stats.totalBytes !== expectedIdat.totalBytes) {
+        inflater.destroy();
+        settle(false);
+        return;
+      }
+      if (!settled) inflater.end();
+    } catch {
+      inflater.destroy();
+      settle(false);
+    }
+  })();
+  return done;
 }
 
 /* ------------------------------ the pipeline ------------------------------ */
