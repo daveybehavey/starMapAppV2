@@ -580,6 +580,70 @@ test("png: unsupported critical chunk is rejected (correction round 3 — Codex 
   }
 });
 
+test("png: PLTE payload shape is validated before staging (Codex P2 on the round-3 head); a well-formed palette is admitted by the structure pass", async () => {
+  // The Codex reproduction: a CRC-valid one-byte PLTE in an
+  // otherwise admissible RGBA PNG passed validation while Sharp
+  // rejects the file ("invalid chunk length").
+  for (const [label, payload] of [
+    ["one byte", Buffer.from([0])],
+    ["not a multiple of 3", Buffer.from([0, 0, 0, 0])],
+    ["empty", Buffer.alloc(0)],
+    ["257 entries", Buffer.alloc(771)],
+  ]) {
+    const result = await png.validatePngBytes(
+      buildPng({ extraChunks: [chunk("PLTE", payload)] }),
+      SMALL,
+    );
+    assert.equal(result.ok, false, `PLTE ${label} must be rejected`);
+    assert.equal(result.reason, "bad_plte", `PLTE ${label}`);
+  }
+  // A well-formed PLTE (a suggested palette) on the admitted RGBA
+  // colour type validates exactly as before.
+  const rgba = await png.validatePngBytes(
+    buildPng({ extraChunks: [chunk("PLTE", Buffer.from([0, 0, 0, 255, 255, 255]))] }),
+    SMALL,
+  );
+  assert.equal(rgba.ok, true, "a well-formed PLTE on RGBA must validate");
+  // Positive control, palette image: colour type 3 carrying a
+  // well-formed PLTE is admitted by the PLTE rules — it is rejected
+  // only by the pinned feature set, not as bad_plte.
+  const palette = await png.validatePngBytes(
+    buildPng({ colorType: 3, extraChunks: [chunk("PLTE", Buffer.from([10, 20, 30]))] }),
+    SMALL,
+  );
+  assert.equal(palette.ok, false);
+  assert.equal(palette.reason, "unpinned_png_feature_set");
+  // Presence rules: PLTE is required for colour type 3, forbidden
+  // for greyscale (0), and the entry count is bounded by 2^bitDepth
+  // for palette images.
+  const paletteMissing = await png.validatePngBytes(buildPng({ colorType: 3 }), SMALL);
+  assert.equal(paletteMissing.reason, "bad_plte");
+  const greyWithPlte = await png.validatePngBytes(
+    buildPng({ colorType: 0, extraChunks: [chunk("PLTE", Buffer.from([0, 0, 0]))] }),
+    SMALL,
+  );
+  assert.equal(greyWithPlte.reason, "bad_plte");
+  const paletteOverflow = await png.validatePngBytes(
+    buildPng({
+      colorType: 3,
+      bitDepth: 1,
+      extraChunks: [chunk("PLTE", Buffer.alloc(9))], // 3 entries > 2^1
+    }),
+    SMALL,
+  );
+  assert.equal(paletteOverflow.reason, "bad_plte");
+  // PLTE after the first IDAT is out of order per the spec.
+  const base = buildPng({});
+  const iendStart = base.length - 12;
+  const afterIdat = Buffer.concat([
+    base.subarray(0, iendStart),
+    chunk("PLTE", Buffer.from([0, 0, 0])),
+    base.subarray(iendStart),
+  ]);
+  const late = await png.validatePngBytes(afterIdat, SMALL);
+  assert.equal(late.reason, "bad_plte");
+});
+
 test("png: illegal filter byte + short inflated stream are rejected (§5.10 step 3)", async () => {
   const badFilterRows = Buffer.alloc(3 * (1 + 4 * 4));
   for (let r = 0; r < 3; r++) badFilterRows[r * (1 + 4 * 4)] = 9;

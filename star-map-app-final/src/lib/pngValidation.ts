@@ -216,7 +216,11 @@ type PngStructure = {
  * (lowercase first byte) pass through untouched, exactly as before;
  * PLTE is admitted as a standard critical type decoders handle (a
  * palette image still fails the pinned feature set in
- * `validatePngBytes`).
+ * `validatePngBytes`) — but its payload is shape-checked below
+ * (`bad_plte`): admission without validation let a CRC-valid PLTE
+ * with a malformed payload (e.g. one byte) pass while Sharp rejects
+ * the file ("invalid chunk length"), the same finalize-an-
+ * undecodable-artifact defect class as the unknown-critical case.
  */
 const SUPPORTED_CRITICAL_CHUNK_TYPES = new Set(["IHDR", "PLTE", "IDAT", "IEND"]);
 
@@ -235,6 +239,7 @@ function parsePngStructure(bytes: Uint8Array): PngStructure | { error: string } 
   let ihdr: Omit<PngStructure, "idatChunkCount" | "idatTotalBytes"> | null = null;
   let idatChunkCount = 0;
   let idatTotalBytes = 0;
+  let sawPlte = false;
   let sawIend = false;
   let first = true;
   while (offset < buf.length) {
@@ -264,6 +269,27 @@ function parsePngStructure(bytes: Uint8Array): PngStructure | { error: string } 
       if (compression !== 0 || filter !== 0) return { error: "bad_ihdr_methods" };
       if (interlace !== 0) return { error: "interlace_not_supported" };
       ihdr = { width, height, bitDepth, colorType };
+    } else if (type === "PLTE") {
+      // PLTE payload shape, per the PNG specification (Codex P2 on
+      // the correction-round-3 head): the payload is a palette of
+      // RGB triples — 1 to 256 entries, so its length is a multiple
+      // of 3 between 3 and 768 bytes; at most one PLTE chunk may
+      // appear, and it must precede the first IDAT. Presence rules
+      // by colour type: required for palette images (3), optional
+      // (a suggested palette) for truecolour (2) and RGBA (6),
+      // forbidden for greyscale (0) and greyscale+alpha (4); for
+      // palette images the entry count must not exceed 2^bitDepth.
+      // IHDR is always the first chunk (enforced above), so its
+      // colour type and bit depth are known here.
+      if (sawPlte || idatChunkCount > 0) return { error: "bad_plte" };
+      if (length < 3 || length > 768 || length % 3 !== 0) return { error: "bad_plte" };
+      if (ihdr && (ihdr.colorType === 0 || ihdr.colorType === 4)) {
+        return { error: "bad_plte" };
+      }
+      if (ihdr && ihdr.colorType === 3 && length / 3 > 2 ** ihdr.bitDepth) {
+        return { error: "bad_plte" };
+      }
+      sawPlte = true;
     } else if (type === "IDAT") {
       idatChunkCount++;
       idatTotalBytes += length;
@@ -280,6 +306,10 @@ function parsePngStructure(bytes: Uint8Array): PngStructure | { error: string } 
   if (!ihdr) return { error: "missing_ihdr" };
   if (idatChunkCount === 0) return { error: "missing_idat" };
   if (!sawIend) return { error: "missing_iend" };
+  // A palette image (colour type 3) without PLTE is incomplete per
+  // the specification (PLTE is required there); reject it here
+  // rather than letting it surface as a feature-set mismatch.
+  if (ihdr.colorType === 3 && !sawPlte) return { error: "bad_plte" };
   return { ...ihdr, idatChunkCount, idatTotalBytes };
 }
 

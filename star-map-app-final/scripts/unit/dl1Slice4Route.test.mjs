@@ -34,6 +34,11 @@ import { register } from "node:module";
 register("./tsAliasLoader.mjs", import.meta.url);
 register("./entitlementAuthority.hooks.mjs", import.meta.url);
 register("./dl1S4NextServer.hooks.mjs", import.meta.url);
+// Registered last so its resolve hook runs first: it redirects ONLY
+// the route module's own authority import to the rendezvous wrapper
+// (see dl1S4AuthorityRendezvous.hooks.mjs) — the area-3 race tests
+// arm it to force the stale-snapshot interleaving deterministically.
+register("./dl1S4AuthorityRendezvous.hooks.mjs", import.meta.url);
 
 const RUN = Date.now().toString(36);
 process.env.STARMAP_ENTITLEMENT_AUTHORITY_LOCAL = "1";
@@ -60,6 +65,7 @@ const { kv, ENTITLEMENT_KV } = await import("../../src/lib/entitlementsStore.ts"
 const identity = await import("../../src/lib/downloadArchiveIdentity.ts");
 const pngMod = await import("../../src/lib/pngValidation.ts");
 const clientMod = await import("../../src/lib/entitlementAuthority.ts");
+const rendezvous = await import("./dl1S4AuthorityRendezvous.mjs");
 
 const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const MAP = "map-route-1";
@@ -134,25 +140,6 @@ function uploadPost(token, bytes, headers = {}) {
     method: "POST",
     headers: { "content-type": "image/png", ...headers },
     body: bytes,
-  });
-}
-
-/** An upload whose body stream is parked until `gate` resolves, so two
- * requests can be held inside the counted read and released together
- * (correction round 3, area 3: the forced interleaving). */
-function gatedUploadPost(token, bytes, headers, gate) {
-  const stream = new ReadableStream({
-    async start(controller) {
-      await gate;
-      controller.enqueue(bytes);
-      controller.close();
-    },
-  });
-  return new NextRequest(url(token), {
-    method: "POST",
-    headers: { "content-type": "image/png", ...headers },
-    body: stream,
-    duplex: "half",
   });
 }
 
@@ -775,59 +762,73 @@ async function seedPromotionRace(joinDigest) {
   return { sessionId, token, derived, joinId, joinerSignedExpiry, descriptor: issued.descriptor };
 }
 
-test("route replay race (correction round 3, area 3): two IDENTICAL uploads gated into the same interleaving across a JN1→R7 promotion — the stale-snapshot registration is reconstructed from the fresh persisted intent and replays; both succeed", async () => {
+test("route replay race (correction round 3, area 3; rendezvous forced per the Codex P2 on the round-3 head): two IDENTICAL uploads whose stateBefore snapshots are BOTH read before either registration is released, straddling a JN1→R7 promotion — the stale-snapshot registration is reconstructed from the fresh persisted intent and replays; both succeed", async () => {
   const bytes = bigPng(0);
-  let raceReproduced = false;
-  for (let attempt = 0; attempt < 5 && !raceReproduced; attempt++) {
-    const { sessionId, token, joinId, joinerSignedExpiry, descriptor } = await seedPromotionRace(sha(bytes));
-    let release;
-    const gate = new Promise((r) => (release = r));
-    const headers = { "x-prepare-descriptor": descriptor };
-    const pA = route.POST(gatedUploadPost(token, bytes, headers, gate));
-    const pB = route.POST(gatedUploadPost(token, bytes, headers, gate));
-    release();
-    const [resA, resB] = await Promise.all([pA, pB]);
-    // Identical bytes must succeed in EVERY interleaving, raced or not.
-    assert.equal(resA.status, 200, `attempt ${attempt}: first upload`);
-    assert.equal(resB.status, 200, `attempt ${attempt}: second upload`);
-    const state = await client.getState(sessionId);
-    const entries = Object.values(state.artifactRegistry);
-    assert.equal(entries.length, 1, `attempt ${attempt}: exactly one entry`);
-    assert.equal(entries[0].digest, sha(bytes));
-    const promoted = state.publicationIntents[joinId];
-    assert.ok(promoted, `attempt ${attempt}: the promoted intent stands`);
-    assert.equal(promoted.digest, sha(bytes));
-    assert.notEqual(promoted.expiresAt, joinerSignedExpiry); // machine stamp, not the signed expiry
-    // The race is PROVEN from the authority's own commit order (W-3):
-    // a joinId registration refused intent_payload_conflict (the stale
-    // snapshot presenting the signed expiry) followed by a recorded
-    // registration for the same intentId (the bounded reconstruction
-    // replaying with the fresh persisted expiry).
-    const regs = clientMod.__getEntitlementAuthorityCommitHistoryForTests(sessionId).filter(
-      (r) => r.op.type === "register_publication_intent" && r.op.intent.intentId === joinId,
-    );
-    const refusalIdx = regs.findIndex((r) => r.outcome === "refused" && r.refusal === "intent_payload_conflict");
-    if (
-      refusalIdx >= 0 &&
-      regs.slice(refusalIdx + 1).some((r) => r.outcome === "publication_intent_recorded")
-    ) {
-      raceReproduced = true;
-    }
+  const { sessionId, token, joinId, joinerSignedExpiry, descriptor } = await seedPromotionRace(sha(bytes));
+  const headers = { "x-prepare-descriptor": descriptor };
+  // STRUCTURAL FORCING (dl1S4AuthorityRendezvous.mjs): while armed,
+  // the route's first two getState reads for this session each
+  // execute and then block until both have completed, so both
+  // snapshots are provably pre-registration — no reliance on body
+  // timing or scheduler luck.
+  rendezvous.__armAuthorityGetStateRendezvous(sessionId);
+  let resA, resB, status;
+  try {
+    [resA, resB] = await Promise.all([
+      route.POST(uploadPost(token, bytes, headers)),
+      route.POST(uploadPost(token, bytes, headers)),
+    ]);
+  } finally {
+    status = rendezvous.__authorityRendezvousStatus();
+    rendezvous.__disarmAuthorityGetStateRendezvous();
   }
-  assert.ok(raceReproduced, "the stale-snapshot interleaving was not reproduced in 5 gated attempts");
+  assert.equal(status.arrived, 2, "both stateBefore reads must rendezvous before any registration");
+  assert.equal(status.timedOut, false, "the rendezvous must engage, not time out");
+  assert.equal(resA.status, 200, "first upload");
+  assert.equal(resB.status, 200, "second upload");
+  const state = await client.getState(sessionId);
+  const entries = Object.values(state.artifactRegistry);
+  assert.equal(entries.length, 1, "exactly one entry");
+  assert.equal(entries[0].digest, sha(bytes));
+  const promoted = state.publicationIntents[joinId];
+  assert.ok(promoted, "the promoted intent stands");
+  assert.equal(promoted.digest, sha(bytes));
+  assert.notEqual(promoted.expiresAt, joinerSignedExpiry); // machine stamp, not the signed expiry
+  // The race is PROVEN from the authority's own commit order (W-3),
+  // and with the rendezvous it is REQUIRED in this single run: a
+  // joinId registration refused intent_payload_conflict (the stale
+  // snapshot presenting the signed expiry) followed by a recorded
+  // registration for the same intentId (the bounded reconstruction
+  // replaying with the fresh persisted expiry).
+  const regs = clientMod.__getEntitlementAuthorityCommitHistoryForTests(sessionId).filter(
+    (r) => r.op.type === "register_publication_intent" && r.op.intent.intentId === joinId,
+  );
+  const refusalIdx = regs.findIndex((r) => r.outcome === "refused" && r.refusal === "intent_payload_conflict");
+  assert.ok(refusalIdx >= 0, "the stale-snapshot registration must be refused exactly once");
+  assert.ok(
+    regs.slice(refusalIdx + 1).some((r) => r.outcome === "publication_intent_recorded"),
+    "the reconstruction must record the replayed registration after the refusal",
+  );
 });
 
-test("route replay race, control (correction round 3, area 3): DIFFERENT bytes in the same gated interleaving — the join-matching upload succeeds, the other is refused 409 and the reconstruction cannot launder it", async () => {
+test("route replay race, control (correction round 3, area 3; rendezvous forced): DIFFERENT bytes under the same forced interleaving — the join-matching upload succeeds, the other is refused 409 and the reconstruction cannot launder it", async () => {
   const winner = bigPng(0);
   const loser = bigPng(8);
   const { sessionId, token, descriptor } = await seedPromotionRace(sha(winner));
-  let release;
-  const gate = new Promise((r) => (release = r));
   const headers = { "x-prepare-descriptor": descriptor };
-  const pWin = route.POST(gatedUploadPost(token, winner, headers, gate));
-  const pLose = route.POST(gatedUploadPost(token, loser, headers, gate));
-  release();
-  const [resWin, resLose] = await Promise.all([pWin, pLose]);
+  rendezvous.__armAuthorityGetStateRendezvous(sessionId);
+  let resWin, resLose, status;
+  try {
+    [resWin, resLose] = await Promise.all([
+      route.POST(uploadPost(token, winner, headers)),
+      route.POST(uploadPost(token, loser, headers)),
+    ]);
+  } finally {
+    status = rendezvous.__authorityRendezvousStatus();
+    rendezvous.__disarmAuthorityGetStateRendezvous();
+  }
+  assert.equal(status.arrived, 2, "both stateBefore reads must rendezvous before any registration");
+  assert.equal(status.timedOut, false, "the rendezvous must engage, not time out");
   assert.equal(resWin.status, 200);
   assert.equal(resLose.status, 409);
   const loseBody = await resLose.json();
@@ -852,6 +853,25 @@ test("descriptor upload with an unsupported critical PNG chunk → 422 and NOTHI
   assert.equal((await res.json()).error, "unsupported_critical_chunk");
   // Validation precedes staging and registration: no intent, no
   // registry entry, no stored object under the final key.
+  const state = await client.getState(sessionId);
+  assert.equal(Object.keys(state?.publicationIntents ?? {}).length, 0);
+  assert.equal(Object.keys(state?.artifactRegistry ?? {}).length, 0);
+  const storage = await import("../../src/lib/downloadArchiveStorage.ts");
+  const head = await storage.headArtifactObject(derived.finalKey);
+  assert.equal(head.present, false);
+});
+
+test("descriptor upload with a malformed PLTE payload → 422 bad_plte and NOTHING is published (Codex P2 on the round-3 head)", async () => {
+  const { sessionId, token } = await seedSession();
+  const identifyRes = await route.POST(jsonPost(token, { op: "identify", mapId: MAP }));
+  const { descriptor } = await identifyRes.json();
+  const derived = identity.deriveArtifactIdentity({ sessionId, mapId: MAP, recipe: RECIPE });
+  // The Codex reproduction shape at route scale: a CRC-valid
+  // one-byte PLTE in an otherwise admissible 6000×6000 RGBA upload.
+  const bytes = bigPngWithChunk("PLTE", Buffer.from([0]));
+  const res = await route.POST(uploadPost(token, bytes, { "x-prepare-descriptor": descriptor }));
+  assert.equal(res.status, 422);
+  assert.equal((await res.json()).error, "bad_plte");
   const state = await client.getState(sessionId);
   assert.equal(Object.keys(state?.publicationIntents ?? {}).length, 0);
   assert.equal(Object.keys(state?.artifactRegistry ?? {}).length, 0);
