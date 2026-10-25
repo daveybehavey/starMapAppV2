@@ -383,6 +383,7 @@ function buildPng({
   trailing = false,
   corruptIendCrc = false,
   omitIdat = false,
+  extraChunks = [],
 } = {}) {
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(width, 0);
@@ -397,6 +398,7 @@ function buildPng({
   const parts = [
     Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
     chunk("IHDR", ihdr),
+    ...extraChunks,
   ];
   if (!omitIdat) parts.push(chunk("IDAT", idat));
   parts.push(chunk("IEND", Buffer.alloc(0)));
@@ -554,6 +556,28 @@ test("png: structural rejection set — bad CRC, trailing bytes, missing IDAT, w
     "interlace_not_supported",
   );
   assert.equal((await png.validatePngBytes(Buffer.from("not a png"), SMALL)).ok, false);
+});
+
+test("png: unsupported critical chunk is rejected (correction round 3 — Codex P2-2); ancillary chunks still validate", async () => {
+  // A CRC-valid unknown CRITICAL chunk ("ABCD") — the reproduction
+  // shape from the Codex finding: before round 3 this validated,
+  // while a real decoder (Sharp) rejects the file, so the artifact
+  // could be permanently finalized yet undecodable.
+  const critical = await png.validatePngBytes(
+    buildPng({ extraChunks: [chunk("ABCD", Buffer.from("payload"))] }),
+    SMALL,
+  );
+  assert.equal(critical.ok, false);
+  assert.equal(critical.reason, "unsupported_critical_chunk");
+  // Ancillary positive controls (lowercase first byte = the PNG
+  // ancillary bit): tEXt and gAMA pass through exactly as before.
+  for (const type of ["tEXt", "gAMA"]) {
+    const ancillary = await png.validatePngBytes(
+      buildPng({ extraChunks: [chunk(type, Buffer.from("note"))] }),
+      SMALL,
+    );
+    assert.equal(ancillary.ok, true, `${type} must remain admissible`);
+  }
 });
 
 test("png: illegal filter byte + short inflated stream are rejected (§5.10 step 3)", async () => {
@@ -751,6 +775,12 @@ test("R1/R2 table (area 3 fix round 2): exact match replays; EVERY single-field 
   // R0 collision (evaluated first, A-1), and a foreign sessionId is
   // the V-5 identity refusal (evaluated before the table).
   const cases = [
+    // artifactKey (correction round 3: the re-check verdict noted
+    // this direct-mutation case was absent — the table now covers
+    // all twelve compared fields): the door recompute derives the
+    // key from the identity components, so a presented key that
+    // diverges is refused before the table proper.
+    ["artifactKey", { artifactKey: `${ARTIFACT}-forged` }, "intent_payload_conflict"],
     ["digest", { digest: DIGEST_B }, "intent_payload_conflict"],
     ["expiresAt", { expiresAt: NOW + 999_999 }, "intent_payload_conflict"],
     ["stagingKey", { stagingKey: identity.buildStagingKey(DESC_4) }, "intent_payload_conflict"],
@@ -1542,6 +1572,64 @@ test("storage taxonomy: head/get distinguish present / genuinely absent / errors
   const missing = await storage.headArtifactObject("download-archive/staging/nope.png");
   assert.equal(missing.present, false);
   assert.equal(await storage.getArtifactObject("download-archive/staging/nope.png"), null);
+  delete process.env.STARMAP_DOWNLOAD_ARCHIVE_DIR;
+});
+
+test("observe (correction round 3 — Codex P2-1): the finalize observation STREAMS the body — digest + metadata with arrayBuffer never called; a mid-stream error throws; a missing key is null", async () => {
+  const body = Buffer.alloc(1024 * 1024 + 123);
+  for (let i = 0; i < body.length; i++) body[i] = i % 251;
+  const chunks = [];
+  for (let o = 0; o < body.length; o += 65536) chunks.push(body.subarray(o, o + 65536));
+  const streamOf = (failAt = -1) =>
+    new ReadableStream({
+      start(controller) {
+        for (let idx = 0; idx < chunks.length; idx++) {
+          if (idx === failAt) {
+            controller.error(new Error("mid-stream failure"));
+            return;
+          }
+          controller.enqueue(chunks[idx]);
+        }
+        controller.close();
+      },
+    });
+  let arrayBufferCalls = 0;
+  const bucket = {
+    async get(key) {
+      if (key === "missing") return null;
+      return {
+        customMetadata: { ...metaFor(DIGEST_A) },
+        body: streamOf(key === "failing" ? 3 : -1),
+        arrayBuffer: async () => {
+          arrayBufferCalls++;
+          throw new Error("arrayBuffer must not be called when a body stream exists");
+        },
+      };
+    },
+  };
+  const observed = await storage.observeArtifactObjectWithBucket(bucket, "present");
+  assert.equal(observed.bodyDigest, sha(body));
+  assert.equal(observed.metadata.digest, DIGEST_A);
+  assert.equal(observed.metadata.artifactKey, ARTIFACT);
+  assert.equal(arrayBufferCalls, 0);
+  // A mid-stream read error is an error, never absence (§5.5).
+  await assert.rejects(() => storage.observeArtifactObjectWithBucket(bucket, "failing"), /mid-stream failure/);
+  assert.equal(await storage.observeArtifactObjectWithBucket(bucket, "missing"), null);
+});
+
+test("observe, local seam (correction round 3): a promoted object's observation matches its digest + metadata; a missing key is null", async () => {
+  const dir = path.join(process.cwd(), ".tmp", "dl1-s4-observe");
+  const { rm } = await import("node:fs/promises");
+  await rm(dir, { recursive: true, force: true }); // hermetic across runs
+  process.env.STARMAP_DOWNLOAD_ARCHIVE_DIR = dir;
+  const key = "download-archive/hd/observe/key.png";
+  const bytes = new Uint8Array(Buffer.from("observe-me-body"));
+  const promoted = await storage.promoteArtifactCreateOnly(key, bytes, metaFor(DIGEST_A));
+  assert.equal(promoted.outcome, "created");
+  const observed = await storage.observeArtifactObject(key);
+  assert.equal(observed.bodyDigest, sha(bytes));
+  assert.equal(observed.metadata.digest, DIGEST_A);
+  assert.equal(await storage.observeArtifactObject("download-archive/hd/observe/absent.png"), null);
   delete process.env.STARMAP_DOWNLOAD_ARCHIVE_DIR;
 });
 

@@ -137,6 +137,44 @@ function uploadPost(token, bytes, headers = {}) {
   });
 }
 
+/** An upload whose body stream is parked until `gate` resolves, so two
+ * requests can be held inside the counted read and released together
+ * (correction round 3, area 3: the forced interleaving). */
+function gatedUploadPost(token, bytes, headers, gate) {
+  const stream = new ReadableStream({
+    async start(controller) {
+      await gate;
+      controller.enqueue(bytes);
+      controller.close();
+    },
+  });
+  return new NextRequest(url(token), {
+    method: "POST",
+    headers: { "content-type": "image/png", ...headers },
+    body: stream,
+    duplex: "half",
+  });
+}
+
+/** bigPng with one extra chunk inserted between IHDR and IDAT. */
+function bigPngWithChunk(type, data, fill = 0) {
+  const rowLength = 1 + 6000 * 4;
+  const rows = Buffer.alloc(6000 * rowLength);
+  if (fill) rows.fill(fill, 1, 1 + 6000 * 4);
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(6000, 0);
+  ihdr.writeUInt32BE(6000, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 6;
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    pngChunk("IHDR", ihdr),
+    pngChunk(type, data),
+    pngChunk("IDAT", deflateSync(rows, { level: 1 })),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
 const client = clientMod.createEntitlementAuthorityClient();
 
 test("identify I-5: fresh artifact → identified + descriptor naming the derived identity", async () => {
@@ -683,6 +721,143 @@ test("route replay, promoted (area 3 fix round 2): after a JN1→R7 promotion, t
   const entries = Object.values(state.artifactRegistry);
   assert.equal(entries.length, 1);
   assert.equal(entries[0].digest, sha(bytes));
+});
+
+/** Seed the verdict's race precondition (correction round 3, area 3):
+ * a short-lived governor intent and a joiner joined under it (R6)
+ * through the authority seam, with the joiner's descriptor carrying
+ * its long signed expiry. The governor lapses in fake-now terms at
+ * the seam (t0 + 500) and in real terms long before any route
+ * registration applies (a 6000×6000 validation sits in between), so
+ * the first route registration performs the JN1→R7 promotion and
+ * stamps the machine expiry — the second, if its snapshot predates
+ * the promotion, presents the signed expiry and is refused. */
+async function seedPromotionRace(joinDigest) {
+  const { sessionId, token } = await seedSession();
+  const derived = identity.deriveArtifactIdentity({ sessionId, mapId: MAP, recipe: RECIPE });
+  const t0 = Date.now();
+  const govId = "66".repeat(16);
+  const joinId = "77".repeat(16);
+  const joinerSignedExpiry = t0 + 600_000;
+  const baseIntent = {
+    artifactKey: derived.artifactId,
+    sessionId,
+    mapId: MAP,
+    canonicalBinding: derived.canonicalBinding,
+    fingerprint: derived.fingerprint,
+    contractVersion: 1,
+    rendererVersion: 1,
+    digest: joinDigest,
+    expectedWidth: 6000,
+    expectedHeight: 6000,
+  };
+  const regGov = await client.apply(sessionId, {
+    type: "register_publication_intent",
+    intent: { ...baseIntent, intentId: govId, stagingKey: identity.buildStagingKey(govId), expiresAt: t0 + 500 },
+    now: t0,
+  });
+  assert.equal(regGov.outcome, "publication_intent_recorded");
+  const regJoin = await client.apply(sessionId, {
+    type: "register_publication_intent",
+    intent: { ...baseIntent, intentId: joinId, stagingKey: identity.buildStagingKey(joinId), expiresAt: joinerSignedExpiry },
+    now: t0,
+  });
+  assert.equal(regJoin.outcome, "publication_intent_joined");
+  const issued = identity.issuePrepareDescriptor({
+    sessionId,
+    mapId: MAP,
+    fingerprint: derived.fingerprint,
+    now: joinerSignedExpiry - identity.DESCRIPTOR_TTL_MS,
+    descriptorId: joinId,
+  });
+  assert.ok(issued);
+  assert.equal(issued.payload.expiresAt, joinerSignedExpiry);
+  return { sessionId, token, derived, joinId, joinerSignedExpiry, descriptor: issued.descriptor };
+}
+
+test("route replay race (correction round 3, area 3): two IDENTICAL uploads gated into the same interleaving across a JN1→R7 promotion — the stale-snapshot registration is reconstructed from the fresh persisted intent and replays; both succeed", async () => {
+  const bytes = bigPng(0);
+  let raceReproduced = false;
+  for (let attempt = 0; attempt < 5 && !raceReproduced; attempt++) {
+    const { sessionId, token, joinId, joinerSignedExpiry, descriptor } = await seedPromotionRace(sha(bytes));
+    let release;
+    const gate = new Promise((r) => (release = r));
+    const headers = { "x-prepare-descriptor": descriptor };
+    const pA = route.POST(gatedUploadPost(token, bytes, headers, gate));
+    const pB = route.POST(gatedUploadPost(token, bytes, headers, gate));
+    release();
+    const [resA, resB] = await Promise.all([pA, pB]);
+    // Identical bytes must succeed in EVERY interleaving, raced or not.
+    assert.equal(resA.status, 200, `attempt ${attempt}: first upload`);
+    assert.equal(resB.status, 200, `attempt ${attempt}: second upload`);
+    const state = await client.getState(sessionId);
+    const entries = Object.values(state.artifactRegistry);
+    assert.equal(entries.length, 1, `attempt ${attempt}: exactly one entry`);
+    assert.equal(entries[0].digest, sha(bytes));
+    const promoted = state.publicationIntents[joinId];
+    assert.ok(promoted, `attempt ${attempt}: the promoted intent stands`);
+    assert.equal(promoted.digest, sha(bytes));
+    assert.notEqual(promoted.expiresAt, joinerSignedExpiry); // machine stamp, not the signed expiry
+    // The race is PROVEN from the authority's own commit order (W-3):
+    // a joinId registration refused intent_payload_conflict (the stale
+    // snapshot presenting the signed expiry) followed by a recorded
+    // registration for the same intentId (the bounded reconstruction
+    // replaying with the fresh persisted expiry).
+    const regs = clientMod.__getEntitlementAuthorityCommitHistoryForTests(sessionId).filter(
+      (r) => r.op.type === "register_publication_intent" && r.op.intent.intentId === joinId,
+    );
+    const refusalIdx = regs.findIndex((r) => r.outcome === "refused" && r.refusal === "intent_payload_conflict");
+    if (
+      refusalIdx >= 0 &&
+      regs.slice(refusalIdx + 1).some((r) => r.outcome === "publication_intent_recorded")
+    ) {
+      raceReproduced = true;
+    }
+  }
+  assert.ok(raceReproduced, "the stale-snapshot interleaving was not reproduced in 5 gated attempts");
+});
+
+test("route replay race, control (correction round 3, area 3): DIFFERENT bytes in the same gated interleaving — the join-matching upload succeeds, the other is refused 409 and the reconstruction cannot launder it", async () => {
+  const winner = bigPng(0);
+  const loser = bigPng(8);
+  const { sessionId, token, descriptor } = await seedPromotionRace(sha(winner));
+  let release;
+  const gate = new Promise((r) => (release = r));
+  const headers = { "x-prepare-descriptor": descriptor };
+  const pWin = route.POST(gatedUploadPost(token, winner, headers, gate));
+  const pLose = route.POST(gatedUploadPost(token, loser, headers, gate));
+  release();
+  const [resWin, resLose] = await Promise.all([pWin, pLose]);
+  assert.equal(resWin.status, 200);
+  assert.equal(resLose.status, 409);
+  const loseBody = await resLose.json();
+  assert.ok(
+    ["intent_payload_conflict", "publication_conflict"].includes(loseBody.error),
+    `unexpected refusal shape: ${loseBody.error}`,
+  );
+  const state = await client.getState(sessionId);
+  const entries = Object.values(state.artifactRegistry);
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].digest, sha(winner));
+});
+
+test("descriptor upload with an unsupported critical PNG chunk → 422 and NOTHING is published (correction round 3 — Codex P2-2)", async () => {
+  const { sessionId, token } = await seedSession();
+  const identifyRes = await route.POST(jsonPost(token, { op: "identify", mapId: MAP }));
+  const { descriptor } = await identifyRes.json();
+  const derived = identity.deriveArtifactIdentity({ sessionId, mapId: MAP, recipe: RECIPE });
+  const bytes = bigPngWithChunk("ABCD", Buffer.from("payload"));
+  const res = await route.POST(uploadPost(token, bytes, { "x-prepare-descriptor": descriptor }));
+  assert.equal(res.status, 422);
+  assert.equal((await res.json()).error, "unsupported_critical_chunk");
+  // Validation precedes staging and registration: no intent, no
+  // registry entry, no stored object under the final key.
+  const state = await client.getState(sessionId);
+  assert.equal(Object.keys(state?.publicationIntents ?? {}).length, 0);
+  assert.equal(Object.keys(state?.artifactRegistry ?? {}).length, 0);
+  const storage = await import("../../src/lib/downloadArchiveStorage.ts");
+  const head = await storage.headArtifactObject(derived.finalKey);
+  assert.equal(head.present, false);
 });
 
 test("terminal-success comparison (area 7 P2 / CB-P2a): a requester whose retained intent lapses mid-flight while a successor takes governance gets 409, never success", async () => {
