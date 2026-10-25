@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import BlogPostConversionLinks from "@/components/BlogPostConversionLinks";
 import { getPost } from "@/lib/blogPosts";
+import { buildBlogPostingJsonLd, serializeJsonLd } from "@/lib/blogPostingSchema";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -78,29 +79,23 @@ export default async function BlogPostPage({ params }: Props) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
   const ogImageUrl = resolveOgImageUrl(siteUrl, post.ogImage);
 
-  const articleSchema = {
-    "@context": "https://schema.org",
-    "@type": "Article",
+  // blogPosts carries a single `date` per post (its publication date); it is
+  // the only date the data model records, so it backs both date fields.
+  const articleSchema = buildBlogPostingJsonLd({
+    url: `${siteUrl}/blog/${slug}`,
     headline: post.title,
     description: post.description,
     datePublished: post.date,
     dateModified: post.date,
-    author: { "@type": "Organization", name: "StarMapCo" },
-    publisher: {
-      "@type": "Organization",
-      name: "StarMapCo",
-      logo: { "@type": "ImageObject", url: "https://starmapco.com/favicon.ico" },
-    },
-    mainEntityOfPage: `${siteUrl}/blog/${slug}`,
     image: ogImageUrl,
-  };
+  });
 
   return (
     <main className="mx-auto max-w-4xl px-4 pt-8 pb-12">
       <Script
-        id="article-schema"
+        id="blogposting-schema"
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(articleSchema) }}
       />
       <Link
         href="/blog"

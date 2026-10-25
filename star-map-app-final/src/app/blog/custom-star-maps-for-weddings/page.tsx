@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import BlogPostConversionLinks from "@/components/BlogPostConversionLinks";
+import { buildBlogPostingJsonLd, serializeJsonLd } from "@/lib/blogPostingSchema";
 import { buildPrintEditorCheckoutHref } from "@/lib/printCheckoutConfig";
 
 const title = "Custom Star Maps for Weddings Guide";
@@ -41,27 +42,19 @@ export default function WeddingsPostPage() {
     variant: "poster_framed",
     includeDigitalAddOn: true,
   });
-  const articleJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Article",
+  const articleJsonLd = buildBlogPostingJsonLd({
+    url: "https://starmapco.com/blog/custom-star-maps-for-weddings",
     headline: title,
     description,
     datePublished: "2024-06-01",
     dateModified: "2024-06-01",
-    author: { "@type": "Organization", name: "StarMapCo" },
     image: ogImage,
-    publisher: {
-      "@type": "Organization",
-      name: "StarMapCo",
-      logo: { "@type": "ImageObject", url: "https://starmapco.com/favicon.ico" },
-    },
-    mainEntityOfPage: "https://starmapco.com/blog/custom-star-maps-for-weddings",
-  };
+  });
 
   return (
     <main className="bg-[#050915] px-4 py-12 text-white sm:py-16">
       <article className="mx-auto max-w-4xl font-sans leading-relaxed">
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(articleJsonLd) }} />
         <header className="mb-8 space-y-3">
           <p className="text-sm uppercase tracking-[0.25em] text-amber-300">Weddings</p>
           <h1 className="text-3xl font-bold text-amber-200 sm:text-4xl">
