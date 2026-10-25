@@ -49,14 +49,21 @@ export const CHRISTMAS_ORDER_BY_DATES: Record<ChristmasCutoffKey, string> = {
   card_ca: "2026-12-08",
 };
 
+/**
+ * Seasonal print promo codes, publicised per phase below. The code
+ * strings redeem as Stripe promotion codes with the same code text, so
+ * changing a code or percent here requires the matching Stripe coupon /
+ * promotion code to exist before its phase starts. Black Friday and
+ * Cyber Monday depth set to 25% by owner decision 2026-10-25.
+ */
 export const CHRISTMAS_PROMO = {
   xmas15: { code: "XMAS15", percent: 15 },
-  blackFriday: { code: "BLACKFRIDAY20", percent: 20 },
+  blackFriday: { code: "BLACKFRIDAY25", percent: 25 },
 } as const;
 
 /**
  * Owner kill-switch for publicising the seasonal print promo codes
- * (XMAS15 / BLACKFRIDAY20). While true — the behaviour the site has today —
+ * (XMAS15 / BLACKFRIDAY25). While true — the behaviour the site has today —
  * the codes are named in the sitewide banner, the Christmas landing promo
  * box, and the landing-page FAQ during their campaign phases. Set to false
  * to stop publicising them: those surfaces fall back to order-by content
@@ -68,7 +75,7 @@ export const CHRISTMAS_PROMO_PUBLICITY = true;
 const CAMPAIGN_YEAR_START = "2026-10-01";
 const XMAS15_EARLY_START = "2026-11-01";
 const BLACK_FRIDAY_START = "2026-11-27";
-/** Cyber Monday (Nov 30) plus its usual extension day; BLACKFRIDAY20 continues. */
+/** Cyber Monday (Nov 30) plus its usual extension day; BLACKFRIDAY25 continues. */
 const CYBER_MONDAY_START = "2026-11-30";
 const XMAS15_LAST_CALL_START = "2026-12-02";
 /** Starts Dec 11 — after the Dec 10 Canada poster order-by day, print ordering has closed. */
@@ -216,7 +223,7 @@ export function getChristmasBannerContent(
   if (phase === "black_friday" && CHRISTMAS_PROMO_PUBLICITY) {
     return {
       phase,
-      message: `Black Friday: 20% off prints with code ${CHRISTMAS_PROMO.blackFriday.code}`,
+      message: `Black Friday: 25% off prints with code ${CHRISTMAS_PROMO.blackFriday.code}`,
       ctaHref: "/christmas-star-map-gift",
       ctaLabel: "Shop Black Friday prints",
       promoCode: CHRISTMAS_PROMO.blackFriday.code,
@@ -227,7 +234,7 @@ export function getChristmasBannerContent(
   if (phase === "cyber_monday" && CHRISTMAS_PROMO_PUBLICITY) {
     return {
       phase,
-      message: `Cyber Monday: 20% off prints with code ${CHRISTMAS_PROMO.blackFriday.code}`,
+      message: `Cyber Monday: 25% off prints with code ${CHRISTMAS_PROMO.blackFriday.code}`,
       ctaHref: "/christmas-star-map-gift",
       ctaLabel: "Shop Cyber Monday prints",
       promoCode: CHRISTMAS_PROMO.blackFriday.code,
@@ -315,7 +322,7 @@ export function getChristmasLandingPromo(nowMs: number = Date.now()): ChristmasL
     return {
       phase,
       heading: "Black Friday print sale",
-      discountLine: `Black Friday: 20% off prints with code ${CHRISTMAS_PROMO.blackFriday.code}`,
+      discountLine: `Black Friday: 25% off prints with code ${CHRISTMAS_PROMO.blackFriday.code}`,
       showOrderBy: true,
       showDigitalPitch: true,
       promoCode: CHRISTMAS_PROMO.blackFriday.code,
@@ -327,7 +334,7 @@ export function getChristmasLandingPromo(nowMs: number = Date.now()): ChristmasL
     return {
       phase,
       heading: "Cyber Monday print sale",
-      discountLine: `Cyber Monday: 20% off prints with code ${CHRISTMAS_PROMO.blackFriday.code}`,
+      discountLine: `Cyber Monday: 25% off prints with code ${CHRISTMAS_PROMO.blackFriday.code}`,
       showOrderBy: true,
       showDigitalPitch: true,
       promoCode: CHRISTMAS_PROMO.blackFriday.code,

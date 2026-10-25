@@ -132,7 +132,7 @@ test("Christmas banner discount windows (Pacific) cover each promo phase", async
   // (Dec 1(?!0): the genuine poster Canada date "Dec 10" must not trip this.)
   assert.equal(/Nov 30|Dec 1(?!0)/.test(orderBy.message), false);
   assert.equal(orderBy.promoCode, undefined);
-  assert.equal(/XMAS15|BLACKFRIDAY20/.test(orderBy.message), false);
+  assert.equal(/XMAS15|BLACKFRIDAY25/.test(orderBy.message), false);
 
   // Nov 1–26 → XMAS15 + order-by
   for (const day of ["2026-11-01", "2026-11-15", "2026-11-26"]) {
@@ -151,9 +151,9 @@ test("Christmas banner discount windows (Pacific) cover each promo phase", async
   for (const day of ["2026-11-27", "2026-11-28", "2026-11-29"]) {
     assert.equal(resolveChristmasBannerPhase(at(day)), "black_friday", day);
     const content = getChristmasBannerContent(at(day), "$9");
-    assert.match(content.message, /Black Friday:\s*20% off prints/i);
+    assert.match(content.message, /Black Friday:\s*25% off prints/i);
     assert.match(content.message, new RegExp(CHRISTMAS_PROMO.blackFriday.code));
-    assert.equal(content.promoCode, "BLACKFRIDAY20");
+    assert.equal(content.promoCode, "BLACKFRIDAY25");
     assert.equal(/XMAS15/.test(content.message), false);
   }
 
@@ -173,7 +173,7 @@ test("Christmas banner discount windows (Pacific) cover each promo phase", async
     const content = getChristmasBannerContent(at(day), "$9");
     assert.match(content.message, /\$9|instant HD/i);
     assert.equal(content.promoCode, undefined);
-    assert.equal(/XMAS15|BLACKFRIDAY20|15%|20%/.test(content.message), false);
+    assert.equal(/XMAS15|BLACKFRIDAY25|15%|25%/.test(content.message), false);
     const landing = getChristmasLandingPromo(at(day));
     assert.equal(landing.discountLine, null);
     assert.equal(landing.promoCode, null);
@@ -199,18 +199,18 @@ test("Christmas cyber monday and boxing day phases (boundaries + copy)", async (
   const at = (ymd) => Date.parse(`${ymd}T20:00:00.000Z`);
 
   // Nov 29 is the last Black Friday day; Nov 30–Dec 1 is Cyber Monday,
-  // presenting the same BLACKFRIDAY20 code with Cyber Monday framing.
+  // presenting the same BLACKFRIDAY25 code with Cyber Monday framing.
   assert.equal(resolveChristmasBannerPhase(at("2026-11-29")), "black_friday");
   for (const day of ["2026-11-30", "2026-12-01"]) {
     assert.equal(resolveChristmasBannerPhase(at(day)), "cyber_monday", day);
     const content = getChristmasBannerContent(at(day), "$9");
-    assert.match(content.message, /Cyber Monday:\s*20% off prints/i);
-    assert.equal(content.promoCode, "BLACKFRIDAY20");
-    assert.equal(content.promoPercent, 20);
+    assert.match(content.message, /Cyber Monday:\s*25% off prints/i);
+    assert.equal(content.promoCode, "BLACKFRIDAY25");
+    assert.equal(content.promoPercent, 25);
     assert.equal(/XMAS15/.test(content.message), false);
     const landing = getChristmasLandingPromo(at(day));
-    assert.match(landing.discountLine, /Cyber Monday: 20% off prints/i);
-    assert.equal(landing.promoCode, "BLACKFRIDAY20");
+    assert.match(landing.discountLine, /Cyber Monday: 25% off prints/i);
+    assert.equal(landing.promoCode, "BLACKFRIDAY25");
     assert.equal(landing.showOrderBy, true);
   }
   // Dec 2 hands back to last call, unchanged.
@@ -264,7 +264,7 @@ test("Christmas promo publicity flag defaults on; FAQ answer names the codes", a
   assert.equal(CHRISTMAS_PROMO_PUBLICITY, true);
   assert.equal(
     getChristmasPromoCodesFaqAnswer(),
-    "No. Seasonal codes such as XMAS15 and BLACKFRIDAY20 apply to prints only. HD digital is excluded from those promotions."
+    "No. Seasonal codes such as XMAS15 and BLACKFRIDAY25 apply to prints only. HD digital is excluded from those promotions."
   );
 });
 
@@ -375,7 +375,7 @@ test("christmas order-by table wiring: page, component, footer and home links", 
   assert.match(page, /getChristmasPromoCodesFaqAnswer/);
   // The landing page must not name the codes itself — they come from the
   // campaign lib so CHRISTMAS_PROMO_PUBLICITY gates every display surface.
-  assert.equal(/XMAS15|BLACKFRIDAY20/.test(page), false);
+  assert.equal(/XMAS15|BLACKFRIDAY25/.test(page), false);
 
   const component = fs.readFileSync(path.join(ROOT, "src/components/ChristmasOrderByTable.tsx"), "utf8");
   assert.match(component, /getChristmasOrderByTableRows/);
