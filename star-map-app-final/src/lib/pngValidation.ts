@@ -126,14 +126,22 @@ export async function readCountedBody(
   // stops pulling).
   let assembly: Buffer | null = null;
   let total = 0;
+  // The assembly is only ever assigned through this accessor: flow
+  // analysis cannot narrow a variable assigned inside a closure at
+  // outer-scope read sites (it collapses to never), so every read
+  // goes through the accessor's Buffer return type.
+  const assemblyOrAlloc = (): Buffer => {
+    if (!assembly) assembly = Buffer.allocUnsafe(maxBytes);
+    return assembly;
+  };
   const append = (chunk: Uint8Array): boolean => {
     if (chunk.length === 0) return true;
     if (total + chunk.length > maxBytes) return false;
-    if (!assembly) assembly = Buffer.allocUnsafe(maxBytes);
+    const target = assemblyOrAlloc();
     let offset = 0;
     while (offset < chunk.length) {
       const n = Math.min(chunk.length - offset, COUNTED_READ_SLICE_BYTES);
-      assembly.set(chunk.subarray(offset, offset + n), total);
+      target.set(chunk.subarray(offset, offset + n), total);
       total += n;
       offset += n;
     }
@@ -163,8 +171,10 @@ export async function readCountedBody(
   } catch {
     return { ok: false, reason: "read_failed" };
   }
-  if (!assembly) return { ok: true, bytes: Buffer.alloc(0) };
-  return { ok: true, bytes: assembly.subarray(0, total) };
+  // total === 0 exactly when no non-empty chunk was ever appended,
+  // i.e. the assembly was never allocated.
+  if (total === 0) return { ok: true, bytes: Buffer.alloc(0) };
+  return { ok: true, bytes: assemblyOrAlloc().subarray(0, total) };
 }
 
 /* --------------------------- chunk structure ------------------------------ */
