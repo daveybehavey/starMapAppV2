@@ -3,9 +3,9 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
 import {
-  getArtifactObject,
   getDownloadArchiveR2Bucket,
   headArtifactObject,
+  observeArtifactObject,
   promoteArtifactCreateOnly,
   putStagingObject,
 } from "@/lib/downloadArchiveStorage";
@@ -25,6 +25,7 @@ import {
 } from "@/lib/downloadArchiveIdentity";
 import { createEntitlementAuthorityClient } from "@/lib/entitlementAuthority";
 import type {
+  EntitlementAuthorityOp,
   EntitlementAuthorityState,
   FinalizeObservation,
   PublicationIntent,
@@ -348,16 +349,21 @@ function stateHasCollision(
 }
 
 async function observeFinalObject(finalKey: string): Promise<FinalizeObservation> {
-  const object = await getArtifactObject(finalKey);
-  if (!object) {
+  // Streaming observation (correction round 3 — Codex P2-1): the
+  // final object's body is hashed incrementally by the storage seam,
+  // never materialised alongside the counted body this request still
+  // holds. Errors propagate to the caller's finalization_pending
+  // path, exactly as the buffered read's did (§5.5).
+  const observed = await observeArtifactObject(finalKey);
+  if (!observed) {
     return { finalObjectPresent: false, finalMetadata: null, bodyVerifiedDigest: null };
   }
   return {
     finalObjectPresent: true,
-    finalMetadata: object.metadata,
+    finalMetadata: observed.metadata,
     // The caller actually read and hashed the final object's body in
     // this request (§5.4 trusted-producer rule).
-    bodyVerifiedDigest: sha256Hex(object.bytes),
+    bodyVerifiedDigest: observed.bodyDigest,
   };
 }
 
@@ -532,25 +538,43 @@ async function runPublicationUpload(req: NextRequest, form: UploadForm) {
   // Replay construction (conformance fix round 2, area 3 — the
   // prescribed persisted-intent construction; G-dot re-check verdict
   // 2026-10-24): when a persisted intent already stands under this
-  // intentId, this request is a REPLAY, and its registration is
-  // constructed from the persisted intent — the recorded expiresAt in
-  // particular, NOT the form-supplied expiry (for a promoted intent
-  // the recorded expiry is the machine stamp, which no presented
-  // descriptor can carry). The form expiry is therefore never a
-  // comparison input for replay classification. The digest remains
-  // THIS upload's digest (the presented bytes were hashed above), so
-  // a replay with different bytes still diverges at the authority and
-  // is refused. The authority's own full immutable-field comparison
-  // against its committed state is the stable reference: it runs
-  // inside the serialised apply, and this state read only shapes the
-  // presentation — if it misses a just-recorded intent, the presented
-  // (descriptor-signed) expiry is exactly what a descriptor-form
-  // first registration records, so the comparison still decides
-  // correctly.
-  const persistedIntent = stateBefore
-    ? (stateBefore.publicationIntents ?? {})[form.intentId]
-    : undefined;
-  const registered = await client.apply(session.sessionId, {
+  // intentId in the snapshot read above, this request is a REPLAY,
+  // and its registration is constructed from the persisted intent —
+  // the recorded expiresAt in particular, NOT the form-supplied
+  // expiry (for a promoted intent the recorded expiry is the machine
+  // stamp, which no presented descriptor can carry). The form expiry
+  // is therefore never a comparison input for a replay the snapshot
+  // can see. The digest remains THIS upload's digest (the presented
+  // bytes were hashed above), so a replay with different bytes still
+  // diverges at the authority and is refused. The authority's own
+  // full immutable-field comparison against its committed state is
+  // the stable reference: it runs inside the serialised apply, and
+  // the snapshot read only shapes the presentation.
+  //
+  // Correction round 3 (G-dot re-check verdict 2026-10-25, area 3):
+  // the snapshot can ALSO miss an intent a CONCURRENT identical
+  // upload records between this request's read and its apply — most
+  // sharply across a JN1→R7 promotion, where the first registration
+  // stamps a NEW (machine) expiry the racing request's descriptor
+  // never carried, so the second registration presents the signed
+  // expiry and is refused intent_payload_conflict despite identical
+  // bytes. (The round-2 claim that a missed registration necessarily
+  // records the presented expiry holds for descriptor-form first
+  // registrations only — NOT for JN1→R7 promotions, which stamp the
+  // machine expiry.) The closure is a BOUNDED FRESH RECONSTRUCTION
+  // at this boundary: on exactly that refusal, re-read the state
+  // ONCE; if a persisted intent now stands under this intentId whose
+  // recorded expiresAt differs from the expiry just presented,
+  // rebuild the presentation from the fresh persisted intent —
+  // retaining THIS request's digest and every other presented
+  // field — and apply once more. The second result stands; there is
+  // no loop. Intents are immutable once recorded, so one fresh read
+  // is deterministically sufficient, and the authority's full
+  // comparison still decides: a genuinely different replay
+  // (different bytes) diverges on the digest and is refused again.
+  // No expiry exemption is introduced anywhere — the comparison is
+  // always the full twelve fields.
+  const buildRegistration = (expiresAt: number): EntitlementAuthorityOp => ({
     type: "register_publication_intent",
     intent: {
       intentId: form.intentId,
@@ -565,10 +589,23 @@ async function runPublicationUpload(req: NextRequest, form: UploadForm) {
       stagingKey: form.stagingKey,
       expectedWidth: dims.expectedWidth,
       expectedHeight: dims.expectedHeight,
-      expiresAt: persistedIntent ? persistedIntent.expiresAt : form.intentExpiresAt,
+      expiresAt,
     },
     now: Date.now(),
   });
+  const persistedIntent = stateBefore
+    ? (stateBefore.publicationIntents ?? {})[form.intentId]
+    : undefined;
+  const presentedExpiry = persistedIntent ? persistedIntent.expiresAt : form.intentExpiresAt;
+  let registered = await client.apply(session.sessionId, buildRegistration(presentedExpiry));
+  if (registered && registered.outcome === "refused" && registered.refusal === "intent_payload_conflict") {
+    const freshState = await client.getState(session.sessionId);
+    const freshIntent = freshState ? (freshState.publicationIntents ?? {})[form.intentId] : undefined;
+    if (freshIntent && freshIntent.expiresAt !== presentedExpiry) {
+      const reconstructed = await client.apply(session.sessionId, buildRegistration(freshIntent.expiresAt));
+      if (reconstructed) registered = reconstructed;
+    }
+  }
   if (!registered) return retryable("upload_failed"); // authority unavailable: retryable, never absence
   if (registered.outcome === "refused") {
     switch (registered.refusal) {
