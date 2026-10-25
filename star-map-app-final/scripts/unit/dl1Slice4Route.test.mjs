@@ -541,6 +541,150 @@ test("Class B (join path, deterministic): a second descriptor's upload JOINS the
   assert.equal(sha(stored.bytes), sha(bytes));
 });
 
+test("route replay, governing (area 3 fix round 2): a descriptor upload whose intent already stands replays through the real route — no new intent, no generation burned, the recorded expiry is not renewed", async () => {
+  const { sessionId, token } = await seedSession();
+  const derived = identity.deriveArtifactIdentity({ sessionId, mapId: MAP, recipe: RECIPE });
+  const bytes = bigPng(0);
+  const descriptorId = "33".repeat(16);
+  const issuedAt = Date.now();
+  const issued = identity.issuePrepareDescriptor({
+    sessionId,
+    mapId: MAP,
+    fingerprint: derived.fingerprint,
+    now: issuedAt,
+    ttlMs: 600_000,
+    descriptorId,
+  });
+  assert.ok(issued);
+  // The intent already stands (an earlier identical upload recorded
+  // it and its finalize never landed — e.g. the response was lost).
+  // It was recorded with the descriptor's signed expiry.
+  const regFirst = await client.apply(sessionId, {
+    type: "register_publication_intent",
+    intent: {
+      intentId: descriptorId,
+      artifactKey: derived.artifactId,
+      sessionId,
+      mapId: MAP,
+      canonicalBinding: derived.canonicalBinding,
+      fingerprint: derived.fingerprint,
+      contractVersion: 1,
+      rendererVersion: 1,
+      digest: sha(bytes),
+      stagingKey: identity.buildStagingKey(descriptorId),
+      expectedWidth: 6000,
+      expectedHeight: 6000,
+      expiresAt: issued.payload.expiresAt,
+    },
+    now: issuedAt,
+  });
+  assert.equal(regFirst.outcome, "publication_intent_recorded");
+  // The re-upload through the real route replays (R1), promotes the
+  // object, and finalizes.
+  const res = await route.POST(
+    uploadPost(token, bytes, { "x-prepare-descriptor": issued.descriptor }),
+  );
+  assert.equal(res.status, 200);
+  assert.equal((await res.json()).state, "finalized");
+  const state = await client.getState(sessionId);
+  assert.equal(Object.keys(state.publicationIntents).length, 1);
+  const intent = state.publicationIntents[descriptorId];
+  assert.equal(intent.generation, 1); // the replay burned no generation
+  assert.equal(intent.expiresAt, issued.payload.expiresAt); // and did not renew the expiry
+  const entries = Object.values(state.artifactRegistry);
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].digest, sha(bytes));
+});
+
+test("route replay, promoted (area 3 fix round 2): after a JN1→R7 promotion, the joiner's re-upload through the real route replays against the machine-stamped intent; with different bytes it conflicts at the dedupe boundary", async () => {
+  const { sessionId, token } = await seedSession();
+  const derived = identity.deriveArtifactIdentity({ sessionId, mapId: MAP, recipe: RECIPE });
+  const bytes = bigPng(0);
+  const t0 = Date.now();
+  const govId = "44".repeat(16);
+  const joinId = "55".repeat(16);
+  const joinerSignedExpiry = t0 + 600_000;
+  const baseIntent = {
+    artifactKey: derived.artifactId,
+    sessionId,
+    mapId: MAP,
+    canonicalBinding: derived.canonicalBinding,
+    fingerprint: derived.fingerprint,
+    contractVersion: 1,
+    rendererVersion: 1,
+    digest: sha(bytes),
+    expectedWidth: 6000,
+    expectedHeight: 6000,
+  };
+  // Governor records (short-lived at the authority seam); the joiner
+  // joins it (R6) with its own signed expiry.
+  const regGov = await client.apply(sessionId, {
+    type: "register_publication_intent",
+    intent: { ...baseIntent, intentId: govId, stagingKey: identity.buildStagingKey(govId), expiresAt: t0 + 1000 },
+    now: t0,
+  });
+  assert.equal(regGov.outcome, "publication_intent_recorded");
+  const regJoin = await client.apply(sessionId, {
+    type: "register_publication_intent",
+    intent: { ...baseIntent, intentId: joinId, stagingKey: identity.buildStagingKey(joinId), expiresAt: joinerSignedExpiry },
+    now: t0,
+  });
+  assert.equal(regJoin.outcome, "publication_intent_joined");
+  // The governor lapses; the joiner re-presents → JN1→R7 promotion
+  // with a MACHINE-STAMPED expiry (promoteAt + TTL), never the join's.
+  const promoteAt = t0 + 2000;
+  const regPromote = await client.apply(sessionId, {
+    type: "register_publication_intent",
+    intent: { ...baseIntent, intentId: joinId, stagingKey: identity.buildStagingKey(joinId), expiresAt: joinerSignedExpiry },
+    now: promoteAt,
+  });
+  assert.equal(regPromote.outcome, "publication_intent_recorded");
+  const stamp = promoteAt + identity.DESCRIPTOR_TTL_MS;
+  assert.equal(regPromote.state.publicationIntents[joinId].expiresAt, stamp);
+  // The joiner's real descriptor carries the ORIGINAL signed expiry —
+  // the value the round-1 comparison exempted and a direct authority
+  // presentation would now be refused for (R2, proven in the
+  // publication suite). Through the route it must still replay,
+  // because the route constructs the registration from the persisted
+  // intent (acceptance 3.5: captured replay input contains the
+  // persisted expiry).
+  const issued = identity.issuePrepareDescriptor({
+    sessionId,
+    mapId: MAP,
+    fingerprint: derived.fingerprint,
+    now: joinerSignedExpiry - identity.DESCRIPTOR_TTL_MS,
+    descriptorId: joinId,
+  });
+  assert.ok(issued);
+  assert.equal(issued.payload.expiresAt, joinerSignedExpiry);
+  // Different bytes first: the digest is THIS upload's, so the
+  // constructed replay diverges at the dedupe boundary → 409
+  // intent_payload_conflict, and the persisted intent is untouched.
+  const other = bigPng(8);
+  const conflict = await route.POST(
+    uploadPost(token, other, { "x-prepare-descriptor": issued.descriptor }),
+  );
+  assert.equal(conflict.status, 409);
+  assert.equal((await conflict.json()).error, "intent_payload_conflict");
+  const midState = await client.getState(sessionId);
+  assert.equal(midState.publicationIntents[joinId].digest, sha(bytes));
+  assert.equal(midState.artifactRegistry[derived.artifactId], undefined);
+  // Same bytes: the replay lands (R1), the object promotes, finalize
+  // completes the entry — and the persisted expiry remains the stamp.
+  const res = await route.POST(
+    uploadPost(token, bytes, { "x-prepare-descriptor": issued.descriptor }),
+  );
+  assert.equal(res.status, 200);
+  assert.equal((await res.json()).state, "finalized");
+  const state = await client.getState(sessionId);
+  const promoted = state.publicationIntents[joinId];
+  assert.equal(promoted.expiresAt, stamp);
+  assert.equal(promoted.generation, regPromote.publication.generation);
+  const entries = Object.values(state.artifactRegistry);
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].digest, sha(bytes));
+});
+
 test("terminal-success comparison (area 7 P2 / CB-P2a): a requester whose retained intent lapses mid-flight while a successor takes governance gets 409, never success", async () => {
   const { sessionId, token } = await seedSession();
   const derived = identity.deriveArtifactIdentity({ sessionId, mapId: MAP, recipe: RECIPE });

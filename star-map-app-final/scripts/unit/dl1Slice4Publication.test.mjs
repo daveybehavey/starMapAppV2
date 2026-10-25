@@ -587,7 +587,7 @@ test("JN1→R7 (W-1 later case): joined descriptor re-presenting after governing
   assert.equal(sm.isValidEntitlementAuthorityState(r.state), true); // V-1 coexistence loads as valid
 });
 
-test("R1 after JN1→R7 (area 3 fix): the replay comparison is built from the PERSISTED intent — the retained join's original expiry never gates the replay", () => {
+test("R1 after JN1→R7 (area 3 fix round 2): the FULL immutable-field comparison runs against the PERSISTED intent — the join's original expiry and any third expiry are R2; only the intent's own recorded payload replays", () => {
   let s = reg(s0(), { expiresAt: NOW + 1000 }).state; // governing DESC_1
   s = reg(s, { intentId: DESC_2, expiresAt: NOW + 5000 }).state; // DESC_2 joins; signed expiry NOW+5000
   const promoteAt = NOW + 2000;
@@ -595,30 +595,73 @@ test("R1 after JN1→R7 (area 3 fix): the replay comparison is built from the PE
   const intent = s.publicationIntents[DESC_2];
   const stamp = promoteAt + identity.DESCRIPTOR_TTL_MS;
   assert.equal(intent.expiresAt, stamp); // machine-stamped, NOT the join's original expiry
-  // The same presentation replays against the persisted intent.
-  const replay = reg(s, { intentId: DESC_2, expiresAt: NOW + 5000 }, promoteAt + 1000);
+  // A presentation constructed from the persisted intent — every
+  // immutable field equal to the intent's recorded values, the
+  // machine-stamped expiry included — replays (R1), no state change,
+  // and the persisted expiry is NOT renewed or altered by the replay.
+  const replay = reg(s, { intentId: DESC_2, expiresAt: stamp }, promoteAt + 1000);
   assert.equal(replay.outcome, "publication_intent_recorded");
   assert.equal(replay.changed, false);
   assert.equal(replay.publication.generation, intent.generation);
-  // A presentation carrying the intent's payload with an expiry equal
-  // to NEITHER the intent's stamp NOR the join's original expiry still
-  // dedupes against the persisted intent: the comparison reference is
-  // the intent, and expiry is a classification concern (§5.7), not the
-  // dedupe reference. (Under the pre-fix join-built comparison this
-  // presentation was refused R2.)
+  assert.equal(replay.state.publicationIntents[DESC_2].expiresAt, stamp);
+  // The round-1 exemption is GONE: the same presentation carrying the
+  // retained join's ORIGINAL signed expiry diverges from the
+  // persisted intent on expiresAt → R2. (Honest route replays still
+  // succeed because the ROUTE constructs its registration from the
+  // persisted intent — see the route-level promoted-replay test in
+  // dl1Slice4Route.test.mjs. A direct authority presentation carrying
+  // that expiry is refused, per the re-check verdict's closure.)
+  const joinExpiry = reg(s, { intentId: DESC_2, expiresAt: NOW + 5000 }, promoteAt + 1000);
+  assert.equal(joinExpiry.outcome, "refused");
+  assert.equal(joinExpiry.refusal, "intent_payload_conflict");
+  assert.equal(joinExpiry.changed, false);
+  // A third expiry — equal to NEITHER the stamp NOR the join's
+  // original — is likewise R2 (this replaces the round-1
+  // third-expiry exemption test, which asserted the dedupe).
   const thirdExpiry = reg(s, { intentId: DESC_2, expiresAt: NOW + 777_000 }, promoteAt + 1000);
-  assert.equal(thirdExpiry.outcome, "publication_intent_recorded");
+  assert.equal(thirdExpiry.outcome, "refused");
+  assert.equal(thirdExpiry.refusal, "intent_payload_conflict");
   assert.equal(thirdExpiry.changed, false);
-  // A presentation naming the intent's own stamped expiry also replays.
-  const stamped = reg(s, { intentId: DESC_2, expiresAt: stamp }, promoteAt + 1000);
-  assert.equal(stamped.outcome, "publication_intent_recorded");
-  assert.equal(stamped.changed, false);
-  // A payload divergence from the INTENT (digest) is R2 — the refusal
-  // is measured against the persisted intent, not the join record.
-  const divergent = reg(s, { intentId: DESC_2, expiresAt: NOW + 5000, digest: DIGEST_B }, promoteAt + 1000);
+  // A payload divergence from the INTENT (digest), even with the
+  // stamped expiry, is R2 — measured against the persisted intent,
+  // never the join record.
+  const divergent = reg(s, { intentId: DESC_2, expiresAt: stamp, digest: DIGEST_B }, promoteAt + 1000);
   assert.equal(divergent.outcome, "refused");
   assert.equal(divergent.refusal, "intent_payload_conflict");
   assert.equal(divergent.changed, false);
+});
+
+test("R1/R2 table (area 3 fix round 2): exact match replays; EVERY single-field divergence from the persisted intent receives its prescribed refusal — no field is exempt", () => {
+  const s1 = reg(s0()).state;
+  // Exact match across the full immutable-field set → R1.
+  const exact = reg(s1);
+  assert.equal(exact.outcome, "publication_intent_recorded");
+  assert.equal(exact.changed, false);
+  // One changed field per case. Most divergences land in R2
+  // (intent_payload_conflict) — directly, or via the door checks that
+  // guard it (artifactKey recompute, V-6 dimension derivation). The
+  // two prescribed exceptions are named: a divergent binding is the
+  // R0 collision (evaluated first, A-1), and a foreign sessionId is
+  // the V-5 identity refusal (evaluated before the table).
+  const cases = [
+    ["digest", { digest: DIGEST_B }, "intent_payload_conflict"],
+    ["expiresAt", { expiresAt: NOW + 999_999 }, "intent_payload_conflict"],
+    ["stagingKey", { stagingKey: identity.buildStagingKey(DESC_4) }, "intent_payload_conflict"],
+    ["fingerprint", { fingerprint: sha("other-fingerprint") }, "intent_payload_conflict"],
+    ["mapId", { mapId: MAP2 }, "intent_payload_conflict"],
+    ["contractVersion", { contractVersion: 2 }, "intent_payload_conflict"],
+    ["rendererVersion", { rendererVersion: 2 }, "intent_payload_conflict"],
+    ["expectedWidth", { expectedWidth: 1234 }, "intent_payload_conflict"],
+    ["expectedHeight", { expectedHeight: 1234 }, "intent_payload_conflict"],
+    ["canonicalBinding", { canonicalBinding: BINDING + " " }, "publication_conflict"],
+    ["sessionId", { sessionId: "cs_foreign" }, "identity_rejected"],
+  ];
+  for (const [label, over, refusal] of cases) {
+    const r = reg(s1, over);
+    assert.equal(r.outcome, "refused", label);
+    assert.equal(r.refusal, refusal, label);
+    assert.equal(r.changed, false, label);
+  }
 });
 
 test("JN1→R6: joined descriptor re-presenting while a new governing intent lives → joined no-op, pointer unmoved", () => {

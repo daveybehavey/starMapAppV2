@@ -3800,32 +3800,26 @@ function registerPublicationIntent(
   const existingJoin = joins[presented.intentId];
   if (existingIntent) {
     // R1 — immutable payload identical → idempotent replay. The
-    // comparison is constructed from the PERSISTED intent's fields —
-    // the dedupe read (conformance fix round, area 3; G-dot verdict
-    // 2026-10-24): the retained join record is never the comparison
-    // reference, and its original expiry in particular never gates a
-    // replay. Every compared field is read against the intent.
+    // comparison reference is the PERSISTED intent's own recorded
+    // fields, over the COMPLETE immutable-field set — expiresAt
+    // included, with no exemption (conformance fix round 2, area 3;
+    // G-dot re-check verdict 2026-10-24: the round-1 expiry exemption
+    // — any presented expiry accepted when a retained join proved
+    // promotion — is removed; it was not the prescribed construction).
+    // A promoted (JN1→R7) intent's machine-stamped expiry is therefore
+    // part of the comparison exactly like any other field: a
+    // presentation carrying the join's original signed expiry, or any
+    // third expiry, diverges from the persisted intent and is R2. The
+    // ROUTE keeps honest replays working by constructing its replay
+    // registration from the persisted intent (route/dedupe boundary —
+    // see runPublicationUpload), never by weakening this comparison;
+    // a direct presentation that bypasses that construction is refused
+    // here. The retained join record is never the comparison
+    // reference.
     const payloadIdentical = PUBLICATION_INTENT_COMPARED_FIELDS.every(
-      (field) => field === "expiresAt" || presented[field] === existingIntent[field],
+      (field) => presented[field] === existingIntent[field],
     );
-    // The expiry element: equal to the intent's recorded expiry — or
-    // the intent is this presentation's JN1→R7 promotion (clause V-1
-    // coexistence), whose expiresAt is machine-stamped (V-2 as
-    // corrected by W-1) rather than copied from the record, so the
-    // presented signed expiry cannot equal it. Provenance is
-    // established from the persisted records alone: the retained join
-    // agrees with the promoted intent on every carried field it
-    // carries (the same agreement validator rule 7 enforces). The
-    // stamp is then the one designed divergence, and the join's
-    // original expiry is not a comparison reference.
-    const joinProvesPromotion =
-      existingJoin !== undefined &&
-      PUBLICATION_JOIN_CARRIED_FIELDS.every(
-        (field) => field === "expiresAt" || existingJoin[field] === existingIntent[field],
-      );
-    const expiryIdentical =
-      presented.expiresAt === existingIntent.expiresAt || joinProvesPromotion;
-    if (payloadIdentical && expiryIdentical) {
+    if (payloadIdentical) {
       return result(state, false, "publication_intent_recorded", null, 0, {
         publication: pubDetail({
           intentId: existingIntent.intentId,

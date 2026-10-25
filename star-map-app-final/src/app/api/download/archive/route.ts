@@ -529,6 +529,27 @@ async function runPublicationUpload(req: NextRequest, form: UploadForm) {
   } catch {
     return retryable("upload_failed");
   }
+  // Replay construction (conformance fix round 2, area 3 — the
+  // prescribed persisted-intent construction; G-dot re-check verdict
+  // 2026-10-24): when a persisted intent already stands under this
+  // intentId, this request is a REPLAY, and its registration is
+  // constructed from the persisted intent — the recorded expiresAt in
+  // particular, NOT the form-supplied expiry (for a promoted intent
+  // the recorded expiry is the machine stamp, which no presented
+  // descriptor can carry). The form expiry is therefore never a
+  // comparison input for replay classification. The digest remains
+  // THIS upload's digest (the presented bytes were hashed above), so
+  // a replay with different bytes still diverges at the authority and
+  // is refused. The authority's own full immutable-field comparison
+  // against its committed state is the stable reference: it runs
+  // inside the serialised apply, and this state read only shapes the
+  // presentation — if it misses a just-recorded intent, the presented
+  // (descriptor-signed) expiry is exactly what a descriptor-form
+  // first registration records, so the comparison still decides
+  // correctly.
+  const persistedIntent = stateBefore
+    ? (stateBefore.publicationIntents ?? {})[form.intentId]
+    : undefined;
   const registered = await client.apply(session.sessionId, {
     type: "register_publication_intent",
     intent: {
@@ -544,7 +565,7 @@ async function runPublicationUpload(req: NextRequest, form: UploadForm) {
       stagingKey: form.stagingKey,
       expectedWidth: dims.expectedWidth,
       expectedHeight: dims.expectedHeight,
-      expiresAt: form.intentExpiresAt,
+      expiresAt: persistedIntent ? persistedIntent.expiresAt : form.intentExpiresAt,
     },
     now: Date.now(),
   });
