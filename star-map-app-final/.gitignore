@@ -17,6 +17,7 @@
 /test-output*.log
 /reports/
 /data/gsc/
+/.ci-fonts/
 
 # next.js
 /.next/
