@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import BlogPostConversionLinks from "@/components/BlogPostConversionLinks";
+import { buildBlogPostingJsonLd, serializeJsonLd } from "@/lib/blogPostingSchema";
 import Link from "next/link";
 
 const title = "Memorial Star Map: Honoring a Loved One With the Night Sky";
@@ -40,29 +41,21 @@ export const metadata: Metadata = {
 const published = "2026-06-19";
 
 export default function MemorialStarMapPostPage() {
-  const articleJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Article",
+  const articleJsonLd = buildBlogPostingJsonLd({
+    url: "https://starmapco.com/blog/memorial-star-map",
     headline: title,
     description,
     datePublished: published,
     dateModified: published,
-    author: { "@type": "Organization", name: "StarMapCo" },
     image: ogImage,
-    publisher: {
-      "@type": "Organization",
-      name: "StarMapCo",
-      logo: { "@type": "ImageObject", url: "https://starmapco.com/favicon.ico" },
-    },
-    mainEntityOfPage: "https://starmapco.com/blog/memorial-star-map",
-  };
+  });
 
   return (
     <main className="bg-[#050915] px-4 py-10 text-white sm:py-14">
       <article className="mx-auto max-w-4xl font-sans leading-relaxed">
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(articleJsonLd) }}
         />
         <header className="mb-8 space-y-3">
           <p className="text-sm tracking-[0.25em] text-amber-300 uppercase">Memorial &amp; Remembrance</p>

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import BlogPostConversionLinks from "@/components/BlogPostConversionLinks";
+import { buildBlogPostingJsonLd, serializeJsonLd } from "@/lib/blogPostingSchema";
 
 const title = "Valentine's Day Star Map Gift Guide";
 const description =
@@ -34,25 +35,20 @@ export const metadata: Metadata = {
 };
 
 export default function ValentinesStarMapPage() {
-  const articleJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Article",
+  // This article records no publication date anywhere in the repo (the
+  // sitemap builder omits lastModified for this route for the same reason),
+  // so the BlogPosting entity omits date fields rather than inventing one.
+  const articleJsonLd = buildBlogPostingJsonLd({
+    url: "https://starmapco.com/blog/valentines-day-star-map",
     headline: title,
     description,
-    author: { "@type": "Organization", name: "StarMapCo" },
     image: ogImage,
-    publisher: {
-      "@type": "Organization",
-      name: "StarMapCo",
-      logo: { "@type": "ImageObject", url: "https://starmapco.com/favicon.ico" },
-    },
-    mainEntityOfPage: "https://starmapco.com/blog/valentines-day-star-map",
-  };
+  });
 
   return (
     <main className="bg-[#050915] px-4 py-12 text-white sm:py-16">
       <article className="mx-auto max-w-4xl space-y-10 font-sans leading-relaxed">
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(articleJsonLd) }} />
         <header className="space-y-4">
           <p className="text-xs uppercase tracking-[0.4em] text-amber-300">Valentine’s Day Gift Ideas</p>
           <h1 className="text-3xl font-bold text-amber-100 sm:text-4xl">

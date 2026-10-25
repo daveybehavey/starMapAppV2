@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import BlogPostConversionLinks from "@/components/BlogPostConversionLinks";
+import { buildBlogPostingJsonLd, serializeJsonLd } from "@/lib/blogPostingSchema";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 
@@ -33,27 +34,19 @@ export const metadata: Metadata = {
 };
 
 export default function AstronomyBehindStarMaps() {
-  const articleJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Article",
+  const articleJsonLd = buildBlogPostingJsonLd({
+    url: `${siteUrl}/blog/astronomy-behind-star-maps`,
     headline: title,
     description,
     datePublished: "2025-12-31",
     dateModified: "2025-12-31",
-    author: { "@type": "Organization", name: "StarMapCo" },
     image: ogImage,
-    publisher: {
-      "@type": "Organization",
-      name: "StarMapCo",
-      logo: { "@type": "ImageObject", url: `${siteUrl}/favicon.ico` },
-    },
-    mainEntityOfPage: `${siteUrl}/blog/astronomy-behind-star-maps`,
-  };
+  });
 
   return (
     <main className="bg-[#050915] px-4 py-12 text-white sm:py-16">
       <article className="mx-auto max-w-4xl font-sans leading-relaxed">
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(articleJsonLd) }} />
         <header className="mb-8 space-y-3">
           <p className="text-sm uppercase tracking-[0.25em] text-amber-300">Accuracy &amp; Science</p>
           <h1 className="text-3xl font-bold text-amber-200 sm:text-4xl">
