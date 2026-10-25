@@ -230,6 +230,33 @@ function isUnsupportedCriticalChunk(type: string): boolean {
   return critical && !SUPPORTED_CRITICAL_CHUNK_TYPES.has(type);
 }
 
+/**
+ * Chunk-type bytes must be ASCII LETTERS (correction round 3 —
+ * Codex P2 on the round-3 head bc37757): the PNG specification
+ * defines the four type bytes as letters (A–Z, a–z) — the
+ * critical/ancillary/reserved/safe-to-copy bits are letter-case
+ * bits. Node's "ascii" decoding CLEARS the high bit of each byte,
+ * so a crafted chunk whose raw type bytes are C9 44 41 54 decodes
+ * as "IDAT" in BOTH structural walks and dispatches as image
+ * data, while a real decoder reads the raw bytes and rejects the
+ * chunk as an unknown critical chunk (Sharp: "unknown critical
+ * chunk") — another route to permanently finalizing an
+ * undecodable artifact, the same validator-vs-decoder defect
+ * family as the critical-chunk (P2-2) and PLTE findings. The
+ * check therefore runs on the RAW type bytes, before the decode,
+ * at every site that reads a chunk type (both walks below share
+ * this helper). Switching decoders is not a substitute: the byte
+ * range is the rule, not the decoding.
+ */
+function chunkTypeBytesAreAsciiLetters(buf: Uint8Array, typeOffset: number): boolean {
+  for (let i = 0; i < 4; i++) {
+    const b = buf[typeOffset + i];
+    const isLetter = (b >= 0x41 && b <= 0x5a) || (b >= 0x61 && b <= 0x7a);
+    if (!isLetter) return false;
+  }
+  return true;
+}
+
 function parsePngStructure(bytes: Uint8Array): PngStructure | { error: string } {
   const buf = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
   if (buf.length < PNG_SIGNATURE.length || !buf.subarray(0, 8).equals(PNG_SIGNATURE)) {
@@ -246,6 +273,7 @@ function parsePngStructure(bytes: Uint8Array): PngStructure | { error: string } 
   while (offset < buf.length) {
     if (offset + 8 > buf.length) return { error: "truncated_chunk" };
     const length = buf.readUInt32BE(offset);
+    if (!chunkTypeBytesAreAsciiLetters(buf, offset + 4)) return { error: "bad_chunk_type" };
     const type = buf.toString("ascii", offset + 4, offset + 8);
     const dataStart = offset + 8;
     const dataEnd = dataStart + length;
@@ -379,6 +407,12 @@ async function* idatSpanWalk(
   let offset = 8;
   while (offset + 8 <= buf.length) {
     const length = buf.readUInt32BE(offset);
+    // Same raw-byte type check as pass 1 (defense in depth —
+    // unreachable post-validation, since pass 1 refuses the file
+    // first; ending the walk makes the IDAT accounting mismatch
+    // and the verdict invalid rather than dispatching on a
+    // high-bit-cleared decode).
+    if (!chunkTypeBytesAreAsciiLetters(buf, offset + 4)) return;
     const type = buf.toString("ascii", offset + 4, offset + 8);
     const dataStart = offset + 8;
     const dataEnd = dataStart + length;

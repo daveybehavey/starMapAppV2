@@ -717,6 +717,109 @@ test("png: nonconsecutive IDAT is rejected before staging (Codex P2 on the round
   assert.equal(after.ok, true, "an ancillary chunk after the IDAT run must validate");
 });
 
+test("png: chunk type bytes must be ASCII letters — high-bit type bytes are rejected before staging (Codex P2 on the round-3 head bc37757); all-ASCII types still validate", async () => {
+  // The Codex reproduction shape: Node's "ascii" decoding CLEARS
+  // the high bit of each byte, so an IDAT chunk whose raw type
+  // bytes are C9 44 41 54 decodes as "IDAT" in both structural
+  // walks and dispatches as image data — while a real decoder
+  // reads the raw bytes and rejects the chunk as an unknown
+  // critical chunk (Sharp), leaving an undecodable artifact
+  // permanently finalized. Per the PNG specification the four
+  // type bytes are ASCII letters; the validator now checks the
+  // RAW bytes before decoding. The crafted files below stay
+  // CRC-valid (CRC recomputed over the corrupted type), so only
+  // the type-byte rule can refuse them.
+  const withCorruptedTypeByte = (bytes, targetType, byteIndex, newByte) => {
+    const out = Buffer.from(bytes);
+    let off = 8;
+    while (off + 8 <= out.length) {
+      const len = out.readUInt32BE(off);
+      const type = out.toString("ascii", off + 4, off + 8);
+      if (type === targetType) {
+        out[off + 4 + byteIndex] = newByte;
+        out.writeUInt32BE(png.pngCrc32(out.subarray(off + 4, off + 8 + len)), off + 8 + len);
+        return out;
+      }
+      off += 12 + len;
+    }
+    throw new Error(`chunk ${targetType} not found`);
+  };
+  // IDAT with type bytes C9 44 41 54 — the finding's exact shape.
+  const highBitIdat = await png.validatePngBytes(
+    withCorruptedTypeByte(buildPng(), "IDAT", 0, 0xc9),
+    SMALL,
+  );
+  assert.equal(highBitIdat.ok, false);
+  assert.equal(highBitIdat.reason, "bad_chunk_type");
+  // The same corruption on the OTHER critical chunk types:
+  // IHDR (C9 48 44 52 decodes as "IHDR") and IEND (C9 45 4E 44
+  // decodes as "IEND") are rejected identically.
+  for (const target of ["IHDR", "IEND"]) {
+    const result = await png.validatePngBytes(
+      withCorruptedTypeByte(buildPng(), target, 0, 0xc9),
+      SMALL,
+    );
+    assert.equal(result.ok, false, `${target} with a high-bit type byte must be rejected`);
+    assert.equal(result.reason, "bad_chunk_type", target);
+  }
+  // And on an ANCILLARY chunk type: tEXt with its first byte's
+  // high bit set (F4 45 58 74 decodes as "tEXt") — the rule is
+  // about type bytes generally, not only known/critical types.
+  const rawTextChunk = (() => {
+    const data = Buffer.from("note");
+    const typeBytes = Buffer.from([0xf4, 0x45, 0x58, 0x74]);
+    const len = Buffer.alloc(4);
+    len.writeUInt32BE(data.length);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(png.pngCrc32(Buffer.concat([typeBytes, data])));
+    return Buffer.concat([len, typeBytes, data, crc]);
+  })();
+  const highBitAncillary = await png.validatePngBytes(
+    buildPng({ extraChunks: [rawTextChunk] }),
+    SMALL,
+  );
+  assert.equal(highBitAncillary.ok, false);
+  assert.equal(highBitAncillary.reason, "bad_chunk_type");
+  // A non-letter ASCII byte is outside the rule too: an IDAT
+  // whose first type byte is a digit ("1DAT") is not dispatched
+  // as image data.
+  const digitIdat = await png.validatePngBytes(
+    withCorruptedTypeByte(buildPng(), "IDAT", 0, 0x31),
+    SMALL,
+  );
+  assert.equal(digitIdat.ok, false);
+  assert.equal(digitIdat.reason, "bad_chunk_type");
+  // Positive controls. The ordinary valid fixture still
+  // validates.
+  const ordinary = await png.validatePngBytes(buildPng(), SMALL);
+  assert.equal(ordinary.ok, true, "the ordinary valid fixture must validate");
+  // The M4 retained client-encoder render's shape — its stream
+  // carried as consecutive 4,096-byte IDATs, every type byte
+  // plain ASCII — still validates.
+  const m4Width = 100;
+  const m4Height = 100;
+  const m4Rows = Buffer.alloc(m4Height * (1 + m4Width * 4));
+  const m4Compressed = deflateSync(m4Rows, { level: 0 });
+  const m4Parts = [
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+  ];
+  const m4Ihdr = Buffer.alloc(13);
+  m4Ihdr.writeUInt32BE(m4Width, 0);
+  m4Ihdr.writeUInt32BE(m4Height, 4);
+  m4Ihdr[8] = 8; // bit depth
+  m4Ihdr[9] = 6; // colour type RGBA (the pinned feature set)
+  m4Parts.push(chunk("IHDR", m4Ihdr));
+  for (let off = 0; off < m4Compressed.length; off += 4096) {
+    m4Parts.push(chunk("IDAT", m4Compressed.subarray(off, off + 4096)));
+  }
+  m4Parts.push(chunk("IEND", Buffer.alloc(0)));
+  const m4Shape = await png.validatePngBytes(Buffer.concat(m4Parts), {
+    expectedWidth: m4Width,
+    expectedHeight: m4Height,
+  });
+  assert.equal(m4Shape.ok, true, "the M4 client-encoder shape must validate");
+});
+
 test("png: illegal filter byte + short inflated stream are rejected (§5.10 step 3)", async () => {
   const badFilterRows = Buffer.alloc(3 * (1 + 4 * 4));
   for (let r = 0; r < 3; r++) badFilterRows[r * (1 + 4 * 4)] = 9;

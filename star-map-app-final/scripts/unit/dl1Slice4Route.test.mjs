@@ -930,6 +930,55 @@ test("descriptor upload with nonconsecutive IDAT chunks → 422 nonconsecutive_i
   assert.equal(head.present, false);
 });
 
+/** bigPng with the IDAT chunk's first type byte's high bit set
+ * (raw type bytes C9 44 41 54) and the chunk CRC recomputed:
+ * CRC-valid, and it decodes as "IDAT" under Node's
+ * high-bit-clearing ascii decode, but a real decoder reads the
+ * raw bytes and rejects the chunk as an unknown critical chunk. */
+function bigPngHighBitIdatType(fill = 0) {
+  const out = Buffer.from(bigPng(fill));
+  let off = 8;
+  while (off + 8 <= out.length) {
+    const len = out.readUInt32BE(off);
+    if (out.toString("ascii", off + 4, off + 8) === "IDAT") {
+      out[off + 4] = 0xc9;
+      out.writeUInt32BE(
+        pngMod.pngCrc32(out.subarray(off + 4, off + 8 + len)),
+        off + 8 + len,
+      );
+      return out;
+    }
+    off += 12 + len;
+  }
+  throw new Error("no IDAT chunk");
+}
+
+test("descriptor upload with high-bit IDAT chunk type bytes → 422 bad_chunk_type and NOTHING is published (Codex P2 on the round-3 head bc37757)", async () => {
+  const { sessionId, token } = await seedSession();
+  const identifyRes = await route.POST(jsonPost(token, { op: "identify", mapId: MAP }));
+  const { descriptor } = await identifyRes.json();
+  const derived = identity.deriveArtifactIdentity({ sessionId, mapId: MAP, recipe: RECIPE });
+  // The Codex reproduction shape at route scale: a CRC-valid
+  // 6000×6000 RGBA upload whose IDAT chunk's raw type bytes are
+  // C9 44 41 54. Node's ascii decode clears the high bit, so both
+  // structural walks read "IDAT" and the upload validated before
+  // the fix — while a real decoder (Sharp) rejects the chunk as
+  // an unknown critical chunk, leaving an undecodable artifact
+  // permanently finalized.
+  const bytes = bigPngHighBitIdatType();
+  const res = await route.POST(uploadPost(token, bytes, { "x-prepare-descriptor": descriptor }));
+  assert.equal(res.status, 422);
+  assert.equal((await res.json()).error, "bad_chunk_type");
+  // Validation precedes staging and registration: no intent, no
+  // registry entry, no stored object under the final key.
+  const state = await client.getState(sessionId);
+  assert.equal(Object.keys(state?.publicationIntents ?? {}).length, 0);
+  assert.equal(Object.keys(state?.artifactRegistry ?? {}).length, 0);
+  const storage = await import("../../src/lib/downloadArchiveStorage.ts");
+  const head = await storage.headArtifactObject(derived.finalKey);
+  assert.equal(head.present, false);
+});
+
 test("terminal-success comparison (area 7 P2 / CB-P2a): a requester whose retained intent lapses mid-flight while a successor takes governance gets 409, never success", async () => {
   const { sessionId, token } = await seedSession();
   const derived = identity.deriveArtifactIdentity({ sessionId, mapId: MAP, recipe: RECIPE });
