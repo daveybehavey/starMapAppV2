@@ -65,6 +65,11 @@ export const PRINT_GIFT_TIER_STEPS = [
     detail: "Lower total — you supply the frame (18×18).",
   },
   {
+    id: "poster_16x16",
+    label: "Unframed poster (16×16)",
+    detail: "Entry poster size — you supply the frame (16×16).",
+  },
+  {
     id: "framed_hd",
     label: "Framed + HD",
     detail: `Premium gift route — ready-to-hang wall art plus instant HD file. ${getPrintFramedHdBundleTimingLine()}`,
