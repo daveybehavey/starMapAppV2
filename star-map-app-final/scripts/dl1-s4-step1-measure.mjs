@@ -16,7 +16,18 @@
  * the pipeline consumes IDAT as views into the body and never copies
  * or concatenates it (pngValidation.ts, area 8 fix). D and H are the
  * unchanged declared constants.
- * Usage: node --expose-gc scripts/dl1-s4-step1-measure.mjs <png-path> */
+ * FIX ROUND 2 (conformance area 8 — G-dot re-check verdict
+ * 2026-10-24): W is the PREDECLARED round-2 manifest figure
+ * (program record dl1-s4-r2-measurement-manifest-2026-10-25.md,
+ * declared before any round-2 run): one preallocated assembly/body
+ * buffer (≤ ARCHIVE_MAX_BYTES) + presented-chunk window (1 MiB) +
+ * bounded IDAT pump bookkeeping (128 KiB) + one row buffer + SHA-256
+ * state = 68,313,537. The optional third argument sets the stream
+ * chunk size (manifest run M3 uses 8 KiB; default 64 KiB as before).
+ * Runs: M1 = padded-to-cap fixture at 64 KiB chunks; M3 = same
+ * fixture at 8 KiB; M2 = the decoded-workload fixture (small body,
+ * 216,009,000-byte inflated stream) at 64 KiB.
+ * Usage: node --expose-gc scripts/dl1-s4-step1-measure.mjs <png-path> [chunk-bytes] */
 import { register } from "node:module";
 import { readFileSync } from "node:fs";
 
@@ -42,7 +53,8 @@ async function* chunkStream(bytes, chunkSize = 64 * 1024) {
 
 const t0 = process.cpuUsage();
 const wall0 = Date.now();
-const counted = await readCountedBody(chunkStream(fixture), ARCHIVE_MAX_BYTES);
+const chunkBytes = process.argv[3] ? Number(process.argv[3]) : 64 * 1024;
+const counted = await readCountedBody(chunkStream(fixture, chunkBytes), ARCHIVE_MAX_BYTES);
 if (!counted.ok) {
   console.log(JSON.stringify({ file, countedReadOk: false, reason: counted.reason }, null, 2));
   process.exit(1);
@@ -52,11 +64,12 @@ const wallMs = Date.now() - wall0;
 const cpu = process.cpuUsage(t0);
 const P = process.resourceUsage().maxRSS * 1024;
 
-const W = ARCHIVE_MAX_BYTES + (1 + 6000 * 4) + 1024;
+const W = 68313537; // round-2 predeclared manifest figure (see header)
 const D = 40960;
 const H = 33554432;
 console.log(JSON.stringify({
   file,
+  chunkBytes,
   fileBytes: fixture.length,
   pipeline: "counted-read serving pipeline (readCountedBody -> validatePngBytes)",
   archiveMaxBytes: ARCHIVE_MAX_BYTES,
