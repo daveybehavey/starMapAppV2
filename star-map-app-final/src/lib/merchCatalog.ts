@@ -47,6 +47,8 @@ export type MerchFamily = {
   stripePriceEnv: string;
   /** Price fallback cents used when Stripe price id missing. */
   priceFallbackCents: number;
+  /** Native CAD book amount (T-FLEET-103; fixed at the 1.40 reference rate — see pricing.ts). */
+  priceCadFallbackCents: number;
   /** COGS env key (server) used for margin guardrails. */
   cogsEnv: string;
   /** Default COGS cents when env missing (safe, conservative). */
@@ -79,6 +81,7 @@ export const MERCH_FAMILIES: readonly MerchFamily[] = [
     },
     stripePriceEnv: "STRIPE_PRICE_ID_MERCH_STICKERS",
     priceFallbackCents: 900,
+    priceCadFallbackCents: 1300,
     cogsEnv: "MERCH_COGS_STICKERS_CENTS",
     defaultCogsCents: 300,
     publicPriceEnv: "NEXT_PUBLIC_MERCH_STICKERS_PRICE_CENTS",
@@ -99,6 +102,7 @@ export const MERCH_FAMILIES: readonly MerchFamily[] = [
     fixedVariantMap: { "3×3": 16366, "4×4": 16367, "6×6": 16465 },
     stripePriceEnv: "STRIPE_PRICE_ID_MERCH_MAGNETS",
     priceFallbackCents: 1400,
+    priceCadFallbackCents: 2000,
     cogsEnv: "MERCH_COGS_MAGNETS_CENTS",
     defaultCogsCents: 500,
     publicPriceEnv: "NEXT_PUBLIC_MERCH_MAGNETS_PRICE_CENTS",
@@ -119,6 +123,7 @@ export const MERCH_FAMILIES: readonly MerchFamily[] = [
     fixedVariantMap: { "1.25\"": 16411, "2.25\"": 16412 },
     stripePriceEnv: "STRIPE_PRICE_ID_MERCH_PINS",
     priceFallbackCents: 1400,
+    priceCadFallbackCents: 2000,
     cogsEnv: "MERCH_COGS_PINS_CENTS",
     defaultCogsCents: 600,
     publicPriceEnv: "NEXT_PUBLIC_MERCH_PINS_PRICE_CENTS",
@@ -141,6 +146,7 @@ export const MERCH_FAMILIES: readonly MerchFamily[] = [
     },
     stripePriceEnv: "STRIPE_PRICE_ID_MERCH_TEE",
     priceFallbackCents: 2900,
+    priceCadFallbackCents: 4100,
     cogsEnv: "MERCH_COGS_TEE_CENTS",
     defaultCogsCents: 1200,
     publicPriceEnv: "NEXT_PUBLIC_MERCH_TEE_PRICE_CENTS",
@@ -162,6 +168,7 @@ export const MERCH_FAMILIES: readonly MerchFamily[] = [
     },
     stripePriceEnv: "STRIPE_PRICE_ID_MERCH_HOODIE",
     priceFallbackCents: 4900,
+    priceCadFallbackCents: 6900,
     cogsEnv: "MERCH_COGS_HOODIE_CENTS",
     defaultCogsCents: 2200,
     publicPriceEnv: "NEXT_PUBLIC_MERCH_HOODIE_PRICE_CENTS",
@@ -257,6 +264,11 @@ export function getMerchStripePriceId(family: MerchFamily): string | undefined {
 
 export function getMerchCheckoutPriceCents(family: MerchFamily): number {
   return getMerchPublicDisplayPriceCents(family);
+}
+
+/** Native CAD book amount for a merch family (T-FLEET-103; fixed — see pricing.ts). */
+export function getMerchCadCheckoutPriceCents(family: MerchFamily): number {
+  return family.priceCadFallbackCents;
 }
 
 export function getMerchPublicDisplayLabel(family: MerchFamily): string {

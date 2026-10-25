@@ -216,6 +216,46 @@ export function getPrintDigitalAddOnPrice(): { amountCents: number; currency: st
   return { amountCents, currency: env.currency };
 }
 
+/**
+ * Native CAD price book (T-FLEET-103) — the Canadian-buyer counterpart
+ * of the USD book above, struck at the fixed 1.40 CAD/USD reference
+ * rate with no conversion uplift and rounded to whole dollars (design
+ * §2.1):
+ *
+ *   single $9 -> CA$13 · pack3 $19 -> CA$27 · subscription $19 -> CA$27
+ *   poster $49 -> CA$69 · framed $99 -> CA$139 · canvas $79 -> CA$111
+ *   mug $39 -> CA$55 · card $19 -> CA$27 · HD add-on $7 -> CA$10
+ *   merch $9/$14/$14/$29/$49 -> CA$13/20/20/41/69
+ *
+ * Print amounts live on the catalog rows (priceCadFallbackCents in
+ * printCatalog.ts), merch amounts on the families (merchCatalog.ts);
+ * the digital amounts live here. The CAD book is deliberately NOT
+ * env-overridable: repricing it is a price decision (owner approval at
+ * the then-current market rate), made in code where the change is
+ * reviewed — never a dashboard/env flip the pricing identity cannot
+ * see. CAD line items always mint via price_data (no Stripe Price
+ * objects), so this book is the only CAD price source.
+ */
+export const DIGITAL_CAD_PRICE_CENTS: Record<CheckoutPlan, number> = {
+  single: 1300,
+  pack3: 2700,
+  subscription: 2700,
+};
+
+export const PRINT_DIGITAL_ADDON_CAD_PRICE_CENTS = 1000;
+
+export function getDigitalCadPriceCents(plan: CheckoutPlan): number {
+  return DIGITAL_CAD_PRICE_CENTS[plan];
+}
+
+export function getPrintDigitalAddOnCadPriceCents(): number {
+  return PRINT_DIGITAL_ADDON_CAD_PRICE_CENTS;
+}
+
+export function getPrintCadPriceCents(variant: PrintVariant): number {
+  return getPrintCatalogRow(variant).priceCadFallbackCents;
+}
+
 export function formatPrice(amountCents: number, currency: string): string {
   const code = (currency || "USD").toUpperCase();
   const formatted = new Intl.NumberFormat("en-US", {
