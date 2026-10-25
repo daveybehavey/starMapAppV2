@@ -162,6 +162,31 @@ function bigPngWithChunk(type, data, fill = 0) {
   ]);
 }
 
+/** bigPng whose single zlib stream is split across two IDAT chunks
+ * with an ancillary tEXt chunk between them (IDAT -> tEXt -> IDAT):
+ * CRC-valid and structurally countable, but nonconsecutive — real
+ * decoders (libspng/Sharp) reject this shape. */
+function bigPngNonconsecutiveIdat(fill = 0) {
+  const rowLength = 1 + 6000 * 4;
+  const rows = Buffer.alloc(6000 * rowLength);
+  if (fill) rows.fill(fill, 1, 1 + 6000 * 4);
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(6000, 0);
+  ihdr.writeUInt32BE(6000, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 6;
+  const compressed = deflateSync(rows, { level: 1 });
+  const splitAt = Math.floor(compressed.length / 2);
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    pngChunk("IHDR", ihdr),
+    pngChunk("IDAT", compressed.subarray(0, splitAt)),
+    pngChunk("tEXt", Buffer.from("interleaved")),
+    pngChunk("IDAT", compressed.subarray(splitAt)),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
 const client = clientMod.createEntitlementAuthorityClient();
 
 test("identify I-5: fresh artifact → identified + descriptor naming the derived identity", async () => {
@@ -872,6 +897,31 @@ test("descriptor upload with a malformed PLTE payload → 422 bad_plte and NOTHI
   const res = await route.POST(uploadPost(token, bytes, { "x-prepare-descriptor": descriptor }));
   assert.equal(res.status, 422);
   assert.equal((await res.json()).error, "bad_plte");
+  const state = await client.getState(sessionId);
+  assert.equal(Object.keys(state?.publicationIntents ?? {}).length, 0);
+  assert.equal(Object.keys(state?.artifactRegistry ?? {}).length, 0);
+  const storage = await import("../../src/lib/downloadArchiveStorage.ts");
+  const head = await storage.headArtifactObject(derived.finalKey);
+  assert.equal(head.present, false);
+});
+
+test("descriptor upload with nonconsecutive IDAT chunks → 422 nonconsecutive_idat and NOTHING is published (Codex P2 on the round-3 head)", async () => {
+  const { sessionId, token } = await seedSession();
+  const identifyRes = await route.POST(jsonPost(token, { op: "identify", mapId: MAP }));
+  const { descriptor } = await identifyRes.json();
+  const derived = identity.deriveArtifactIdentity({ sessionId, mapId: MAP, recipe: RECIPE });
+  // The Codex reproduction shape at route scale: a CRC-valid
+  // 6000×6000 RGBA upload whose IDAT run is broken by a tEXt
+  // chunk (IDAT -> tEXt -> IDAT). The structural walk counts
+  // every IDAT payload and the inflate pass concatenates them,
+  // so this validated before the fix — while libspng/Sharp
+  // reject the file, leaving an undecodable artifact finalized.
+  const bytes = bigPngNonconsecutiveIdat();
+  const res = await route.POST(uploadPost(token, bytes, { "x-prepare-descriptor": descriptor }));
+  assert.equal(res.status, 422);
+  assert.equal((await res.json()).error, "nonconsecutive_idat");
+  // Validation precedes staging and registration: no intent, no
+  // registry entry, no stored object under the final key.
   const state = await client.getState(sessionId);
   assert.equal(Object.keys(state?.publicationIntents ?? {}).length, 0);
   assert.equal(Object.keys(state?.artifactRegistry ?? {}).length, 0);

@@ -8,8 +8,8 @@
  *   2. chunk-structure validation on the bounded in-memory body (PNG
  *      signature; chunk walk with per-chunk CRC; IHDR first; dimensions
  *      exactly the binding-derived expected values; bit depth 8; interlace
- *      0; color type in the pinned set; IDAT present; IEND present; no
- *      trailing bytes after IEND);
+ *      0; color type in the pinned set; IDAT present and consecutive;
+ *      IEND present; no trailing bytes after IEND);
  *   3. compressed-data validation: the IDAT payloads — held only as
  *      views into the counted body — are FULLY inflated through a
  *      streaming decoder that verifies stream integrity by construction
@@ -239,6 +239,7 @@ function parsePngStructure(bytes: Uint8Array): PngStructure | { error: string } 
   let ihdr: Omit<PngStructure, "idatChunkCount" | "idatTotalBytes"> | null = null;
   let idatChunkCount = 0;
   let idatTotalBytes = 0;
+  let idatRunEnded = false;
   let sawPlte = false;
   let sawIend = false;
   let first = true;
@@ -255,6 +256,20 @@ function parsePngStructure(bytes: Uint8Array): PngStructure | { error: string } 
     const data = buf.subarray(dataStart, dataEnd);
     if (first && type !== "IHDR") return { error: "ihdr_not_first" };
     first = false;
+    // IDAT consecutiveness (Codex P2 on the correction-round-3
+    // head): the PNG specification requires IDAT chunks to appear
+    // consecutively — the image data is one zlib stream carried by
+    // a single uninterrupted run of IDAT chunks. Real decoders
+    // (libspng, hence Sharp) reject a file whose IDAT run is
+    // broken by another chunk ("pngload_buffer: libspng read
+    // error"), while this walk — counting every IDAT payload,
+    // with the inflate pass concatenating them in file order —
+    // would accept it, so an undecodable artifact could be
+    // permanently finalized and corrected bytes would then
+    // conflict with the finalized digest. Once any non-IDAT chunk
+    // follows the first IDAT, the run has ended; a further IDAT
+    // is refused here, before anything is staged.
+    if (type !== "IDAT" && idatChunkCount > 0) idatRunEnded = true;
     if (type === "IHDR") {
       if (ihdr) return { error: "duplicate_ihdr" };
       if (length !== 13) return { error: "bad_ihdr" };
@@ -291,6 +306,7 @@ function parsePngStructure(bytes: Uint8Array): PngStructure | { error: string } 
       }
       sawPlte = true;
     } else if (type === "IDAT") {
+      if (idatRunEnded) return { error: "nonconsecutive_idat" };
       idatChunkCount++;
       idatTotalBytes += length;
     } else if (isUnsupportedCriticalChunk(type)) {

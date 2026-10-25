@@ -644,6 +644,79 @@ test("png: PLTE payload shape is validated before staging (Codex P2 on the round
   assert.equal(late.reason, "bad_plte");
 });
 
+test("png: nonconsecutive IDAT is rejected before staging (Codex P2 on the round-3 head); consecutive multi-IDAT still validates", async () => {
+  // The Codex reproduction shape: a CRC-valid PNG whose IDAT run
+  // is broken by an ancillary chunk (IDAT -> tEXt -> IDAT). The
+  // structural walk counts and the inflate pass concatenates every
+  // IDAT payload, so this validated — while a real decoder
+  // (libspng, hence Sharp) rejects the file ("pngload_buffer:
+  // libspng read error") and the artifact could be permanently
+  // finalized yet undecodable.
+  const ihdrData = Buffer.alloc(13);
+  ihdrData.writeUInt32BE(4, 0);
+  ihdrData.writeUInt32BE(3, 4);
+  ihdrData[8] = 8; // bit depth
+  ihdrData[9] = 6; // colour type RGBA (the pinned feature set)
+  const compressed = deflateSync(Buffer.alloc(3 * (1 + 4 * 4)));
+  const splitAt = Math.floor(compressed.length / 2);
+  const idatA = chunk("IDAT", compressed.subarray(0, splitAt));
+  const idatB = chunk("IDAT", compressed.subarray(splitAt));
+  const assemble = (...middle) =>
+    Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      chunk("IHDR", ihdrData),
+      ...middle,
+      chunk("IEND", Buffer.alloc(0)),
+    ]);
+  // Interleaved: rejected with the dedicated reason, whichever
+  // ancillary chunk breaks the run.
+  for (const breaker of ["tEXt", "gAMA"]) {
+    const interleaved = await png.validatePngBytes(
+      assemble(idatA, chunk(breaker, Buffer.from("note")), idatB),
+      SMALL,
+    );
+    assert.equal(interleaved.ok, false, `${breaker} between IDATs must be rejected`);
+    assert.equal(interleaved.reason, "nonconsecutive_idat", breaker);
+  }
+  // A run that starts, breaks, and resumes after TWO consecutive
+  // IDATs is rejected the same way.
+  const third = Math.floor(compressed.length / 3);
+  const resumed = await png.validatePngBytes(
+    assemble(
+      chunk("IDAT", compressed.subarray(0, third)),
+      chunk("IDAT", compressed.subarray(third, 2 * third)),
+      chunk("tEXt", Buffer.from("note")),
+      chunk("IDAT", compressed.subarray(2 * third)),
+    ),
+    SMALL,
+  );
+  assert.equal(resumed.ok, false);
+  assert.equal(resumed.reason, "nonconsecutive_idat");
+  // Positive control: consecutive multi-IDAT validates — this is
+  // the shape real encoders emit (the M4 retained client-encoder
+  // render carries its stream as consecutive 4,096-byte IDATs).
+  const consecutive = await png.validatePngBytes(assemble(idatA, idatB), SMALL);
+  assert.equal(consecutive.ok, true, "consecutive multi-IDAT must validate");
+  // A single IDAT (the buildPng default shape) still validates.
+  const single = await png.validatePngBytes(
+    assemble(chunk("IDAT", compressed)),
+    SMALL,
+  );
+  assert.equal(single.ok, true, "single-IDAT must validate");
+  // Ancillary chunks BEFORE the first IDAT and AFTER the last
+  // IDAT are untouched by the rule: only interleaving is rejected.
+  const before = await png.validatePngBytes(
+    assemble(chunk("tEXt", Buffer.from("note")), idatA, idatB),
+    SMALL,
+  );
+  assert.equal(before.ok, true, "an ancillary chunk before the IDAT run must validate");
+  const after = await png.validatePngBytes(
+    assemble(idatA, idatB, chunk("tEXt", Buffer.from("note"))),
+    SMALL,
+  );
+  assert.equal(after.ok, true, "an ancillary chunk after the IDAT run must validate");
+});
+
 test("png: illegal filter byte + short inflated stream are rejected (§5.10 step 3)", async () => {
   const badFilterRows = Buffer.alloc(3 * (1 + 4 * 4));
   for (let r = 0; r < 3; r++) badFilterRows[r * (1 + 4 * 4)] = 9;
