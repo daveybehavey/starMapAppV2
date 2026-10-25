@@ -26,7 +26,7 @@ export default function ReturnsContent() {
           <h2 className="text-xl font-semibold text-midnight">Digital downloads</h2>
           <p className="mt-2">
             Free preview is available before purchase. Once an HD download has been unlocked or downloaded, it is
-            generally non-refundable. Exceptions may be made for duplicate charges, failed delivery caused by a
+            non-refundable. The only exceptions are duplicate charges, failed delivery caused by a
             technical issue on our side, or other billing errors that prevented the order from being fulfilled
             correctly.
           </p>
@@ -35,17 +35,18 @@ export default function ReturnsContent() {
         <section>
           <h2 className="text-xl font-semibold text-midnight">Physical prints</h2>
           <p className="mt-2">
-            Physical prints are custom-made after checkout, so change-of-mind returns are not accepted once production
-            has started. If a print arrives damaged, defective, or materially different from the approved order, contact{" "}
+            Physical prints are custom-made after checkout, personalised for the person who ordered them.
+            Change-of-mind returns are not accepted on prints, at any stage. If a print arrives damaged, defective,
+            or materially different from the approved order, contact{" "}
             <a className="font-semibold text-midnight underline" href={`mailto:${profile.email}`}>
               {profile.email}
             </a>{" "}
             within 30 days of delivery with photos and order details. {LOVE_IT_GUARANTEE_LINE}
           </p>
           <p className="mt-2">
-            Return shipping costs are not covered for change-of-mind returns. For damage or misprint claims approved
-            by StarMapCo, we will arrange the free reprint promised by the Love-It Guarantee above; if a reprint
-            cannot resolve the issue, we will coordinate the next step with you.
+            For damage or misprint claims approved by StarMapCo, we will
+            arrange the free reprint promised by the Love-It Guarantee above; if a reprint cannot resolve the issue,
+            we will coordinate the next step with you.
           </p>
         </section>
 
