@@ -74,6 +74,9 @@ function parsePrintSkuPriceCents(rowId: PrintVariant): number {
       case "poster_unframed":
         raw = process.env.NEXT_PUBLIC_PRINT_UNFRAMED_PRICE_CENTS;
         break;
+      case "poster_unframed_16x16":
+        raw = process.env.NEXT_PUBLIC_PRINT_UNFRAMED_16X16_PRICE_CENTS;
+        break;
       case "poster_framed":
         raw = process.env.NEXT_PUBLIC_PRINT_FRAMED_PRICE_CENTS;
         break;
@@ -107,6 +110,9 @@ function parsePrintSkuLabel(rowId: PrintVariant): string {
     switch (rowId) {
       case "poster_unframed":
         raw = process.env.NEXT_PUBLIC_PRINT_UNFRAMED_LABEL;
+        break;
+      case "poster_unframed_16x16":
+        raw = process.env.NEXT_PUBLIC_PRINT_UNFRAMED_16X16_LABEL;
         break;
       case "poster_framed":
         raw = process.env.NEXT_PUBLIC_PRINT_FRAMED_LABEL;

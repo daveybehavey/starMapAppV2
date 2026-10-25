@@ -31,6 +31,11 @@ export const PRINT_VARIANT_COST_ROWS = Object.freeze({
     defaultCogsCents: 1300,
     shippingProfile: "poster_unframed",
   }),
+  poster_unframed_16x16: Object.freeze({
+    cogsEnv: "PRINT_COGS_POSTER_UNFRAMED_16X16_CENTS",
+    defaultCogsCents: 1275,
+    shippingProfile: "poster_unframed",
+  }),
   poster_framed: Object.freeze({
     cogsEnv: "PRINT_COGS_POSTER_FRAMED_CENTS",
     defaultCogsCents: 5200,
