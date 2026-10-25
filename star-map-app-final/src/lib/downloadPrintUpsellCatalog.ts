@@ -41,6 +41,14 @@ const DOWNLOAD_PRINT_CARD_META: Record<
     sceneClass: "proof-wall-stage proof-wall-stage--tabletop",
     imageClass: "proof-wall-image object-contain px-5 py-6 sm:px-6 sm:py-7",
   },
+  poster_unframed_16x16: {
+    badge: "Compact fit",
+    sceneLabel: "Tabletop proof",
+    detail: "The 16×16 poster — same museum-grade paper, sized for tighter walls and 16×16 frames.",
+    bestFor: "Use for smaller walls and 16×16 frames",
+    sceneClass: "proof-wall-stage proof-wall-stage--tabletop",
+    imageClass: "proof-wall-image object-contain px-5 py-6 sm:px-6 sm:py-7",
+  },
   canvas_wrap: {
     badge: "Gallery wrap",
     sceneLabel: "Canvas proof",
@@ -75,6 +83,9 @@ function proofAssets(variant: PrintVariant) {
     return PRINT_PROOF_IMAGE_PATHS.card;
   }
   if (variant === "poster_unframed") {
+    return PRINT_PROOF_IMAGE_PATHS.unframed;
+  }
+  if (variant === "poster_unframed_16x16") {
     return PRINT_PROOF_IMAGE_PATHS.unframed;
   }
   return PRINT_PROOF_IMAGE_PATHS.framed;

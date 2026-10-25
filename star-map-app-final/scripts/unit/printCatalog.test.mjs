@@ -19,15 +19,33 @@ test("parsePrintVariant does not map unknown SKUs to framed poster", () => {
 });
 
 test("isPrintVariant accepts all catalog ids", () => {
-  for (const id of ["poster_framed", "poster_unframed", "canvas_wrap", "mug_11oz", "card_4x6"]) {
+  for (const id of [
+    "poster_framed",
+    "poster_unframed",
+    "poster_unframed_16x16",
+    "canvas_wrap",
+    "mug_11oz",
+    "card_4x6",
+  ]) {
     assert.equal(isPrintVariant(id), true);
   }
   assert.equal(isPrintVariant("poster"), false);
+});
+
+test("parsePrintVariant preserves the 16x16 poster SKU (S1, issue #380)", () => {
+  assert.equal(parsePrintVariant("poster_unframed_16x16"), "poster_unframed_16x16");
+  assert.equal(parsePrintVariant("poster_unframed_16x16", "poster_unframed"), "poster_unframed_16x16");
 });
 
 test("paywall checkout rows expose canvas pilot; mug stays shop-only", () => {
   assert.equal(PAYWALL_PRINT_CHECKOUT_ROW_VARIANTS.includes("canvas_wrap"), true);
   assert.equal(PAYWALL_PRINT_CHECKOUT_ROW_VARIANTS.includes("mug_11oz"), false);
   assert.equal(PAYWALL_PRINT_CHECKOUT_ROW_VARIANTS.includes("card_4x6"), false);
-  assert.deepEqual(PAYWALL_LIVE_PRINT_VARIANTS, ["poster_framed", "poster_unframed", "canvas_wrap"]);
+  assert.equal(PAYWALL_PRINT_CHECKOUT_ROW_VARIANTS.includes("poster_unframed_16x16"), true);
+  assert.deepEqual(PAYWALL_LIVE_PRINT_VARIANTS, [
+    "poster_framed",
+    "poster_unframed",
+    "poster_unframed_16x16",
+    "canvas_wrap",
+  ]);
 });

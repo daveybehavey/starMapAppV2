@@ -27,24 +27,24 @@ test("base offer set is unchanged when no variant is preferred", () => {
   assert.equal(rows, PAYWALL_PRINT_CHECKOUT_ROWS);
   assert.deepEqual(
     rows.map((r) => r.variant),
-    ["poster_framed", "poster_framed", "poster_framed", "poster_unframed", "canvas_wrap"],
+    ["poster_framed", "poster_framed", "poster_framed", "poster_unframed", "poster_unframed_16x16", "canvas_wrap"],
   );
   assert.ok(rows.every((r) => r.variant !== "mug_11oz"), "mug must not be pushed to non-mug shoppers");
 });
 
 test("mug shopper gets a mug purchase row, first, with no add-ons forced", () => {
   const rows = resolvePaywallOfferRows("mug_11oz");
-  assert.equal(rows.length, 6);
+  assert.equal(rows.length, 7);
   assert.deepEqual(rows[0], { variant: "mug_11oz", includeDigitalAddOn: false });
   // Base rows still follow for shoppers who change their mind in-dialog.
   assert.deepEqual(
     rows.slice(1).map((r) => r.variant),
-    ["poster_framed", "poster_framed", "poster_framed", "poster_unframed", "canvas_wrap"],
+    ["poster_framed", "poster_framed", "poster_framed", "poster_unframed", "poster_unframed_16x16", "canvas_wrap"],
   );
 });
 
 test("variants already in the base set are not duplicated", () => {
-  for (const variant of ["poster_framed", "poster_unframed", "canvas_wrap"]) {
+  for (const variant of ["poster_framed", "poster_unframed", "poster_unframed_16x16", "canvas_wrap"]) {
     assert.equal(resolvePaywallOfferRows(variant), PAYWALL_PRINT_CHECKOUT_ROWS, `${variant} must not add a row`);
   }
 });

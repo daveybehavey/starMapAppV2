@@ -104,6 +104,7 @@ const stripePriceIds = {
 /** Stripe Price IDs per print SKU (fallback to price_data when unset). */
 const stripePrintVariantPriceIds: Partial<Record<PrintVariant, string | undefined>> = {
   poster_unframed: process.env.STRIPE_PRICE_ID_PRINT_UNFRAMED,
+  poster_unframed_16x16: process.env.STRIPE_PRICE_ID_PRINT_UNFRAMED_16X16,
   poster_framed: process.env.STRIPE_PRICE_ID_PRINT_FRAMED,
   canvas_wrap: process.env.STRIPE_PRICE_ID_PRINT_CANVAS_WRAP,
   mug_11oz: process.env.STRIPE_PRICE_ID_PRINT_MUG_11OZ,

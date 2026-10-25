@@ -1,11 +1,12 @@
 /**
  * Pure catalog helpers for Node unit tests. Keep in sync with printCatalog.ts.
- * @typedef {"poster_unframed" | "poster_framed" | "canvas_wrap" | "mug_11oz" | "card_4x6"} PrintVariant
+ * @typedef {"poster_unframed" | "poster_unframed_16x16" | "poster_framed" | "canvas_wrap" | "mug_11oz" | "card_4x6"} PrintVariant
  */
 
 /** @type {Set<string>} */
 const VARIANT_SET = new Set([
   "poster_unframed",
+  "poster_unframed_16x16",
   "poster_framed",
   "canvas_wrap",
   "mug_11oz",
@@ -13,7 +14,12 @@ const VARIANT_SET = new Set([
 ]);
 
 /** @type {PrintVariant[]} */
-export const PAYWALL_LIVE_PRINT_VARIANTS = ["poster_framed", "poster_unframed", "canvas_wrap"];
+export const PAYWALL_LIVE_PRINT_VARIANTS = [
+  "poster_framed",
+  "poster_unframed",
+  "poster_unframed_16x16",
+  "canvas_wrap",
+];
 
 /** @type {PrintVariant[]} */
 export const PAYWALL_PRINT_CHECKOUT_ROW_VARIANTS = [
@@ -21,6 +27,7 @@ export const PAYWALL_PRINT_CHECKOUT_ROW_VARIANTS = [
   "poster_framed",
   "poster_framed",
   "poster_unframed",
+  "poster_unframed_16x16",
   "canvas_wrap",
 ];
 

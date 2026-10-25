@@ -53,6 +53,8 @@ export function getPrintProductLabel(variant: string | null | undefined): string
       return "Framed star map poster";
     case "poster_unframed":
       return "Star map poster (unframed)";
+    case "poster_unframed_16x16":
+      return "Star map poster (unframed, 16×16)";
     case "canvas_wrap":
       return "Star map canvas";
     case "mug_11oz":
