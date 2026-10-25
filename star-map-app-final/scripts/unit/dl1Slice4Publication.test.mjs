@@ -411,6 +411,113 @@ function buildPng({
 
 const SMALL = { expectedWidth: 4, expectedHeight: 3 };
 
+test("counted read (area 8 fix round 2): single-assembly boundaries — exact cap in small chunks succeeds, cap+1 is refused WITHOUT draining the source, a throwing source is read_failed, and a stream overflow cancels the reader", async () => {
+  const cap = 4096;
+  const mk = (n, fill) => new Uint8Array(n).fill(fill);
+  // The pump/slice bounds the manifest charges are the exported
+  // constants, not test-local numbers.
+  assert.equal(png.COUNTED_READ_SLICE_BYTES, 64 * 1024);
+  assert.ok(png.PNG_INFLATE_MAX_OUTSTANDING_WRITES >= 1);
+  // Exact cap via many small chunks.
+  async function* exact() {
+    for (let i = 0; i < cap / 8; i++) yield mk(8, 1);
+  }
+  const okExact = await png.readCountedBody(exact(), cap);
+  assert.equal(okExact.ok, true);
+  assert.equal(okExact.bytes.length, cap);
+  // cap+1: refused at the crossing chunk; the source is NOT drained
+  // (the round-2 reader never materialises a second body to refuse).
+  let produced = 0;
+  async function* over() {
+    for (let i = 0; i < 100; i++) {
+      produced++;
+      yield mk(1024, 2);
+    }
+  }
+  const okOver = await png.readCountedBody(over(), cap);
+  assert.equal(okOver.ok, false);
+  assert.equal(okOver.reason, "too_large");
+  assert.ok(produced <= 6, `source drained: ${produced} chunks produced`);
+  // A throwing source is read_failed.
+  async function* boom() {
+    yield mk(16, 3);
+    throw new Error("source failure");
+  }
+  const okBoom = await png.readCountedBody(boom(), cap);
+  assert.equal(okBoom.ok, false);
+  assert.equal(okBoom.reason, "read_failed");
+  // ReadableStream: overflow cancels the reader.
+  let cancelled = false;
+  const stream = new ReadableStream({
+    pull(controller) {
+      controller.enqueue(mk(1024, 4));
+    },
+    cancel() {
+      cancelled = true;
+    },
+  });
+  const okStream = await png.readCountedBody(stream, cap);
+  assert.equal(okStream.ok, false);
+  assert.equal(okStream.reason, "too_large");
+  assert.equal(cancelled, true);
+});
+
+test("png inflate feeding (area 8 fix round 2): IDAT bookkeeping is bounded — ~200k empty IDAT chunks validate, a 1-byte-segmented payload validates identically, and an overlong inflated stream is refused", async () => {
+  const raw = Buffer.alloc(3 * 17); // 3 rows × (1 filter byte + 4 px × 4 B)
+  for (let r = 0; r < 3; r++) raw[r * 17] = 0; // filter byte 0 per row
+  const whole = buildPng({ rawRows: raw });
+  const base = await png.validatePngBytes(whole, SMALL);
+  assert.equal(base.ok, true);
+  const iendOffset = (buf) => {
+    let off = 8;
+    while (off + 8 <= buf.length) {
+      const len = buf.readUInt32BE(off);
+      const type = buf.toString("ascii", off + 4, off + 8);
+      if (type === "IEND") return off;
+      off += 12 + len;
+    }
+    throw new Error("no IEND");
+  };
+  const iendAt = iendOffset(whole);
+  // Many-empty-IDAT (the Codex many-empty-IDAT reproduction shape):
+  // 200,000 zero-length IDAT chunks inserted before IEND. Pass 1
+  // counts them in O(1); the feeder walks them without retaining a
+  // span per chunk.
+  const emptyIdat = chunk("IDAT", Buffer.alloc(0));
+  const manyParts = [whole.subarray(0, iendAt)];
+  for (let i = 0; i < 200_000; i++) manyParts.push(emptyIdat);
+  manyParts.push(whole.subarray(iendAt));
+  const manyEmpty = await png.validatePngBytes(Buffer.concat(manyParts), SMALL);
+  assert.equal(manyEmpty.ok, true);
+  // Segmentation equivalence: the same zlib payload split across
+  // 1-byte IDATs inflates to the same validated image.
+  const payloadParts = [];
+  {
+    let off = 8;
+    while (off < iendAt) {
+      const len = whole.readUInt32BE(off);
+      const type = whole.toString("ascii", off + 4, off + 8);
+      if (type === "IDAT") payloadParts.push(whole.subarray(off + 8, off + 8 + len));
+      off += 12 + len;
+    }
+  }
+  const payload = Buffer.concat(payloadParts);
+  const segParts = [whole.subarray(0, 8 + 25)]; // signature + IHDR chunk
+  for (let i = 0; i < payload.length; i++) segParts.push(chunk("IDAT", payload.subarray(i, i + 1)));
+  segParts.push(whole.subarray(iendAt));
+  const segmented = await png.validatePngBytes(Buffer.concat(segParts), SMALL);
+  assert.equal(segmented.ok, true);
+  assert.equal(segmented.width, base.width);
+  assert.equal(segmented.height, base.height);
+  // Overlong inflated stream: 4 rows of pixels for a 3-row image —
+  // the decoder aborts the byte the expected length is exceeded.
+  const rawLong = Buffer.alloc(4 * 17);
+  for (let r = 0; r < 4; r++) rawLong[r * 17] = 0;
+  const overlong = await png.validatePngBytes(buildPng({ rawRows: rawLong }), SMALL);
+  assert.equal(overlong.ok, false);
+  assert.equal(overlong.reason, "inflated_data_invalid");
+});
+
 test("png: valid RGBA PNG validates; digest is SHA-256 of the bytes (§5.10 steps 2–4)", async () => {
   const bytes = buildPng();
   const result = await png.validatePngBytes(bytes, SMALL);
@@ -1198,10 +1305,69 @@ test("Class A + V-11.1 fold: concurrent registrations through the serialised aut
     assert.equal(step.refusal ?? null, record.refusal, `position ${i} refusal`);
     folded = step.state;
   });
-  assert.deepEqual(folded.publicationIntents, final.publicationIntents);
-  assert.deepEqual(folded.publicationIntentJoins, final.publicationIntentJoins);
-  assert.deepEqual(folded.publicationGenerations, final.publicationGenerations);
-  assert.deepEqual(folded.canonicalArtifactByMap, final.canonicalArtifactByMap);
+  // FULL folded-state vs committed-state equality (area 9 fix round
+  // 2; G-dot re-check verdict 2026-10-24): the round-1 test compared
+  // only four selected maps, so a fold divergence inside
+  // publicationIntentByArtifact or artifactRegistry would have
+  // passed undetected. The comparison is now the ENTIRE state
+  // object, key for key.
+  assert.deepEqual(folded, final);
+  // Sensitivity controls (acceptance 9.3): the full comparison is
+  // PROVEN to detect divergence in exactly the fields the selected
+  // comparison omitted — tamper each on a clone of the committed
+  // state and require inequality with the fold.
+  const tamperByArtifact = structuredClone(final);
+  tamperByArtifact.publicationIntentByArtifact[ARTIFACT] = DESC_2;
+  assert.notDeepEqual(tamperByArtifact, folded);
+  const tamperRegistry = structuredClone(final);
+  tamperRegistry.artifactRegistry["download-archive/hd/phantom.png"] = {
+    digest: DIGEST_B,
+  };
+  assert.notDeepEqual(tamperRegistry, folded);
+  const tamperTopLevel = structuredClone(final);
+  tamperTopLevel.unexpectedField = {};
+  assert.notDeepEqual(tamperTopLevel, folded);
+});
+
+test("Class A fold (area 9 fix round 2): a richer recorded history — register, same-digest join, finalize — folds to the FULL committed state, artifactRegistry populated", async () => {
+  clientMod.__resetEntitlementAuthorityMemoryForTests();
+  const client = clientMod.createEntitlementAuthorityClient();
+  const digest = DIGEST_A;
+  const register = (intentId, overrides = {}) => ({
+    type: "register_publication_intent",
+    intent: intentInput({ intentId, digest, stagingKey: identity.buildStagingKey(intentId), ...overrides }),
+    now: NOW,
+  });
+  const r1 = await client.apply(SID, register(DESC_1));
+  assert.equal(r1.outcome, "publication_intent_recorded");
+  const r2 = await client.apply(SID, register(DESC_2));
+  assert.equal(r2.outcome, "publication_intent_joined");
+  const fin = await client.apply(SID, {
+    type: "finalize_publication",
+    artifactKey: ARTIFACT,
+    intentId: DESC_1,
+    generation: r1.publication.generation,
+    observation: {
+      finalObjectPresent: true,
+      finalMetadata: trustedMetadata(digest),
+      bodyVerifiedDigest: digest,
+    },
+    now: NOW + 1,
+  });
+  assert.equal(fin.outcome, "publication_finalized");
+  const final = await client.getState(SID);
+  assert.ok(final.artifactRegistry[ARTIFACT], "registry populated by the finalize");
+  assert.equal(final.publicationIntentByArtifact[ARTIFACT], undefined);
+  const history = clientMod.__getEntitlementAuthorityCommitHistoryForTests(SID);
+  assert.equal(history.length, 3);
+  let folded = sm.createEmptyEntitlementAuthorityState(SID);
+  history.forEach((record, i) => {
+    const step = sm.applyEntitlementAuthorityOp(folded, record.op);
+    assert.equal(step.outcome, record.outcome, `position ${i} outcome`);
+    assert.equal(step.refusal ?? null, record.refusal, `position ${i} refusal`);
+    folded = step.state;
+  });
+  assert.deepEqual(folded, final);
 });
 
 test("Class A: concurrent same-digest registrations → exactly one intent + one join", async () => {

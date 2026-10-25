@@ -482,7 +482,7 @@ test("Class B (join path, area 9): two publishers race the DESCRIPTOR flow with 
   assert.equal(sha(stored.bytes), sha(bytes));
 });
 
-test("Class B (join path, deterministic): a second descriptor's upload JOINS the governing intent through the real route — join record persisted with the governing pair; both publishers succeed", async () => {
+test("Class B (join path, deterministic): the joiner's upload succeeds through the real route — it JOINS the governing intent recorded at the seam (the governor submits no upload in this test); join record persisted with the governing pair", async () => {
   const { sessionId, token } = await seedSession();
   const derived = identity.deriveArtifactIdentity({ sessionId, mapId: MAP, recipe: RECIPE });
   const bytes = bigPng(0);
