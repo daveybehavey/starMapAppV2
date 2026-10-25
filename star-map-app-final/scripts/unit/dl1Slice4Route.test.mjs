@@ -618,9 +618,13 @@ test("terminal-success comparison (area 7 P2 / CB-P2a): a requester whose retain
   });
   assert.equal(promoted.outcome, "created");
   const { existsSync } = await import("node:fs");
+  // The canonical local mapping (fix round 2, area 6): SHA-256 hex of
+  // the key, in a two-hex-char shard directory.
+  const stagingHash = sha(identity.buildStagingKey("ab".repeat(16)));
   const stagingPath = path.join(
     process.env.STARMAP_DOWNLOAD_ARCHIVE_DIR,
-    Buffer.from(identity.buildStagingKey("ab".repeat(16)), "utf8").toString("base64url"),
+    stagingHash.slice(0, 2),
+    stagingHash,
   );
   const deadline = Date.now() + 10_000;
   while (!existsSync(stagingPath) && Date.now() < deadline) {

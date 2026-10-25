@@ -1313,8 +1313,9 @@ test("U-P2 boundary test: create → delete → create-only put SUCCEEDS again (
   const first = await storage.promoteArtifactCreateOnly(key, bytes, metaFor(DIGEST_A));
   assert.equal(first.outcome, "created");
   const { rm } = await import("node:fs/promises");
-  const { readdirSync: rd } = await import("node:fs");
-  for (const name of rd(dir)) await rm(path.join(dir, name), { force: true });
+  // Remove the stored object (fix round 2: the layout is sharded —
+  // remove the whole tree; promotion recreates what it needs).
+  await rm(dir, { recursive: true, force: true });
   const second = await storage.promoteArtifactCreateOnly(key, bytes, metaFor(DIGEST_A));
   assert.equal(second.outcome, "created"); // U-P2 labelled: proves the same observable locally
   delete process.env.STARMAP_DOWNLOAD_ARCHIVE_DIR;
@@ -1373,11 +1374,142 @@ test("local promotion (area 6 fix): publication is atomic — overlap readers ob
   assert.equal(final.bytes.length, bytes.length);
   assert.equal(final.metadata.digest, DIGEST_A);
   // Create-only still holds after the atomic publish, and no temp
-  // debris remains in the directory.
+  // debris remains anywhere under the directory (fix round 2: files
+  // live in shard subdirectories — scan recursively).
   const retry = await storage.promoteArtifactCreateOnly(key, bytes, metaFor(DIGEST_A));
   assert.equal(retry.outcome, "existed");
   const { readdirSync } = await import("node:fs");
-  assert.deepEqual(readdirSync(dir).filter((name) => name.includes(".tmp-")), []);
+  const allNames = [];
+  const walk = (d) => {
+    for (const name of readdirSync(d, { withFileTypes: true })) {
+      if (name.isDirectory()) walk(path.join(d, name.name));
+      else allNames.push(name.name);
+    }
+  };
+  walk(dir);
+  assert.deepEqual(allNames.filter((name) => name.includes(".tmp-")), []);
+  delete process.env.STARMAP_DOWNLOAD_ARCHIVE_DIR;
+});
+
+test("local paths (area 6 fix round 2): every local operation resolves through ONE bounded hash mapping — boundary identities publish, read back, dedupe, and promote", async () => {
+  const dir = path.join(process.cwd(), ".tmp", "dl1-s4-area6-bounds");
+  const fsp = await import("node:fs/promises");
+  const { readdirSync } = await import("node:fs");
+  await fsp.rm(dir, { recursive: true, force: true }); // hermetic across runs
+  process.env.STARMAP_DOWNLOAD_ARCHIVE_DIR = dir;
+  const bodies = new Uint8Array(Buffer.from("boundary-body"));
+  // Identity lengths around and beyond the round-1 failure: under the
+  // old whole-key base64url component, a key of ~191+ bytes already
+  // overflows a 255-byte component once the .meta.json / temp suffixes
+  // are added (a max-length final key is ~278 bytes → ~371 encoded).
+  const longFinalKey = identity.buildFinalKey({
+    sessionId: "s".repeat(128),
+    mapId: "m".repeat(64),
+    fingerprint: FINGERPRINT,
+    contractVersion: 1,
+    rendererVersion: 1,
+  });
+  assert.ok(longFinalKey);
+  assert.ok(Buffer.from(longFinalKey, "utf8").toString("base64url").length > 255);
+  const keys = [
+    "download-archive/staging/short.png",
+    longFinalKey,
+    `download-archive/hd/${"x".repeat(200)}/k.png`,
+    `download-archive/hd/${"y".repeat(500)}/k.png`,
+    `download-archive/hd/${"z".repeat(1000)}/k.png`,
+    "download-archive/hd/unicode-✓-キー/session:with:colons.png",
+    "download-archive/hd/../../traversal.png",
+  ];
+  // Staging write + head + get (the read paths) for every key…
+  for (const key of keys) {
+    await storage.putStagingObject(key, bodies);
+    const head = await storage.headArtifactObject(key);
+    assert.equal(head.present, true, key);
+    const got = await storage.getArtifactObject(key);
+    assert.deepEqual(Buffer.from(got.bytes), Buffer.from(bodies), key);
+  }
+  // …then promotion (create-only) + dedupe + metadata read-back on
+  // FRESH keys of the same shapes (a staging write IS the file at the
+  // key's path, so reusing the staging keys would pre-create them).
+  for (const key of keys.map((k) => `${k}#promote`)) {
+    const promoted = await storage.promoteArtifactCreateOnly(key, bodies, metaFor(DIGEST_A));
+    assert.equal(promoted.outcome, "created", key);
+    const again = await storage.promoteArtifactCreateOnly(key, bodies, metaFor(DIGEST_A));
+    assert.equal(again.outcome, "existed", key);
+    const final = await storage.getArtifactObject(key);
+    assert.deepEqual(Buffer.from(final.bytes), Buffer.from(bodies), key);
+    assert.equal(final.metadata.digest, DIGEST_A, key);
+  }
+  // Component bound (acceptance 6.2): walk the tree — every directory
+  // and file component is ≤ 255 BYTES, names carry no key material
+  // (shard = 2 hex, file = 64 hex, optional .meta.json), and no temp
+  // debris survives settlement.
+  const components = [];
+  const walk = (d) => {
+    for (const name of readdirSync(d, { withFileTypes: true })) {
+      components.push(name.name);
+      if (name.isDirectory()) walk(path.join(d, name.name));
+    }
+  };
+  walk(dir);
+  assert.ok(components.length >= keys.length * 2);
+  for (const name of components) {
+    assert.ok(Buffer.byteLength(name, "utf8") <= 255, `component too long: ${name}`);
+    assert.ok(
+      /^[0-9a-f]{2}$/.test(name) || /^[0-9a-f]{64}(\.meta\.json)?$/.test(name),
+      `unexpected component shape: ${name}`,
+    );
+    assert.ok(!name.includes(".tmp-"), `temp debris remains: ${name}`);
+  }
+  delete process.env.STARMAP_DOWNLOAD_ARCHIVE_DIR;
+});
+
+test("local promotion (area 6 fix round 2): a metadata-rename failure removes the meta temp file too; the body stands without its sidecar — the pair is NOT atomic (acceptance 6.6/6.7)", async () => {
+  const dir = path.join(process.cwd(), ".tmp", "dl1-s4-area6-rename");
+  const fsp = await import("node:fs/promises");
+  const { readdirSync, mkdirSync } = await import("node:fs");
+  await fsp.rm(dir, { recursive: true, force: true }); // hermetic across runs
+  process.env.STARMAP_DOWNLOAD_ARCHIVE_DIR = dir;
+  const key = "download-archive/hd/rename-failure/key.png";
+  // Pre-create the metadata destination as a DIRECTORY: the sidecar
+  // rename then fails deterministically (EISDIR) AFTER the body link
+  // has succeeded — the exact round-1 leak path.
+  const hash = createHash("sha256").update(key, "utf8").digest("hex");
+  const shardDir = path.join(dir, hash.slice(0, 2));
+  mkdirSync(shardDir, { recursive: true });
+  mkdirSync(path.join(shardDir, `${hash}.meta.json`));
+  const bytes = new Uint8Array(Buffer.from("rename-failure-body"));
+  const result = await storage.promoteArtifactCreateOnly(key, bytes, metaFor(DIGEST_A));
+  // The original publication error remains observable (not masked by
+  // cleanup): outcome is "error" carrying the rename failure.
+  assert.equal(result.outcome, "error");
+  assert.ok(result.error instanceof Error);
+  // Cleanup ran on this path too: NO temp file created by the
+  // operation remains (the round-1 code leaked the meta temp here).
+  const remaining = [];
+  const walk = (d) => {
+    for (const name of readdirSync(d, { withFileTypes: true })) {
+      if (name.isDirectory()) walk(path.join(d, name.name));
+      else remaining.push(name.name);
+    }
+  };
+  walk(dir);
+  assert.deepEqual(remaining.filter((n) => n.includes(".tmp-")), []);
+  // The recorded final state: the body IS published, complete, with
+  // NO metadata sidecar — body and metadata are not an atomic pair,
+  // and head/get report exactly that.
+  assert.deepEqual(remaining, [hash]);
+  const head = await storage.headArtifactObject(key);
+  assert.equal(head.present, true);
+  assert.equal(head.metadata, null);
+  const got = await storage.getArtifactObject(key);
+  assert.deepEqual(Buffer.from(got.bytes), Buffer.from(bytes));
+  assert.equal(got.metadata, null);
+  // A cleanup FAILURE (fs-level fault or process termination) is not
+  // separately injectable against the real filesystem in-process; the
+  // guarantee is therefore worded as attempted-on-every-path, and the
+  // code comment in downloadArchiveStorage.ts carries the limitation
+  // verbatim — no assertion here claims unconditional cleanup.
   delete process.env.STARMAP_DOWNLOAD_ARCHIVE_DIR;
 });
 

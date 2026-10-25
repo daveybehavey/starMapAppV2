@@ -58,7 +58,7 @@ export function buildHdArchiveDownloadUrl(siteOrigin: string, claimToken: string
 
 import fs from "node:fs/promises";
 import path from "node:path";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { isLocalAuthorityFallbackAllowed } from "@/lib/entitlementAuthority";
 
 /** Provenance metadata written atomically with the body by promotion
@@ -80,8 +80,38 @@ function localArchiveDir(): string {
   );
 }
 
+/**
+ * Canonical local key → path mapping (conformance fix round 2, area 6 —
+ * G-dot re-check verdict 2026-10-24). The round-1 mapping base64url-
+ * encoded the ENTIRE key into one filename component; valid keys
+ * (final keys embed session + map + fingerprint) exceed the 255-byte
+ * filesystem component limit once the metadata/temp suffixes are added,
+ * and publication fails with ENAMETOOLONG. The mapping is now a fixed-
+ * length hash: the file name is the key's SHA-256 hex (64 bytes), in a
+ * two-hex-char shard directory. Every component is bounded by
+ * construction — 2 (shard) / 64 (name) / 74 (name + ".meta.json") /
+ * ≤ 99 (temp names: name + ".tmp-" + pid + "-" + 16 hex) bytes — for
+ * keys of ANY length or content (no key byte reaches a path, so keys
+ * containing "/" or ".." are equally safe). The hash is collision-
+ * resistant and the mapping is injective for every practical purpose;
+ * metadata sidecars carry the key's provenance (§5.5 trust rules never
+ * read a key back out of a path).
+ *
+ * This ONE mapping serves every local operation — head, get, staging
+ * write, promotion (source temps and destination) — with no per-call-
+ * site variation. Compatibility policy: there is NO legacy-layout read
+ * fallback. The local backend is a test/local seam only (production
+ * resolves the R2 binding and fails closed without it), so artifacts
+ * written under the pre-round-2 layout in a local directory are simply
+ * not carried over.
+ */
 function localFilePathForKey(key: string): string {
-  return path.join(localArchiveDir(), Buffer.from(key, "utf8").toString("base64url"));
+  const hash = createHash("sha256").update(key, "utf8").digest("hex");
+  return path.join(localArchiveDir(), hash.slice(0, 2), hash);
+}
+
+function localMetaPathForKey(key: string): string {
+  return `${localFilePathForKey(key)}.meta.json`;
 }
 
 function artifactMetadataFromCustom(
@@ -129,7 +159,7 @@ export async function headArtifactObject(key: string): Promise<ArtifactHead> {
   }
   let metadata: ArtifactObjectMetadata | null = null;
   try {
-    const raw = await fs.readFile(`${localFilePathForKey(key)}.meta.json`, "utf8");
+    const raw = await fs.readFile(localMetaPathForKey(key), "utf8");
     metadata = artifactMetadataFromCustom(JSON.parse(raw) as Record<string, string>);
   } catch {
     metadata = null;
@@ -161,7 +191,7 @@ export async function getArtifactObject(
   }
   let metadata: ArtifactObjectMetadata | null = null;
   try {
-    const raw = await fs.readFile(`${localFilePathForKey(key)}.meta.json`, "utf8");
+    const raw = await fs.readFile(localMetaPathForKey(key), "utf8");
     metadata = artifactMetadataFromCustom(JSON.parse(raw) as Record<string, string>);
   } catch {
     metadata = null;
@@ -182,8 +212,9 @@ export async function putStagingObject(key: string, bytes: Uint8Array): Promise<
   if (!isLocalAuthorityFallbackAllowed()) {
     throw new Error("archive_storage_unavailable");
   }
-  await fs.mkdir(localArchiveDir(), { recursive: true });
-  await fs.writeFile(localFilePathForKey(key), bytes);
+  const filePath = localFilePathForKey(key);
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(filePath, bytes);
 }
 
 export type PromotionOutcome =
@@ -228,22 +259,28 @@ export async function promoteCreateOnlyWithBucket(
 }
 
 /** Local exclusive-create promotion (test/local only, fenced as above).
- * Publication is ATOMIC (conformance fix round, area 6 — G-dot verdict
- * 2026-10-24): the body is written to a unique temp file in the same
- * directory and LINKED into the final path, so the final file is never
- * observable empty or partial — it appears complete, or not at all.
- * link(2) fails with EEXIST when the key is taken, preserving the
- * create-only semantics exactly (no overwrite, ever). The metadata
- * sidecar is staged in its own temp file and renamed into place
- * immediately after the body link; temp debris is removed on every
- * path. */
+ * Publication guarantees, stated exactly (conformance fix rounds, area
+ * 6 — G-dot verdict + re-check verdict 2026-10-24): the BODY is atomic —
+ * written to a unique temp file in the same directory and LINKED into
+ * the final path, so the final file is never observable empty or
+ * partial; it appears complete, or not at all. link(2) fails with
+ * EEXIST when the key is taken, preserving the create-only semantics
+ * exactly (no overwrite, ever). The metadata sidecar is staged in its
+ * own temp file and renamed into place immediately after the body
+ * link. Body and metadata are NOT published atomically as a pair: if
+ * the metadata rename fails, the body stands published without its
+ * sidecar and the outcome is "error". Temp debris is removed on every
+ * settled path, INCLUDING the metadata-rename failure (the round-1
+ * code removed only the body temp there and leaked the meta temp);
+ * a cleanup failure or process termination can still leave debris —
+ * no path claims otherwise. */
 export async function promoteCreateOnlyLocal(
   key: string,
   bytes: Uint8Array,
   metadata: ArtifactObjectMetadata,
 ): Promise<PromotionOutcome> {
-  await fs.mkdir(localArchiveDir(), { recursive: true });
   const filePath = localFilePathForKey(key);
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
   const unique = `${process.pid}-${randomBytes(8).toString("hex")}`;
   const bodyTmp = `${filePath}.tmp-${unique}`;
   const metaTmp = `${filePath}.meta.json.tmp-${unique}`;
@@ -266,11 +303,13 @@ export async function promoteCreateOnlyLocal(
     return { outcome: "error", error: err };
   }
   // The body is now visible, complete. Publish the metadata sidecar
-  // atomically beside it; the linked temp body is debris from here.
+  // beside it; the linked temp body is debris from here. A rename
+  // failure runs the SAME cleanup as every other failure path — the
+  // meta temp must not survive it (re-check verdict, area 6).
   try {
     await fs.rename(metaTmp, `${filePath}.meta.json`);
   } catch (err) {
-    await fs.rm(bodyTmp, { force: true }).catch(() => undefined);
+    await cleanup();
     return { outcome: "error", error: err };
   }
   await fs.rm(bodyTmp, { force: true }).catch(() => undefined);
