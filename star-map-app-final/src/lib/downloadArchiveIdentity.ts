@@ -232,8 +232,9 @@ const DESCRIPTOR_SECRET_MIN_LENGTH = 16;
  * only during a rotation window (§5.7: rotation is an ops concern; no
  * rotation machinery is built in this slice). No other secret qualifies —
  * secret separation is strict (the reviewRequestEmail precedent).
- * Returns [] while the binding is missing/unusable: issuance and
- * verification then fail closed.
+ * Returns [] while no secret is usable: verification then fails closed.
+ * Issuance has its own accessor (`getDescriptorIssuanceSecret` below)
+ * and fails closed unless the CURRENT secret is usable.
  */
 export function getDescriptorSigningSecrets(
   env: Record<string, string | undefined> = process.env,
@@ -244,6 +245,22 @@ export function getDescriptorSigningSecrets(
     if (value && value.length >= DESCRIPTOR_SECRET_MIN_LENGTH) secrets.push(value);
   }
   return secrets;
+}
+
+/**
+ * The issuance secret (conformance fix round, area 5 — G-dot verdict
+ * 2026-10-24, confirming slate-14 P2-1 / bot CB-P2b): issuance signs
+ * ONLY with the CURRENT secret, `DL1_DESCRIPTOR_SIGNING_SECRET`. The
+ * previous secret is verification-only (see the accessor above) and can
+ * never sign a new descriptor: with the current secret absent or
+ * unusable, issuance fails closed (returns null) even when a usable
+ * previous secret is configured.
+ */
+export function getDescriptorIssuanceSecret(
+  env: Record<string, string | undefined> = process.env,
+): string | null {
+  const value = env.DL1_DESCRIPTOR_SIGNING_SECRET?.trim();
+  return value && value.length >= DESCRIPTOR_SECRET_MIN_LENGTH ? value : null;
 }
 
 /** Canonical serialisation of the descriptor payload (fixed key order —
@@ -283,8 +300,12 @@ export function issuePrepareDescriptor(input: {
   descriptorId?: string;
   env?: Record<string, string | undefined>;
 }): { descriptor: string; payload: PrepareDescriptorPayload } | null {
-  const secrets = getDescriptorSigningSecrets(input.env);
-  if (secrets.length === 0) return null;
+  // Issuance reads the CURRENT secret only (area 5 fix — see
+  // getDescriptorIssuanceSecret): a verification-only previous secret
+  // never signs, and its presence never rescues a missing/unusable
+  // current secret.
+  const issuanceSecret = getDescriptorIssuanceSecret(input.env);
+  if (!issuanceSecret) return null;
   const descriptorId = input.descriptorId ?? randomBytes(16).toString("hex");
   if (!DESCRIPTOR_ID_PATTERN.test(descriptorId)) return null;
   const payload: PrepareDescriptorPayload = {
@@ -299,7 +320,7 @@ export function issuePrepareDescriptor(input: {
     expiresAt: input.now + (input.ttlMs ?? DESCRIPTOR_TTL_MS),
   };
   const body = Buffer.from(canonicalDescriptorSerialization(payload), "utf8").toString("base64url");
-  return { descriptor: `${body}.${signDescriptorPayload(payload, secrets[0])}`, payload };
+  return { descriptor: `${body}.${signDescriptorPayload(payload, issuanceSecret)}`, payload };
 }
 
 export type DescriptorVerification =

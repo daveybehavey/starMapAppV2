@@ -10,25 +10,31 @@
  *      exactly the binding-derived expected values; bit depth 8; interlace
  *      0; color type in the pinned set; IDAT present; IEND present; no
  *      trailing bytes after IEND);
- *   3. compressed-data validation: the concatenated IDAT payloads are
- *      FULLY inflated through a streaming decoder that verifies stream
- *      integrity by construction (zlib header + Adler-32 checked by the
- *      inflater), asserts the inflated length is EXACTLY
- *      height × (1 + width × bytesPerPixel), and asserts every row's
- *      filter byte ∈ {0,1,2,3,4} — discarding pixel rows as they decode;
+ *   3. compressed-data validation: the IDAT payloads — held only as
+ *      views into the counted body — are FULLY inflated through a
+ *      streaming decoder that verifies stream integrity by construction
+ *      (zlib header + Adler-32 checked by the inflater), asserts the
+ *      inflated length is EXACTLY height × (1 + width × bytesPerPixel),
+ *      and asserts every row's filter byte ∈ {0,1,2,3,4} — discarding
+ *      pixel rows as they decode;
  *   4. SHA-256 over the validated bytes → the intent digest.
  * Only after all four steps may the caller write staging, register an
  * intent, promote, or finalize (§5.10 step 5). Invalid bytes never exist
  * in storage in any form.
  *
  * Resource bound (W-2): the pipeline's incremental working set W is the
- * counted body buffer (≤ ARCHIVE_MAX_BYTES) + the concatenated-IDAT buffer
- * (≤ ARCHIVE_MAX_BYTES) + one row buffer (≤ 1 + 6000×4 bytes) + fixed
- * SHA-256 state. The decoder is node:zlib `createInflate` — a streaming
- * inflate with the format's fixed 32 KiB history window plus fixed
- * internal state; its declared documented workspace D and the measured
- * acceptance P ≤ B + W + D + H are recorded at §7 step 1 (see the PR).
- * The inflater never accumulates decoded output: rows are discarded as
+ * counted body buffer (≤ ARCHIVE_MAX_BYTES) + one row buffer
+ * (≤ 1 + 6000×4 bytes) + fixed SHA-256 state. The IDAT payload adds NO
+ * term: it is consumed as views into the body buffer and streamed into
+ * the inflater span by span — per-chunk copies and a concatenated IDAT
+ * buffer are never materialised (conformance fix round, area 8; the
+ * pre-fix pipeline held body + per-chunk copies + concatenated copy
+ * simultaneously, which is what the gate's area-8 block named). The
+ * decoder is node:zlib `createInflate` — a streaming inflate with the
+ * format's fixed 32 KiB history window plus fixed internal state; its
+ * declared documented workspace D and the measured acceptance
+ * P ≤ B + W + D + H are recorded at §7 step 1 (see the PR). The
+ * inflater never accumulates decoded output: rows are discarded as
  * they decode, and the decoder aborts the byte the expected inflated
  * length is exceeded.
  */
@@ -137,7 +143,11 @@ type PngStructure = {
   height: number;
   bitDepth: number;
   colorType: number;
-  idatPayloads: Buffer[];
+  /** IDAT payloads as VIEWS into the counted body buffer — never
+   * copied, never concatenated (conformance fix round, area 8: the
+   * pipeline holds the body ONCE; the inflater consumes the spans
+   * in order). */
+  idatSpans: Buffer[];
 };
 
 function parsePngStructure(bytes: Uint8Array): PngStructure | { error: string } {
@@ -146,8 +156,8 @@ function parsePngStructure(bytes: Uint8Array): PngStructure | { error: string } 
     return { error: "bad_signature" };
   }
   let offset = 8;
-  let ihdr: PngStructure | null = null;
-  const idatPayloads: Buffer[] = [];
+  let ihdr: Omit<PngStructure, "idatSpans"> | null = null;
+  const idatSpans: Buffer[] = [];
   let sawIend = false;
   let first = true;
   while (offset < buf.length) {
@@ -176,9 +186,9 @@ function parsePngStructure(bytes: Uint8Array): PngStructure | { error: string } 
       if (width === 0 || height === 0) return { error: "bad_dimensions" };
       if (compression !== 0 || filter !== 0) return { error: "bad_ihdr_methods" };
       if (interlace !== 0) return { error: "interlace_not_supported" };
-      ihdr = { width, height, bitDepth, colorType, idatPayloads };
+      ihdr = { width, height, bitDepth, colorType };
     } else if (type === "IDAT") {
-      idatPayloads.push(Buffer.from(data));
+      idatSpans.push(data);
     } else if (type === "IEND") {
       sawIend = true;
       offset = dataEnd + 4;
@@ -188,10 +198,9 @@ function parsePngStructure(bytes: Uint8Array): PngStructure | { error: string } 
     offset = dataEnd + 4;
   }
   if (!ihdr) return { error: "missing_ihdr" };
-  if (idatPayloads.length === 0) return { error: "missing_idat" };
+  if (idatSpans.length === 0) return { error: "missing_idat" };
   if (!sawIend) return { error: "missing_iend" };
-  ihdr.idatPayloads = idatPayloads;
-  return ihdr;
+  return { ...ihdr, idatSpans };
 }
 
 /* ------------------------- streaming inflate check ------------------------ */
@@ -202,9 +211,13 @@ function parsePngStructure(bytes: Uint8Array): PngStructure | { error: string } 
  * The inflater verifies stream integrity by construction (zlib header +
  * Adler-32); a stream that inflates short, long, corrupt, or with an
  * illegal filter byte is rejected.
+ *
+ * The IDAT payload is fed span by span (views into the counted body —
+ * area 8 fix): no per-chunk copies and no concatenated IDAT buffer are
+ * ever materialised alongside the body.
  */
 function validateInflatedData(
-  idatConcatenated: Buffer,
+  idatSpans: Buffer[],
   expectedInflatedLength: number,
   rowLength: number,
 ): Promise<boolean> {
@@ -238,7 +251,8 @@ function validateInflatedData(
     });
     inflater.on("error", () => finish(false));
     inflater.on("end", () => finish(total === expectedInflatedLength && leftover.length === 0));
-    inflater.end(idatConcatenated);
+    for (const span of idatSpans) inflater.write(span);
+    inflater.end();
   });
 }
 
@@ -277,9 +291,8 @@ export async function validatePngBytes(
   if (!bytesPerPixel) return { ok: false, reason: "unpinned_png_feature_set" };
   const rowLength = 1 + structure.width * bytesPerPixel;
   const expectedInflatedLength = structure.height * rowLength;
-  const idatConcatenated = Buffer.concat(structure.idatPayloads);
   const inflatedOk = await validateInflatedData(
-    idatConcatenated,
+    structure.idatSpans,
     expectedInflatedLength,
     rowLength,
   );

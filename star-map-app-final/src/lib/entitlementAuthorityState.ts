@@ -3799,22 +3799,33 @@ function registerPublicationIntent(
   const existingIntent = intents[presented.intentId];
   const existingJoin = joins[presented.intentId];
   if (existingIntent) {
-    // R1 — immutable payload identical → idempotent replay.
-    const identical = PUBLICATION_INTENT_COMPARED_FIELDS.every(
-      (field) => presented[field] === existingIntent[field],
+    // R1 — immutable payload identical → idempotent replay. The
+    // comparison is constructed from the PERSISTED intent's fields —
+    // the dedupe read (conformance fix round, area 3; G-dot verdict
+    // 2026-10-24): the retained join record is never the comparison
+    // reference, and its original expiry in particular never gates a
+    // replay. Every compared field is read against the intent.
+    const payloadIdentical = PUBLICATION_INTENT_COMPARED_FIELDS.every(
+      (field) => field === "expiresAt" || presented[field] === existingIntent[field],
     );
-    // Clause V-1 coexistence: after a JN1→R7 promotion the descriptorId
-    // owns BOTH the retained join record and the promoted intent, whose
-    // expiresAt is machine-stamped (V-2 as corrected by W-1) rather than
-    // copied from the record. A presentation identical to the JOIN
-    // record on every carried field is the same replay — the stamp is
-    // the one designed divergence, never a payload conflict.
-    const identicalToJoin =
+    // The expiry element: equal to the intent's recorded expiry — or
+    // the intent is this presentation's JN1→R7 promotion (clause V-1
+    // coexistence), whose expiresAt is machine-stamped (V-2 as
+    // corrected by W-1) rather than copied from the record, so the
+    // presented signed expiry cannot equal it. Provenance is
+    // established from the persisted records alone: the retained join
+    // agrees with the promoted intent on every carried field it
+    // carries (the same agreement validator rule 7 enforces). The
+    // stamp is then the one designed divergence, and the join's
+    // original expiry is not a comparison reference.
+    const joinProvesPromotion =
       existingJoin !== undefined &&
       PUBLICATION_JOIN_CARRIED_FIELDS.every(
-        (field) => presented[field] === existingJoin[field],
+        (field) => field === "expiresAt" || existingJoin[field] === existingIntent[field],
       );
-    if (identical || identicalToJoin) {
+    const expiryIdentical =
+      presented.expiresAt === existingIntent.expiresAt || joinProvesPromotion;
+    if (payloadIdentical && expiryIdentical) {
       return result(state, false, "publication_intent_recorded", null, 0, {
         publication: pubDetail({
           intentId: existingIntent.intentId,

@@ -11,6 +11,18 @@
  * remaining Class B leg (real DO class under the same race) is covered
  * for state durability in dl1Slice4Publication.test.mjs; the deployed-
  * runtime leg is an outstanding gate item recorded on the PR.
+ *
+ * Fix round (G-dot conformance verdict 2026-10-24): the protocol sets
+ * below run with DL1_AUTHORITY_ROUTING_ENABLED=true — the ON-state
+ * new-protocol coverage (area 7 P1). The OFF-state set at the end runs
+ * the flag unset/false and covers the preserved legacy flow (upload →
+ * legacy-key storage → GET; the archive-ready email dispatch is wired
+ * in the legacy handler — source pin (ii) in
+ * dl1Slice4Publication.test.mjs; in the local seam the dispatch's
+ * archive check is bucket-only, so it resolves skipped exactly as the
+ * base flow does locally). Area 9 adds the Class B join-path race
+ * (identical bytes through two descriptors); area 7 P2 adds the
+ * controlled terminal-success interleaving.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -34,6 +46,11 @@ process.env.STARMAP_DOWNLOAD_ARCHIVE_DIR = path.join(
 );
 process.env.DL1_DESCRIPTOR_SIGNING_SECRET = "s4-route-test-secret-0123456789abcdef";
 process.env.NEXT_PUBLIC_SITE_URL = "https://starmapco.com";
+// ON state (area 7 P1): the protocol sets below are the new-protocol
+// coverage; the OFF-state legacy set at the end toggles the flag per
+// test and restores it in a finally block. The flag is never set in
+// any committed configuration — this is a test-process env only.
+process.env.DL1_AUTHORITY_ROUTING_ENABLED = "true";
 
 const { NextRequest } = await import("next/server");
 const route = await import("../../src/app/api/download/archive/route.ts");
@@ -427,4 +444,279 @@ test("Class B: two publishers race the fused flow with distinct bodies — exact
   const storage = await import("../../src/lib/downloadArchiveStorage.ts");
   const stored = await storage.getArtifactObject(derived.finalKey);
   assert.equal(sha(stored.bytes), sha(winnerBytes));
+});
+
+test("Class B (join path, area 9): two publishers race the DESCRIPTOR flow with IDENTICAL bytes — both succeed; exactly one intent; the single entry names the shared digest", async () => {
+  const { sessionId, token } = await seedSession();
+  // Two descriptors for the same artifact (two I-5 identify calls —
+  // identify itself registers nothing).
+  const id1 = await (await route.POST(jsonPost(token, { op: "identify", mapId: MAP }))).json();
+  const id2 = await (await route.POST(jsonPost(token, { op: "identify", mapId: MAP }))).json();
+  assert.ok(id1.descriptor && id2.descriptor);
+  assert.notEqual(id1.descriptor, id2.descriptor);
+  const bytes = bigPng(0);
+  const [ra, rb] = await Promise.all([
+    route.POST(uploadPost(token, bytes, { "x-prepare-descriptor": id1.descriptor })),
+    route.POST(uploadPost(token, bytes, { "x-prepare-descriptor": id2.descriptor })),
+  ]);
+  assert.equal(ra.status, 200);
+  assert.equal(rb.status, 200);
+  const states = [(await ra.json()).state, (await rb.json()).state].sort();
+  assert.deepEqual(states, ["already_finalized", "finalized"]);
+  const state = await client.getState(sessionId);
+  // Same-digest orchestration invariants: exactly ONE intent is ever
+  // recorded (the second registration joins it — R6 — or, if it lands
+  // after finalization, is answered from the finalized entry — R3; the
+  // join record exists exactly in the former interleaving, so its
+  // count is asserted as at most one here and exactly one in the
+  // deterministic join-path test below).
+  assert.equal(Object.keys(state.publicationIntents).length, 1);
+  assert.ok(Object.keys(state.publicationIntentJoins).length <= 1);
+  const entries = Object.values(state.artifactRegistry);
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].state, "finalized");
+  assert.equal(entries[0].digest, sha(bytes));
+  const derived = identity.deriveArtifactIdentity({ sessionId, mapId: MAP, recipe: RECIPE });
+  const storage = await import("../../src/lib/downloadArchiveStorage.ts");
+  const stored = await storage.getArtifactObject(derived.finalKey);
+  assert.equal(sha(stored.bytes), sha(bytes));
+});
+
+test("Class B (join path, deterministic): a second descriptor's upload JOINS the governing intent through the real route — join record persisted with the governing pair; both publishers succeed", async () => {
+  const { sessionId, token } = await seedSession();
+  const derived = identity.deriveArtifactIdentity({ sessionId, mapId: MAP, recipe: RECIPE });
+  const bytes = bigPng(0);
+  // Governor: descriptor 1's intent pre-registered at the authority
+  // seam (the I-3/I-4 pattern) — descriptor 2's route upload is then
+  // evaluated against a live governing intent with the SAME digest.
+  const issued2 = identity.issuePrepareDescriptor({
+    sessionId,
+    mapId: MAP,
+    fingerprint: derived.fingerprint,
+    now: Date.now(),
+    descriptorId: "22".repeat(16),
+  });
+  assert.ok(issued2);
+  const regGov = await client.apply(sessionId, {
+    type: "register_publication_intent",
+    intent: {
+      intentId: "11".repeat(16),
+      artifactKey: derived.artifactId,
+      sessionId,
+      mapId: MAP,
+      canonicalBinding: derived.canonicalBinding,
+      fingerprint: derived.fingerprint,
+      contractVersion: 1,
+      rendererVersion: 1,
+      digest: sha(bytes),
+      stagingKey: identity.buildStagingKey("11".repeat(16)),
+      expectedWidth: 6000,
+      expectedHeight: 6000,
+      expiresAt: Date.now() + 600_000,
+    },
+    now: Date.now(),
+  });
+  assert.equal(regGov.outcome, "publication_intent_recorded");
+  // The joiner's upload through the real route: registers as a JOIN
+  // (R6), promotes (creates the object — the governor never uploaded),
+  // and its finalize lands the entry (F6 over the governing intent).
+  const res = await route.POST(
+    uploadPost(token, bytes, { "x-prepare-descriptor": issued2.descriptor }),
+  );
+  assert.equal(res.status, 200);
+  assert.equal((await res.json()).state, "finalized");
+  const state = await client.getState(sessionId);
+  assert.equal(Object.keys(state.publicationIntents).length, 1);
+  const joins = Object.values(state.publicationIntentJoins);
+  assert.equal(joins.length, 1);
+  assert.equal(joins[0].intentId, "22".repeat(16));
+  assert.equal(joins[0].governingIntentId, "11".repeat(16));
+  assert.equal(joins[0].digest, sha(bytes));
+  const entries = Object.values(state.artifactRegistry);
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].state, "finalized");
+  assert.equal(entries[0].digest, sha(bytes));
+  const storage = await import("../../src/lib/downloadArchiveStorage.ts");
+  const stored = await storage.getArtifactObject(derived.finalKey);
+  assert.equal(sha(stored.bytes), sha(bytes));
+});
+
+test("terminal-success comparison (area 7 P2 / CB-P2a): a requester whose retained intent lapses mid-flight while a successor takes governance gets 409, never success", async () => {
+  const { sessionId, token } = await seedSession();
+  const derived = identity.deriveArtifactIdentity({ sessionId, mapId: MAP, recipe: RECIPE });
+  const storage = await import("../../src/lib/downloadArchiveStorage.ts");
+  const bytesA = bigPng(0);
+  const bytesB = bigPng(9);
+  // The requester's descriptor: signed expiry ~200 ms out — live at
+  // classification (request start), lapsed by the time its counted
+  // read + 6000×6000 validation completes and its register applies.
+  const issued = identity.issuePrepareDescriptor({
+    sessionId,
+    mapId: MAP,
+    fingerprint: derived.fingerprint,
+    now: Date.now(),
+    ttlMs: 200,
+    descriptorId: "ab".repeat(16),
+  });
+  assert.ok(issued);
+  // Its retained intent (digest A) recorded with the descriptor's
+  // signed expiry — the R1 replay target.
+  const regA = await client.apply(sessionId, {
+    type: "register_publication_intent",
+    intent: {
+      intentId: "ab".repeat(16),
+      artifactKey: derived.artifactId,
+      sessionId,
+      mapId: MAP,
+      canonicalBinding: derived.canonicalBinding,
+      fingerprint: derived.fingerprint,
+      contractVersion: 1,
+      rendererVersion: 1,
+      digest: sha(bytesA),
+      stagingKey: identity.buildStagingKey("ab".repeat(16)),
+      expectedWidth: 6000,
+      expectedHeight: 6000,
+      expiresAt: issued.payload.expiresAt,
+    },
+    now: Date.now(),
+  });
+  assert.equal(regA.outcome, "publication_intent_recorded");
+  // Fire the requester's upload (do not await yet).
+  const requesterPromise = route.POST(
+    uploadPost(token, bytesA, { "x-prepare-descriptor": issued.descriptor }),
+  );
+  // After the lapse, the successor registers (R7 — governance moves)
+  // and promotes its bytes; its finalize is held until the requester's
+  // staging write is observed (the requester's registry state read has
+  // already happened by then, so the entry cannot predate it).
+  await new Promise((r) => setTimeout(r, 300));
+  const regB = await client.apply(sessionId, {
+    type: "register_publication_intent",
+    intent: {
+      intentId: "cd".repeat(16),
+      artifactKey: derived.artifactId,
+      sessionId,
+      mapId: MAP,
+      canonicalBinding: derived.canonicalBinding,
+      fingerprint: derived.fingerprint,
+      contractVersion: 1,
+      rendererVersion: 1,
+      digest: sha(bytesB),
+      stagingKey: identity.buildStagingKey("cd".repeat(16)),
+      expectedWidth: 6000,
+      expectedHeight: 6000,
+      expiresAt: Date.now() + 600_000,
+    },
+    now: Date.now(),
+  });
+  assert.equal(regB.outcome, "publication_intent_recorded");
+  const promoted = await storage.promoteArtifactCreateOnly(derived.finalKey, bytesB, {
+    protocol: "dl1-archive-v1",
+    artifactKey: derived.artifactId,
+    digest: sha(bytesB),
+    bindingDigest: sha(derived.canonicalBinding),
+  });
+  assert.equal(promoted.outcome, "created");
+  const { existsSync } = await import("node:fs");
+  const stagingPath = path.join(
+    process.env.STARMAP_DOWNLOAD_ARCHIVE_DIR,
+    Buffer.from(identity.buildStagingKey("ab".repeat(16)), "utf8").toString("base64url"),
+  );
+  const deadline = Date.now() + 10_000;
+  while (!existsSync(stagingPath) && Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 5));
+  }
+  assert.ok(existsSync(stagingPath), "requester staging write observed (premise: its state read already happened)");
+  const finBPromise = client.apply(sessionId, {
+    type: "finalize_publication",
+    artifactKey: derived.artifactId,
+    intentId: "cd".repeat(16),
+    generation: regB.publication.generation,
+    observation: {
+      finalObjectPresent: true,
+      finalMetadata: {
+        protocol: "dl1-archive-v1",
+        artifactKey: derived.artifactId,
+        digest: sha(bytesB),
+        bindingDigest: sha(derived.canonicalBinding),
+      },
+      bodyVerifiedDigest: sha(bytesB),
+    },
+    now: Date.now(),
+  });
+  const [res, finB] = await Promise.all([requesterPromise, finBPromise]);
+  // Whichever finalize call mints/observes the entry (F6 on the
+  // requester's own call, or F1 already-finalized via the successor's),
+  // the entry names digest B — the requester's digest was never stored,
+  // so its answer is the conflict, never a success shape.
+  assert.ok(["publication_finalized", "publication_already_finalized"].includes(finB.outcome));
+  assert.equal(res.status, 409);
+  assert.equal((await res.json()).error, "publication_conflict");
+  const state = await client.getState(sessionId);
+  const entries = Object.values(state.artifactRegistry);
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].state, "finalized");
+  assert.equal(entries[0].digest, sha(bytesB));
+  const stored = await storage.getArtifactObject(derived.finalKey);
+  assert.equal(sha(stored.bytes), sha(bytesB));
+});
+
+/* ---------------- OFF state: the preserved legacy flow (area 7 P1) ---------------- */
+
+test("OFF state (flag unset): POST is the base legacy flow — descriptorless upload → legacy-key storage → GET serves the bytes; a re-upload overwrites; no authority state is touched", async () => {
+  delete process.env.DL1_AUTHORITY_ROUTING_ENABLED;
+  try {
+    const { sessionId, token } = await seedSession();
+    const bytes = bigPng(0);
+    const res = await route.POST(uploadPost(token, bytes));
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.deepEqual(Object.keys(body).sort(), ["bytes", "ok", "sessionId"]); // the base success shape
+    assert.equal(body.sessionId, sessionId);
+    assert.equal(body.bytes, bytes.length);
+    // GET serves exactly the uploaded bytes (the legacy key the GET reads).
+    const get = await route.GET(new NextRequest(url(token), { method: "GET" }));
+    assert.equal(get.status, 200);
+    assert.deepEqual(Buffer.from(await get.arrayBuffer()), bytes);
+    // Legacy put semantics: a second upload OVERWRITES (no create-only
+    // promotion, no publication protocol).
+    const bytes2 = bigPng(5);
+    const res2 = await route.POST(uploadPost(token, bytes2));
+    assert.equal(res2.status, 200);
+    const get2 = await route.GET(new NextRequest(url(token), { method: "GET" }));
+    assert.equal(get2.status, 200);
+    assert.deepEqual(Buffer.from(await get2.arrayBuffer()), bytes2);
+    // The legacy flow creates no authority publication state.
+    const state = await client.getState(sessionId);
+    assert.deepEqual(Object.keys(state.publicationIntents ?? {}), []);
+    assert.deepEqual(Object.keys(state.publicationIntentJoins ?? {}), []);
+    assert.deepEqual(Object.keys(state.artifactRegistry ?? {}), []);
+  } finally {
+    process.env.DL1_AUTHORITY_ROUTING_ENABLED = "true";
+  }
+});
+
+test("OFF state (flag 'false'): JSON ops are not the protocol (base 415), and a descriptor header does not divert the legacy flow", async () => {
+  process.env.DL1_AUTHORITY_ROUTING_ENABLED = "false";
+  try {
+    const { sessionId, token } = await seedSession();
+    // Base POST: a JSON content-type is refused 415 (token + session first).
+    const json = await route.POST(jsonPost(token, { op: "identify", mapId: MAP }));
+    assert.equal(json.status, 415);
+    // A descriptor header changes nothing while OFF: the upload is the
+    // legacy flow and lands at the legacy key.
+    const bytes = bigPng(0);
+    const res = await route.POST(
+      uploadPost(token, bytes, { "x-prepare-descriptor": "not-a-real-descriptor" }),
+    );
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.sessionId, sessionId);
+    assert.equal(body.bytes, bytes.length);
+    const get = await route.GET(new NextRequest(url(token), { method: "GET" }));
+    assert.equal(get.status, 200);
+    assert.deepEqual(Buffer.from(await get.arrayBuffer()), bytes);
+  } finally {
+    process.env.DL1_AUTHORITY_ROUTING_ENABLED = "true";
+  }
 });

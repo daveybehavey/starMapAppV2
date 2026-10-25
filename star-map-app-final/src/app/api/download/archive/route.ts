@@ -9,6 +9,8 @@ import {
   promoteArtifactCreateOnly,
   putStagingObject,
 } from "@/lib/downloadArchiveStorage";
+import { trySendHdArchiveReadyEmail } from "@/lib/accountAccessDelivery";
+import { isEntitlementAuthorityRoutingEnabled } from "@/lib/referralRewardAuthority";
 import {
   ARCHIVE_PROTOCOL_MARKER,
   DESCRIPTOR_TTL_MS,
@@ -105,20 +107,93 @@ export async function GET(req: NextRequest) {
   });
 }
 
+/* ================= Legacy POST — the cutover boundary (area 7 P1) =================
+ * The live legacy archive flow, preserved EXACTLY as at base (1a1113b)
+ * behind the DL1_AUTHORITY_ROUTING_ENABLED flag: while the flag is OFF
+ * (its state until the Slice 6 cutover — David's Sequence A), POST is
+ * this handler and nothing else: descriptorless upload → legacy-key
+ * storage → archive-ready email. The S4 publication protocol below
+ * serves POST only once the flag is ON. The flag is never set in this
+ * slice's configuration; the gate's ruling (G-dot conformance verdict
+ * 2026-10-24) is that an early flip at S4 merge is NOT acceptable. */
+
+const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
+
+async function writeLocalObject(key: string, bytes: Uint8Array) {
+  const safeName = Buffer.from(key, "utf8").toString("base64url");
+  const filePath = path.join(LOCAL_FALLBACK_DIR, safeName);
+  await fs.mkdir(LOCAL_FALLBACK_DIR, { recursive: true });
+  await fs.writeFile(filePath, bytes);
+}
+
+async function handleLegacyPost(req: NextRequest) {
+  const token = req.nextUrl.searchParams.get("token")?.trim() || "";
+  if (!token) {
+    return NextResponse.json({ ok: false, error: "Missing token" }, { status: 400 });
+  }
+
+  const session = await requireEntitledSession(token);
+  if (!session) {
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
+
+  const contentType = req.headers.get("content-type")?.trim().toLowerCase() || "";
+  if (!contentType.includes("image/png")) {
+    return NextResponse.json(
+      { ok: false, error: "content-type must be image/png" },
+      { status: 415 },
+    );
+  }
+
+  const bytes = new Uint8Array(await req.arrayBuffer());
+  if (!bytes.length || bytes.length > MAX_UPLOAD_BYTES) {
+    return NextResponse.json({ ok: false, error: "invalid_size" }, { status: 413 });
+  }
+
+  const key = ENTITLEMENT_R2.hdArchiveKey(session.sessionId);
+  const bucket = await getDownloadArchiveR2Bucket();
+
+  if (bucket) {
+    await bucket.put(key, bytes, {
+      httpMetadata: {
+        contentType: "image/png",
+      },
+      customMetadata: {
+        sessionId: session.sessionId,
+        mapId: session.mapId ?? "",
+      },
+    });
+  } else {
+    await writeLocalObject(key, bytes);
+  }
+
+  void trySendHdArchiveReadyEmail({
+    siteOrigin: siteUrl,
+    sessionId: session.sessionId,
+  }).catch((err) => {
+    console.warn("HD archive ready email failed", err);
+  });
+
+  return NextResponse.json({ ok: true, sessionId: session.sessionId, bytes: bytes.length });
+}
+
 /* ================= DL-1 Slice 4 publication protocol (§5.2/§5.6–§5.9) =================
  * POST is the publication protocol: JSON identify / reconcile, the
- * descriptor-form upload, and the legacy fused form. The GET above is
- * NOT modified (OQ-1 ruling): it serves only the legacy session-key
- * object, and no S4 path serves a new-protocol artifact.
+ * descriptor-form upload, and the legacy fused form — reachable ONLY
+ * while DL1_AUTHORITY_ROUTING_ENABLED is ON (see the cutover boundary
+ * above; until the S6 cutover the legacy handler serves every POST).
+ * The GET above is NOT modified (OQ-1 ruling): it serves only the
+ * legacy session-key object, and no S4 path serves a new-protocol
+ * artifact.
  *
  * Email (§5.9): finalization opens `archiveEmail.state = "pending"` in
  * the authority, atomically with the registry entry. New-protocol
  * artifacts are NEVER dispatched in this slice — the delivery-
  * resolvability fence gates the whole claim → send → record sequence,
  * claim included, because the S4 GET cannot serve them. The pending
- * record persists as Slice 5's drain obligation. Legacy-path artifacts
- * keep today's exact behaviour via `trySendHdArchiveReadyEmail`, which
- * remains wired to the legacy flow only. */
+ * record persists as Slice 5's drain obligation. The legacy flow keeps
+ * its archive-ready email via `trySendHdArchiveReadyEmail`, wired in
+ * the legacy handler only. */
 
 type ResolvedSession = {
   sessionId: string;
@@ -527,8 +602,25 @@ async function runPublicationUpload(req: NextRequest, form: UploadForm) {
       now: Date.now(),
     });
     if (!finalized) return retryable("finalization_pending");
-    if (finalized.outcome === "publication_finalized") return successShape(false);
-    if (finalized.outcome === "publication_already_finalized") return successShape(true);
+    // Terminal-success digest comparison (conformance fix round, area
+    // 7 P2 — bot CB-P2a as ruled by the gate): success is reported only
+    // when the entry the authority finalized names THIS request's
+    // digest. Arbitration is presenter-independent (V-3), so this
+    // finalize call can land on a successor's entry (F1/F2/F6 over the
+    // current governing intent); acknowledging that entry as this
+    // upload's success would be false. Mirrors the finalized-repost
+    // comparison and the register-refusal comparison above.
+    const finalizedEntry = finalized.publication?.entry;
+    if (finalized.outcome === "publication_finalized") {
+      return finalizedEntry && finalizedEntry.digest === digest
+        ? successShape(false)
+        : publicationConflict();
+    }
+    if (finalized.outcome === "publication_already_finalized") {
+      return finalizedEntry && finalizedEntry.digest === digest
+        ? successShape(true)
+        : publicationConflict();
+    }
     if (finalized.outcome === "publication_conflicted") return publicationConflict();
     if (finalized.outcome === "refused" && finalized.refusal === "publication_conflict") {
       return publicationConflict();
@@ -651,7 +743,18 @@ async function handleReconcile(session: ResolvedSession, artifactId: string) {
 
 /* --------------------------------- POST ---------------------------------- */
 
+/**
+ * The cutover boundary (area 7 P1): with DL1_AUTHORITY_ROUTING_ENABLED
+ * OFF — its state until the Slice 6 cutover — POST is the legacy flow
+ * exactly as at base. The S4 publication protocol serves POST only with
+ * the flag ON. The flag is read per request, like the webhook's.
+ */
 export async function POST(req: NextRequest) {
+  if (!isEntitlementAuthorityRoutingEnabled()) return handleLegacyPost(req);
+  return handleProtocolPost(req);
+}
+
+async function handleProtocolPost(req: NextRequest) {
   const contentType = req.headers.get("content-type")?.trim().toLowerCase() || "";
 
   if (contentType.includes("application/json")) {

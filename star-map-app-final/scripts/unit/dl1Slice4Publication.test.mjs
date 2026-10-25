@@ -26,6 +26,16 @@
  * Class B and the route-level sets live in dl1Slice4Route.test.mjs; the
  * two §8 integration proofs (real R2 binding, deployed runtime) require a
  * non-production deploy and are recorded as outstanding on the PR.
+ *
+ * Fix round (G-dot conformance verdict 2026-10-24, BLOCK at af198d5):
+ * area 3 — R1 replay comparison rebuilt from the persisted intent;
+ * area 5 — issuance requires the CURRENT secret (previous is
+ * verification-only), with current-absent / current-unusable controls;
+ * area 6 — local promotion is atomic (temp + link), overlap-covered;
+ * area 9 — the Class A fold test folds the authority-side commit
+ * history with per-position outcomes. Areas 7/8 live in the route /
+ * pngValidation + the step-1 harness (remeasurement recorded in the
+ * program record dl1-s4-step1-fixround-addendum-2026-10-24.md).
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -290,6 +300,67 @@ test("descriptor: missing signing secret fails closed (OQ-3 accessor)", () => {
   );
 });
 
+test("descriptor: issuance requires the CURRENT secret — previous is verification-only (area 5 fix; slate-14 P2-1 / CB-P2b)", () => {
+  const CURRENT = "current-secret-0123456789abcdef";
+  const PREVIOUS = "previous-secret-0123456789abcde";
+  // Control 1 — current ABSENT, previous usable: issuance fails closed.
+  const prevOnly = { DL1_DESCRIPTOR_SIGNING_SECRET_PREVIOUS: PREVIOUS };
+  assert.equal(identity.getDescriptorIssuanceSecret(prevOnly), null);
+  assert.equal(
+    identity.issuePrepareDescriptor({
+      sessionId: SID, mapId: MAP, fingerprint: FINGERPRINT, now: NOW, env: prevOnly,
+    }),
+    null,
+  );
+  // Control 2 — current UNUSABLE (below the minimum length), previous
+  // usable: issuance still fails closed — the previous secret never signs.
+  const currentUnusable = {
+    DL1_DESCRIPTOR_SIGNING_SECRET: "short",
+    DL1_DESCRIPTOR_SIGNING_SECRET_PREVIOUS: PREVIOUS,
+  };
+  assert.equal(identity.getDescriptorIssuanceSecret(currentUnusable), null);
+  assert.equal(
+    identity.issuePrepareDescriptor({
+      sessionId: SID, mapId: MAP, fingerprint: FINGERPRINT, now: NOW, env: currentUnusable,
+    }),
+    null,
+  );
+  // Issuance with a usable current signs with the CURRENT secret: the
+  // descriptor verifies under a current-only env, and does NOT verify
+  // under a previous-only env (it was not signed by the previous key).
+  const both = {
+    DL1_DESCRIPTOR_SIGNING_SECRET: CURRENT,
+    DL1_DESCRIPTOR_SIGNING_SECRET_PREVIOUS: PREVIOUS,
+  };
+  const issued = identity.issuePrepareDescriptor({
+    sessionId: SID, mapId: MAP, fingerprint: FINGERPRINT, now: NOW, descriptorId: DESC_1, env: both,
+  });
+  assert.ok(issued);
+  assert.equal(
+    identity.verifyPrepareDescriptor(issued.descriptor, {
+      now: NOW + 1000, sessionId: SID, env: { DL1_DESCRIPTOR_SIGNING_SECRET: CURRENT },
+    }).ok,
+    true,
+  );
+  assert.equal(
+    identity.verifyPrepareDescriptor(issued.descriptor, {
+      now: NOW + 1000, sessionId: SID, env: { DL1_DESCRIPTOR_SIGNING_SECRET_PREVIOUS: PREVIOUS },
+    }).ok,
+    false,
+  );
+  // Rotation window: after the signing key rotates to PREVIOUS, the
+  // descriptor issued under it still VERIFIES (verification accepts the
+  // ordered pair) while new issuance uses the new current.
+  const rotated = {
+    DL1_DESCRIPTOR_SIGNING_SECRET: "rotated-secret-0123456789abcdef",
+    DL1_DESCRIPTOR_SIGNING_SECRET_PREVIOUS: CURRENT,
+  };
+  assert.equal(
+    identity.verifyPrepareDescriptor(issued.descriptor, { now: NOW + 1000, sessionId: SID, env: rotated }).ok,
+    true,
+  );
+});
+
 /* --------------------------- PNG validation ---------------------------- */
 
 function chunk(type, data) {
@@ -514,6 +585,40 @@ test("JN1→R7 (W-1 later case): joined descriptor re-presenting after governing
   assert.ok(r.state.publicationIntentJoins[DESC_2]); // retained, never deleted
   assert.equal(r.state.canonicalArtifactByMap[MAP], ARTIFACT); // pointer set by the R7 transition
   assert.equal(sm.isValidEntitlementAuthorityState(r.state), true); // V-1 coexistence loads as valid
+});
+
+test("R1 after JN1→R7 (area 3 fix): the replay comparison is built from the PERSISTED intent — the retained join's original expiry never gates the replay", () => {
+  let s = reg(s0(), { expiresAt: NOW + 1000 }).state; // governing DESC_1
+  s = reg(s, { intentId: DESC_2, expiresAt: NOW + 5000 }).state; // DESC_2 joins; signed expiry NOW+5000
+  const promoteAt = NOW + 2000;
+  s = reg(s, { intentId: DESC_2, expiresAt: NOW + 5000 }, promoteAt).state; // JN1→R7 promotion
+  const intent = s.publicationIntents[DESC_2];
+  const stamp = promoteAt + identity.DESCRIPTOR_TTL_MS;
+  assert.equal(intent.expiresAt, stamp); // machine-stamped, NOT the join's original expiry
+  // The same presentation replays against the persisted intent.
+  const replay = reg(s, { intentId: DESC_2, expiresAt: NOW + 5000 }, promoteAt + 1000);
+  assert.equal(replay.outcome, "publication_intent_recorded");
+  assert.equal(replay.changed, false);
+  assert.equal(replay.publication.generation, intent.generation);
+  // A presentation carrying the intent's payload with an expiry equal
+  // to NEITHER the intent's stamp NOR the join's original expiry still
+  // dedupes against the persisted intent: the comparison reference is
+  // the intent, and expiry is a classification concern (§5.7), not the
+  // dedupe reference. (Under the pre-fix join-built comparison this
+  // presentation was refused R2.)
+  const thirdExpiry = reg(s, { intentId: DESC_2, expiresAt: NOW + 777_000 }, promoteAt + 1000);
+  assert.equal(thirdExpiry.outcome, "publication_intent_recorded");
+  assert.equal(thirdExpiry.changed, false);
+  // A presentation naming the intent's own stamped expiry also replays.
+  const stamped = reg(s, { intentId: DESC_2, expiresAt: stamp }, promoteAt + 1000);
+  assert.equal(stamped.outcome, "publication_intent_recorded");
+  assert.equal(stamped.changed, false);
+  // A payload divergence from the INTENT (digest) is R2 — the refusal
+  // is measured against the persisted intent, not the join record.
+  const divergent = reg(s, { intentId: DESC_2, expiresAt: NOW + 5000, digest: DIGEST_B }, promoteAt + 1000);
+  assert.equal(divergent.outcome, "refused");
+  assert.equal(divergent.refusal, "intent_payload_conflict");
+  assert.equal(divergent.changed, false);
 });
 
 test("JN1→R6: joined descriptor re-presenting while a new governing intent lives → joined no-op, pointer unmoved", () => {
@@ -1010,7 +1115,7 @@ test("two maps under one session: distinct identities register + finalize indepe
 
 /* ------------------------------ race evidence ------------------------------ */
 
-test("Class A + V-11.1 fold: concurrent registrations through the serialised authority — different digests: one records, the loser conflicts; folding the recorded history reproduces the final state", async () => {
+test("Class A + V-11.1 fold: concurrent registrations through the serialised authority — different digests: one records, the loser conflicts; folding the AUTHORITY-SIDE commit history reproduces the final state and every per-position outcome (area 9 fix)", async () => {
   clientMod.__resetEntitlementAuthorityMemoryForTests();
   const client = clientMod.createEntitlementAuthorityClient();
   const opA = { type: "register_publication_intent", intent: intentInput({ intentId: DESC_1 }), now: NOW };
@@ -1021,9 +1126,35 @@ test("Class A + V-11.1 fold: concurrent registrations through the serialised aut
   const loser = ra.outcome === "refused" ? ra : rb;
   assert.equal(loser.refusal, "publication_conflict");
   const final = await client.getState(SID);
-  // History (authority-side submission order = [opA, opB]) folds to the state.
+  // History = the authority-side serialised commit record (W-3 pin:
+  // caller-observed/Promise order cannot substitute). The record is
+  // read from the authority and ASSERTED — its existence, its order,
+  // and its per-position outcomes are the evidence.
+  const history = clientMod.__getEntitlementAuthorityCommitHistoryForTests(SID);
+  assert.equal(history.length, 2);
+  assert.deepEqual(history.map((h) => h.op.intent.intentId).sort(), [DESC_1, DESC_2]);
+  // Position 0 is whichever op the authority committed first: it
+  // recorded; position 1 is the loser: refused publication_conflict.
+  assert.equal(history[0].outcome, "publication_intent_recorded");
+  assert.equal(history[0].refusal, null);
+  assert.equal(history[1].outcome, "refused");
+  assert.equal(history[1].refusal, "publication_conflict");
+  // The caller-observed outcomes agree with the recorded positions for
+  // the same ops (the history is the authority's, not a reordering of
+  // the responses).
+  const recordedByIntent = new Map(history.map((h) => [h.op.intent.intentId, h]));
+  assert.equal(recordedByIntent.get(DESC_1).outcome, ra.outcome);
+  assert.equal(recordedByIntent.get(DESC_2).outcome, rb.outcome);
+  // Fold the RECORDED history through the pure machine: every position
+  // reproduces its recorded outcome, and the fold lands on the
+  // authority's committed state.
   let folded = sm.createEmptyEntitlementAuthorityState(SID);
-  for (const op of [opA, opB]) folded = sm.applyEntitlementAuthorityOp(folded, op).state;
+  history.forEach((record, i) => {
+    const step = sm.applyEntitlementAuthorityOp(folded, record.op);
+    assert.equal(step.outcome, record.outcome, `position ${i} outcome`);
+    assert.equal(step.refusal ?? null, record.refusal, `position ${i} refusal`);
+    folded = step.state;
+  });
   assert.deepEqual(folded.publicationIntents, final.publicationIntents);
   assert.deepEqual(folded.publicationIntentJoins, final.publicationIntentJoins);
   assert.deepEqual(folded.publicationGenerations, final.publicationGenerations);
@@ -1204,6 +1335,52 @@ test("storage taxonomy: head/get distinguish present / genuinely absent / errors
   delete process.env.STARMAP_DOWNLOAD_ARCHIVE_DIR;
 });
 
+test("local promotion (area 6 fix): publication is atomic — overlap readers observe absence or the COMPLETE body, never an empty/partial final file", async () => {
+  const dir = path.join(process.cwd(), ".tmp", "dl1-s4-area6");
+  const { rm } = await import("node:fs/promises");
+  await rm(dir, { recursive: true, force: true }); // hermetic across runs
+  process.env.STARMAP_DOWNLOAD_ARCHIVE_DIR = dir;
+  const key = "download-archive/hd/area6/key.png";
+  // 32 MiB: a non-atomic write would leave a long observable partial window.
+  const bytes = new Uint8Array(32 * 1024 * 1024);
+  bytes.fill(7);
+  let settled = false;
+  const promotion = storage
+    .promoteArtifactCreateOnly(key, bytes, metaFor(DIGEST_A))
+    .then((r) => {
+      settled = true;
+      return r;
+    });
+  // Poll the final key for the whole publication window: every
+  // observation of a present object must be the complete body.
+  const observations = [];
+  while (!settled) {
+    const head = await storage.headArtifactObject(key);
+    if (!head.present) {
+      observations.push(0);
+      continue;
+    }
+    const got = await storage.getArtifactObject(key);
+    observations.push(got ? got.bytes.length : -1);
+  }
+  const result = await promotion;
+  assert.equal(result.outcome, "created");
+  assert.ok(observations.length > 0, "the overlap was actually observed");
+  for (const n of observations) {
+    assert.ok(n === 0 || n === bytes.length, `partial final file observed: ${n} bytes`);
+  }
+  const final = await storage.getArtifactObject(key);
+  assert.equal(final.bytes.length, bytes.length);
+  assert.equal(final.metadata.digest, DIGEST_A);
+  // Create-only still holds after the atomic publish, and no temp
+  // debris remains in the directory.
+  const retry = await storage.promoteArtifactCreateOnly(key, bytes, metaFor(DIGEST_A));
+  assert.equal(retry.outcome, "existed");
+  const { readdirSync } = await import("node:fs");
+  assert.deepEqual(readdirSync(dir).filter((name) => name.includes(".tmp-")), []);
+  delete process.env.STARMAP_DOWNLOAD_ARCHIVE_DIR;
+});
+
 /* --------------------------- Durable Object --------------------------- */
 
 class FakeSqlStorage {
@@ -1265,7 +1442,7 @@ test("source pins: (v) GET segment is byte-identical to the base capture; (iii) 
   assert.ok(!getSegment.includes("staging"));
 });
 
-test("source pins: (i) no unconditional final-key put in src; (ii) no S4 writer writes the legacy session key", () => {
+test("source pins: (i) no unconditional final-key put in src; (ii) the legacy session key is written ONLY by the flag-OFF legacy handler (area 7 cutover boundary)", () => {
   const storageSrc = readSrc("src/lib/downloadArchiveStorage.ts");
   const routeSrc = readSrc("src/app/api/download/archive/route.ts");
   // (i) every bucket.put in the storage module is either staging (plain,
@@ -1274,13 +1451,24 @@ test("source pins: (i) no unconditional final-key put in src; (ii) no S4 writer 
   const putCalls = storageSrc.match(/bucket\.put\(/g) ?? [];
   assert.equal(putCalls.length, 2);
   assert.ok(storageSrc.includes('etagDoesNotMatch: "*"'));
+  // The route's only direct storage write is the legacy handler's
+  // bucket.put (the S4 protocol writes exclusively through the storage
+  // module's staging/promotion surface).
   const routePuts = routeSrc.match(/\.put\(/g) ?? [];
-  assert.equal(routePuts.length, 0); // the route never writes storage directly
+  assert.equal(routePuts.length, 1);
   // (ii) hdArchiveKey (the legacy key builder) is referenced only by the
-  // pre-existing legacy READ paths (route GET segment; the storage module's
-  // base hdArchiveObjectExists head) — never in any S4 section, and never
-  // as a write target anywhere.
+  // pre-existing legacy READ paths (route GET segment; the storage
+  // module's base hdArchiveObjectExists head), the flag-OFF legacy
+  // handler (the one sanctioned write, area 7 P1), and never in any S4
+  // protocol/storage section.
+  const legacyStart = routeSrc.indexOf("async function handleLegacyPost");
   const routeS4Start = routeSrc.indexOf("/* ================= DL-1 Slice 4 publication protocol");
+  assert.ok(legacyStart > -1 && legacyStart < routeS4Start);
+  const legacySection = routeSrc.slice(legacyStart, routeS4Start);
+  assert.ok(legacySection.includes("ENTITLEMENT_R2.hdArchiveKey(session.sessionId)"));
+  // The legacy handler also carries the base archive-ready email wiring.
+  assert.ok(legacySection.includes("trySendHdArchiveReadyEmail"));
+  assert.ok(routeSrc.slice(0, legacyStart).includes("hdArchiveKey")); // the GET read
   assert.ok(!routeSrc.slice(routeS4Start).includes("hdArchiveKey"));
   const storageS4Start = storageSrc.indexOf("/* ================= DL-1 Slice 4 storage layer");
   assert.ok(!storageSrc.slice(storageS4Start).includes("hdArchiveKey"));

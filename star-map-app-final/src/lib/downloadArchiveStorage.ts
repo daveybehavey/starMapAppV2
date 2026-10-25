@@ -58,6 +58,7 @@ export function buildHdArchiveDownloadUrl(siteOrigin: string, claimToken: string
 
 import fs from "node:fs/promises";
 import path from "node:path";
+import { randomBytes } from "node:crypto";
 import { isLocalAuthorityFallbackAllowed } from "@/lib/entitlementAuthority";
 
 /** Provenance metadata written atomically with the body by promotion
@@ -226,7 +227,16 @@ export async function promoteCreateOnlyWithBucket(
   return { outcome: "error", error: lastError };
 }
 
-/** Local exclusive-create promotion (test/local only, fenced as above). */
+/** Local exclusive-create promotion (test/local only, fenced as above).
+ * Publication is ATOMIC (conformance fix round, area 6 — G-dot verdict
+ * 2026-10-24): the body is written to a unique temp file in the same
+ * directory and LINKED into the final path, so the final file is never
+ * observable empty or partial — it appears complete, or not at all.
+ * link(2) fails with EEXIST when the key is taken, preserving the
+ * create-only semantics exactly (no overwrite, ever). The metadata
+ * sidecar is staged in its own temp file and renamed into place
+ * immediately after the body link; temp debris is removed on every
+ * path. */
 export async function promoteCreateOnlyLocal(
   key: string,
   bytes: Uint8Array,
@@ -234,21 +244,37 @@ export async function promoteCreateOnlyLocal(
 ): Promise<PromotionOutcome> {
   await fs.mkdir(localArchiveDir(), { recursive: true });
   const filePath = localFilePathForKey(key);
-  let handle: fs.FileHandle;
+  const unique = `${process.pid}-${randomBytes(8).toString("hex")}`;
+  const bodyTmp = `${filePath}.tmp-${unique}`;
+  const metaTmp = `${filePath}.meta.json.tmp-${unique}`;
+  const cleanup = async () => {
+    await fs.rm(bodyTmp, { force: true }).catch(() => undefined);
+    await fs.rm(metaTmp, { force: true }).catch(() => undefined);
+  };
   try {
-    handle = await fs.open(filePath, "wx");
+    await fs.writeFile(bodyTmp, bytes, { flag: "wx" });
+    await fs.writeFile(metaTmp, JSON.stringify(metadata), { flag: "wx" });
   } catch (err) {
+    await cleanup();
+    return { outcome: "error", error: err };
+  }
+  try {
+    await fs.link(bodyTmp, filePath);
+  } catch (err) {
+    await cleanup();
     if ((err as NodeJS.ErrnoException)?.code === "EEXIST") return { outcome: "existed" };
     return { outcome: "error", error: err };
   }
+  // The body is now visible, complete. Publish the metadata sidecar
+  // atomically beside it; the linked temp body is debris from here.
   try {
-    await handle.writeFile(bytes);
-    await handle.close();
-    await fs.writeFile(`${filePath}.meta.json`, JSON.stringify(metadata));
-    return { outcome: "created" };
+    await fs.rename(metaTmp, `${filePath}.meta.json`);
   } catch (err) {
+    await fs.rm(bodyTmp, { force: true }).catch(() => undefined);
     return { outcome: "error", error: err };
   }
+  await fs.rm(bodyTmp, { force: true }).catch(() => undefined);
+  return { outcome: "created" };
 }
 
 /**
