@@ -117,6 +117,25 @@ export default function StarMapGiftFormatsPage() {
       printVariant: "poster_unframed" as const,
       index: 2,
     },
+    {
+      title: `${printPricing.poster_unframed_16x16.label}`,
+      badge: "Entry poster",
+      price: formatPrintPriceWithShipping(
+        printPricing.poster_unframed_16x16.amountCents,
+        printPricing.poster_unframed_16x16.currency
+      ),
+      detail: `Professional poster print path. ${PRINT_NEUTRAL_SHIPPING_CARD_NOTE}`,
+      href: "/editor?mode=quick&source=gift-formats-unframed-16x16&checkout=print&print_variant=poster_unframed_16x16",
+      imageSrc: proofImages.unframed,
+      fallbackSrc: HOME_MOCKUPS.unframedPoster,
+      bulletA: "Museum-grade poster stock",
+      bulletB: "Smaller 16×16 square format",
+      source: "gift-formats-unframed-16x16-cta",
+      orderType: "print" as const,
+      plan: "single" as const,
+      printVariant: "poster_unframed_16x16" as const,
+      index: 3,
+    },
   ] as const;
 
   return (
@@ -155,7 +174,7 @@ export default function StarMapGiftFormatsPage() {
           We keep live options focused on formats that perform well for quality, delivery, and support.{" "}
           {shippingTagSentence}
         </p>
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
           {liveFormats.map((item) => (
             <article
               key={item.title}
@@ -168,7 +187,7 @@ export default function StarMapGiftFormatsPage() {
                   fallbackSrc={item.fallbackSrc}
                   alt={item.title}
                   fill
-                  sizes="(max-width: 768px) 100vw, 33vw"
+                  sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 25vw"
                   className="object-cover"
                 />
               </div>

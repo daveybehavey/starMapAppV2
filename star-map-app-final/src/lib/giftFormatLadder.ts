@@ -7,7 +7,7 @@ import {
 import { buildDigitalEditorCheckoutHref } from "@/lib/digitalGiftCheckout";
 import { formatPrice, getPricingInfo, getPrintPricingTiers } from "@/lib/pricing";
 
-export type GiftFormatTierId = "digital" | "poster" | "framed_hd" | "framed_card" | "canvas";
+export type GiftFormatTierId = "digital" | "poster" | "poster_16x16" | "framed_hd" | "framed_card" | "canvas";
 
 export type GiftFormatTier = {
   id: GiftFormatTierId;
@@ -29,6 +29,10 @@ export function buildGiftFormatTiers(
   const unframedPrice = formatPrintPriceWithShipping(
     printTiers.poster_unframed.amountCents,
     printTiers.poster_unframed.currency,
+  );
+  const unframed16Price = formatPrintPriceWithShipping(
+    printTiers.poster_unframed_16x16.amountCents,
+    printTiers.poster_unframed_16x16.currency,
   );
   const canvasPrice = formatPrintPriceWithShipping(
     printTiers.canvas_wrap.amountCents,
@@ -59,6 +63,17 @@ export function buildGiftFormatTiers(
       cta: "Preview poster",
     },
     {
+      id: "poster_16x16",
+      label: "Unframed poster (16×16)",
+      priceLine: unframed16Price,
+      detail: "Smaller 16×16 square — lower total when you already have a frame plan.",
+      href: buildPrintEditorCheckoutHref({
+        source: `${sourcePrefix}-unframed-16x16`,
+        variant: "poster_unframed_16x16",
+      }),
+      cta: "Preview 16×16 poster",
+    },
+    {
       id: "framed_hd",
       label: "Framed + HD",
       priceLine: getFramedHdBundlePriceLine(),
@@ -86,7 +101,7 @@ export function buildGiftFormatTiers(
   ];
 
   if (options?.includeCanvas) {
-    tiers.splice(3, 0, {
+    tiers.splice(4, 0, {
       id: "canvas",
       label: "Canvas wrap",
       priceLine: canvasPrice,
