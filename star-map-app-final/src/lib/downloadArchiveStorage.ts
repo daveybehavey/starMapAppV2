@@ -57,7 +57,6 @@ export function buildHdArchiveDownloadUrl(siteOrigin: string, claimToken: string
  */
 
 import fs from "node:fs/promises";
-import { createReadStream } from "node:fs";
 import path from "node:path";
 import { createHash, randomBytes } from "node:crypto";
 import { isLocalAuthorityFallbackAllowed } from "@/lib/entitlementAuthority";
@@ -214,10 +213,15 @@ export async function getArtifactObject(
 }
 
 /** The streaming-observation read window (correction round 3 — Codex
- * P2-1): an observed body is hashed in chunks of at most this size,
- * so the finalize observation never holds more than one window of
- * the body beyond the digest state. The W-2 manifest charges the
- * observation this window. */
+ * P2-1): an observed body is hashed through ONE reused buffer of
+ * this size (windowed FileHandle reads locally; one pulled chunk at
+ * a time from the R2 body stream), so the finalize observation never
+ * holds more than one window of the body beyond the digest state.
+ * The W-2 manifest charges the observation exactly this window. (A
+ * fs.ReadStream implementation measured a ~24–28 MB transient at
+ * this window size — the stream's read queue holds many windows in
+ * flight; the windowed-read form below is the bounded one, and the
+ * round-3 measurement addendum records both.) */
 export const ARCHIVE_OBSERVE_CHUNK_BYTES = 64 * 1024;
 
 export type ArtifactObservation = {
@@ -286,14 +290,22 @@ export async function observeArtifactObject(key: string): Promise<ArtifactObserv
   }
   const filePath = localFilePathForKey(key);
   const hash = createHash("sha256");
+  let handle: fs.FileHandle;
   try {
-    const stream = createReadStream(filePath, { highWaterMark: ARCHIVE_OBSERVE_CHUNK_BYTES });
-    for await (const chunk of stream) {
-      hash.update(chunk as Buffer);
-    }
+    handle = await fs.open(filePath, "r");
   } catch (err) {
     if ((err as NodeJS.ErrnoException)?.code === "ENOENT") return null;
     throw err;
+  }
+  try {
+    const window = Buffer.alloc(ARCHIVE_OBSERVE_CHUNK_BYTES);
+    for (;;) {
+      const { bytesRead } = await handle.read(window, 0, window.length, null);
+      if (bytesRead === 0) break;
+      hash.update(window.subarray(0, bytesRead));
+    }
+  } finally {
+    await handle.close().catch(() => undefined);
   }
   let metadata: ArtifactObjectMetadata | null = null;
   try {
