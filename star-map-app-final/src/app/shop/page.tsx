@@ -249,7 +249,7 @@ export default function ShopPage() {
         <p className="mt-2 text-sm text-neutral-700">
           HD from <span className="font-semibold text-midnight">{digitalPrice}</span>
           {" · "}
-          unframed from <span className="font-semibold text-midnight">{unframedPrice}</span>
+          unframed from <span className="font-semibold text-midnight">{unframed16Price}</span>
           {" · "}
           framed from <span className="font-semibold text-midnight">{framedPrice}</span>
         </p>

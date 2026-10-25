@@ -82,8 +82,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     (printTiers.poster_framed.currency || "USD").toUpperCase(),
   );
   const printUnframedOfferLabel = formatPrintPriceWithShipping(
-    printTiers.poster_unframed.amountCents,
-    (printTiers.poster_unframed.currency || "USD").toUpperCase(),
+    printTiers.poster_unframed_16x16.amountCents,
+    (printTiers.poster_unframed_16x16.currency || "USD").toUpperCase(),
   );
   const isUsOnlyPrint = isUsOnlyPrintCheckout();
   const packSavingsPercent =

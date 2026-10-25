@@ -482,7 +482,7 @@ export default function HomeStaticSections({ priceLabels, promoStatus, promoCode
             {buildHomeFaqItems({
               single: priceLabels.single,
               framed: printLabels.framed,
-              unframed: printLabels.unframed,
+              unframed: printLabels.unframed16,
             }).map((item) => (
               <div
                 key={item.id}
