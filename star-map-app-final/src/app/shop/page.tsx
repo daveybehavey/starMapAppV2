@@ -7,6 +7,7 @@ import PreviewStartForm from "@/components/PreviewStartForm";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import ResilientImage from "@/components/ResilientImage";
 import StickyCtaBar from "@/components/StickyCtaBar";
+import VariantFormatLinks from "@/components/VariantFormatLinks";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { HOME_MOCKUPS } from "@/lib/homeMockups";
 import {
@@ -406,6 +407,10 @@ export default function ShopPage() {
               </article>
             ))}
           </div>
+        </section>
+
+        <section className="mt-10">
+          <VariantFormatLinks tone="light" />
         </section>
 
         {merchFamilies.length ? (
