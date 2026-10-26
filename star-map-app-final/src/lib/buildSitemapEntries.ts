@@ -7,6 +7,7 @@ import {
   isIndexableOccasionSlug,
 } from "../data/seoIndexing";
 import { POLICY_LAST_UPDATED_ISO } from "./policyMeta";
+import { listVariantPagePaths } from "./variantPageManifest";
 
 /** Slugs that redirect to another blog URL (`next.config.mjs`); omit from sitemap to avoid crawl hops. */
 export const BLOG_SITEMAP_EXCLUDED_SLUGS = new Set([
@@ -248,5 +249,14 @@ export function buildSitemapEntries(options: BuildSitemapOptions): MetadataRoute
       priority: 0.6,
     }));
 
-  return [...staticEntries, ...locationEntries, ...occasionEntries, ...staticIndexableBlogRoutes, ...blogEntries];
+  // Merchant Center variant landing pages (src/lib/variantPages.ts):
+  // one entry per (variant x market); omit lastModified like the other
+  // marketing URLs — no truthful per-page content date exists.
+  const variantPageEntries: MetadataRoute.Sitemap = listVariantPagePaths().map((path) => ({
+    url: `${baseUrl}${path}`,
+    changeFrequency: "monthly" as const,
+    priority: 0.8,
+  }));
+
+  return [...staticEntries, ...variantPageEntries, ...locationEntries, ...occasionEntries, ...staticIndexableBlogRoutes, ...blogEntries];
 }
