@@ -14,8 +14,8 @@ export default function GiftFormatRoadmapModule({ sourcePrefix }: GiftFormatRoad
     printTiers.poster_framed.currency
   );
   const unframedPriceLabel = formatPrice(
-    printTiers.poster_unframed.amountCents,
-    printTiers.poster_unframed.currency
+    printTiers.poster_unframed_16x16.amountCents,
+    printTiers.poster_unframed_16x16.currency
   );
 
   return (
