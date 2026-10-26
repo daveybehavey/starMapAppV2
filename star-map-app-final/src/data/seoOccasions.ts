@@ -29,7 +29,7 @@ export const seoOccasions: SeoOccasion[] = [
     seoTitle: "Engagement Star Map Gift — Proposal Night Sky | StarMapCo",
     seoH1: "Engagement Star Map Gift",
     seoDescription:
-      "Create a personalized engagement star map from the proposal date and place. Free preview, then framed + HD digital (free shipping $100+), unframed poster, or instant HD for same-night gifts.",
+      "Create a personalized engagement star map from the proposal date and place. Free preview, then framed + HD digital (free shipping $89+), unframed poster, or instant HD for same-night gifts.",
     intro:
       "Celebrate the engagement with a star map that captures the exact sky from the proposal night. Personal, romantic, and ready to print.",
     detail:

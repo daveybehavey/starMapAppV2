@@ -109,3 +109,42 @@ test("F4 route wiring: checkout decides on the pre-discount merchandise subtotal
   assert.match(block, /if \(freeShippingSelection\.freeShippingApplied\)/);
   assert.match(block, /metadata\.print_free_shipping_applied = "true"/);
 });
+
+/**
+ * Lever B (2026-10-25 margin pack) — the DEFAULT free-shipping threshold is
+ * $89, not $100. The framed hero is $99: under the old default it sat $1
+ * under the bar and every framed-only buyer was charged shipping. These
+ * tests call the harness WITHOUT an explicit threshold so they pin the
+ * default itself; the src pin below keeps the harness and the real module
+ * from drifting apart.
+ */
+
+test("Lever B: default threshold qualifies at exactly $89.00", () => {
+  assert.equal(qualifiesForPrintFreeShipping(8900), true);
+});
+
+test("Lever B: default threshold does not qualify at $88.99", () => {
+  assert.equal(qualifiesForPrintFreeShipping(8899), false);
+});
+
+test("Lever B: framed-only $99 order ships free at the default threshold", () => {
+  assert.equal(qualifiesForPrintFreeShipping(9900), true);
+  const result = applyPrintFreeShippingToCheckout(SELECTION(), 9900);
+  assert.equal(result.freeShippingApplied, true);
+  assert.equal(result.shippingChargeCents, 0);
+  assert.equal(result.shippingSubsidyCents, 1399);
+});
+
+test("Lever B: checkout waives at exactly $89 and keeps the charge at $88.99", () => {
+  const at = applyPrintFreeShippingToCheckout(SELECTION(), 8900);
+  assert.equal(at.freeShippingApplied, true);
+  assert.equal(at.shippingChargeCents, 0);
+  const below = applyPrintFreeShippingToCheckout(SELECTION(), 8899);
+  assert.equal(below.freeShippingApplied, false);
+  assert.equal(below.shippingChargeCents, 1399);
+});
+
+test("Lever B: src default threshold matches the harness default ($89)", () => {
+  const src = fs.readFileSync(path.join(ROOT, "src/lib/printFreeShipping.ts"), "utf8");
+  assert.match(src, /const DEFAULT_THRESHOLD_CENTS = 8_900;/);
+});
