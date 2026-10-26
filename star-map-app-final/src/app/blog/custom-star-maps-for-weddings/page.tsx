@@ -87,7 +87,7 @@ export default function WeddingsPostPage() {
               constellations, so match the moment you said “I do,” your first dance, or the sparkler exit. For
               destination weddings, capture the city or venue address; for outdoor ceremonies, use exact latitude and
               longitude. When you are ready to build, the{" "}
-              <Link href="/star-map-generator?source=blog-wedding" className="text-amber-300 hover:underline">
+              <Link href="/star-map-generator" className="text-amber-300 hover:underline">
                 star map generator
               </Link>{" "}
               lets you preview the ceremony sky before checkout.
@@ -139,7 +139,7 @@ export default function WeddingsPostPage() {
               Download a high-resolution file for printing (6000px recommended). Pair with a matted frame in warm wood
               or black to keep focus on the map. For digital sharing, export a watermark preview to post on social or
               send to guests. Compare{" "}
-              <Link href="/star-map-gift-formats?source=blog-wedding" className="text-amber-300 hover:underline">
+              <Link href="/star-map-gift-formats" className="text-amber-300 hover:underline">
                 framed, unframed, and HD digital formats
               </Link>{" "}
               if you are deciding between wall art and instant delivery.
@@ -185,7 +185,7 @@ export default function WeddingsPostPage() {
             <ol className="space-y-2 pl-5">
               <li>
                 <strong>How accurate are the maps?</strong> They use astronomy-engine calculations and star catalog data for the selected date, time, timezone, and location. See{" "}
-                <Link href="/how-accurate-are-star-maps?source=blog-wedding" className="text-amber-300 hover:underline">
+                <Link href="/how-accurate-are-star-maps" className="text-amber-300 hover:underline">
                   how accurate star maps are
                 </Link>{" "}
                 for a plain-language breakdown.
@@ -214,7 +214,7 @@ export default function WeddingsPostPage() {
             </h2>
             <p>
               Capture the sky from your ceremony, first dance, or proposal.{" "}
-              <Link href="/wedding?source=blog-wedding-landing" className="font-semibold text-amber-300 hover:underline">
+              <Link href="/wedding" className="font-semibold text-amber-300 hover:underline">
                 Start on the wedding gift page
               </Link>{" "}
               for framed + HD pricing, or{" "}

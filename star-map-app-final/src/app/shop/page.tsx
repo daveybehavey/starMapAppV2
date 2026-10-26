@@ -365,6 +365,15 @@ export default function ShopPage() {
                   <Link href={card.href} prefetch={false} className={card.ctaClass}>
                     {card.cta}
                   </Link>
+                  {card.key === "framed" ? (
+                    <Link
+                      href="/star-map-poster/framed-hd-bundle"
+                      prefetch={false}
+                      className="text-center text-xs font-semibold text-amber-800 underline hover:text-amber-950"
+                    >
+                      Or see the framed + HD bundle
+                    </Link>
+                  ) : null}
                 </div>
               </article>
             ))}

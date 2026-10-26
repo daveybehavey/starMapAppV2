@@ -217,6 +217,13 @@ export default function StarMapGiftFormatsPage() {
             </article>
           ))}
         </div>
+        <p className="text-sm text-neutral-800 sm:text-base">
+          Want the wall piece and the file together? The{" "}
+          <Link href="/star-map-poster/framed-hd-bundle" className="font-semibold text-amber-800 underline">
+            framed + HD bundle
+          </Link>{" "}
+          pairs the ready-to-hang framed print with the instant HD download from the same approved design.
+        </p>
       </section>
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">

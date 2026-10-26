@@ -91,7 +91,7 @@ export default function ValentinesStarMapPage() {
           <p className="text-neutral-200">
             Don&apos;t feel pressured to pick only anniversaries. Romantic star map ideas for Valentine&apos;s Day include
             proposal nights, first dates, and shared milestones — browse the{" "}
-            <Link href="/anniversary?source=blog-valentines" className="font-semibold text-amber-200 underline-offset-4 hover:underline">
+            <Link href="/anniversary" className="font-semibold text-amber-200 underline-offset-4 hover:underline">
               anniversary star map gift page
             </Link>{" "}
             if your moment is a wedding or relationship milestone:
@@ -147,7 +147,7 @@ export default function ValentinesStarMapPage() {
           <p className="text-neutral-200">
             Physical shipping availability depends on the destination shown at checkout, and Valentine&apos;s Day production
             windows tighten fast. Finish your design by early February, then frame it before wrapping. Check{" "}
-            <Link href="/shipping?source=blog-valentines" className="font-semibold text-amber-200 underline-offset-4 hover:underline">
+            <Link href="/shipping" className="font-semibold text-amber-200 underline-offset-4 hover:underline">
               shipping timelines
             </Link>{" "}
             before you choose framed print. For an in-person

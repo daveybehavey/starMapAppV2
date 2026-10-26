@@ -28,7 +28,8 @@ export default function BlogPostConversionLinks({ source, postSlug, className }:
         {links.map((item) => (
           <li key={item.href}>
             <Link
-              href={`${item.href}?source=blog_${source}`}
+              href={item.href}
+              data-source={`blog_${source}`}
               className="inline-flex rounded-full border border-amber-200/50 bg-white/10 px-3 py-1.5 text-xs font-semibold text-amber-50 transition hover:border-amber-200 hover:bg-white/15"
             >
               {item.label}

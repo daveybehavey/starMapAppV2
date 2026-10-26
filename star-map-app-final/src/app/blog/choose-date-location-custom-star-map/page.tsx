@@ -68,7 +68,7 @@ export default function ChooseDateLocationPost() {
               Why Date and Location Matter in Custom Star Maps
             </h2>
             <p>Date determines star alignments; location adjusts for the local sky view. Wrong choices lead to inaccuracies. Our{" "}
-              <Link href="/how-accurate-are-star-maps?source=blog-date-location" className="text-amber-300 hover:underline">
+              <Link href="/how-accurate-are-star-maps" className="text-amber-300 hover:underline">
                 accuracy guide
               </Link>{" "}
               explains how date, time, timezone, and place affect the final map.
@@ -142,7 +142,7 @@ export default function ChooseDateLocationPost() {
             <h2 className="text-2xl font-semibold text-amber-200 sm:text-3xl">How to Finalize</h2>
             <p>
               Preview tools show real-time changes. Open the{" "}
-              <Link href="/star-map-generator?source=blog-date-location" className="text-amber-300 hover:underline">
+              <Link href="/star-map-generator" className="text-amber-300 hover:underline">
                 star map generator
               </Link>{" "}
               to test date and location inputs, or{" "}

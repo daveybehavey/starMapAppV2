@@ -107,7 +107,7 @@ export default function AstronomyBehindStarMaps() {
             <p>
               Inaccurate maps lose sentimental value; scientific precision ensures authenticity for gifts and education.
               For a buyer-friendly breakdown of what inputs matter most, see{" "}
-              <Link href="/how-accurate-are-star-maps?source=blog-astronomy" className="text-amber-300 hover:underline">
+              <Link href="/how-accurate-are-star-maps" className="text-amber-300 hover:underline">
                 how accurate star maps are
               </Link>
               .
@@ -159,7 +159,7 @@ export default function AstronomyBehindStarMaps() {
             <h2 className="text-2xl font-semibold text-amber-200 sm:text-3xl">Where to Experience Accurate Star Maps</h2>
             <p>
               Choose tools with proven libraries and real catalogs. Preview your own moment free in the{" "}
-              <Link href="/star-map-generator?source=blog-astronomy" className="text-amber-300 hover:underline">
+              <Link href="/star-map-generator" className="text-amber-300 hover:underline">
                 star map generator
               </Link>
               , or{" "}
