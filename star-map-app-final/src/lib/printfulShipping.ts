@@ -22,6 +22,8 @@ type ShippingMap = {
   countries: string[];
   poster_unframed: Record<string, PrintfulShippingRate>;
   poster_framed: Record<string, PrintfulShippingRate>;
+  canvas_wrap: Record<string, PrintfulShippingRate>;
+  mug_11oz: Record<string, PrintfulShippingRate>;
 };
 
 const map = shippingMap as ShippingMap;
@@ -63,10 +65,7 @@ export function getPrintfulShippingCountries() {
 export function getPrintfulShippingRate(variant: PrintVariant, country: string) {
   const code = country.trim().toUpperCase();
   const profile = getPrintShippingProfile(variant);
-  if (profile === "poster_framed") {
-    return map.poster_framed?.[code] ?? null;
-  }
-  return map.poster_unframed?.[code] ?? null;
+  return map[profile]?.[code] ?? null;
 }
 
 export function getPrintShippingEstimate(

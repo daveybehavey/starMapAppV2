@@ -36,15 +36,15 @@ test("editor bundle rows state the total, not a price-plus-add-on string", () =>
 test("editor single-product rows keep product price + shipping estimate", () => {
   assert.equal(
     paywallSecondaryLine({ variant: "poster_framed", includeDigitalAddOn: false, includeCardAddOn: false }),
-    "$99.00 USD + $10.70 USD shipping",
+    "$99.00 USD + $10.77 USD shipping",
   );
   assert.equal(
     paywallSecondaryLine({ variant: "poster_unframed", includeDigitalAddOn: false, includeCardAddOn: false }),
-    "$49.00 USD + $5.33 USD shipping",
+    "$49.00 USD + $5.17 USD shipping",
   );
   assert.equal(
     paywallSecondaryLine({ variant: "canvas_wrap", includeDigitalAddOn: false, includeCardAddOn: false }),
-    "$79.00 USD + $10.70 USD shipping",
+    "$79.00 USD + $17.12 USD shipping",
   );
 });
 
@@ -60,7 +60,7 @@ test("paywall presentation composes bundle rows from the merchandise subtotal", 
 
 test("shipping footnote is customer-clean, jargon-free, and unpunctuated", () => {
   const footnote = formatPosterShippingFootnote("CA");
-  assert.equal(footnote, "framed print $10.70 USD shipping, unframed poster $5.33 USD shipping");
+  assert.equal(footnote, "framed print $10.77 USD shipping, unframed poster $5.17 USD shipping");
   assert.doesNotMatch(footnote, /tiers/i);
   assert.doesNotMatch(footnote, /\.$/);
   assert.equal(formatPosterShippingFootnote(null), null);

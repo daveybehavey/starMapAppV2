@@ -56,17 +56,17 @@ test("formatPrintDeliveryDisclosure known US framed remains matrix 4–6", () =>
   assert.equal(formatPrintDeliveryEstimate("poster_framed", "US"), "4–6 business days");
 });
 
-test("formatPrintDeliveryDisclosure known CA framed remains matrix 7–10", () => {
+test("formatPrintDeliveryDisclosure known CA framed remains matrix 8–13", () => {
   const line = formatPrintDeliveryDisclosure("poster_framed", "CA");
   assert.match(line, /Canada/);
-  assert.match(line, /7–10 business days/);
-  assert.equal(formatPrintDeliveryEstimate("poster_unframed", "CA"), "2–5 business days");
+  assert.match(line, /8–13 business days/);
+  assert.equal(formatPrintDeliveryEstimate("poster_unframed", "CA"), "3–6 business days");
 });
 
 test("formatPrintDeliveryDisclosure known GB framed remains matrix-backed", () => {
   const line = formatPrintDeliveryDisclosure("poster_framed", "GB");
   assert.match(line, /United Kingdom/);
-  assert.match(line, /8–11 business days/);
+  assert.match(line, /12–15 business days/);
 });
 
 test("getPrintDeliveryEtaLine stays null until a country exists", () => {
@@ -87,7 +87,7 @@ test("getPrintDeliveryEstimateLine unknown is neutral; known countries use matri
 
   const ca = getPrintDeliveryEstimateLine({ country: "CA", variant: "poster_framed" });
   assert.match(ca, /Canada/);
-  assert.match(ca, /7–10 business days/);
+  assert.match(ca, /8–13 business days/);
 });
 
 test("generic FAQ / physical summary / progress steps stay country-neutral", () => {
@@ -116,7 +116,7 @@ test("country-aware confirmation / progress use destination matrix windows", () 
     country: "CA",
     variant: "poster_framed",
   });
-  assert.ok(caSteps.some((s) => /Canada/.test(s) && /7–10 business days/.test(s)));
+  assert.ok(caSteps.some((s) => /Canada/.test(s) && /8–13 business days/.test(s)));
 
   const caNote = getPrintOrderConfirmationEtaNote({
     includesDigitalAddOn: false,
@@ -124,7 +124,7 @@ test("country-aware confirmation / progress use destination matrix windows", () 
     variant: "poster_framed",
   });
   assert.match(caNote, /Canada/);
-  assert.match(caNote, /7–10 business days/);
+  assert.match(caNote, /8–13 business days/);
   assert.doesNotMatch(caNote, /United States/);
 
   const missingNote = getPrintOrderConfirmationEtaNote({ includesDigitalAddOn: false });
@@ -138,10 +138,10 @@ test("checkout shipping matrix rates for US and CA are unchanged by disclosure h
   assert.ok(usFramed && Number.isFinite(usFramed.rate));
   assert.equal(usFramed.min_delivery_days, 4);
   assert.equal(usFramed.max_delivery_days, 6);
-  assert.equal(caFramed.min_delivery_days, 7);
-  assert.equal(caFramed.max_delivery_days, 10);
-  assert.equal(caUnframed.min_delivery_days, 2);
-  assert.equal(caUnframed.max_delivery_days, 5);
+  assert.equal(caFramed.min_delivery_days, 8);
+  assert.equal(caFramed.max_delivery_days, 13);
+  assert.equal(caUnframed.min_delivery_days, 3);
+  assert.equal(caUnframed.max_delivery_days, 6);
 });
 
 test("editor shipping-country init never silently invents first-list US", () => {

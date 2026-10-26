@@ -13,8 +13,8 @@
  * Amounts are the code fallbacks: framed 9900, unframed 4900, canvas 7900,
  * card 1900 (src/lib/printCatalog.ts), HD add-on 700 (pricing), default
  * free-shipping threshold 10000 (printFreeShipping.ts). Shipping estimates
- * are the Canada row of data/printful-shipping.json (framed profile 1070,
- * unframed profile 533; canvas ships on the framed profile).
+ * are the Canada row of data/printful-shipping.json (framed profile 1077,
+ * unframed profile 517, canvas profile 1712 — canvas has its own profile).
  */
 
 export function formatPrice(cents, currency = "USD") {
@@ -40,10 +40,10 @@ export const DEFAULT_THRESHOLD_CENTS = 10000;
 const SHIPPING_PROFILE = {
   poster_framed: "poster_framed",
   poster_unframed: "poster_unframed",
-  canvas_wrap: "poster_framed",
+  canvas_wrap: "canvas_wrap",
   card_4x6: "poster_unframed",
 };
-const CA_SHIPPING_CENTS = { poster_framed: 1070, poster_unframed: 533 };
+const CA_SHIPPING_CENTS = { poster_framed: 1077, poster_unframed: 517, canvas_wrap: 1712 };
 
 export function getPrintMerchandiseSubtotalCents({ variant, includeDigitalAddOn, includeCardAddOn }) {
   let total = TIER_CENTS[variant];
