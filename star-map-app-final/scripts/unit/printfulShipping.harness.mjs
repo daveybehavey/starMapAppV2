@@ -26,6 +26,8 @@ const FALLBACK_COUNTRY_LABELS = {
 
 function getPrintShippingProfile(variant) {
   if (variant === "poster_framed") return "poster_framed";
+  if (variant === "canvas_wrap") return "canvas_wrap";
+  if (variant === "mug_11oz") return "mug_11oz";
   return "poster_unframed";
 }
 
@@ -34,10 +36,7 @@ export function getPrintfulShippingRate(variant, country) {
     .trim()
     .toUpperCase();
   const profile = getPrintShippingProfile(variant);
-  if (profile === "poster_framed") {
-    return shippingMap.poster_framed?.[code] ?? null;
-  }
-  return shippingMap.poster_unframed?.[code] ?? null;
+  return shippingMap[profile]?.[code] ?? null;
 }
 
 export function getPrintShippingEstimate(variant, country) {

@@ -144,7 +144,7 @@ test("shared print COGS defaults align with printCatalog.ts", () => {
 test("shipping estimate matches printful matrix for US framed poster", () => {
   const shipping = getConfiguredShippingCostCents("poster_framed", "US");
   assert.ok(shipping);
-  assert.equal(shipping.amountCents, 977);
+  assert.equal(shipping.amountCents, 984);
   assert.equal(shipping.currency, "USD");
 });
 

@@ -36,7 +36,7 @@ test("renderPrintOrderConfirmationEmail uses Canada framed matrix when shippingC
     printVariant: "poster_framed",
   });
   assert.match(rendered.text, /Canada/);
-  assert.match(rendered.text, /7–10 business days/);
+  assert.match(rendered.text, /8–13 business days/);
   assert.doesNotMatch(rendered.text, /United States/);
   assert.doesNotMatch(rendered.text, /4–6 business days/);
 });
