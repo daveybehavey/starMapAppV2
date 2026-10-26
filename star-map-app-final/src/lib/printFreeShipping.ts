@@ -2,7 +2,10 @@ import type { Stripe } from "stripe";
 import { getPrintDigitalAddOnPrice, getPrintPricingTiers, formatPrice } from "./pricing";
 import type { PrintVariant } from "./printCatalog";
 
-const DEFAULT_THRESHOLD_CENTS = 10_000;
+// Lever B (2026-10-25 margin pack): $89 — the framed hero ($99) previously sat
+// $1 under the $100 threshold, so every framed-only buyer was charged shipping.
+// Env overrides still win; this is only the no-env default.
+const DEFAULT_THRESHOLD_CENTS = 8_900;
 const FREE_SHIPPING_LABEL = "Free standard shipping";
 
 function parseThresholdCents(raw: string | undefined): number | null {

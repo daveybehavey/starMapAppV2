@@ -83,7 +83,14 @@ export function paywallPrintCheckoutRowKey(
 
 export function formatPosterShippingFootnote(printShippingCountry: string | null | undefined): string | null {
   if (!printShippingCountry) return null;
-  const framed = formatPrintShippingEstimate("poster_framed", printShippingCountry);
+  // A framed-only order clears the free-shipping threshold on its own
+  // (Lever B), so the framed segment must not advertise a shipping charge
+  // checkout will not collect — same eligibility check as the rows above.
+  const framed = qualifiesForPrintFreeShipping(
+    getPrintMerchandiseSubtotalCents({ variant: "poster_framed" }),
+  )
+    ? "free shipping"
+    : formatPrintShippingEstimate("poster_framed", printShippingCountry);
   const unframed = formatPrintShippingEstimate("poster_unframed", printShippingCountry);
   // No trailing period: render sites add their own sentence punctuation.
   return `framed print ${framed}, unframed poster ${unframed}`;

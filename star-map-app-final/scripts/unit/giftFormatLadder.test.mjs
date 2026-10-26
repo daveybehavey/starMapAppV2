@@ -27,9 +27,9 @@ test("gift format ladder tier sets match product strategy", () => {
 });
 
 // U04 (persona sweep 2026-10-19): the framed + keepsake card bundle must be
-// judged on the BUNDLE subtotal, like checkout. Framed alone ($99) is under
-// the $100 free-shipping threshold; framed + card ($118) clears it, so the
-// ladder must not claim "+ shipping" for the bundle.
+// judged on the BUNDLE subtotal, like checkout. (Lever B, 2026-10-25: the
+// threshold is now $89, so framed alone ($99) also clears it; the bundle
+// judgement this test pins is unchanged.)
 test("framed + card bundle subtotal clears the free-shipping threshold", () => {
   const subtotal = getPrintMerchandiseSubtotalCents({ variant: "poster_framed", includeCardAddOn: true });
   assert.equal(subtotal, 11800);
