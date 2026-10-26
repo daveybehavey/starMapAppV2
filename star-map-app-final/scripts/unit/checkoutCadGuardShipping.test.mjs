@@ -96,9 +96,11 @@ test("P1 (a): Codex worked example — CAD framed + hosted 50% discount is NOT p
   );
   assert.equal(result.allowed, false);
   assert.equal(result.code, "margin_below_threshold");
-  // Normalized outcome: revenue 6034 USD cents, fee 205, margin -441.
+  // Normalized outcome: revenue 6034 USD cents, fee 205, margin -448.
+  // (Margin pins in this file moved -7 with the 2026-10-25 shipping-matrix
+  // refresh: the CA framed estimate went 1070 -> 1077. Decisions unchanged.)
   assert.equal(result.estimate?.revenueCents, 6034);
-  assert.equal(result.estimate?.marginCents, -441);
+  assert.equal(result.estimate?.marginCents, -448);
 });
 
 test("P1 (b): ordinary CAD framed order at full price permits with the converted margin", () => {
@@ -112,9 +114,9 @@ test("P1 (b): ordinary CAD framed order at full price permits with the converted
     })
   );
   assert.equal(result.allowed, true);
-  // Revenue normalized to 10999 USD cents; fee 349; margin 4380.
+  // Revenue normalized to 10999 USD cents; fee 349; margin 4373.
   assert.equal(result.estimate?.revenueCents, 10999);
-  assert.equal(result.estimate?.marginCents, 4380);
+  assert.equal(result.estimate?.marginCents, 4373);
 });
 
 test("P1 (c): USD sessions are unchanged — the same 8448 total is genuine USD revenue", () => {
@@ -128,7 +130,7 @@ test("P1 (c): USD sessions are unchanged — the same 8448 total is genuine USD 
   );
   assert.equal(result.allowed, true);
   assert.equal(result.estimate?.revenueCents, 8448);
-  assert.equal(result.estimate?.marginCents, 1903);
+  assert.equal(result.estimate?.marginCents, 1896);
 });
 
 test("P1 (c2): legacy records with no recorded currency behave exactly as USD", () => {
@@ -143,7 +145,7 @@ test("P1 (c2): legacy records with no recorded currency behave exactly as USD", 
     );
     assert.equal(result.allowed, true);
     assert.equal(result.estimate?.revenueCents, 8448);
-    assert.equal(result.estimate?.marginCents, 1903);
+    assert.equal(result.estimate?.marginCents, 1896);
   }
 });
 
