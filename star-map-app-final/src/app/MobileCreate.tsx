@@ -16,7 +16,8 @@ import { proPresets } from "@/lib/proPresets";
 import { applyStyleDefaults } from "@/lib/styleDefaults";
 import { track, trackFunnelStep } from "@/lib/analytics";
 import Image from "next/image";
-import type { CheckoutPlan, PrintVariant } from "@/lib/pricing";
+import { isPrintSecondCopyPublicEnabled, type CheckoutPlan, type PrintVariant } from "@/lib/pricing";
+import { isSecondCopyEligibleVariant } from "@/lib/printCatalog";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import {
   formatPosterShippingFootnote,
@@ -55,6 +56,9 @@ interface MobileCreateProps {
   printCheckoutEnabled?: boolean;
   preferredPrintVariant?: PrintVariant;
   preferredIncludeDigitalAddOn?: boolean;
+  /** Lever A second-copy toggle selection, controlled by the editor. */
+  includeSecondCopy?: boolean;
+  onIncludeSecondCopyChange?: (includeSecondCopy: boolean) => void;
   printShippingCountry?: string | null;
   printShippingCountries?: string[];
   onPrintShippingCountryChange?: (country: string) => void;
@@ -63,6 +67,7 @@ interface MobileCreateProps {
     variant: PrintVariant;
     includeDigitalAddOn: boolean;
     includeCardAddOn?: boolean;
+    includeSecondCopy?: boolean;
   }) => void;
   merchFamilies?: readonly MerchFamily[];
   selectedMerchFamily?: MerchFamilyId;
@@ -91,6 +96,8 @@ export function MobileCreate({
   printCheckoutEnabled = false,
   preferredPrintVariant = "poster_framed",
   preferredIncludeDigitalAddOn = false,
+  includeSecondCopy = false,
+  onIncludeSecondCopyChange,
   printShippingCountry,
   printShippingCountries = [],
   onPrintShippingCountryChange,
@@ -159,10 +166,15 @@ export function MobileCreate({
   );
   // Google Play app mode: prints only, never a digital add-on row.
   const appMode = useAndroidAppMode();
+  const secondCopyOffered = isPrintSecondCopyPublicEnabled();
   const printCheckoutRows = useMemo(() => {
-    const rows = getPaywallPrintCheckoutPresentation(printShippingCountry);
+    const rows = getPaywallPrintCheckoutPresentation(
+      printShippingCountry,
+      undefined,
+      includeSecondCopy && secondCopyOffered,
+    );
     return appMode ? rows.filter((row) => !row.includeDigitalAddOn) : rows;
-  }, [printShippingCountry, appMode]);
+  }, [printShippingCountry, appMode, includeSecondCopy, secondCopyOffered]);
   const primaryPrintRow = useMemo(
     () => printCheckoutRows.find((row) => row.recommended) ?? printCheckoutRows[0] ?? null,
     [printCheckoutRows],
@@ -1788,6 +1800,20 @@ export function MobileCreate({
                     />
                   </div>
                 )}
+                {secondCopyOffered && onIncludeSecondCopyChange ? (
+                  <label className="mt-2 flex cursor-pointer items-center gap-2 text-[11px] text-amber-100/90">
+                    <input
+                      type="checkbox"
+                      checked={includeSecondCopy}
+                      onChange={(event) => onIncludeSecondCopyChange(event.target.checked)}
+                      className="h-4 w-4 shrink-0 accent-amber-300"
+                    />
+                    <span>
+                      <span className="font-semibold text-amber-100">Add a second copy — 10% off</span>{" "}
+                      — a second copy of the same print, in the same parcel.
+                    </span>
+                  </label>
+                ) : null}
                 {primaryPrintRow && (
                   <button
                     type="button"
@@ -1796,6 +1822,10 @@ export function MobileCreate({
                         variant: primaryPrintRow.variant,
                         includeDigitalAddOn: primaryPrintRow.includeDigitalAddOn,
                         includeCardAddOn: primaryPrintRow.includeCardAddOn,
+                        includeSecondCopy:
+                          includeSecondCopy &&
+                          secondCopyOffered &&
+                          isSecondCopyEligibleVariant(primaryPrintRow.variant),
                       })
                     }
                     disabled={!printShippingCountry || printCheckoutInFlight}
@@ -1829,6 +1859,10 @@ export function MobileCreate({
                               variant: row.variant,
                               includeDigitalAddOn: row.includeDigitalAddOn,
                               includeCardAddOn: row.includeCardAddOn,
+                              includeSecondCopy:
+                                includeSecondCopy &&
+                                secondCopyOffered &&
+                                isSecondCopyEligibleVariant(row.variant),
                             })
                           }
                           disabled={!printShippingCountry || printCheckoutInFlight}

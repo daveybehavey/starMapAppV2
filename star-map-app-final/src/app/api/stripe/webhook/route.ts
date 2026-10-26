@@ -248,6 +248,10 @@ function includesCardAddOn(session: Stripe.Checkout.Session): boolean {
   return session.metadata?.print_include_card === "true";
 }
 
+function includesSecondCopy(session: Stripe.Checkout.Session): boolean {
+  return session.metadata?.print_include_second_copy === "true";
+}
+
 function getPrintAssetId(session: Stripe.Checkout.Session): string | undefined {
   const raw = typeof session.metadata?.print_asset_id === "string" ? session.metadata.print_asset_id.trim() : "";
   if (!raw || !PRINT_ASSET_ID_REGEX.test(raw)) return undefined;
@@ -1042,6 +1046,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     merchColor: getMerchColor(session),
     includesDigitalAddOn: includesDigitalAddOn(session),
     includesCardAddOn: includesCardAddOn(session),
+    includesSecondCopy: includesSecondCopy(session),
     isGift: giftFlagForRecord(session.metadata),
     printAssetId: getPrintAssetId(session),
     cardPrintAssetId: getPrintCardAssetId(session),
@@ -1140,6 +1145,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
         shippingCountry: recipient.country_code,
         amountTotalCents: payload.amountTotal ?? null,
         currency: payload.currency ?? null,
+        includesSecondCopy: payload.includesSecondCopy,
       });
   if (!marginCheck.allowed) {
     await persistProblemPrintOrder({
@@ -1271,6 +1277,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       recipient,
       additionalVariants: payload.includesCardAddOn ? ["card_4x6"] : undefined,
       variantFileUrls: cardPrintAssetUrl ? { card_4x6: cardPrintAssetUrl } : undefined,
+      mainItemQuantity: payload.includesSecondCopy ? 2 : 1,
     });
     if (!printfulResult.ok) {
       await persistProblemPrintOrder({

@@ -122,7 +122,7 @@ test("(d) wiring: the key builder appends the pricing segment and the handler su
   // (G-dot recheck: the gift flag belongs to the reuse identity). The
   // pricing segment's own content and position are unchanged — the key
   // base now ends pricing-then-gift.
-  assert.match(route, /\$\{pricingSegment\}\$\{giftSegment\}`;/, "the pricing segment (then the gift segment) must land in the cache-key base");
+  assert.match(route, /\$\{pricingSegment\}\$\{giftSegment\}\$\{copySegment\}`;/, "the pricing segment (then the gift segment, then the Lever A copy segment) must land in the cache-key base");
   // Exactly one key-builder call site, and it receives the identity
   // resolved with the request's client country (geo pricing input).
   assert.equal([...route.matchAll(/checkoutIdempotencyKey\(\{/g)].length, 1);

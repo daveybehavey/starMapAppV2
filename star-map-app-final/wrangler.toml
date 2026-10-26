@@ -89,6 +89,10 @@ PRINT_DYNAMIC_SHIPPING = "true"
 PRINT_MARGIN_GUARD_ENABLED = "true"
 PRINT_MIN_MARGIN_CENTS = "1000"
 PRINT_ORDER_SUBMISSION_ENABLED = "true"
+# Lever A second copy (10% off) — ship DARK: both switches stay "false" until
+# the activation step flips them together (server gate + public UI switch).
+PRINT_SECOND_COPY_ENABLED = "false"
+NEXT_PUBLIC_PRINT_SECOND_COPY_ENABLED = "false"
 PRINTFUL_STORE_ID = "17779767"
 PRINTFUL_VARIANT_ID_POSTER_UNFRAMED = "6242"
 PRINTFUL_VARIANT_ID_POSTER_UNFRAMED_16X16 = "4465"

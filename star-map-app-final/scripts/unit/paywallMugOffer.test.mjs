@@ -65,7 +65,10 @@ test("wiring: presentation delegates to the resolver and both call sites pass th
   assert.match(presentation, /preferredVariant\?: PrintVariant \| string \| null/);
 
   const modal = read("../../src/components/PaywallModal.tsx");
-  assert.match(modal, /getPaywallPrintCheckoutPresentation\(printShippingCountry, preferredPrintVariant\)/);
+  // Lever A: the call gained an opt-in third argument (the second-copy
+  // flag); the first two arguments — country + preferred variant — are
+  // still pinned exactly.
+  assert.match(modal, /getPaywallPrintCheckoutPresentation\(\s*printShippingCountry,\s*preferredPrintVariant,/);
   // Codex P2 on PR #352: impression tracking must use the same resolved
   // rows as rendering, not the static base constant, or the mug gets no
   // impression and every later row's index misaligns with selection.
@@ -73,5 +76,5 @@ test("wiring: presentation delegates to the resolver and both call sites pass th
   assert.ok(!modal.includes("PAYWALL_PRINT_CHECKOUT_ROWS"), "PaywallModal must not rebuild offers from the static constant");
 
   const editor = read("../../src/components/EditorExperience.tsx");
-  assert.match(editor, /getPaywallPrintCheckoutPresentation\(printShippingCountry, preferredPrintVariant\)/);
+  assert.match(editor, /getPaywallPrintCheckoutPresentation\(\s*printShippingCountry,\s*preferredPrintVariant,/);
 });

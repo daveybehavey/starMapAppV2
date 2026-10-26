@@ -20,6 +20,11 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { register } from "node:module";
+
+register("./tsAliasLoader.mjs", import.meta.url);
+
+const { getPrintSecondCopyCadPriceCents } = await import("../../src/lib/pricing.ts");
 
 import {
   CAD_REFERENCE_RATE,
@@ -235,6 +240,16 @@ test("merch checkout: currency parameter converts shipping presentation and mint
   assert.match(src, /getMerchCadCheckoutPriceCents\(family\)/);
   // The USD charge figure is preserved for accounting.
   assert.match(src, /shippingChargeCents: amountCents,/);
+});
+
+test("lever A: the CAD copy price is round(CAD book x 0.9), struck from the same CAD book", () => {
+  // The copy helper reads priceCadFallbackCents via getPrintCadPriceCents —
+  // the code-struck CAD book, deliberately not env-overridable, exactly
+  // like the main CAD line it mirrors.
+  assert.equal(getPrintSecondCopyCadPriceCents("poster_unframed"), 6210); // 6900 x 0.9
+  assert.equal(getPrintSecondCopyCadPriceCents("poster_unframed_16x16"), 4950); // 5500 x 0.9
+  assert.equal(getPrintSecondCopyCadPriceCents("poster_framed"), 12510); // 13900 x 0.9
+  assert.equal(getPrintSecondCopyCadPriceCents("canvas_wrap"), 9990); // 11100 x 0.9
 });
 
 test("fence: automatic_tax appears nowhere in the checkout path", () => {

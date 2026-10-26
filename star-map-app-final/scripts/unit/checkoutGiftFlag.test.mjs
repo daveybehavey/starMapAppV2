@@ -178,7 +178,9 @@ test("wiring: the gift flag scopes the reuse identity — the key, never the pri
   // the box is ticked, appended after the (unchanged) pricing segment.
   assert.match(idempotencyKey, /isGift\?: boolean;/);
   assert.match(idempotencyKey, /const giftSegment = input\.isGift \? ":gift" : "";/);
-  assert.match(idempotencyKey, /\$\{pricingSegment\}\$\{giftSegment\}`/);
+  // Lever A: the copy segment (":c2", "" when off) appends after the gift
+  // segment — non-copy keys, gift included, stay byte-identical.
+  assert.match(idempotencyKey, /\$\{pricingSegment\}\$\{giftSegment\}\$\{copySegment\}`/);
   // The single call site threads the parsed flag into the builder.
   assert.match(route, /customerEmail: customerEmail \?\? null,\s*isGift,\s*pricingIdentity,/);
 });

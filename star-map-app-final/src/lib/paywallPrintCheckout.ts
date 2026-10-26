@@ -1,6 +1,6 @@
 import type { PaywallPrintCheckoutRow } from "@/lib/printCatalog";
 import type { PrintVariant } from "@/lib/printCatalog";
-import { resolvePaywallOfferRows } from "@/lib/printCatalog";
+import { isSecondCopyEligibleVariant, resolvePaywallOfferRows } from "@/lib/printCatalog";
 import { formatPrice, getPrintPricingTiers } from "@/lib/pricing";
 import { formatPrintShippingEstimate } from "@/lib/printfulShipping";
 import {
@@ -17,6 +17,7 @@ export type PaywallPrintCheckoutPresentationRow = PaywallPrintCheckoutRow & {
 export function getPaywallPrintCheckoutPresentation(
   printShippingCountry: string | null | undefined,
   preferredVariant?: PrintVariant | string | null,
+  includeSecondCopy = false,
 ): PaywallPrintCheckoutPresentationRow[] {
   const tiers = getPrintPricingTiers();
 
@@ -29,10 +30,16 @@ export function getPaywallPrintCheckoutPresentation(
     const tier = tiers[row.variant];
     const headline = row.headline ?? tier.label;
     const productPrice = formatPrice(tier.amountCents, tier.currency);
+    // Lever A: with the second-copy toggle on, an eligible row's total
+    // includes the copy at its 90% price (via the same subtotal helper
+    // the checkout route's free-shipping decision mirrors), so the
+    // displayed total and shipping label stay truthful to checkout.
+    const rowIncludeSecondCopy = includeSecondCopy && isSecondCopyEligibleVariant(row.variant);
     const merchandiseSubtotalCents = getPrintMerchandiseSubtotalCents({
       variant: row.variant,
       includeDigitalAddOn: row.includeDigitalAddOn,
       includeCardAddOn: row.includeCardAddOn,
+      includeSecondCopy: rowIncludeSecondCopy,
     });
     const shippingLabel = qualifiesForPrintFreeShipping(merchandiseSubtotalCents)
       ? "free shipping"
@@ -43,9 +50,11 @@ export function getPaywallPrintCheckoutPresentation(
     // components. Single-product rows keep the product price + shipping
     // estimate construction used sitewide.
     const isBundleRow = Boolean(row.includeDigitalAddOn || row.includeCardAddOn);
-    const secondaryLine = isBundleRow
-      ? `${formatPrice(merchandiseSubtotalCents, tier.currency)} · ${shippingLabel}`
-      : [productPrice, shippingLabel].join(" + ");
+    const secondaryLine = rowIncludeSecondCopy
+      ? `${formatPrice(merchandiseSubtotalCents, tier.currency)} with second copy · ${shippingLabel}`
+      : isBundleRow
+        ? `${formatPrice(merchandiseSubtotalCents, tier.currency)} · ${shippingLabel}`
+        : [productPrice, shippingLabel].join(" + ");
     return { ...row, index, headline, secondaryLine };
   });
 }

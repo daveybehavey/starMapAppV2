@@ -22,6 +22,14 @@ export type PrintOrderRecord = {
   includesDigitalAddOn: boolean;
   /** Bundled greeting card with framed print (C1). */
   includesCardAddOn?: boolean;
+  /**
+   * Second copy of the same print at 10% off (Lever A). Fulfilment is
+   * quantity 2 on the main Printful item. Absent = false, so every
+   * legacy record reads correctly. Mints NO digital entitlement: the
+   * entitlement path keys off plan/credits metadata, which the copy
+   * flag never sets.
+   */
+  includesSecondCopy?: boolean;
   amountTotal?: number | null;
   currency?: string | null;
   customerEmail?: string | null;

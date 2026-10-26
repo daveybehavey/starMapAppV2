@@ -40,6 +40,7 @@ export function buildPosthogPurchaseProperties(input: Ga4PurchaseInput): Record<
     plan: input.plan ?? undefined,
     print_variant: input.printVariant ?? undefined,
     include_digital_add_on: input.includeDigitalAddOn ?? undefined,
+    include_second_copy: input.includeSecondCopy ?? undefined,
     source: "stripe_webhook",
     server_side: true,
     $lib: "starmapco-server",

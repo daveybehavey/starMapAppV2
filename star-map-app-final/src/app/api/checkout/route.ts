@@ -8,6 +8,9 @@ import {
   getPrintDigitalAddOnCadPriceCents,
   getPrintDigitalAddOnPrice,
   getPrintPricingTiers,
+  getPrintSecondCopyCadPriceCents,
+  getPrintSecondCopyPriceCents,
+  isPrintSecondCopyEnabled,
   type CheckoutOrderType,
   type CheckoutPlan,
   type PrintVariant,
@@ -36,7 +39,7 @@ import { recordFunnelStep } from "@/lib/funnel";
 import { getGeoDigitalSinglePrice, getRequestCountry } from "@/lib/geoPricing";
 import { evaluatePrintMarginForCheckout } from "@/lib/printMargin";
 import { applyPrintFreeShippingToCheckout } from "@/lib/printFreeShipping";
-import { parsePrintVariant } from "@/lib/printCatalog";
+import { isSecondCopyEligibleVariant, parsePrintVariant } from "@/lib/printCatalog";
 import {
   getMerchCadCheckoutPriceCents,
   getMerchCheckoutPriceCents,
@@ -778,12 +781,36 @@ function boundStripeIdempotencyKey(key: string, maxLength = 200): string {
  * share a cache key or Stripe idempotency key with the same cart
  * priced in USD, in either direction, across the flip.
  */
+/**
+ * Lever A normalisation — the ONE rule every mirrored surface applies
+ * (session builder + pricing identity): the second copy exists only
+ * when the server kill switch is on, the order is a non-merch print,
+ * and the variant can physically pair (posters + canvas — never the
+ * mug, never the card itself). The copy is orthogonal to the HD and
+ * card add-ons, and gift orders may include one (same parcel, same
+ * recipient). It never touches plan/credits metadata, so it mints no
+ * digital entitlement.
+ */
+function normalizeIncludeSecondCopy(input: {
+  includeSecondCopy?: boolean;
+  printVariant: PrintVariant;
+  isMerchOrder: boolean;
+}): boolean {
+  return Boolean(
+    !input.isMerchOrder &&
+      input.includeSecondCopy &&
+      isPrintSecondCopyEnabled() &&
+      isSecondCopyEligibleVariant(input.printVariant),
+  );
+}
+
 function resolveCheckoutPricingIdentity(input: {
   plan: CheckoutPlan;
   orderType: CheckoutOrderType;
   printVariant?: PrintVariant;
   includeDigitalAddOn?: boolean;
   includeCardAddOn?: boolean;
+  includeSecondCopy?: boolean;
   merchFamily?: MerchFamilyId;
   shippingCountry?: string | null;
   clientCountry?: string | null;
@@ -842,6 +869,18 @@ function resolveCheckoutPricingIdentity(input: {
     ) {
       components.push(priceDataComponent("cad", getPrintCadPriceCents("card_4x6")));
     }
+    // Lever A: the copy is ALWAYS a price_data component at 90% of the
+    // CAD book value — never a Price ID (merch handled above, so this
+    // branch is non-merch by construction).
+    if (
+      normalizeIncludeSecondCopy({
+        includeSecondCopy: input.includeSecondCopy,
+        printVariant: normalizedPrintVariant,
+        isMerchOrder: false,
+      })
+    ) {
+      components.push(priceDataComponent("cad", getPrintSecondCopyCadPriceCents(normalizedPrintVariant)));
+    }
     return buildCheckoutPricingIdentity(components);
   }
   const printTiers = getPrintPricingTiers();
@@ -876,6 +915,20 @@ function resolveCheckoutPricingIdentity(input: {
         : priceDataComponent(cardTier.currency, cardTier.amountCents),
     );
   }
+  // Lever A: the copy is ALWAYS a price_data component at 90% of the
+  // effective tier — never the variant's Price ID (that ID prices the
+  // full-price item; using it would charge full price for the copy).
+  if (
+    normalizeIncludeSecondCopy({
+      includeSecondCopy: input.includeSecondCopy,
+      printVariant: normalizedPrintVariant,
+      isMerchOrder: false,
+    })
+  ) {
+    components.push(
+      priceDataComponent(printTier.currency, getPrintSecondCopyPriceCents(normalizedPrintVariant)),
+    );
+  }
   return buildCheckoutPricingIdentity(components);
 }
 
@@ -886,6 +939,7 @@ function checkoutIdempotencyKey(input: {
   printVariant?: PrintVariant;
   includeDigitalAddOn?: boolean;
   includeCardAddOn?: boolean;
+  includeSecondCopy?: boolean;
   merchFamily?: MerchFamilyId;
   merchSize?: string;
   merchColor?: string;
@@ -922,7 +976,12 @@ function checkoutIdempotencyKey(input: {
   // byte-identical to before; gift and non-gift can never share a
   // cached URL or a Stripe idempotency key in either direction.
   const giftSegment = input.isGift ? ":gift" : "";
-  const baseWithoutMapId = `${CHECKOUT_IDEMPOTENCY_PREFIX}${orderType}:${plan}:${printVariant}:${includeDigitalAddOn}:${includeCardAddOn}:${merchFamily}:${merchSize}:${merchColor}:${shipping}:${promo}:${referral}${emailSegment}${input.androidAppMode ? ":app-android" : ""}${pricingSegment}${giftSegment}`;
+  // Lever A: same append-only discipline as the gift segment — present
+  // only when true, after the gift segment, so non-copy keys stay
+  // byte-identical and a copy order can never reuse a non-copy session
+  // (or vice versa).
+  const copySegment = input.includeSecondCopy ? ":c2" : "";
+  const baseWithoutMapId = `${CHECKOUT_IDEMPOTENCY_PREFIX}${orderType}:${plan}:${printVariant}:${includeDigitalAddOn}:${includeCardAddOn}:${merchFamily}:${merchSize}:${merchColor}:${shipping}:${promo}:${referral}${emailSegment}${input.androidAppMode ? ":app-android" : ""}${pricingSegment}${giftSegment}${copySegment}`;
   return appendCheckoutIdempotencyQaSegment(baseWithoutMapId, input.qaContext, mapId);
 }
 
@@ -938,6 +997,7 @@ async function createCheckoutSession(input: {
   printVariant?: PrintVariant;
   includeDigitalAddOn?: boolean;
   includeCardAddOn?: boolean;
+  includeSecondCopy?: boolean;
   /** Buyer marked the order as a gift (editor checkbox). Never priced; carried in the checkout reuse identity (gift segment) so a toggled checkbox cannot reuse the wrong session. */
   isGift?: boolean;
   shippingCountry?: string;
@@ -969,6 +1029,7 @@ async function createCheckoutSession(input: {
     printVariant = "poster_framed",
     includeDigitalAddOn = false,
     includeCardAddOn = false,
+    includeSecondCopy = false,
     shippingCountry,
     clientCountry,
     customerEmail: customerEmailInput,
@@ -1002,6 +1063,11 @@ async function createCheckoutSession(input: {
   const isMerchOrder = Boolean(resolvedMerch);
   const normalizedIncludeCardAddOn =
     !isMerchOrder && includeCardAddOn && normalizedPrintVariant === "poster_framed" && !includeDigitalAddOn;
+  const normalizedIncludeSecondCopy = normalizeIncludeSecondCopy({
+    includeSecondCopy,
+    printVariant: normalizedPrintVariant,
+    isMerchOrder,
+  });
   const effectivePlan = isPrintOrder ? "single" : plan;
   // Hosted Stripe promo entry is print-only; digital comps are applied via `discounts`.
   const allowPromotionCodes = canUseHostedPromotionCodes(normalizedOrderType, effectivePlan);
@@ -1049,6 +1115,7 @@ async function createCheckoutSession(input: {
     shippingCountry: resolvedShippingCountry,
     includeDigitalAddOn: !isMerchOrder && includeDigitalAddOn,
     includeCardAddOn: normalizedIncludeCardAddOn,
+    includeSecondCopy: normalizedIncludeSecondCopy,
   });
   // T-FLEET-103: one currency decision for the whole session, from the
   // single resolver the pricing identity also uses (print/merch follow
@@ -1097,6 +1164,9 @@ async function createCheckoutSession(input: {
     metadata.print_variant = normalizedPrintVariant;
     metadata.print_include_digital = !isMerchOrder && includeDigitalAddOn ? "true" : "false";
     metadata.print_include_card = normalizedIncludeCardAddOn ? "true" : "false";
+    // Lever A: the copy flag ONLY. Never plan/credits — those are the
+    // digital entitlement trigger, and a copy mints no entitlement.
+    metadata.print_include_second_copy = normalizedIncludeSecondCopy ? "true" : "false";
     if (printAssetId) metadata.print_asset_id = printAssetId;
     if (normalizedIncludeCardAddOn && cardPrintAssetId) metadata.print_card_asset_id = cardPrintAssetId;
     if (!isMerchOrder && includeDigitalAddOn) {
@@ -1267,6 +1337,35 @@ async function createCheckoutSession(input: {
         priceId: cardPriceId || null,
       });
     }
+    if (normalizedIncludeSecondCopy) {
+      // Lever A: a fourth line, appended after the card line. ALWAYS
+      // price_data — never the variant's Price ID (that ID prices the
+      // full-price item) and no dedicated Stripe Price/Product in v1.
+      // The mirror entries carry priceId: null, so under a future
+      // product-scoped coupon the copy contributes 0 to the eligible
+      // subtotal (the promo discounts the first print only), while
+      // today's unscoped coupons stack on it — the accepted HD
+      // disposition. The USD mirror counts the copy toward the
+      // free-shipping subtotal at its 90% price, as charged.
+      const copyUsdPriceCents = getPrintSecondCopyPriceCents(normalizedPrintVariant);
+      const copyPriceCents = isCadCheckout
+        ? getPrintSecondCopyCadPriceCents(normalizedPrintVariant)
+        : copyUsdPriceCents;
+      lineItems.push({
+        price_data: {
+          currency: isCadCheckout ? "cad" : printTier.currency,
+          unit_amount: copyPriceCents,
+          product_data: {
+            name: `Custom Star Map — ${printTier.label} (second copy, 10% off)`,
+            description: `${printTier.label} • Second copy of the same design`,
+            images: [`${siteUrl}/custom-star-map-anniversary.webp`],
+          },
+        },
+        quantity: 1,
+      });
+      promotionEstimateLineItems.push({ amountCents: copyPriceCents, priceId: null });
+      promotionEstimateLineItemsUsd.push({ amountCents: copyUsdPriceCents, priceId: null });
+    }
   } else {
     const digitalLineItem:
       | { price: string }
@@ -1426,6 +1525,7 @@ async function createCheckoutSession(input: {
       shippingChargeCents: printShippingChargeCents,
       includeDigitalAddOn,
       includeCardAddOn: normalizedIncludeCardAddOn,
+      includeSecondCopy: normalizedIncludeSecondCopy,
       discountAmountCents: guardDiscountCents,
     });
     if (!marginCheck.allowed) {
@@ -1659,6 +1759,7 @@ export async function GET(req: NextRequest) {
   const printVariantParam = req.nextUrl.searchParams.get("print_variant");
   const includeDigitalAddOnParam = req.nextUrl.searchParams.get("include_digital_addon");
   const includeCardAddOnParam = req.nextUrl.searchParams.get("include_card_addon");
+  const includeSecondCopyParam = req.nextUrl.searchParams.get("include_second_copy");
   const merchFamilyParam = req.nextUrl.searchParams.get("merch_family");
   const merchSizeParam = req.nextUrl.searchParams.get("merch_size");
   const merchColorParam = req.nextUrl.searchParams.get("merch_color");
@@ -1674,6 +1775,7 @@ export async function GET(req: NextRequest) {
   const printVariant = parsePrintVariant(printVariantParam);
   let includeDigitalAddOn = parseBoolean(includeDigitalAddOnParam, false);
   const includeCardAddOn = parseBoolean(includeCardAddOnParam, false);
+  const includeSecondCopy = parseBoolean(includeSecondCopyParam, false);
   const merchFamily =
     merchFamilyParam && isMerchFamilyId(merchFamilyParam.trim())
       ? (merchFamilyParam.trim() as MerchFamilyId)
@@ -1767,6 +1869,7 @@ export async function GET(req: NextRequest) {
       shippingCountry,
       includeDigitalAddOn,
       includeCardAddOn,
+      includeSecondCopy,
       source: "checkout-handoff-recovery",
     });
     // Browser navigations (bookmarks / stripped query) return to the editor with checkout
@@ -1878,6 +1981,7 @@ export async function GET(req: NextRequest) {
       printVariant,
       includeDigitalAddOn,
       includeCardAddOn,
+      includeSecondCopy,
       shippingCountry,
       clientCountry,
       customerEmail,
@@ -2016,6 +2120,7 @@ export async function POST(req: NextRequest) {
     let mapId: string | undefined;
     let includeDigitalAddOn = false;
     let includeCardAddOn = false;
+    let includeSecondCopy = false;
     let isGift = false;
     let merchFamily: MerchFamilyId | undefined;
     let merchSize: string | undefined;
@@ -2037,6 +2142,7 @@ export async function POST(req: NextRequest) {
         printVariant?: PrintVariant;
         includeDigitalAddOn?: boolean;
         includeCardAddOn?: boolean;
+        includeSecondCopy?: boolean;
         isGift?: boolean;
         merchFamily?: string;
         merchOptions?: { size?: string; color?: string };
@@ -2059,6 +2165,7 @@ export async function POST(req: NextRequest) {
       printVariant = parsePrintVariant(body?.printVariant);
       includeDigitalAddOn = parseBoolean(body?.includeDigitalAddOn, false);
       includeCardAddOn = parseBoolean(body?.includeCardAddOn, false);
+      includeSecondCopy = parseBoolean(body?.includeSecondCopy, false);
       isGift = parseBoolean(body?.isGift, false);
       if (body?.merchFamily && isMerchFamilyId(body.merchFamily.trim())) {
         merchFamily = body.merchFamily.trim() as MerchFamilyId;
@@ -2135,6 +2242,7 @@ export async function POST(req: NextRequest) {
         shippingCountry,
         includeDigitalAddOn,
         includeCardAddOn,
+        includeSecondCopy,
         source: "checkout-handoff-recovery",
       });
       return NextResponse.json(
@@ -2251,6 +2359,7 @@ export async function POST(req: NextRequest) {
       printVariant,
       includeDigitalAddOn,
       includeCardAddOn,
+      includeSecondCopy,
       merchFamily,
       shippingCountry: shippingCountry ?? null,
       clientCountry,
@@ -2262,6 +2371,7 @@ export async function POST(req: NextRequest) {
       printVariant,
       includeDigitalAddOn,
       includeCardAddOn,
+      includeSecondCopy,
       merchFamily,
       merchSize,
       merchColor,
@@ -2320,6 +2430,7 @@ export async function POST(req: NextRequest) {
       printVariant,
       includeDigitalAddOn,
       includeCardAddOn,
+      includeSecondCopy,
       shippingCountry,
       clientCountry,
       customerEmail,

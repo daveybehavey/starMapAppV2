@@ -262,6 +262,61 @@ export function getPrintCadPriceCents(variant: PrintVariant): number {
   return getPrintCatalogRow(variant).priceCadFallbackCents;
 }
 
+/**
+ * Lever A — "second copy of the same print at 10% off" (checkout
+ * add-on). Single pricing rule, consumed by the checkout line item,
+ * the promotion-estimate mirror, the pricing identity, and the margin
+ * guard so the four can never drift: the copy costs 90% of the
+ * variant's EFFECTIVE price in the session's currency, rounded to the
+ * nearest cent (Math.round on integer cents is round-half-up; every
+ * current price is whole-dollar in both books, so the rule is exact
+ * today — USD 4900 -> 4410, 3900 -> 3510, 9900 -> 8910, 7900 -> 7110;
+ * CAD 6900 -> 6210, 5500 -> 4950, 13900 -> 12510, 11100 -> 9990).
+ * The USD helper reads the effective (env-overridable) tier, so an env
+ * reprice reprices the copy automatically; the CAD helper reads the
+ * code-struck CAD book, deliberately not env-overridable, exactly like
+ * the main CAD line.
+ */
+export function getPrintSecondCopyPriceCents(variant: PrintVariant): number {
+  return Math.round(getPrintPricingTiers()[variant].amountCents * 0.9);
+}
+
+export function getPrintSecondCopyCadPriceCents(variant: PrintVariant): number {
+  return Math.round(getPrintCadPriceCents(variant) * 0.9);
+}
+
+function parseBoolEnv(raw: string | undefined, fallback: boolean): boolean {
+  if (!raw || !raw.trim()) return fallback;
+  const normalized = raw.trim().toLowerCase();
+  if (["1", "true", "yes"].includes(normalized)) return true;
+  if (["0", "false", "no"].includes(normalized)) return false;
+  return fallback;
+}
+
+/**
+ * Lever A kill switches. Ship dark: both default off.
+ * - Server (`PRINT_SECOND_COPY_ENABLED`): the checkout route
+ *   normalises the add-on off when unset/false, mirroring the
+ *   PRINT_MARGIN_GUARD_ENABLED parse pattern. Never true client-side
+ *   (the var is not NEXT_PUBLIC, so it cannot leak into a bundle).
+ * - Public (`NEXT_PUBLIC_PRINT_SECOND_COPY_ENABLED`): toggle
+ *   visibility in the editor / paywall / mobile purchase panels.
+ * Rollback is switching either off — no deploy; in-flight sessions
+ * expire on the existing 2-hour TTL.
+ */
+export function isPrintSecondCopyEnabled(): boolean {
+  if (typeof window !== "undefined") return false;
+  return parseBoolEnv(process.env.PRINT_SECOND_COPY_ENABLED, false);
+}
+
+export function isPrintSecondCopyPublicEnabled(): boolean {
+  const raw =
+    typeof window === "undefined"
+      ? process.env.NEXT_PUBLIC_PRINT_SECOND_COPY_ENABLED
+      : process.env.NEXT_PUBLIC_PRINT_SECOND_COPY_ENABLED;
+  return parseBoolEnv(raw, false);
+}
+
 export function formatPrice(amountCents: number, currency: string): string {
   const code = (currency || "USD").toUpperCase();
   const formatted = new Intl.NumberFormat("en-US", {

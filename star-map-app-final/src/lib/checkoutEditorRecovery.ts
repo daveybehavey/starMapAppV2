@@ -11,6 +11,7 @@ export function buildCheckoutEditorRecoveryUrl(input: {
   shippingCountry?: string | null;
   includeDigitalAddOn?: boolean;
   includeCardAddOn?: boolean;
+  includeSecondCopy?: boolean;
   source?: string;
 }): string {
   const origin = input.siteOrigin.replace(/\/+$/, "");
@@ -24,6 +25,7 @@ export function buildCheckoutEditorRecoveryUrl(input: {
     if (input.shippingCountry) params.set("shipping_country", input.shippingCountry.toUpperCase());
     if (input.includeDigitalAddOn) params.set("include_digital_addon", "1");
     if (input.includeCardAddOn) params.set("include_card_addon", "1");
+    if (input.includeSecondCopy) params.set("include_second_copy", "1");
   } else {
     params.set("checkout", "digital");
     if (input.plan && ["single", "pack3", "subscription"].includes(input.plan)) {
@@ -43,6 +45,7 @@ export function buildCheckoutCancelUrl(input: {
   shippingCountry?: string | null;
   includeDigitalAddOn?: boolean;
   includeCardAddOn?: boolean;
+  includeSecondCopy?: boolean;
 }): string {
   return buildCheckoutEditorRecoveryUrl({
     ...input,

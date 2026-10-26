@@ -102,6 +102,7 @@ export function buildPrintEditorCheckoutHref(input: {
   variant: PrintVariant;
   includeDigitalAddOn?: boolean;
   includeCardAddOn?: boolean;
+  includeSecondCopy?: boolean;
   mode?: string;
 }): string {
   const params = new URLSearchParams({
@@ -112,6 +113,7 @@ export function buildPrintEditorCheckoutHref(input: {
   });
   if (input.includeDigitalAddOn) params.set("include_digital_addon", "1");
   if (input.includeCardAddOn) params.set("include_card_addon", "1");
+  if (input.includeSecondCopy) params.set("include_second_copy", "1");
   return `/editor?${params.toString()}`;
 }
 
