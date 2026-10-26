@@ -238,3 +238,21 @@ export type PrintShippingProfile = "poster_unframed" | "poster_framed" | "canvas
 export function getPrintShippingProfile(variant: PrintVariant): PrintShippingProfile {
   return getPrintCatalogRow(variant).shippingProfile;
 }
+
+/**
+ * Lever A — variants a "second copy of the same print" add-on may
+ * attach to: posters + canvas. The mug is excluded (its shipping is
+ * already under-recovered) and card_4x6 is itself an add-on, never a
+ * base order. Every mirrored checkout surface (session builder,
+ * pricing identity, storefront toggles) consults this one set.
+ */
+export const PRINT_SECOND_COPY_VARIANTS: readonly PrintVariant[] = [
+  "poster_unframed",
+  "poster_unframed_16x16",
+  "poster_framed",
+  "canvas_wrap",
+];
+
+export function isSecondCopyEligibleVariant(variant: PrintVariant): boolean {
+  return (PRINT_SECOND_COPY_VARIANTS as readonly string[]).includes(variant);
+}
