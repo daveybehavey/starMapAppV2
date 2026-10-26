@@ -371,8 +371,8 @@ test("UI wiring: all three surfaces render the toggle and thread the flag (sourc
   assert.match(editor, /checkoutPayload\.includeSecondCopy = includeSecondCopy;/);
 });
 
-test("config: both kill switches are declared and ship dark", () => {
+test("config: both kill switches are declared and ACTIVATED (Lever A activation; flip both back to \"false\" to roll back)", () => {
   const toml = read("wrangler.toml");
-  assert.match(toml, /PRINT_SECOND_COPY_ENABLED = "false"/);
-  assert.match(toml, /NEXT_PUBLIC_PRINT_SECOND_COPY_ENABLED = "false"/);
+  assert.match(toml, /PRINT_SECOND_COPY_ENABLED = "true"/);
+  assert.match(toml, /NEXT_PUBLIC_PRINT_SECOND_COPY_ENABLED = "true"/);
 });
