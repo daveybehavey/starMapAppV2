@@ -34,9 +34,11 @@ test("editor bundle rows state the total, not a price-plus-add-on string", () =>
 });
 
 test("editor single-product rows keep product price + shipping estimate", () => {
+  // Lever B: the framed single row qualifies for free shipping on its own
+  // ($99 >= $89 threshold); unframed and canvas rows still show the charge.
   assert.equal(
     paywallSecondaryLine({ variant: "poster_framed", includeDigitalAddOn: false, includeCardAddOn: false }),
-    "$99.00 USD + $10.77 USD shipping",
+    "$99.00 USD + free shipping",
   );
   assert.equal(
     paywallSecondaryLine({ variant: "poster_unframed", includeDigitalAddOn: false, includeCardAddOn: false }),
@@ -59,8 +61,15 @@ test("paywall presentation composes bundle rows from the merchandise subtotal", 
 });
 
 test("shipping footnote is customer-clean, jargon-free, and unpunctuated", () => {
+  // Lever B: framed-only orders ship free, so the footnote must not
+  // advertise a framed charge; the unframed charge follows the refreshed
+  // shipping matrix (CA $5.17 / US $4.49).
   const footnote = formatPosterShippingFootnote("CA");
-  assert.equal(footnote, "framed print $10.77 USD shipping, unframed poster $5.17 USD shipping");
+  assert.equal(footnote, "framed print free shipping, unframed poster $5.17 USD shipping");
+  assert.equal(
+    formatPosterShippingFootnote("US"),
+    "framed print free shipping, unframed poster $4.49 USD shipping",
+  );
   assert.doesNotMatch(footnote, /tiers/i);
   assert.doesNotMatch(footnote, /\.$/);
   assert.equal(formatPosterShippingFootnote(null), null);
@@ -68,6 +77,20 @@ test("shipping footnote is customer-clean, jargon-free, and unpunctuated", () =>
   const src = readSrc("lib/paywallPrintCheckout.ts");
   assert.doesNotMatch(src, /Poster tiers/);
   assert.match(src, /return `framed print \$\{framed\}, unframed poster \$\{unframed\}`;/);
+  // The framed segment is eligibility-gated in source, not a raw estimate.
+  assert.match(
+    src,
+    /qualifiesForPrintFreeShipping\(\s*getPrintMerchandiseSubtotalCents\(\{ variant: "poster_framed" \}\),\s*\)/,
+  );
+});
+
+test("download upsell price lines gate the shipping estimate on eligibility", () => {
+  const download = readSrc("app/download/DownloadClient.tsx");
+  assert.match(
+    download,
+    /qualifiesForPrintFreeShipping\(\s*getPrintMerchandiseSubtotalCents\(\{ variant: card\.variant \}\),\s*\)/,
+  );
+  assert.match(download, /formatPrintShippingEstimate\(card\.variant, printShippingCountry, "shipping"\)/);
 });
 
 test("footnote render sites each close the sentence exactly once", () => {

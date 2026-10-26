@@ -29,6 +29,10 @@ import { listDownloadPrintUpsellCards } from "@/lib/downloadPrintUpsellCatalog";
 import { getDefaultMerchEditorHref } from "@/lib/merchCatalog";
 import { formatPosterShippingFootnote } from "@/lib/paywallPrintCheckout";
 import {
+  getPrintMerchandiseSubtotalCents,
+  qualifiesForPrintFreeShipping,
+} from "@/lib/printFreeShipping";
+import {
   formatPrintShippingEstimate,
   getPrintShippingCountryLabel,
   getPrintShippingCountryOptions,
@@ -349,7 +353,14 @@ export default function DownloadClient() {
   const downloadPrintOptions = useMemo(() => {
     return listDownloadPrintUpsellCards().map((card) => {
       const tier = printTiers[card.variant];
-      const ship = formatPrintShippingEstimate(card.variant, printShippingCountry, "shipping");
+      // A framed-only order clears the free-shipping threshold on its own
+      // (Lever B), so its upsell line must read "free shipping", not the raw
+      // carrier charge checkout will not collect.
+      const ship = qualifiesForPrintFreeShipping(
+        getPrintMerchandiseSubtotalCents({ variant: card.variant }),
+      )
+        ? "free shipping"
+        : formatPrintShippingEstimate(card.variant, printShippingCountry, "shipping");
       return {
         ...card,
         label: tier.label,

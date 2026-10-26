@@ -73,7 +73,7 @@ function main() {
       targetCountries,
       shippingLabels: ["print_unframed", "print_framed", "print_framed_hd_free"],
       freeShipping: {
-        thresholdCents: parseInt(process.env.PRINT_FREE_SHIPPING_THRESHOLD_CENTS || "10000", 10),
+        thresholdCents: parseInt(process.env.PRINT_FREE_SHIPPING_THRESHOLD_CENTS || "8900", 10),
         qualifyingExample: "Framed print + HD digital ($106 merchandise)",
         merchantFeedBundleId: "print_poster_framed_hd_bundle",
       },

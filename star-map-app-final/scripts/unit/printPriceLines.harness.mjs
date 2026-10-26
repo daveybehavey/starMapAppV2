@@ -12,9 +12,10 @@
  *
  * Amounts are the code fallbacks: framed 9900, unframed 4900, canvas 7900,
  * card 1900 (src/lib/printCatalog.ts), HD add-on 700 (pricing), default
- * free-shipping threshold 10000 (printFreeShipping.ts). Shipping estimates
- * are the Canada row of data/printful-shipping.json (framed profile 1077,
- * unframed profile 517, canvas profile 1712 — canvas has its own profile).
+ * free-shipping threshold 8900 (printFreeShipping.ts, Lever B). Shipping
+ * estimates are the Canada and US rows of data/printful-shipping.json
+ * (framed profile CA 1077 / US 984, unframed profile CA 517 / US 449,
+ * canvas profile CA 1712 / US 1005 — canvas has its own profile).
  */
 
 export function formatPrice(cents, currency = "USD") {
@@ -35,7 +36,7 @@ export const TIER_CENTS = {
   card_4x6: 1900,
 };
 export const HD_ADDON_CENTS = 700;
-export const DEFAULT_THRESHOLD_CENTS = 10000;
+export const DEFAULT_THRESHOLD_CENTS = 8900;
 
 const SHIPPING_PROFILE = {
   poster_framed: "poster_framed",
@@ -43,7 +44,10 @@ const SHIPPING_PROFILE = {
   canvas_wrap: "canvas_wrap",
   card_4x6: "poster_unframed",
 };
-const CA_SHIPPING_CENTS = { poster_framed: 1077, poster_unframed: 517, canvas_wrap: 1712 };
+const SHIPPING_CENTS_BY_COUNTRY = {
+  CA: { poster_framed: 1077, poster_unframed: 517, canvas_wrap: 1712 },
+  US: { poster_framed: 984, poster_unframed: 449, canvas_wrap: 1005 },
+};
 
 export function getPrintMerchandiseSubtotalCents({ variant, includeDigitalAddOn, includeCardAddOn }) {
   let total = TIER_CENTS[variant];
@@ -74,8 +78,9 @@ export function getFramedCardBundlePriceLine(threshold = DEFAULT_THRESHOLD_CENTS
   return `${total} framed + card`;
 }
 
-export function formatPrintShippingEstimate(variant) {
-  return `${formatPrice(CA_SHIPPING_CENTS[SHIPPING_PROFILE[variant]])} shipping`;
+export function formatPrintShippingEstimate(variant, country = "CA") {
+  const rates = SHIPPING_CENTS_BY_COUNTRY[country] ?? SHIPPING_CENTS_BY_COUNTRY.CA;
+  return `${formatPrice(rates[SHIPPING_PROFILE[variant]])} shipping`;
 }
 
 /** Mirror of the secondaryLine composition in getPaywallPrintCheckoutPresentation (CA selected). */
@@ -92,7 +97,13 @@ export function paywallSecondaryLine(row, threshold = DEFAULT_THRESHOLD_CENTS) {
 
 export function formatPosterShippingFootnote(country) {
   if (!country) return null;
-  const framed = formatPrintShippingEstimate("poster_framed");
-  const unframed = formatPrintShippingEstimate("poster_unframed");
+  // Mirror of src: a framed-only order qualifies on its own at the Lever B
+  // threshold, so the framed segment reads "free shipping", not a charge.
+  const framed = qualifiesForPrintFreeShipping(
+    getPrintMerchandiseSubtotalCents({ variant: "poster_framed" }),
+  )
+    ? "free shipping"
+    : formatPrintShippingEstimate("poster_framed", country);
+  const unframed = formatPrintShippingEstimate("poster_unframed", country);
   return `framed print ${framed}, unframed poster ${unframed}`;
 }
