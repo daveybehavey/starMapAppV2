@@ -43,6 +43,7 @@ export const PRINT_CATALOG = [
     includesFrame: false,
     labelFallback: "Museum-grade poster (16×16)",
     priceFallbackCents: 3900,
+    priceCadFallbackCents: 5500,
     priceEnv: "PRINT_UNFRAMED_16X16_PRICE_CENTS",
     publicPriceEnv: "NEXT_PUBLIC_PRINT_UNFRAMED_16X16_PRICE_CENTS",
     labelEnv: "PRINT_UNFRAMED_16X16_LABEL",
