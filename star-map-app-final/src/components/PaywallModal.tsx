@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CheckoutPlan } from "@/lib/pricing";
-import type { PrintVariant } from "@/lib/pricing";
+import { isPrintSecondCopyPublicEnabled, type PrintVariant } from "@/lib/pricing";
+import { isSecondCopyEligibleVariant } from "@/lib/printCatalog";
 import type { PaywallCopyVariant } from "@/lib/experiments";
 import { trackSelectItem, trackViewItemList } from "@/lib/analytics";
 import { useAndroidAppMode } from "@/hooks/useAndroidAppMode";
@@ -79,6 +80,9 @@ type Props = {
   purchaseIntent?: "digital" | "print";
   preferredPrintVariant?: PrintVariant;
   preferredIncludeDigitalAddOn?: boolean;
+  /** Lever A second-copy toggle selection, controlled by the editor (like the gift flag). */
+  includeSecondCopy?: boolean;
+  onIncludeSecondCopyChange?: (includeSecondCopy: boolean) => void;
   /** Wedding gift funnel — tailored paywall copy on the print tab */
   giftPaywallContext?: "wedding";
   showReferralHint?: boolean;
@@ -94,6 +98,7 @@ type Props = {
     variant: PrintVariant;
     includeDigitalAddOn: boolean;
     includeCardAddOn?: boolean;
+    includeSecondCopy?: boolean;
     customerEmail?: string;
   }) => void;
   onClose: () => void;
@@ -137,6 +142,8 @@ export function PaywallModal({
   purchaseIntent = "digital",
   preferredPrintVariant = "poster_framed",
   preferredIncludeDigitalAddOn = false,
+  includeSecondCopy = false,
+  onIncludeSecondCopyChange,
   giftPaywallContext,
   printShippingCountry,
   printShippingCountries = [],
@@ -197,12 +204,17 @@ export function PaywallModal({
     () => getPrintShippingCountryOptions(printShippingCountries),
     [printShippingCountries]
   );
+  const secondCopyOffered = isPrintSecondCopyPublicEnabled();
   const printRows = useMemo(
     () => {
-      const rows = getPaywallPrintCheckoutPresentation(printShippingCountry, preferredPrintVariant);
+      const rows = getPaywallPrintCheckoutPresentation(
+        printShippingCountry,
+        preferredPrintVariant,
+        includeSecondCopy && secondCopyOffered
+      );
       return appMode ? rows.filter((row) => !row.includeDigitalAddOn) : rows;
     },
-    [printShippingCountry, appMode, preferredPrintVariant]
+    [printShippingCountry, appMode, preferredPrintVariant, includeSecondCopy, secondCopyOffered]
   );
 
   const posterShippingFootnote = useMemo(
@@ -359,6 +371,8 @@ export function PaywallModal({
       variant: row.variant,
       includeDigitalAddOn: row.includeDigitalAddOn,
       includeCardAddOn: row.includeCardAddOn,
+      includeSecondCopy:
+        includeSecondCopy && secondCopyOffered && isSecondCopyEligibleVariant(row.variant),
       ...(resolvedRecoveryEmail ? { customerEmail: resolvedRecoveryEmail } : {}),
     });
   };
@@ -643,6 +657,20 @@ export function PaywallModal({
                   </p>
                 ) : null}
                 <CheckoutLegalNotice tone="dark" className="mt-3" />
+                {secondCopyOffered && onIncludeSecondCopyChange ? (
+                  <label className="mt-3 flex cursor-pointer items-center gap-2 text-xs text-amber-100/90">
+                    <input
+                      type="checkbox"
+                      checked={includeSecondCopy}
+                      onChange={(event) => onIncludeSecondCopyChange(event.target.checked)}
+                      className="h-4 w-4 shrink-0 accent-amber-300"
+                    />
+                    <span>
+                      <span className="font-semibold text-amber-100">Add a second copy — 10% off</span>{" "}
+                      — a second copy of the same print, in the same parcel.
+                    </span>
+                  </label>
+                ) : null}
                 <div className="mt-3 grid gap-2">
                   {printRows.map((row) => (
                     <div key={paywallPrintCheckoutRowKey(row)}>

@@ -41,6 +41,7 @@ import { CheckoutLegalNotice } from "@/components/CheckoutLegalNotice";
 import {
   formatPrice,
   getPricingTiers,
+  isPrintSecondCopyPublicEnabled,
   type CheckoutOrderType,
   type CheckoutPlan,
   type PrintVariant,
@@ -86,7 +87,7 @@ import {
   resolveInitialPrintShippingCountry,
   storePrintShippingCountry,
 } from "@/lib/printfulShipping";
-import { isPrintVariant, parsePrintVariant } from "@/lib/printCatalog";
+import { isPrintVariant, isSecondCopyEligibleVariant, parsePrintVariant } from "@/lib/printCatalog";
 import {
   formatPosterShippingFootnote,
   getPaywallPrintCheckoutPresentation,
@@ -367,6 +368,13 @@ export function EditorExperience({
   const [paywallIntent, setPaywallIntent] = useState<PaywallIntent>("digital");
   const [preferredPrintVariant, setPreferredPrintVariant] = useState<PrintVariant>("poster_framed");
   const [preferredIncludeDigitalAddOn, setPreferredIncludeDigitalAddOn] = useState(false);
+  // Lever A: the second-copy toggle selection, owned here and shared
+  // by the desktop print panel, the paywall, and mobile (the same
+  // ownership pattern as the gift flag). The toggle only renders —
+  // and the selection only takes effect — while the public switch is
+  // on; the checkout route's server switch is the final gate.
+  const [includeSecondCopy, setIncludeSecondCopy] = useState(false);
+  const secondCopyOffered = isPrintSecondCopyPublicEnabled();
   const enabledMerchFamilies = useMemo(() => listMerchFamiliesEnabledForPublicUi(), []);
   const defaultMerchFamily = (enabledMerchFamilies[0]?.id ?? "sticker_kisscut") as MerchFamilyId;
   const [selectedMerchFamily, setSelectedMerchFamily] = useState<MerchFamilyId>(defaultMerchFamily);
@@ -578,9 +586,13 @@ export function EditorExperience({
   // Google Play app mode: prints only, never a digital add-on row.
   const androidAppMode = useAndroidAppMode();
   const printCheckoutRows = useMemo(() => {
-    const rows = getPaywallPrintCheckoutPresentation(printShippingCountry, preferredPrintVariant);
+    const rows = getPaywallPrintCheckoutPresentation(
+      printShippingCountry,
+      preferredPrintVariant,
+      includeSecondCopy && secondCopyOffered,
+    );
     return androidAppMode ? rows.filter((row) => !row.includeDigitalAddOn) : rows;
-  }, [printShippingCountry, androidAppMode, preferredPrintVariant]);
+  }, [printShippingCountry, androidAppMode, preferredPrintVariant, includeSecondCopy, secondCopyOffered]);
   const activeMapLookTier = useMemo(
     () => resolveMapLookTier(renderOptions, selectedStyle),
     [renderOptions, selectedStyle]
@@ -847,6 +859,7 @@ export function EditorExperience({
     const utmCampaignParam = searchParams.get("utm_campaign");
     const printVariantParam = parsePrintVariantParam(searchParams.get("print_variant"));
     const includeDigitalAddOnParam = searchParams.get("include_digital_addon");
+    const includeSecondCopyParam = searchParams.get("include_second_copy");
     const shippingCountryParam = parseShippingCountryParam(searchParams.get("shipping_country"));
     if (
       !dateParam &&
@@ -937,6 +950,10 @@ export function EditorExperience({
       setPreferredIncludeDigitalAddOn(true);
     } else if (giftTraffic.preferredIncludeDigitalAddOn) {
       setPreferredIncludeDigitalAddOn(true);
+    }
+
+    if (/^(1|true|yes)$/i.test(includeSecondCopyParam ?? "")) {
+      setIncludeSecondCopy(true);
     }
 
     if (shippingCountryParam && printShippingCountries.includes(shippingCountryParam)) {
@@ -1442,6 +1459,7 @@ export function EditorExperience({
         merchOptions?: { size?: string; color?: string };
         includeDigitalAddOn?: boolean;
         includeCardAddOn?: boolean;
+        includeSecondCopy?: boolean;
         isGift?: boolean;
         customerEmail?: string;
       }
@@ -1465,6 +1483,7 @@ export function EditorExperience({
       );
       const includeDigitalAddOn = Boolean(options?.includeDigitalAddOn);
       const includeCardAddOn = Boolean(options?.includeCardAddOn);
+      const includeSecondCopy = Boolean(options?.includeSecondCopy);
       const isGift = Boolean(options?.isGift);
       const recipeForCheckout = buildRecipeFromState({
         dateTime,
@@ -1489,6 +1508,7 @@ export function EditorExperience({
           printVariant: orderType === "print" ? printVariant : undefined,
           includeDigitalAddOn: orderType === "print" ? includeDigitalAddOn : undefined,
           includeCardAddOn: orderType === "print" ? includeCardAddOn : undefined,
+          includeSecondCopy: orderType === "print" ? includeSecondCopy : undefined,
           promoApplied: Boolean(promoCode),
           referralApplied: Boolean(referralCode),
         });
@@ -1546,6 +1566,7 @@ export function EditorExperience({
           merchOptions?: { size?: string; color?: string };
           includeDigitalAddOn?: boolean;
           includeCardAddOn?: boolean;
+          includeSecondCopy?: boolean;
           isGift?: boolean;
           printAssetId?: string;
           cardPrintAssetId?: string;
@@ -1792,6 +1813,7 @@ export function EditorExperience({
           checkoutPayload.printVariant = printVariant;
           checkoutPayload.includeDigitalAddOn = includeDigitalAddOn;
           checkoutPayload.includeCardAddOn = includeCardAddOn;
+          checkoutPayload.includeSecondCopy = includeSecondCopy;
           checkoutPayload.printAssetId = uploadedAssetId;
           if (uploadedCardAssetId) checkoutPayload.cardPrintAssetId = uploadedCardAssetId;
           checkoutPayload.shippingCountry = printShippingCountry;
@@ -1812,6 +1834,7 @@ export function EditorExperience({
           printVariant: orderType === "print" ? printVariant : undefined,
           includeDigitalAddOn: orderType === "print" ? includeDigitalAddOn : undefined,
           includeCardAddOn: orderType === "print" ? includeCardAddOn : undefined,
+          includeSecondCopy: orderType === "print" ? includeSecondCopy : undefined,
         });
 
         type CheckoutResponse = {
@@ -2033,6 +2056,7 @@ export function EditorExperience({
       variant: PrintVariant;
       includeDigitalAddOn: boolean;
       includeCardAddOn?: boolean;
+      includeSecondCopy?: boolean;
       isGift?: boolean;
       customerEmail?: string;
       source: "editor_print_panel" | "paywall_modal" | "mobile_preview" | "preview_primary_print_cta";
@@ -2043,12 +2067,14 @@ export function EditorExperience({
         variant: options.variant,
         includeDigitalAddOn: options.includeDigitalAddOn,
         includeCardAddOn: options.includeCardAddOn,
+        includeSecondCopy: options.includeSecondCopy,
       });
       void startCheckout("single", {
         orderType: "print",
         printVariant: options.variant,
         includeDigitalAddOn: options.includeDigitalAddOn,
         includeCardAddOn: options.includeCardAddOn,
+        includeSecondCopy: options.includeSecondCopy,
         isGift: options.isGift,
         customerEmail: options.customerEmail,
       });
@@ -3654,6 +3680,22 @@ export function EditorExperience({
                                 — we won&apos;t email you a review request for this order.
                               </span>
                             </label>
+                            {secondCopyOffered ? (
+                              <label className="mt-3 flex cursor-pointer items-center gap-2 text-xs text-amber-100/90">
+                                <input
+                                  type="checkbox"
+                                  checked={includeSecondCopy}
+                                  onChange={(event) => setIncludeSecondCopy(event.target.checked)}
+                                  className="h-4 w-4 shrink-0 accent-amber-300"
+                                />
+                                <span>
+                                  <span className="font-semibold text-amber-100">
+                                    Add a second copy — 10% off
+                                  </span>{" "}
+                                  — a second copy of the same print, in the same parcel.
+                                </span>
+                              </label>
+                            ) : null}
                             <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                               {printCheckoutRows.map((row) => (
                                 <button
@@ -3665,6 +3707,10 @@ export function EditorExperience({
                                       variant: row.variant,
                                       includeDigitalAddOn: row.includeDigitalAddOn,
                                       includeCardAddOn: row.includeCardAddOn,
+                                      includeSecondCopy:
+                                        includeSecondCopy &&
+                                        secondCopyOffered &&
+                                        isSecondCopyEligibleVariant(row.variant),
                                       isGift: isGiftOrder,
                                     })
                                   }
@@ -3772,6 +3818,8 @@ export function EditorExperience({
               printCheckoutEnabled={printCheckoutEnabled}
               preferredPrintVariant={preferredPrintVariant}
               preferredIncludeDigitalAddOn={preferredIncludeDigitalAddOn}
+              includeSecondCopy={includeSecondCopy}
+              onIncludeSecondCopyChange={setIncludeSecondCopy}
               printShippingCountry={printShippingCountry}
               printShippingCountries={printShippingCountries}
               printCheckoutInFlight={checkoutInFlight}
@@ -3786,6 +3834,7 @@ export function EditorExperience({
                         variant: options.variant,
                         includeDigitalAddOn: options.includeDigitalAddOn,
                         includeCardAddOn: options.includeCardAddOn,
+                        includeSecondCopy: options.includeSecondCopy,
                         isGift: isGiftOrder,
                       });
                     }
@@ -3829,6 +3878,8 @@ export function EditorExperience({
               purchaseIntent={paywallIntent}
               preferredPrintVariant={preferredPrintVariant}
               preferredIncludeDigitalAddOn={preferredIncludeDigitalAddOn}
+              includeSecondCopy={includeSecondCopy}
+              onIncludeSecondCopyChange={setIncludeSecondCopy}
               giftPaywallContext={
                 isWeddingCommerceContext(searchParams.get("source")) ? "wedding" : undefined
               }
@@ -3862,6 +3913,7 @@ export function EditorExperience({
                         variant: options.variant,
                         includeDigitalAddOn: options.includeDigitalAddOn,
                         includeCardAddOn: options.includeCardAddOn,
+                        includeSecondCopy: options.includeSecondCopy,
                         isGift: isGiftOrder,
                         customerEmail: options.customerEmail,
                       });
