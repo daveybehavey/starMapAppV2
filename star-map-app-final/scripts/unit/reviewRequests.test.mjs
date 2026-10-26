@@ -66,6 +66,7 @@ const {
   isReviewSuppressed,
   normalizeAnchorMs,
   recordReviewOptOut,
+  reviewOptOutKey,
   resolveReviewEngineConfig,
   runReviewRequestTick,
   REVIEW_DIGITAL_DELAY_MS,
@@ -1862,4 +1863,207 @@ test("wiring: shippedAt is persisted before the shipping email send", () => {
   assert.ok(anchorWrite !== -1, "shippedAt anchor write must exist");
   assert.ok(send !== -1);
   assert.ok(anchorWrite < send, "shipment fact must persist before the email is attempted");
+});
+
+// ---------------------------------------------------------------------------
+// KV → suppression-DO reconciliation + the mid-tick opt-out race
+// (pre-enable gate, prep report §2c/§2e)
+// ---------------------------------------------------------------------------
+//
+// The tick reads KV suppression state as a HINT; the suppression DO is the
+// authoritative fence, re-checked inside dispatch. Two consequences are
+// pinned here:
+//
+//  1. Every opt-out that exists ONLY in KV (a `review:optout:` row, or a
+//     promotions state carrying `unsubscribedAt`) must be imported into
+//     the DO before the engine is enabled — `reconcileKvOptOuts` below is
+//     the §2c import shape, exercised against both flavours.
+//  2. An opt-out ACKNOWLEDGED after the tick's hint read must still fence
+//     the send. The real opt-out handlers (opt-out route POST, promotions
+//     unsubscribe page) write the DO record FIRST and the KV row second,
+//     acknowledging only after both land — so an acknowledged opt-out is
+//     always visible to the dispatch coordinator's own check even when it
+//     lands mid-tick, after the hint read returned "not suppressed".
+//
+// CONTROL (documented expectation, deliberately not asserted): if a writer
+// wrote ONLY the KV row, an opt-out landing after the hint read would be
+// invisible to that tick's dispatch — the final fence reads the DO alone.
+// That is the known miss the write-both, acknowledge-after ordering exists
+// to close; do not "fix" these tests to pass against a KV-only writer.
+
+const {
+  emailStateKey,
+  keyNameToPromotionEmail,
+  normalizePromotionEmail,
+} = await import("../../src/lib/promotionSubscriptions.ts");
+
+async function listAllStoreKeys(store, prefix) {
+  const names = [];
+  let cursor;
+  for (;;) {
+    const page = await store.listKeys(prefix, cursor);
+    names.push(...page.names);
+    if (page.complete) return names;
+    cursor = page.cursor ?? undefined;
+  }
+}
+
+/**
+ * The §2c reconciliation import: collect every address suppressed in KV
+ * only — `review:optout:` rows plus `promotions:email:` states carrying
+ * `unsubscribedAt` — and record each in the suppression DO under the same
+ * HMAC name the handlers and the tick derive. Idempotent: re-running
+ * records the same names again and changes nothing.
+ */
+async function reconcileKvOptOuts(store, suppression, secret) {
+  const emails = new Set();
+  for (const key of await listAllStoreKeys(store, "review:optout:")) {
+    try {
+      const email = decodeURIComponent(key.slice("review:optout:".length));
+      if (email) emails.add(email);
+    } catch {
+      // A malformed key names no address we can derive a record for.
+    }
+  }
+  for (const key of await listAllStoreKeys(store, "promotions:email:")) {
+    const email = keyNameToPromotionEmail(key);
+    if (!email) continue;
+    const state = await store.getJson(key);
+    if (state?.unsubscribedAt) emails.add(email);
+  }
+  let imported = 0;
+  for (const email of emails) {
+    const name = deriveReviewSuppressionName(normalizePromotionEmail(email), secret);
+    await suppression.record(name, "kv_reconciliation");
+    assert.equal(await suppression.check(name), true);
+    imported += 1;
+  }
+  return { found: emails.size, imported };
+}
+
+test("reconciliation: KV-only opt-outs of BOTH flavours import into the suppression DO and fence the first tick", async () => {
+  const store = createFakeStore({
+    [sessionKey("cs_live_rec1")]: digitalEntitlement({ customerEmail: "kvonly@example.com" }),
+    [sessionKey("cs_live_rec2")]: digitalEntitlement({ customerEmail: "promounsub@example.com" }),
+    [sessionKey("cs_live_rec3")]: digitalEntitlement({ customerEmail: "clean@example.com" }),
+  });
+  // Flavour 1: a review-specific KV opt-out row (the tick's hint source).
+  await recordReviewOptOut(store, "kvonly@example.com", NOW - DAY, "opt_out_page");
+  // Flavour 2: a promotions unsubscribe — state row only, no review row.
+  store.data.set(emailStateKey("promounsub@example.com"), {
+    subscribedAt: NOW - 30 * DAY,
+    unsubscribedAt: NOW - 2 * DAY,
+    updatedAt: NOW - 2 * DAY,
+  });
+
+  const ledger = createFakeLedger();
+  const sender = createFakeSender();
+  const { deps, suppression } = tickDeps(store, ledger, sender, enabledConfig());
+
+  // Before the import, the authoritative DO record does not exist for
+  // either address — the DO is what the dispatch fence reads.
+  for (const email of ["kvonly@example.com", "promounsub@example.com"]) {
+    assert.equal(
+      await suppression.check(deriveReviewSuppressionName(email, SECRET)),
+      false,
+    );
+  }
+
+  const first = await reconcileKvOptOuts(store, suppression, SECRET);
+  assert.equal(first.found, 2);
+  assert.equal(first.imported, 2);
+  // Idempotent: a second pass finds the same set and changes nothing.
+  const second = await reconcileKvOptOuts(store, suppression, SECRET);
+  assert.equal(second.found, 2);
+
+  const summary = await runReviewRequestTick(deps);
+  assert.equal(summary.sent, 1);
+  assert.equal(summary.suppressed, 2);
+  assert.equal(sender.calls.length, 1);
+  assert.equal(sender.calls[0].to, "clean@example.com");
+  assert.equal(ledger.rows.get("cs_live_rec1").status, "suppressed");
+  assert.equal(ledger.rows.get("cs_live_rec2").status, "suppressed");
+  assert.equal(ledger.rows.get("cs_live_rec3").status, "sent");
+});
+
+/**
+ * Wrap a fake store so that the FIRST read of `triggerKey` returns the
+ * pre-acknowledgement value, and the opt-out acknowledgement lands
+ * immediately after that read — in the real handlers' order (suppression
+ * DO record first, KV row second). Every later read sees the landed state.
+ */
+function storeWithMidTickAck(base, { triggerKey, email, suppression }) {
+  let landed = false;
+  return {
+    data: base.data,
+    calls: base.calls,
+    listKeys: (prefix, cursor) => base.listKeys(prefix, cursor),
+    putJson: (key, value) => base.putJson(key, value),
+    async getJson(key) {
+      const value = await base.getJson(key);
+      if (!landed && key === triggerKey) {
+        landed = true;
+        await suppression.record(
+          deriveReviewSuppressionName(normalizePromotionEmail(email), SECRET),
+          "opt_out_route",
+        );
+        await recordReviewOptOut(base, email, NOW, "opt_out_route");
+      }
+      return value;
+    },
+    ackLanded: () => landed,
+  };
+}
+
+test("race: an opt-out acknowledged AFTER the tick's hint read still fences the send", async () => {
+  const base = createFakeStore({
+    [sessionKey("cs_live_race")]: digitalEntitlement({ customerEmail: "racer@example.com" }),
+  });
+  const ledger = createFakeLedger();
+  const sender = createFakeSender();
+  const { deps, suppression } = tickDeps(base, ledger, sender, enabledConfig());
+  const store = storeWithMidTickAck(base, {
+    triggerKey: reviewOptOutKey("racer@example.com"),
+    email: "racer@example.com",
+    suppression,
+  });
+
+  const summary = await runReviewRequestTick({ ...deps, store });
+  // The ack really did land mid-tick (after the hint read, before dispatch)…
+  assert.equal(store.ackLanded(), true);
+  // …and the coordinator's authoritative check fenced the send anyway:
+  // zero provider calls, and the row settles terminal `suppressed` —
+  // never `uncertain` (no provider call was made, so nothing is ambiguous).
+  assert.equal(sender.calls.length, 0);
+  assert.equal(summary.sent, 0);
+  assert.equal(ledger.rows.get("cs_live_race").status, "suppressed");
+});
+
+test("race: first tick after import — a NEW opt-out acknowledged concurrently still fences", async () => {
+  const base = createFakeStore({
+    [sessionKey("cs_live_imp")]: digitalEntitlement({ customerEmail: "imported@example.com" }),
+    [sessionKey("cs_live_late")]: digitalEntitlement({ customerEmail: "lateoptout@example.com" }),
+  });
+  // Pre-existing KV-only opt-out, reconciled before the tick (the import).
+  await recordReviewOptOut(base, "imported@example.com", NOW - DAY, "opt_out_page");
+  const ledger = createFakeLedger();
+  const sender = createFakeSender();
+  const { deps, suppression } = tickDeps(base, ledger, sender, enabledConfig());
+  const imported = await reconcileKvOptOuts(base, suppression, SECRET);
+  assert.equal(imported.found, 1);
+
+  // During that first tick, a different recipient's opt-out is acknowledged
+  // after the hint read — the combined state (import + live writers) holds.
+  const store = storeWithMidTickAck(base, {
+    triggerKey: reviewOptOutKey("lateoptout@example.com"),
+    email: "lateoptout@example.com",
+    suppression,
+  });
+  const summary = await runReviewRequestTick({ ...deps, store });
+  assert.equal(store.ackLanded(), true);
+  assert.equal(sender.calls.length, 0);
+  assert.equal(summary.sent, 0);
+  assert.equal(summary.suppressed, 2);
+  assert.equal(ledger.rows.get("cs_live_imp").status, "suppressed");
+  assert.equal(ledger.rows.get("cs_live_late").status, "suppressed");
 });
