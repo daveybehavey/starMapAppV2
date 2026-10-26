@@ -19,33 +19,19 @@ export const INDEXABLE_OCCASION_SLUGS = [
   "retirement",
 ] as const;
 
+/**
+ * The five differentiated city-page survivors of the 2026-10-26 city-pages
+ * prune (disposition map: 5 keep / 9 redirect to a survivor / 12 redirect to
+ * /star-map-poster / 0 deleted). The 21 retired slugs permanently redirect via
+ * next.config.mjs and must NOT be re-added here without differentiated
+ * content meeting the survivor standard (see seoSurvivorContent.ts).
+ */
 export const INDEXABLE_LOCATION_SLUGS = [
+  "vancouver-bc",
+  "toronto-on",
   "new-york-ny",
   "los-angeles-ca",
-  "chicago-il",
-  "houston-tx",
-  "san-diego-ca",
-  "dallas-tx",
-  "austin-tx",
-  "san-francisco-ca",
-  "seattle-wa",
-  "denver-co",
-  "washington-dc",
-  "boston-ma",
-  "nashville-tn",
-  "las-vegas-nv",
-  "atlanta-ga",
-  "miami-fl",
-  "new-orleans-la",
-  "portland-or",
-  "toronto-on",
-  "vancouver-bc",
-  "montreal-qc",
   "london-uk",
-  "paris-fr",
-  "tokyo-jp",
-  "singapore-sg",
-  "sydney-au",
 ] as const;
 
 export function getCanonicalOccasionPath(slug: string): string | null {

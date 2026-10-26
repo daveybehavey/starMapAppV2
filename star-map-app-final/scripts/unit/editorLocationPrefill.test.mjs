@@ -474,7 +474,12 @@ test("every indexable city slug has canonical coordinates", () => {
   const block = indexing.match(/INDEXABLE_LOCATION_SLUGS = \[([\s\S]*?)\] as const/);
   assert.ok(block);
   const indexable = [...block[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
-  assert.ok(indexable.length >= 20);
+  // Re-struck 2026-10-26 for the city-pages prune: the indexable set is now
+  // exactly the five differentiated survivors (was 26 near-identical clones).
+  assert.deepEqual(
+    [...indexable].sort(),
+    ["london-uk", "los-angeles-ca", "new-york-ny", "toronto-on", "vancouver-bc"]
+  );
   for (const slug of indexable) {
     assert.match(coords, new RegExp(`"${slug}"\\s*:`), `missing coords for ${slug}`);
   }
