@@ -10,6 +10,7 @@ import StickyCtaBar from "@/components/StickyCtaBar";
 import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { formatLocationDisplay, seoLocations } from "@/data/seoLocations";
 import { isIndexableLocationSlug } from "@/data/seoIndexing";
+import { getSurvivorContent } from "@/data/seoSurvivorContent";
 import { getPrintPhysicalOrderSummaryLine } from "@/lib/commerceFacts";
 import { resolveSeoLocationEditorPrefill, withEditorLocation } from "@/lib/editorLocationPrefill";
 import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
@@ -38,15 +39,19 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!location) return {};
   const display = formatLocationDisplay(location);
   const shouldIndex = isIndexableLocationSlug(location.slug);
-  const description = `Create a custom star map in ${display}. Start with a free preview, then choose framed print, unframed print, or HD digital delivery from the same design.`;
+  const survivor = getSurvivorContent(location.slug);
+  const title = survivor ? survivor.title : `Star Map in ${display} | StarMapCo`;
+  const description = survivor
+    ? survivor.metaDescription
+    : `Create a custom star map in ${display}. Start with a free preview, then choose framed print, unframed print, or HD digital delivery from the same design.`;
 
   return {
-    title: `Star Map in ${display} | StarMapCo`,
+    title,
     description,
     alternates: { canonical: `${siteUrl}/star-map-in/${location.slug}` },
     robots: shouldIndex ? undefined : { index: false, follow: true },
     openGraph: {
-      title: `Star Map in ${display} | StarMapCo`,
+      title,
       description,
       url: `${siteUrl}/star-map-in/${location.slug}`,
       images: [{ url: ogImage, width: 1200, height: 630 }],
@@ -61,6 +66,11 @@ export default async function StarMapLocationPage({ params }: PageProps) {
   const location = getLocation(slug);
   if (!location) notFound();
   if (!isIndexableLocationSlug(location.slug)) notFound();
+  // Every indexable slug is one of the five differentiated survivors of the
+  // city-pages prune; a slug without survivor content must never render the
+  // old shared template.
+  const survivor = getSurvivorContent(location.slug);
+  if (!survivor) notFound();
 
   const display = formatLocationDisplay(location);
   const locationPrefill = resolveSeoLocationEditorPrefill(location);
@@ -93,7 +103,7 @@ export default async function StarMapLocationPage({ params }: PageProps) {
       !sameRegion.some((candidate) => candidate.slug === item.slug)
   );
   const relatedLocations = [...sameRegion, ...sameCountry, ...otherLocations].slice(0, 4);
-  const exampleLine = `${display} · June 12, 2024`;
+  const exampleLine = survivor.example.caption;
   const shippingDisclosure = getPrintShippingDisclosure();
   const breadcrumbs = [
     { href: "/", label: "Home" },
@@ -106,12 +116,8 @@ export default async function StarMapLocationPage({ params }: PageProps) {
       <header className="space-y-3 text-center">
         <Breadcrumbs items={breadcrumbs} className="flex justify-center" />
         <p className="text-xs tracking-[0.3em] text-amber-300 uppercase">StarMapCo</p>
-        <h1 className="text-3xl font-bold text-white sm:text-4xl">Star Map in {display}</h1>
-        <p className="text-sm text-white/90 sm:text-base">
-          Create a custom star map for {display} and capture the exact night sky from your date and location.
-          Preview instantly, then choose framed print, unframed print, or HD digital delivery from the same
-          design.
-        </p>
+        <h1 className="text-3xl font-bold text-white sm:text-4xl">{survivor.heading}</h1>
+        <p className="text-sm text-white/90 sm:text-base">{survivor.intro}</p>
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
           <span className="rounded-full border border-amber-300/50 bg-amber-300/20 px-3 py-1">
             Framed print
@@ -180,6 +186,15 @@ export default async function StarMapLocationPage({ params }: PageProps) {
         </ul>
       </section>
 
+      <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+        <h2 className="text-midnight text-xl font-semibold">{survivor.useCase.heading}</h2>
+        {survivor.useCase.paragraphs.map((paragraph) => (
+          <p key={paragraph.slice(0, 32)} className="text-sm leading-relaxed text-neutral-700 sm:text-base">
+            {paragraph}
+          </p>
+        ))}
+      </section>
+
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
         <h2 className="text-midnight text-lg font-semibold">Start your {display} star map</h2>
         <ol className="list-decimal space-y-2 pl-5 text-sm text-neutral-700 sm:text-base">
@@ -208,6 +223,15 @@ export default async function StarMapLocationPage({ params }: PageProps) {
       />
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+        <h2 className="text-midnight text-xl font-semibold">{survivor.example.heading}</h2>
+        {survivor.example.paragraphs.map((paragraph) => (
+          <p key={paragraph.slice(0, 32)} className="text-sm leading-relaxed text-neutral-700 sm:text-base">
+            {paragraph}
+          </p>
+        ))}
+      </section>
+
+      <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-midnight text-lg font-semibold">Example caption</h2>
         <p className="text-sm text-neutral-700 sm:text-base">
           Use a location line like this on your final print:
@@ -215,6 +239,31 @@ export default async function StarMapLocationPage({ params }: PageProps) {
         <p className="text-midnight mt-2 rounded-2xl border border-amber-200/60 bg-amber-50 px-4 py-3 text-sm font-semibold">
           {exampleLine}
         </p>
+      </section>
+
+      <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+        <h2 className="text-midnight text-xl font-semibold">{survivor.guidance.heading}</h2>
+        {survivor.guidance.points.map((point) => (
+          <p key={point.lead} className="text-sm leading-relaxed text-neutral-700 sm:text-base">
+            <strong className="text-midnight font-semibold">{point.lead}</strong> {point.text}
+          </p>
+        ))}
+        <p className="text-xs leading-relaxed text-neutral-500">
+          {survivor.guidance.sources.map((source) => (
+            <span key={source.slice(0, 32)} className="block">
+              {source}
+            </span>
+          ))}
+        </p>
+      </section>
+
+      <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+        <h2 className="text-midnight text-xl font-semibold">{survivor.coverage.heading}</h2>
+        {survivor.coverage.paragraphs.map((paragraph) => (
+          <p key={paragraph.slice(0, 32)} className="text-sm leading-relaxed text-neutral-700 sm:text-base">
+            {paragraph}
+          </p>
+        ))}
       </section>
 
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
@@ -275,6 +324,10 @@ export default async function StarMapLocationPage({ params }: PageProps) {
             <h3 className="text-midnight font-semibold">Is the {display} star map print‑ready?</h3>
             <p>The HD export is a high‑resolution PNG designed for printing and framing.</p>
           </div>
+          <div>
+            <h3 className="text-midnight font-semibold">{survivor.faq.question}</h3>
+            <p>{survivor.faq.answer}</p>
+          </div>
         </div>
       </section>
 
@@ -287,6 +340,10 @@ export default async function StarMapLocationPage({ params }: PageProps) {
           {
             question: `Is the ${display} star map print‑ready?`,
             answer: "The HD export is a high‑resolution PNG designed for printing and framing.",
+          },
+          {
+            question: survivor.faq.question,
+            answer: survivor.faq.answer,
           },
         ]}
       />
