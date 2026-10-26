@@ -34,6 +34,7 @@ export function buildGa4PurchaseFromStripeSession(session: Stripe.Checkout.Sessi
   const orderType = getOrderTypeFromStripeSession(session);
   const printVariant = getPrintVariantFromStripeSession(session);
   const includeDigitalAddOn = session.metadata?.print_include_digital === "true";
+  const includeSecondCopy = session.metadata?.print_include_second_copy === "true";
   const marketing = buildGa4MarketingParamsFromStripeMetadata(session.metadata ?? undefined);
   return {
     transactionId: session.id,
@@ -41,6 +42,7 @@ export function buildGa4PurchaseFromStripeSession(session: Stripe.Checkout.Sessi
     orderType,
     printVariant,
     includeDigitalAddOn,
+    includeSecondCopy,
     value: stripeSessionPaidValueDollars(session),
     currency: typeof session.currency === "string" ? session.currency : undefined,
     ...marketing,

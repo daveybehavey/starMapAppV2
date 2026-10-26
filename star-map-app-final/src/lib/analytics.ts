@@ -21,6 +21,7 @@ type CheckoutAnalyticsInput = {
   printVariant?: PrintVariant | null;
   includeDigitalAddOn?: boolean;
   includeCardAddOn?: boolean;
+  includeSecondCopy?: boolean;
   value?: number | null;
   currency?: string | null;
 };
@@ -190,7 +191,9 @@ function estimateCheckoutValue(input: CheckoutAnalyticsInput) {
     const variant = input.printVariant ?? "poster_unframed";
     const base = PRINT_VARIANT_BASE_CENTS[variant] ?? PRINT_VARIANT_BASE_CENTS.poster_unframed;
     const addon =
-      input.includeDigitalAddOn && variant === "poster_framed" ? PRINT_DIGITAL_ADDON_CENTS : 0;
+      (input.includeDigitalAddOn && variant === "poster_framed" ? PRINT_DIGITAL_ADDON_CENTS : 0) +
+      // Lever A: the copy at 90% of the base, the same rule pricing.ts applies.
+      (input.includeSecondCopy ? Math.round(base * 0.9) : 0);
     const total = base + addon;
     return total / 100;
   }
@@ -271,6 +274,7 @@ export function trackBeginCheckout(input: CheckoutAnalyticsInput & { source?: st
     plan: input.plan ?? undefined,
     print_variant: input.printVariant ?? undefined,
     include_digital_add_on: input.includeDigitalAddOn ?? undefined,
+    include_second_copy: input.includeSecondCopy ?? undefined,
     source: input.source,
   });
 }
@@ -321,6 +325,7 @@ export function trackPurchaseCompleted(
         plan: input.plan ?? undefined,
         print_variant: input.printVariant ?? undefined,
         include_digital_add_on: input.includeDigitalAddOn ?? undefined,
+        include_second_copy: input.includeSecondCopy ?? undefined,
         ga4_server_primary: true,
         ...(paidTotal !== null && paidTotal <= 0 ? { free_checkout: true } : {}),
         ...marketing,
@@ -376,6 +381,7 @@ export function trackPurchaseCompleted(
     plan: input.plan ?? undefined,
     print_variant: input.printVariant ?? undefined,
     include_digital_add_on: input.includeDigitalAddOn ?? undefined,
+    include_second_copy: input.includeSecondCopy ?? undefined,
     ...(paidTotal !== null && paidTotal <= 0 ? { free_checkout: true } : {}),
   });
   try {

@@ -9,6 +9,7 @@ export type Ga4PurchaseInput = {
   orderType?: CheckoutOrderType;
   printVariant?: PrintVariant | null;
   includeDigitalAddOn?: boolean;
+  includeSecondCopy?: boolean;
   campaign?: string;
   source?: string;
   medium?: string;
@@ -122,7 +123,9 @@ function estimateCheckoutValue(input: Ga4PurchaseInput) {
     const variant = input.printVariant ?? "poster_unframed";
     const base = PRINT_VARIANT_BASE_CENTS[variant] ?? PRINT_VARIANT_BASE_CENTS.poster_unframed;
     const addon =
-      input.includeDigitalAddOn && variant === "poster_framed" ? PRINT_DIGITAL_ADDON_CENTS : 0;
+      (input.includeDigitalAddOn && variant === "poster_framed" ? PRINT_DIGITAL_ADDON_CENTS : 0) +
+      // Lever A: the copy at 90% of the base, the same rule pricing.ts applies.
+      (input.includeSecondCopy ? Math.round(base * 0.9) : 0);
     return (base + addon) / 100;
   }
   if (input.plan === "pack3") return DIGITAL_PACK3_CENTS / 100;
