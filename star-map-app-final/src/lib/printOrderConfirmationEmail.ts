@@ -39,6 +39,8 @@ export type PrintOrderConfirmationData = {
   siteUrl?: string | null;
   manualReviewRequired?: boolean;
   includesDigitalAddOn?: boolean;
+  /** Lever A: the order includes a second copy of the same print (quantity 2). */
+  includesSecondCopy?: boolean;
 };
 
 export type RenderedPrintOrderConfirmationEmail = {
@@ -101,6 +103,7 @@ export function renderPrintOrderConfirmationEmail(data: PrintOrderConfirmationDa
   const orderRef = data.orderReference?.trim();
   const manualReview = data.manualReviewRequired !== false;
   const includesDigitalAddOn = data.includesDigitalAddOn === true;
+  const includesSecondCopy = data.includesSecondCopy === true;
 
   const subject = "Your StarMapCo print order is confirmed";
 
@@ -125,6 +128,9 @@ export function renderPrintOrderConfirmationEmail(data: PrintOrderConfirmationDa
     "Thank you for your order. Your StarMapCo print is confirmed and in our fulfillment queue.",
     "",
     `Product: ${productLabel}`,
+    ...(includesSecondCopy
+      ? ["Second copy: included — a second copy of the same print ships in the same parcel."]
+      : []),
     ...(data.amountLabel ? [`Total paid: ${data.amountLabel}`] : []),
     ...(data.shippingSummary ? [`Ships to: ${data.shippingSummary}`] : []),
     ...(orderRef ? [`Order reference: ${orderRef}`] : []),
@@ -145,6 +151,7 @@ export function renderPrintOrderConfirmationEmail(data: PrintOrderConfirmationDa
 
   const detailEntries: Array<[string, string]> = [
     ["Product", productLabel],
+    ...(includesSecondCopy ? ([["Second copy", "Included"]] as Array<[string, string]>) : []),
     ...(data.amountLabel ? ([["Total paid", data.amountLabel]] as Array<[string, string]>) : []),
     ...(data.shippingSummary ? ([["Ships to", data.shippingSummary]] as Array<[string, string]>) : []),
     ...(orderRef ? ([["Reference", orderRef]] as Array<[string, string]>) : []),

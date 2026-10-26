@@ -73,6 +73,7 @@ export async function sendPrintOrderConfirmation(sessionId: string): Promise<Pri
     siteUrl,
     manualReviewRequired: isManualReviewRequired(),
     includesDigitalAddOn: record.includesDigitalAddOn === true,
+    includesSecondCopy: record.includesSecondCopy === true,
   });
 
   const sendResult = await sendResendEmail({
