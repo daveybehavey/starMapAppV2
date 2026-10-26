@@ -1,5 +1,10 @@
 import type { Stripe } from "stripe";
-import { getPrintDigitalAddOnPrice, getPrintPricingTiers, formatPrice } from "./pricing";
+import {
+  getPrintDigitalAddOnPrice,
+  getPrintPricingTiers,
+  getPrintSecondCopyPriceCents,
+  formatPrice,
+} from "./pricing";
 import type { PrintVariant } from "./printCatalog";
 
 // Lever B (2026-10-25 margin pack): $89 — the framed hero ($99) previously sat
@@ -32,11 +37,16 @@ export function getPrintMerchandiseSubtotalCents(input: {
   variant: PrintVariant;
   includeDigitalAddOn?: boolean;
   includeCardAddOn?: boolean;
+  includeSecondCopy?: boolean;
 }): number {
   const tiers = getPrintPricingTiers();
   let total = tiers[input.variant].amountCents;
   if (input.includeDigitalAddOn) total += getPrintDigitalAddOnPrice().amountCents;
   if (input.includeCardAddOn) total += tiers.card_4x6.amountCents;
+  // Lever A: the second copy counts toward the free-shipping threshold
+  // at its 90% price, exactly as its mirror entry does in the checkout
+  // route's USD subtotal — display hints must agree with the route.
+  if (input.includeSecondCopy) total += getPrintSecondCopyPriceCents(input.variant);
   return total;
 }
 
@@ -170,6 +180,7 @@ export function formatCheckoutShippingLine(input: {
   country: string | null | undefined;
   includeDigitalAddOn?: boolean;
   includeCardAddOn?: boolean;
+  includeSecondCopy?: boolean;
   shippingAmountCents?: number | null;
   currency?: string;
   fallback?: string;
