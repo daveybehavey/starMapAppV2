@@ -387,7 +387,7 @@ export default function WeddingPage() {
             </p>
           </div>
           <Link
-            href="/blog/custom-star-maps-for-weddings?source=wedding-page-guide"
+            href="/blog/custom-star-maps-for-weddings"
             className="text-midnight focus:ring-amber-700 inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border border-amber-300 bg-white px-5 py-3 text-sm font-semibold shadow-sm transition hover:bg-amber-50 focus:ring-2 focus:outline-none"
           >
             Read the wedding guide

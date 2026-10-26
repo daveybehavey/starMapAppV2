@@ -1157,7 +1157,7 @@ export const blogPosts: BlogPost[] = [
         <p>
           This means the constellations, star positions, and celestial layout on your New Year map match the
           real sky—not an approximation. Read{" "}
-          <Link href="/how-accurate-are-star-maps?source=blog-new-year">how accurate star maps are</Link> for a
+          <Link href="/how-accurate-are-star-maps">how accurate star maps are</Link> for a
           plain-language breakdown of the inputs.
         </p>
 
@@ -1200,7 +1200,7 @@ export const blogPosts: BlogPost[] = [
         <p>
           Enjoy your map as a high-resolution digital download, a framed print, or a thoughtful physical gift.
           Compare{" "}
-          <Link href="/star-map-gift-formats?source=blog-new-year">framed, unframed, and HD digital formats</Link>{" "}
+          <Link href="/star-map-gift-formats">framed, unframed, and HD digital formats</Link>{" "}
           before checkout.
         </p>
 
@@ -1222,7 +1222,7 @@ export const blogPosts: BlogPost[] = [
           Whether you’re welcoming a new year, honoring a personal transformation, or gifting someone
           something truly thoughtful, a <strong>custom New Year star map</strong> turns a fleeting moment into
           a timeless keepsake. Preview yours free in the{" "}
-          <Link href="/star-map-generator?source=blog-new-year">star map generator</Link>.
+          <Link href="/star-map-generator">star map generator</Link>.
         </p>
         <p>
           ✨ Create your personalized New Year star map today at <strong>StarMapCo.com</strong> and begin the
@@ -1271,7 +1271,7 @@ export const blogPosts: BlogPost[] = [
         <p>
           <strong>Why it matters:</strong> Years later, the star map becomes more than décor — it’s a reminder
           that your beginning happened under this exact sky. Explore{" "}
-          <Link href="/wedding?source=blog-meaningful-dates">wedding star map gift ideas</Link> when you are ready to build.
+          <Link href="/wedding">wedding star map gift ideas</Link> when you are ready to build.
         </p>
         <p>A wedding star map works beautifully as:</p>
         <ul>
@@ -1294,7 +1294,7 @@ export const blogPosts: BlogPost[] = [
         <p>
           <strong>Why it matters:</strong> An anniversary star map turns time into something visual. It shows
           that even as years pass, the moment that started it all remains written in the stars. See the{" "}
-          <Link href="/anniversary?source=blog-meaningful-dates">anniversary gift page</Link> for preview-first ordering.
+          <Link href="/anniversary">anniversary gift page</Link> for preview-first ordering.
         </p>
 
         <h2>3) Birthdays: A Personal Sky</h2>
@@ -1311,7 +1311,7 @@ export const blogPosts: BlogPost[] = [
         <p>
           <strong>Why it matters:</strong> It answers a quiet question many people have asked at least once:
           What did the universe look like when I entered it? Browse{" "}
-          <Link href="/birthday?source=blog-meaningful-dates">birthday star map gifts</Link> for milestone-year ideas.
+          <Link href="/birthday">birthday star map gifts</Link> for milestone-year ideas.
         </p>
 
         <h2>4) The Birth of a Child: A Once-in-History Moment</h2>
@@ -1326,7 +1326,7 @@ export const blogPosts: BlogPost[] = [
           <strong>Why it matters:</strong> This sky existed only once — for a few moments — and then it was
           gone forever. A birth star map preserves that instant, making it one of the most emotionally
           meaningful uses of this art form. Start on the{" "}
-          <Link href="/star-map-for/new-baby?source=blog-meaningful-dates">new baby star map page</Link> when you have birth details ready.
+          <Link href="/star-map-for/new-baby">new baby star map page</Link> when you have birth details ready.
         </p>
 
         <h2>5) Memorials: Remembering With Quiet Meaning</h2>
@@ -1341,7 +1341,7 @@ export const blogPosts: BlogPost[] = [
           <strong>Why it matters:</strong> Looking at the stars has always been a human way of remembering. A
           memorial star map offers something gentle and enduring — a reminder that a life existed under a
           specific, real sky. See the{" "}
-          <Link href="/star-map-for/memorial?source=blog-meaningful-dates">memorial star map page</Link> for subdued format ideas.
+          <Link href="/star-map-for/memorial">memorial star map page</Link> for subdued format ideas.
         </p>
 
         <h2>6) Graduations &amp; Milestones: New Chapters</h2>
@@ -1369,7 +1369,7 @@ export const blogPosts: BlogPost[] = [
           <li>Exists independently of memory or interpretation</li>
         </ul>
         <p>That combination of science and sentiment is what gives star maps their emotional weight. Learn more in{" "}
-          <Link href="/how-accurate-are-star-maps?source=blog-meaningful-dates">how accurate star maps are</Link>.
+          <Link href="/how-accurate-are-star-maps">how accurate star maps are</Link>.
         </p>
 
         <h2>Choosing the Right Moment</h2>
@@ -1396,7 +1396,7 @@ export const blogPosts: BlogPost[] = [
         </p>
         <p>
           If you already have a date in mind, open the{" "}
-          <Link href="/star-map-generator?source=blog-meaningful-dates">star map generator</Link> and see the sky
+          <Link href="/star-map-generator">star map generator</Link> and see the sky
           instantly.
         </p>
         <p>Your moment happened once. The stars that night are still waiting to be remembered.</p>

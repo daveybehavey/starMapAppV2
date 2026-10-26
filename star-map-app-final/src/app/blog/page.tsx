@@ -135,7 +135,7 @@ export default function BlogIndex() {
           {blogOccasionHubLinks.map((item) => (
             <li key={item.href}>
               <Link
-                href={`${item.href}?source=blog_index`}
+                href={item.href}
                 className="inline-flex rounded-full border border-amber-200/50 bg-white/10 px-3 py-1.5 text-xs font-semibold text-amber-50 transition hover:border-amber-200 hover:bg-white/15"
               >
                 {item.label}
@@ -186,7 +186,7 @@ export default function BlogIndex() {
 
         <div className="mt-10 text-center text-base text-neutral-200">
           Ready to create?{" "}
-          <Link href="/star-map-generator?source=blog_index" className="font-semibold text-amber-300 hover:underline">
+          <Link href="/star-map-generator" className="font-semibold text-amber-300 hover:underline">
             Free star map generator
           </Link>
         </div>

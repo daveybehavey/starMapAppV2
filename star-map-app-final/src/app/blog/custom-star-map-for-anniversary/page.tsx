@@ -135,7 +135,7 @@ export default function AnniversaryPostPage() {
               Star maps are generated using real astronomical databases that calculate where stars, planets,
               and constellations were located at a specific time and place. This ensures your map reflects the
               real sky from that exact moment. Read{" "}
-              <Link href="/how-accurate-are-star-maps?source=blog-anniversary" className="text-amber-300 hover:underline">
+              <Link href="/how-accurate-are-star-maps" className="text-amber-300 hover:underline">
                 how accurate star maps are
               </Link>{" "}
               if you want to understand date, time, and location inputs before you order.
@@ -261,7 +261,7 @@ export default function AnniversaryPostPage() {
             <p>
               Look for accurate astronomical data, high-quality printing options, clear customization
               previews, and reliable delivery timelines. Start on the{" "}
-              <Link href="/anniversary?source=blog-anniversary" className="text-amber-300 hover:underline">
+              <Link href="/anniversary" className="text-amber-300 hover:underline">
                 anniversary star map gift page
               </Link>{" "}
               for a preview-first path, or{" "}

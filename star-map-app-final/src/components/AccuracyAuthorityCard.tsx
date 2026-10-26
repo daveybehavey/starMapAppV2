@@ -19,7 +19,7 @@ export default function AccuracyAuthorityCard({
         </div>
         <div className="flex flex-wrap gap-2">
           <Link
-            href={`/how-accurate-are-star-maps?source=${encodeURIComponent(source)}`}
+            href="/how-accurate-are-star-maps"
             className="inline-flex items-center justify-center rounded-full border border-amber-200/70 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-800 transition hover:-translate-y-[1px] hover:border-amber-400 hover:bg-amber-100"
           >
             Read the full accuracy guide

@@ -116,7 +116,7 @@ export default function PersonalizedBirthdayPost() {
             <p>
               Using catalogs like the Yale Bright Star Catalog, software calculates precise star positions based on date,
               time, and coordinates. If you want to understand what inputs matter most before you buy, read{" "}
-              <Link href="/how-accurate-are-star-maps?source=blog-birthday" className="text-amber-300 hover:underline">
+              <Link href="/how-accurate-are-star-maps" className="text-amber-300 hover:underline">
                 how accurate star maps are
               </Link>
               .
@@ -210,7 +210,7 @@ export default function PersonalizedBirthdayPost() {
             </h2>
             <p>
               Look for providers with accurate data, HD options, and easy customization. Start on the{" "}
-              <Link href="/birthday?source=blog-birthday" className="text-amber-300 hover:underline">
+              <Link href="/birthday" className="text-amber-300 hover:underline">
                 birthday star map gift page
               </Link>{" "}
               for a preview-first path, compare options on our{" "}
