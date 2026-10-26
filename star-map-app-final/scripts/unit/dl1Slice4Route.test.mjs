@@ -1,0 +1,1258 @@
+/**
+ * dl1Slice4Route.test.mjs — DL-1 Slice 4 route-level obligations (brief v3
+ * §5.6/§5.7/§5.9 + race-evidence Class B), exercised against the REAL
+ * route module with the local KV fallback, the serialised in-memory
+ * authority client, and the local exclusive-create storage fallback (the
+ * repository's own local/test seams — no production surface involved).
+ *
+ * Class B (§8): two publishers race the fused flow through the real route
+ * + the real serialised authority. Exactly one succeeds; the loser's
+ * outcome and the single stored winner follow the §5.5 contract. The
+ * remaining Class B leg (real DO class under the same race) is covered
+ * for state durability in dl1Slice4Publication.test.mjs; the deployed-
+ * runtime leg is an outstanding gate item recorded on the PR.
+ *
+ * Fix round (G-dot conformance verdict 2026-10-24): the protocol sets
+ * below run with DL1_AUTHORITY_ROUTING_ENABLED=true — the ON-state
+ * new-protocol coverage (area 7 P1). The OFF-state set at the end runs
+ * the flag unset/false and covers the preserved legacy flow (upload →
+ * legacy-key storage → GET; the archive-ready email dispatch is wired
+ * in the legacy handler — source pin (ii) in
+ * dl1Slice4Publication.test.mjs; in the local seam the dispatch's
+ * archive check is bucket-only, so it resolves skipped exactly as the
+ * base flow does locally). Area 9 adds the Class B join-path race
+ * (identical bytes through two descriptors); area 7 P2 adds the
+ * controlled terminal-success interleaving.
+ */
+import test from "node:test";
+import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { deflateSync } from "node:zlib";
+import path from "node:path";
+import { register } from "node:module";
+
+register("./tsAliasLoader.mjs", import.meta.url);
+register("./entitlementAuthority.hooks.mjs", import.meta.url);
+register("./dl1S4NextServer.hooks.mjs", import.meta.url);
+// Registered last so its resolve hook runs first: it redirects ONLY
+// the route module's own authority import to the rendezvous wrapper
+// (see dl1S4AuthorityRendezvous.hooks.mjs) — the area-3 race tests
+// arm it to force the stale-snapshot interleaving deterministically.
+register("./dl1S4AuthorityRendezvous.hooks.mjs", import.meta.url);
+
+const RUN = Date.now().toString(36);
+process.env.STARMAP_ENTITLEMENT_AUTHORITY_LOCAL = "1";
+process.env.STARMAP_KV_ALLOW_LOCAL = "1";
+process.env.STARMAP_KV_DIR = path.join(process.cwd(), ".tmp", `dl1-s4-route-kv-${RUN}`);
+process.env.STARMAP_DOWNLOAD_ARCHIVE_DIR = path.join(
+  process.cwd(),
+  ".tmp",
+  `dl1-s4-route-archive-${RUN}`,
+);
+process.env.DL1_DESCRIPTOR_SIGNING_SECRET = "s4-route-test-secret-0123456789abcdef";
+process.env.NEXT_PUBLIC_SITE_URL = "https://starmapco.com";
+// ON state (area 7 P1): the protocol sets below are the new-protocol
+// coverage; the OFF-state legacy set at the end toggles the flag per
+// test and restores it in a finally block. The flag is never set in
+// any committed configuration — this is a test-process env only.
+process.env.DL1_AUTHORITY_ROUTING_ENABLED = "true";
+
+const { NextRequest } = await import("next/server");
+const route = await import("../../src/app/api/download/archive/route.ts");
+const { kv, ENTITLEMENT_KV } = await import("../../src/lib/entitlementsStore.ts").then(
+  async (store) => ({ ENTITLEMENT_KV: store.ENTITLEMENT_KV, kv: (await import("../../src/lib/kv.ts")).kv }),
+);
+const identity = await import("../../src/lib/downloadArchiveIdentity.ts");
+const pngMod = await import("../../src/lib/pngValidation.ts");
+const clientMod = await import("../../src/lib/entitlementAuthority.ts");
+const rendezvous = await import("./dl1S4AuthorityRendezvous.mjs");
+
+const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
+const MAP = "map-route-1";
+const RECIPE = {
+  version: 1,
+  seed: "route-seed",
+  datetimeISO: "2026-01-01T00:00:00.000Z",
+  location: { name: "Victoria", latitude: 48.4, longitude: -123.4, timezone: "America/Vancouver" },
+  textBoxes: [],
+  selectedStyle: "classic",
+  aspectRatio: "square",
+  shape: "rectangle",
+  renderOptions: {},
+};
+
+let sessionCounter = 0;
+async function seedSession() {
+  sessionCounter += 1;
+  const sessionId = `cs_route_${RUN}_${sessionCounter}`;
+  const token = `tok_route_${RUN}_${sessionCounter}`;
+  await kv.set(ENTITLEMENT_KV.stripeSession(sessionId), {
+    paid: true,
+    mapId: MAP,
+    created: Date.now(),
+  });
+  await kv.set(ENTITLEMENT_KV.claim(token), { sessionId, mapId: MAP });
+  await kv.set(ENTITLEMENT_KV.mapRecipe(MAP), RECIPE);
+  return { sessionId, token };
+}
+
+const url = (token) =>
+  `https://starmapco.com/api/download/archive${token ? `?token=${token}` : ""}`;
+
+function jsonPost(token, body, headers = {}) {
+  return new NextRequest(url(token), {
+    method: "POST",
+    headers: { "content-type": "application/json", ...headers },
+    body: JSON.stringify(body),
+  });
+}
+
+function pngChunk(type, data) {
+  const len = Buffer.alloc(4);
+  len.writeUInt32BE(data.length);
+  const td = Buffer.concat([Buffer.from(type, "ascii"), data]);
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(pngMod.pngCrc32(td));
+  return Buffer.concat([len, td, crc]);
+}
+
+/** A structurally valid 6000×6000 RGBA PNG (filter-0 rows). `fill` varies
+ * the body so distinct publishers produce distinct digests. */
+function bigPng(fill = 0) {
+  const rowLength = 1 + 6000 * 4;
+  const rows = Buffer.alloc(6000 * rowLength);
+  if (fill) rows.fill(fill, 1, 1 + 6000 * 4);
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(6000, 0);
+  ihdr.writeUInt32BE(6000, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 6;
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    pngChunk("IHDR", ihdr),
+    pngChunk("IDAT", deflateSync(rows, { level: 1 })),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
+function uploadPost(token, bytes, headers = {}) {
+  return new NextRequest(url(token), {
+    method: "POST",
+    headers: { "content-type": "image/png", ...headers },
+    body: bytes,
+  });
+}
+
+/** bigPng with one extra chunk inserted between IHDR and IDAT. */
+function bigPngWithChunk(type, data, fill = 0) {
+  const rowLength = 1 + 6000 * 4;
+  const rows = Buffer.alloc(6000 * rowLength);
+  if (fill) rows.fill(fill, 1, 1 + 6000 * 4);
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(6000, 0);
+  ihdr.writeUInt32BE(6000, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 6;
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    pngChunk("IHDR", ihdr),
+    pngChunk(type, data),
+    pngChunk("IDAT", deflateSync(rows, { level: 1 })),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
+/** bigPng whose single zlib stream is split across two IDAT chunks
+ * with an ancillary tEXt chunk between them (IDAT -> tEXt -> IDAT):
+ * CRC-valid and structurally countable, but nonconsecutive — real
+ * decoders (libspng/Sharp) reject this shape. */
+function bigPngNonconsecutiveIdat(fill = 0) {
+  const rowLength = 1 + 6000 * 4;
+  const rows = Buffer.alloc(6000 * rowLength);
+  if (fill) rows.fill(fill, 1, 1 + 6000 * 4);
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(6000, 0);
+  ihdr.writeUInt32BE(6000, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 6;
+  const compressed = deflateSync(rows, { level: 1 });
+  const splitAt = Math.floor(compressed.length / 2);
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    pngChunk("IHDR", ihdr),
+    pngChunk("IDAT", compressed.subarray(0, splitAt)),
+    pngChunk("tEXt", Buffer.from("interleaved")),
+    pngChunk("IDAT", compressed.subarray(splitAt)),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
+const client = clientMod.createEntitlementAuthorityClient();
+
+test("identify I-5: fresh artifact → identified + descriptor naming the derived identity", async () => {
+  const { sessionId, token } = await seedSession();
+  const res = await route.POST(jsonPost(token, { op: "identify", mapId: MAP }));
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.state, "identified");
+  const derived = identity.deriveArtifactIdentity({ sessionId, mapId: MAP, recipe: RECIPE });
+  assert.equal(body.artifactId, derived.artifactId);
+  const verified = identity.verifyPrepareDescriptor(body.descriptor, {
+    now: Date.now(),
+    sessionId,
+  });
+  assert.equal(verified.ok, true);
+  assert.equal(verified.payload.mapId, MAP);
+});
+
+test("descriptor upload → finalized; identify afterwards → I-1 already_finalized; fused re-POST of the same bytes → legacy success shape", async () => {
+  const { sessionId, token } = await seedSession();
+  const identifyRes = await route.POST(jsonPost(token, { op: "identify", mapId: MAP }));
+  const { descriptor, artifactId } = await identifyRes.json();
+  const bytes = bigPng(0);
+  const uploadRes = await route.POST(
+    uploadPost(token, bytes, { "x-prepare-descriptor": descriptor }),
+  );
+  assert.equal(uploadRes.status, 200);
+  const uploadBody = await uploadRes.json();
+  assert.equal(uploadBody.state, "finalized");
+  assert.equal(uploadBody.artifactId, artifactId);
+
+  const after = await route.POST(jsonPost(token, { op: "identify", mapId: MAP }));
+  const afterBody = await after.json();
+  assert.equal(afterBody.state, "already_finalized");
+  assert.equal(afterBody.descriptor, undefined);
+
+  const repost = await route.POST(uploadPost(token, bytes));
+  assert.equal(repost.status, 200);
+  const repostBody = await repost.json();
+  assert.deepEqual(Object.keys(repostBody).sort(), ["bytes", "ok", "sessionId"]);
+  assert.equal(repostBody.sessionId, sessionId);
+  assert.equal(repostBody.bytes, bytes.length);
+});
+
+test("fused re-POST with DIFFERENT bytes against a finalized artifact → 409, never success, winner retained", async () => {
+  const { sessionId, token } = await seedSession();
+  const winner = bigPng(0);
+  const first = await route.POST(uploadPost(token, winner));
+  assert.equal(first.status, 200);
+  const challenger = bigPng(7);
+  const second = await route.POST(uploadPost(token, challenger));
+  assert.equal(second.status, 409);
+  const state = await client.getState(sessionId);
+  const entries = Object.values(state.artifactRegistry);
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].digest, sha(winner));
+});
+
+test("identify I-3: live governing intent, object absent → finalization_pending + fresh descriptor + upload recovery", async () => {
+  const { sessionId, token } = await seedSession();
+  const derived = identity.deriveArtifactIdentity({ sessionId, mapId: MAP, recipe: RECIPE });
+  await client.apply(sessionId, {
+    type: "register_publication_intent",
+    intent: {
+      intentId: "aa".repeat(16),
+      artifactKey: derived.artifactId,
+      sessionId,
+      mapId: MAP,
+      canonicalBinding: derived.canonicalBinding,
+      fingerprint: derived.fingerprint,
+      contractVersion: 1,
+      rendererVersion: 1,
+      digest: sha("not-yet-stored"),
+      stagingKey: identity.buildStagingKey("aa".repeat(16)),
+      expectedWidth: 6000,
+      expectedHeight: 6000,
+      expiresAt: Date.now() + 600_000,
+    },
+    now: Date.now(),
+  });
+  const res = await route.POST(jsonPost(token, { op: "identify", mapId: MAP }));
+  const body = await res.json();
+  assert.equal(body.state, "finalization_pending");
+  assert.equal(body.recovery, "upload");
+  assert.ok(body.descriptor);
+});
+
+test("identify I-4: live governing intent, object present → finalization_pending + reconcile recovery, NO descriptor", async () => {
+  const { sessionId, token } = await seedSession();
+  const derived = identity.deriveArtifactIdentity({ sessionId, mapId: MAP, recipe: RECIPE });
+  const bytes = bigPng(3);
+  const storage = await import("../../src/lib/downloadArchiveStorage.ts");
+  const promoted = await storage.promoteArtifactCreateOnly(derived.finalKey, bytes, {
+    protocol: "dl1-archive-v1",
+    artifactKey: derived.artifactId,
+    digest: sha(bytes),
+    bindingDigest: sha(derived.canonicalBinding),
+  });
+  assert.equal(promoted.outcome, "created");
+  await client.apply(sessionId, {
+    type: "register_publication_intent",
+    intent: {
+      intentId: "bb".repeat(16),
+      artifactKey: derived.artifactId,
+      sessionId,
+      mapId: MAP,
+      canonicalBinding: derived.canonicalBinding,
+      fingerprint: derived.fingerprint,
+      contractVersion: 1,
+      rendererVersion: 1,
+      digest: sha(bytes),
+      stagingKey: identity.buildStagingKey("bb".repeat(16)),
+      expectedWidth: 6000,
+      expectedHeight: 6000,
+      expiresAt: Date.now() + 600_000,
+    },
+    now: Date.now(),
+  });
+  const res = await route.POST(jsonPost(token, { op: "identify", mapId: MAP }));
+  const body = await res.json();
+  assert.equal(body.state, "finalization_pending");
+  assert.equal(body.recovery, "reconcile");
+  assert.equal(body.descriptor, undefined);
+  // …and reconcile finalizes it (the I-4 recovery path).
+  const rec = await route.POST(jsonPost(token, { op: "reconcile", artifactId: derived.artifactId }));
+  assert.equal(rec.status, 200);
+  assert.equal((await rec.json()).state, "finalized");
+});
+
+test("identify I-2: conflicted registry entry → 409 publication_conflict", async () => {
+  const { sessionId, token } = await seedSession();
+  const derived = identity.deriveArtifactIdentity({ sessionId, mapId: MAP, recipe: RECIPE });
+  await client.apply(sessionId, {
+    type: "register_publication_intent",
+    intent: {
+      intentId: "cc".repeat(16),
+      artifactKey: derived.artifactId,
+      sessionId,
+      mapId: MAP,
+      canonicalBinding: derived.canonicalBinding,
+      fingerprint: derived.fingerprint,
+      contractVersion: 1,
+      rendererVersion: 1,
+      digest: sha("governing-bytes"),
+      stagingKey: identity.buildStagingKey("cc".repeat(16)),
+      expectedWidth: 6000,
+      expectedHeight: 6000,
+      expiresAt: Date.now() + 600_000,
+    },
+    now: Date.now(),
+  });
+  const fin = await client.apply(sessionId, {
+    type: "finalize_publication",
+    artifactKey: derived.artifactId,
+    intentId: "cc".repeat(16),
+    generation: 1,
+    observation: {
+      finalObjectPresent: true,
+      finalMetadata: {
+        protocol: "dl1-archive-v1",
+        artifactKey: derived.artifactId,
+        digest: sha("other-bytes"),
+        bindingDigest: sha(derived.canonicalBinding),
+      },
+      bodyVerifiedDigest: sha("other-bytes"),
+    },
+    now: Date.now(),
+  });
+  assert.equal(fin.outcome, "publication_conflicted");
+  const res = await route.POST(jsonPost(token, { op: "identify", mapId: MAP }));
+  assert.equal(res.status, 409);
+  assert.equal((await res.json()).error, "publication_conflict");
+});
+
+test("descriptor classification: bad signature → 401; expired → 401; identity mismatch → 409 prepare_stale", async () => {
+  const { sessionId, token } = await seedSession();
+  const issued = identity.issuePrepareDescriptor({
+    sessionId,
+    mapId: MAP,
+    fingerprint: identity.fingerprintForBinding(
+      identity.canonicalBindingForRecipe(RECIPE),
+    ),
+    now: Date.now(),
+    descriptorId: "dd".repeat(16),
+  });
+  const bytes = bigPng(0);
+  const tampered = issued.descriptor.slice(0, -2) + "zz";
+  const badSig = await route.POST(
+    uploadPost(token, bytes, { "x-prepare-descriptor": tampered }),
+  );
+  assert.equal(badSig.status, 401);
+
+  const stale = identity.issuePrepareDescriptor({
+    sessionId,
+    mapId: MAP,
+    fingerprint: "f".repeat(64), // not the derived fingerprint for this map
+    now: Date.now(),
+    descriptorId: "ee".repeat(16),
+  });
+  const staleRes = await route.POST(
+    uploadPost(token, bytes, { "x-prepare-descriptor": stale.descriptor }),
+  );
+  assert.equal(staleRes.status, 409);
+  assert.equal((await staleRes.json()).error, "prepare_stale");
+
+  const expired = identity.issuePrepareDescriptor({
+    sessionId,
+    mapId: MAP,
+    fingerprint: identity.fingerprintForBinding(identity.canonicalBindingForRecipe(RECIPE)),
+    now: Date.now() - 2 * identity.DESCRIPTOR_TTL_MS,
+    descriptorId: "ff".repeat(16),
+  });
+  const expiredRes = await route.POST(
+    uploadPost(token, bytes, { "x-prepare-descriptor": expired.descriptor }),
+  );
+  assert.equal(expiredRes.status, 401);
+});
+
+test("upload validation: wrong-dimension PNG → 422 with NO staging write, intent, or registry entry (§5.10 order)", async () => {
+  const { sessionId, token } = await seedSession();
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(4, 0);
+  ihdr.writeUInt32BE(3, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 6;
+  const small = Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    pngChunk("IHDR", ihdr),
+    pngChunk("IDAT", deflateSync(Buffer.alloc(3 * (1 + 4 * 4)))),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+  const res = await route.POST(uploadPost(token, small));
+  assert.equal(res.status, 422);
+  const state = await client.getState(sessionId);
+  assert.deepEqual(Object.keys(state.publicationIntents), []);
+  assert.deepEqual(Object.keys(state.artifactRegistry), []);
+  const nonPng = await route.POST(
+    new NextRequest(url(token), {
+      method: "POST",
+      headers: { "content-type": "text/plain" },
+      body: "hello",
+    }),
+  );
+  assert.equal(nonPng.status, 415);
+});
+
+test("cookie resolver (§5.6): cookie + matching Origin identifies; foreign/missing Origin → 401; token present governs over cookie", async () => {
+  const a = await seedSession();
+  const b = await seedSession();
+  const cookieReq = (sessionId, origin) =>
+    new NextRequest(url(""), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie: `starmap_premium=${sessionId}`,
+        ...(origin ? { origin } : {}),
+      },
+      body: JSON.stringify({ op: "identify", mapId: MAP }),
+    });
+  const okRes = await route.POST(cookieReq(a.sessionId, "https://starmapco.com"));
+  assert.equal(okRes.status, 200);
+  const foreign = await route.POST(cookieReq(a.sessionId, "https://evil.example.com"));
+  assert.equal(foreign.status, 401);
+  const missing = await route.POST(cookieReq(a.sessionId, null));
+  assert.equal(missing.status, 401);
+  // Token governs: cookie names session B, token names session A → A's artifact.
+  const both = new NextRequest(url(a.token), {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      cookie: `starmap_premium=${b.sessionId}`,
+      origin: "https://starmapco.com",
+    },
+    body: JSON.stringify({ op: "identify", mapId: MAP }),
+  });
+  const bothRes = await route.POST(both);
+  const bothBody = await bothRes.json();
+  const derivedA = identity.deriveArtifactIdentity({
+    sessionId: a.sessionId,
+    mapId: MAP,
+    recipe: RECIPE,
+  });
+  assert.equal(bothBody.artifactId, derivedA.artifactId);
+});
+
+test("Class B: two publishers race the fused flow with distinct bodies — exactly one 200; the stored object + registry name the winner; the loser's bytes appear nowhere", async () => {
+  const { sessionId, token } = await seedSession();
+  const bytesA = bigPng(0);
+  const bytesB = bigPng(9);
+  const [ra, rb] = await Promise.all([
+    route.POST(uploadPost(token, bytesA)),
+    route.POST(uploadPost(token, bytesB)),
+  ]);
+  const statuses = [ra.status, rb.status].sort();
+  assert.deepEqual(statuses, [200, 409]);
+  const winnerBytes = ra.status === 200 ? bytesA : bytesB;
+  const state = await client.getState(sessionId);
+  const entries = Object.values(state.artifactRegistry);
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].state, "finalized");
+  assert.equal(entries[0].digest, sha(winnerBytes));
+  assert.equal(Object.keys(state.publicationIntents).length, 1);
+  // The stored final object's bytes are the winner's.
+  const derived = identity.deriveArtifactIdentity({ sessionId, mapId: MAP, recipe: RECIPE });
+  const storage = await import("../../src/lib/downloadArchiveStorage.ts");
+  const stored = await storage.getArtifactObject(derived.finalKey);
+  assert.equal(sha(stored.bytes), sha(winnerBytes));
+});
+
+test("Class B (join path, area 9): two publishers race the DESCRIPTOR flow with IDENTICAL bytes — both succeed; exactly one intent; the single entry names the shared digest", async () => {
+  const { sessionId, token } = await seedSession();
+  // Two descriptors for the same artifact (two I-5 identify calls —
+  // identify itself registers nothing).
+  const id1 = await (await route.POST(jsonPost(token, { op: "identify", mapId: MAP }))).json();
+  const id2 = await (await route.POST(jsonPost(token, { op: "identify", mapId: MAP }))).json();
+  assert.ok(id1.descriptor && id2.descriptor);
+  assert.notEqual(id1.descriptor, id2.descriptor);
+  const bytes = bigPng(0);
+  const [ra, rb] = await Promise.all([
+    route.POST(uploadPost(token, bytes, { "x-prepare-descriptor": id1.descriptor })),
+    route.POST(uploadPost(token, bytes, { "x-prepare-descriptor": id2.descriptor })),
+  ]);
+  assert.equal(ra.status, 200);
+  assert.equal(rb.status, 200);
+  const states = [(await ra.json()).state, (await rb.json()).state].sort();
+  assert.deepEqual(states, ["already_finalized", "finalized"]);
+  const state = await client.getState(sessionId);
+  // Same-digest orchestration invariants: exactly ONE intent is ever
+  // recorded (the second registration joins it — R6 — or, if it lands
+  // after finalization, is answered from the finalized entry — R3; the
+  // join record exists exactly in the former interleaving, so its
+  // count is asserted as at most one here and exactly one in the
+  // deterministic join-path test below).
+  assert.equal(Object.keys(state.publicationIntents).length, 1);
+  assert.ok(Object.keys(state.publicationIntentJoins).length <= 1);
+  const entries = Object.values(state.artifactRegistry);
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].state, "finalized");
+  assert.equal(entries[0].digest, sha(bytes));
+  const derived = identity.deriveArtifactIdentity({ sessionId, mapId: MAP, recipe: RECIPE });
+  const storage = await import("../../src/lib/downloadArchiveStorage.ts");
+  const stored = await storage.getArtifactObject(derived.finalKey);
+  assert.equal(sha(stored.bytes), sha(bytes));
+});
+
+test("Class B (join path, deterministic): the joiner's upload succeeds through the real route — it JOINS the governing intent recorded at the seam (the governor submits no upload in this test); join record persisted with the governing pair", async () => {
+  const { sessionId, token } = await seedSession();
+  const derived = identity.deriveArtifactIdentity({ sessionId, mapId: MAP, recipe: RECIPE });
+  const bytes = bigPng(0);
+  // Governor: descriptor 1's intent pre-registered at the authority
+  // seam (the I-3/I-4 pattern) — descriptor 2's route upload is then
+  // evaluated against a live governing intent with the SAME digest.
+  const issued2 = identity.issuePrepareDescriptor({
+    sessionId,
+    mapId: MAP,
+    fingerprint: derived.fingerprint,
+    now: Date.now(),
+    descriptorId: "22".repeat(16),
+  });
+  assert.ok(issued2);
+  const regGov = await client.apply(sessionId, {
+    type: "register_publication_intent",
+    intent: {
+      intentId: "11".repeat(16),
+      artifactKey: derived.artifactId,
+      sessionId,
+      mapId: MAP,
+      canonicalBinding: derived.canonicalBinding,
+      fingerprint: derived.fingerprint,
+      contractVersion: 1,
+      rendererVersion: 1,
+      digest: sha(bytes),
+      stagingKey: identity.buildStagingKey("11".repeat(16)),
+      expectedWidth: 6000,
+      expectedHeight: 6000,
+      expiresAt: Date.now() + 600_000,
+    },
+    now: Date.now(),
+  });
+  assert.equal(regGov.outcome, "publication_intent_recorded");
+  // The joiner's upload through the real route: registers as a JOIN
+  // (R6), promotes (creates the object — the governor never uploaded),
+  // and its finalize lands the entry (F6 over the governing intent).
+  const res = await route.POST(
+    uploadPost(token, bytes, { "x-prepare-descriptor": issued2.descriptor }),
+  );
+  assert.equal(res.status, 200);
+  assert.equal((await res.json()).state, "finalized");
+  const state = await client.getState(sessionId);
+  assert.equal(Object.keys(state.publicationIntents).length, 1);
+  const joins = Object.values(state.publicationIntentJoins);
+  assert.equal(joins.length, 1);
+  assert.equal(joins[0].intentId, "22".repeat(16));
+  assert.equal(joins[0].governingIntentId, "11".repeat(16));
+  assert.equal(joins[0].digest, sha(bytes));
+  const entries = Object.values(state.artifactRegistry);
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].state, "finalized");
+  assert.equal(entries[0].digest, sha(bytes));
+  const storage = await import("../../src/lib/downloadArchiveStorage.ts");
+  const stored = await storage.getArtifactObject(derived.finalKey);
+  assert.equal(sha(stored.bytes), sha(bytes));
+});
+
+test("route replay, governing (area 3 fix round 2): a descriptor upload whose intent already stands replays through the real route — no new intent, no generation burned, the recorded expiry is not renewed", async () => {
+  const { sessionId, token } = await seedSession();
+  const derived = identity.deriveArtifactIdentity({ sessionId, mapId: MAP, recipe: RECIPE });
+  const bytes = bigPng(0);
+  const descriptorId = "33".repeat(16);
+  const issuedAt = Date.now();
+  const issued = identity.issuePrepareDescriptor({
+    sessionId,
+    mapId: MAP,
+    fingerprint: derived.fingerprint,
+    now: issuedAt,
+    ttlMs: 600_000,
+    descriptorId,
+  });
+  assert.ok(issued);
+  // The intent already stands (an earlier identical upload recorded
+  // it and its finalize never landed — e.g. the response was lost).
+  // It was recorded with the descriptor's signed expiry.
+  const regFirst = await client.apply(sessionId, {
+    type: "register_publication_intent",
+    intent: {
+      intentId: descriptorId,
+      artifactKey: derived.artifactId,
+      sessionId,
+      mapId: MAP,
+      canonicalBinding: derived.canonicalBinding,
+      fingerprint: derived.fingerprint,
+      contractVersion: 1,
+      rendererVersion: 1,
+      digest: sha(bytes),
+      stagingKey: identity.buildStagingKey(descriptorId),
+      expectedWidth: 6000,
+      expectedHeight: 6000,
+      expiresAt: issued.payload.expiresAt,
+    },
+    now: issuedAt,
+  });
+  assert.equal(regFirst.outcome, "publication_intent_recorded");
+  // The re-upload through the real route replays (R1), promotes the
+  // object, and finalizes.
+  const res = await route.POST(
+    uploadPost(token, bytes, { "x-prepare-descriptor": issued.descriptor }),
+  );
+  assert.equal(res.status, 200);
+  assert.equal((await res.json()).state, "finalized");
+  const state = await client.getState(sessionId);
+  assert.equal(Object.keys(state.publicationIntents).length, 1);
+  const intent = state.publicationIntents[descriptorId];
+  assert.equal(intent.generation, 1); // the replay burned no generation
+  assert.equal(intent.expiresAt, issued.payload.expiresAt); // and did not renew the expiry
+  const entries = Object.values(state.artifactRegistry);
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].digest, sha(bytes));
+});
+
+test("route replay, promoted (area 3 fix round 2): after a JN1→R7 promotion, the joiner's re-upload through the real route replays against the machine-stamped intent; with different bytes it conflicts at the dedupe boundary", async () => {
+  const { sessionId, token } = await seedSession();
+  const derived = identity.deriveArtifactIdentity({ sessionId, mapId: MAP, recipe: RECIPE });
+  const bytes = bigPng(0);
+  const t0 = Date.now();
+  const govId = "44".repeat(16);
+  const joinId = "55".repeat(16);
+  const joinerSignedExpiry = t0 + 600_000;
+  const baseIntent = {
+    artifactKey: derived.artifactId,
+    sessionId,
+    mapId: MAP,
+    canonicalBinding: derived.canonicalBinding,
+    fingerprint: derived.fingerprint,
+    contractVersion: 1,
+    rendererVersion: 1,
+    digest: sha(bytes),
+    expectedWidth: 6000,
+    expectedHeight: 6000,
+  };
+  // Governor records (short-lived at the authority seam); the joiner
+  // joins it (R6) with its own signed expiry.
+  const regGov = await client.apply(sessionId, {
+    type: "register_publication_intent",
+    intent: { ...baseIntent, intentId: govId, stagingKey: identity.buildStagingKey(govId), expiresAt: t0 + 1000 },
+    now: t0,
+  });
+  assert.equal(regGov.outcome, "publication_intent_recorded");
+  const regJoin = await client.apply(sessionId, {
+    type: "register_publication_intent",
+    intent: { ...baseIntent, intentId: joinId, stagingKey: identity.buildStagingKey(joinId), expiresAt: joinerSignedExpiry },
+    now: t0,
+  });
+  assert.equal(regJoin.outcome, "publication_intent_joined");
+  // The governor lapses; the joiner re-presents → JN1→R7 promotion
+  // with a MACHINE-STAMPED expiry (promoteAt + TTL), never the join's.
+  const promoteAt = t0 + 2000;
+  const regPromote = await client.apply(sessionId, {
+    type: "register_publication_intent",
+    intent: { ...baseIntent, intentId: joinId, stagingKey: identity.buildStagingKey(joinId), expiresAt: joinerSignedExpiry },
+    now: promoteAt,
+  });
+  assert.equal(regPromote.outcome, "publication_intent_recorded");
+  const stamp = promoteAt + identity.DESCRIPTOR_TTL_MS;
+  assert.equal(regPromote.state.publicationIntents[joinId].expiresAt, stamp);
+  // The joiner's real descriptor carries the ORIGINAL signed expiry —
+  // the value the round-1 comparison exempted and a direct authority
+  // presentation would now be refused for (R2, proven in the
+  // publication suite). Through the route it must still replay,
+  // because the route constructs the registration from the persisted
+  // intent (acceptance 3.5: captured replay input contains the
+  // persisted expiry).
+  const issued = identity.issuePrepareDescriptor({
+    sessionId,
+    mapId: MAP,
+    fingerprint: derived.fingerprint,
+    now: joinerSignedExpiry - identity.DESCRIPTOR_TTL_MS,
+    descriptorId: joinId,
+  });
+  assert.ok(issued);
+  assert.equal(issued.payload.expiresAt, joinerSignedExpiry);
+  // Different bytes first: the digest is THIS upload's, so the
+  // constructed replay diverges at the dedupe boundary → 409
+  // intent_payload_conflict, and the persisted intent is untouched.
+  const other = bigPng(8);
+  const conflict = await route.POST(
+    uploadPost(token, other, { "x-prepare-descriptor": issued.descriptor }),
+  );
+  assert.equal(conflict.status, 409);
+  assert.equal((await conflict.json()).error, "intent_payload_conflict");
+  const midState = await client.getState(sessionId);
+  assert.equal(midState.publicationIntents[joinId].digest, sha(bytes));
+  assert.equal(midState.artifactRegistry[derived.artifactId], undefined);
+  // Same bytes: the replay lands (R1), the object promotes, finalize
+  // completes the entry — and the persisted expiry remains the stamp.
+  const res = await route.POST(
+    uploadPost(token, bytes, { "x-prepare-descriptor": issued.descriptor }),
+  );
+  assert.equal(res.status, 200);
+  assert.equal((await res.json()).state, "finalized");
+  const state = await client.getState(sessionId);
+  const promoted = state.publicationIntents[joinId];
+  assert.equal(promoted.expiresAt, stamp);
+  assert.equal(promoted.generation, regPromote.publication.generation);
+  const entries = Object.values(state.artifactRegistry);
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].digest, sha(bytes));
+});
+
+/** Seed the verdict's race precondition (correction round 3, area 3):
+ * a short-lived governor intent and a joiner joined under it (R6)
+ * through the authority seam, with the joiner's descriptor carrying
+ * its long signed expiry. The governor lapses in fake-now terms at
+ * the seam (t0 + 500) and in real terms long before any route
+ * registration applies (a 6000×6000 validation sits in between), so
+ * the first route registration performs the JN1→R7 promotion and
+ * stamps the machine expiry — the second, if its snapshot predates
+ * the promotion, presents the signed expiry and is refused. */
+async function seedPromotionRace(joinDigest) {
+  const { sessionId, token } = await seedSession();
+  const derived = identity.deriveArtifactIdentity({ sessionId, mapId: MAP, recipe: RECIPE });
+  const t0 = Date.now();
+  const govId = "66".repeat(16);
+  const joinId = "77".repeat(16);
+  const joinerSignedExpiry = t0 + 600_000;
+  const baseIntent = {
+    artifactKey: derived.artifactId,
+    sessionId,
+    mapId: MAP,
+    canonicalBinding: derived.canonicalBinding,
+    fingerprint: derived.fingerprint,
+    contractVersion: 1,
+    rendererVersion: 1,
+    digest: joinDigest,
+    expectedWidth: 6000,
+    expectedHeight: 6000,
+  };
+  const regGov = await client.apply(sessionId, {
+    type: "register_publication_intent",
+    intent: { ...baseIntent, intentId: govId, stagingKey: identity.buildStagingKey(govId), expiresAt: t0 + 500 },
+    now: t0,
+  });
+  assert.equal(regGov.outcome, "publication_intent_recorded");
+  const regJoin = await client.apply(sessionId, {
+    type: "register_publication_intent",
+    intent: { ...baseIntent, intentId: joinId, stagingKey: identity.buildStagingKey(joinId), expiresAt: joinerSignedExpiry },
+    now: t0,
+  });
+  assert.equal(regJoin.outcome, "publication_intent_joined");
+  const issued = identity.issuePrepareDescriptor({
+    sessionId,
+    mapId: MAP,
+    fingerprint: derived.fingerprint,
+    now: joinerSignedExpiry - identity.DESCRIPTOR_TTL_MS,
+    descriptorId: joinId,
+  });
+  assert.ok(issued);
+  assert.equal(issued.payload.expiresAt, joinerSignedExpiry);
+  /** Perform the JN1→R7 promotion at the seam (machine-stamped
+   * expiry), as a lapsed-governor registration would. The round-4
+   * failure-injection test calls this while the route's snapshot is
+   * held at the rendezvous, so the promotion lands between the
+   * route's stateBefore read and its first apply. */
+  const promoteJoiner = () =>
+    client.apply(sessionId, {
+      type: "register_publication_intent",
+      intent: { ...baseIntent, intentId: joinId, stagingKey: identity.buildStagingKey(joinId), expiresAt: joinerSignedExpiry },
+      now: t0 + 2000,
+    });
+  return { sessionId, token, derived, joinId, joinerSignedExpiry, descriptor: issued.descriptor, promoteJoiner };
+}
+
+test("route replay race (correction round 3, area 3; rendezvous forced per the Codex P2 on the round-3 head): two IDENTICAL uploads whose stateBefore snapshots are BOTH read before either registration is released, straddling a JN1→R7 promotion — the stale-snapshot registration is reconstructed from the fresh persisted intent and replays; both succeed", async () => {
+  const bytes = bigPng(0);
+  const { sessionId, token, joinId, joinerSignedExpiry, descriptor } = await seedPromotionRace(sha(bytes));
+  const headers = { "x-prepare-descriptor": descriptor };
+  // STRUCTURAL FORCING (dl1S4AuthorityRendezvous.mjs): while armed,
+  // the route's first two getState reads for this session each
+  // execute and then block until both have completed, so both
+  // snapshots are provably pre-registration — no reliance on body
+  // timing or scheduler luck.
+  rendezvous.__armAuthorityGetStateRendezvous(sessionId);
+  let resA, resB, status;
+  try {
+    [resA, resB] = await Promise.all([
+      route.POST(uploadPost(token, bytes, headers)),
+      route.POST(uploadPost(token, bytes, headers)),
+    ]);
+  } finally {
+    status = rendezvous.__authorityRendezvousStatus();
+    rendezvous.__disarmAuthorityGetStateRendezvous();
+  }
+  assert.equal(status.arrived, 2, "both stateBefore reads must rendezvous before any registration");
+  assert.equal(status.timedOut, false, "the rendezvous must engage, not time out");
+  assert.equal(resA.status, 200, "first upload");
+  assert.equal(resB.status, 200, "second upload");
+  const state = await client.getState(sessionId);
+  const entries = Object.values(state.artifactRegistry);
+  assert.equal(entries.length, 1, "exactly one entry");
+  assert.equal(entries[0].digest, sha(bytes));
+  const promoted = state.publicationIntents[joinId];
+  assert.ok(promoted, "the promoted intent stands");
+  assert.equal(promoted.digest, sha(bytes));
+  assert.notEqual(promoted.expiresAt, joinerSignedExpiry); // machine stamp, not the signed expiry
+  // The race is PROVEN from the authority's own commit order (W-3),
+  // and with the rendezvous it is REQUIRED in this single run: a
+  // joinId registration refused intent_payload_conflict (the stale
+  // snapshot presenting the signed expiry) followed by a recorded
+  // registration for the same intentId (the bounded reconstruction
+  // replaying with the fresh persisted expiry).
+  const regs = clientMod.__getEntitlementAuthorityCommitHistoryForTests(sessionId).filter(
+    (r) => r.op.type === "register_publication_intent" && r.op.intent.intentId === joinId,
+  );
+  const refusalIdx = regs.findIndex((r) => r.outcome === "refused" && r.refusal === "intent_payload_conflict");
+  assert.ok(refusalIdx >= 0, "the stale-snapshot registration must be refused exactly once");
+  assert.ok(
+    regs.slice(refusalIdx + 1).some((r) => r.outcome === "publication_intent_recorded"),
+    "the reconstruction must record the replayed registration after the refusal",
+  );
+});
+
+test("route replay race, control (correction round 3, area 3; rendezvous forced): DIFFERENT bytes under the same forced interleaving — the join-matching upload succeeds, the other is refused 409 and the reconstruction cannot launder it", async () => {
+  const winner = bigPng(0);
+  const loser = bigPng(8);
+  const { sessionId, token, descriptor } = await seedPromotionRace(sha(winner));
+  const headers = { "x-prepare-descriptor": descriptor };
+  rendezvous.__armAuthorityGetStateRendezvous(sessionId);
+  let resWin, resLose, status;
+  try {
+    [resWin, resLose] = await Promise.all([
+      route.POST(uploadPost(token, winner, headers)),
+      route.POST(uploadPost(token, loser, headers)),
+    ]);
+  } finally {
+    status = rendezvous.__authorityRendezvousStatus();
+    rendezvous.__disarmAuthorityGetStateRendezvous();
+  }
+  assert.equal(status.arrived, 2, "both stateBefore reads must rendezvous before any registration");
+  assert.equal(status.timedOut, false, "the rendezvous must engage, not time out");
+  assert.equal(resWin.status, 200);
+  assert.equal(resLose.status, 409);
+  const loseBody = await resLose.json();
+  assert.ok(
+    ["intent_payload_conflict", "publication_conflict"].includes(loseBody.error),
+    `unexpected refusal shape: ${loseBody.error}`,
+  );
+  const state = await client.getState(sessionId);
+  const entries = Object.values(state.artifactRegistry);
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].digest, sha(winner));
+});
+
+test("route replay reconstruction, failure injection (correction round 4, area 3 — G-dot verdict #3): the stale-snapshot registration is refused, a fresh promoted intent stands, and the reconstruction apply is UNAVAILABLE (null) — the route answers the retryable upload_failed, never the stale intent_payload_conflict, and publishes nothing", async () => {
+  const bytes = bigPng(0);
+  const { sessionId, token, derived, joinId, joinerSignedExpiry, descriptor, promoteJoiner } =
+    await seedPromotionRace(sha(bytes));
+  // STRUCTURAL FORCING, both halves genuinely required:
+  // (1) the rendezvous holds the route's stateBefore read after it
+  //     executes, so its snapshot provably predates the promotion
+  //     the test lands at the seam below;
+  // (2) the apply-null injection (dl1S4AuthorityRendezvous.mjs) is
+  //     the only seam that can make exactly the route's SECOND
+  //     register apply — the bounded reconstruction — return null:
+  //     the local authority's apply cannot be made unavailable on a
+  //     chosen call from outside. skip=1 lets the route's first
+  //     (stale-snapshot) registration reach the authority for real.
+  rendezvous.__armAuthorityGetStateRendezvous(sessionId);
+  rendezvous.__armAuthorityApplyNull(sessionId, { skip: 1 });
+  let res, rendezvousStatus, applyNullStatus;
+  try {
+    const pending = route.POST(
+      uploadPost(token, bytes, { "x-prepare-descriptor": descriptor }),
+    );
+    // Wait until the route's stateBefore read has executed and is
+    // held at the barrier: its snapshot shows the joined intent
+    // carrying the signed expiry.
+    const deadline = Date.now() + 15_000;
+    while (rendezvous.__authorityRendezvousStatus().arrived < 1) {
+      if (Date.now() > deadline) throw new Error("the route's stateBefore read never reached the rendezvous");
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    // A fresh promoted intent now stands (machine-stamped expiry).
+    const promote = await promoteJoiner();
+    assert.equal(promote.outcome, "publication_intent_recorded");
+    // Release the held snapshot: a second wrapped read trips the
+    // barrier. The route proceeds with its STALE snapshot, presents
+    // the signed expiry, and is refused intent_payload_conflict; its
+    // bounded reconstruction read then finds the promoted intent —
+    // and the reconstruction apply is the injected null.
+    const trigger = rendezvous.createEntitlementAuthorityClient();
+    await trigger.getState(sessionId);
+    res = await pending;
+  } finally {
+    rendezvousStatus = rendezvous.__authorityRendezvousStatus();
+    applyNullStatus = rendezvous.__authorityApplyNullStatus();
+    rendezvous.__disarmAuthorityGetStateRendezvous();
+    rendezvous.__disarmAuthorityApplyNull();
+  }
+  assert.equal(rendezvousStatus.arrived, 2, "both reads must rendezvous before the route proceeds");
+  assert.equal(rendezvousStatus.timedOut, false, "the rendezvous must engage, not time out");
+  assert.equal(applyNullStatus.fired, true, "the injected unavailability must engage on the reconstruction apply");
+  // THE ROUND-4 ASSERTION: the second result — null — stands. The
+  // answer is the existing retryable unavailability shape (503
+  // upload_failed), NOT the stale snapshot's 409 payload conflict.
+  assert.equal(res.status, 503);
+  const body = await res.json();
+  assert.equal(body.error, "upload_failed");
+  assert.equal(body.state, "upload_failed");
+  // Proven from the authority's commit order: the stale-snapshot
+  // registration WAS refused intent_payload_conflict, and no
+  // registration was recorded after it (the unavailable apply never
+  // reached the authority).
+  const regs = clientMod.__getEntitlementAuthorityCommitHistoryForTests(sessionId).filter(
+    (r) => r.op.type === "register_publication_intent" && r.op.intent.intentId === joinId,
+  );
+  const refusalIdx = regs.findIndex((r) => r.outcome === "refused" && r.refusal === "intent_payload_conflict");
+  assert.ok(refusalIdx >= 0, "the stale-snapshot registration must be refused exactly as in the race");
+  assert.ok(
+    !regs.slice(refusalIdx + 1).some((r) => r.outcome !== "refused"),
+    "no registration may be recorded after the refusal — the second apply was unavailable",
+  );
+  // Zero publication side effects: no registry entry, no stored
+  // object under the final key, and the promoted intent stands
+  // untouched (same digest, machine-stamped expiry).
+  const state = await client.getState(sessionId);
+  assert.equal(Object.keys(state?.artifactRegistry ?? {}).length, 0);
+  const promoted = state.publicationIntents[joinId];
+  assert.ok(promoted, "the promoted intent still stands");
+  assert.equal(promoted.digest, sha(bytes));
+  assert.notEqual(promoted.expiresAt, joinerSignedExpiry);
+  const storage = await import("../../src/lib/downloadArchiveStorage.ts");
+  const head = await storage.headArtifactObject(derived.finalKey);
+  assert.equal(head.present, false);
+});
+
+test("descriptor upload with an unsupported critical PNG chunk → 422 and NOTHING is published (correction round 3 — Codex P2-2)", async () => {
+  const { sessionId, token } = await seedSession();
+  const identifyRes = await route.POST(jsonPost(token, { op: "identify", mapId: MAP }));
+  const { descriptor } = await identifyRes.json();
+  const derived = identity.deriveArtifactIdentity({ sessionId, mapId: MAP, recipe: RECIPE });
+  const bytes = bigPngWithChunk("ABCD", Buffer.from("payload"));
+  const res = await route.POST(uploadPost(token, bytes, { "x-prepare-descriptor": descriptor }));
+  assert.equal(res.status, 422);
+  assert.equal((await res.json()).error, "unsupported_critical_chunk");
+  // Validation precedes staging and registration: no intent, no
+  // registry entry, no stored object under the final key.
+  const state = await client.getState(sessionId);
+  assert.equal(Object.keys(state?.publicationIntents ?? {}).length, 0);
+  assert.equal(Object.keys(state?.artifactRegistry ?? {}).length, 0);
+  const storage = await import("../../src/lib/downloadArchiveStorage.ts");
+  const head = await storage.headArtifactObject(derived.finalKey);
+  assert.equal(head.present, false);
+});
+
+test("descriptor upload with a malformed PLTE payload → 422 bad_plte and NOTHING is published (Codex P2 on the round-3 head)", async () => {
+  const { sessionId, token } = await seedSession();
+  const identifyRes = await route.POST(jsonPost(token, { op: "identify", mapId: MAP }));
+  const { descriptor } = await identifyRes.json();
+  const derived = identity.deriveArtifactIdentity({ sessionId, mapId: MAP, recipe: RECIPE });
+  // The Codex reproduction shape at route scale: a CRC-valid
+  // one-byte PLTE in an otherwise admissible 6000×6000 RGBA upload.
+  const bytes = bigPngWithChunk("PLTE", Buffer.from([0]));
+  const res = await route.POST(uploadPost(token, bytes, { "x-prepare-descriptor": descriptor }));
+  assert.equal(res.status, 422);
+  assert.equal((await res.json()).error, "bad_plte");
+  const state = await client.getState(sessionId);
+  assert.equal(Object.keys(state?.publicationIntents ?? {}).length, 0);
+  assert.equal(Object.keys(state?.artifactRegistry ?? {}).length, 0);
+  const storage = await import("../../src/lib/downloadArchiveStorage.ts");
+  const head = await storage.headArtifactObject(derived.finalKey);
+  assert.equal(head.present, false);
+});
+
+test("descriptor upload with nonconsecutive IDAT chunks → 422 nonconsecutive_idat and NOTHING is published (Codex P2 on the round-3 head)", async () => {
+  const { sessionId, token } = await seedSession();
+  const identifyRes = await route.POST(jsonPost(token, { op: "identify", mapId: MAP }));
+  const { descriptor } = await identifyRes.json();
+  const derived = identity.deriveArtifactIdentity({ sessionId, mapId: MAP, recipe: RECIPE });
+  // The Codex reproduction shape at route scale: a CRC-valid
+  // 6000×6000 RGBA upload whose IDAT run is broken by a tEXt
+  // chunk (IDAT -> tEXt -> IDAT). The structural walk counts
+  // every IDAT payload and the inflate pass concatenates them,
+  // so this validated before the fix — while libspng/Sharp
+  // reject the file, leaving an undecodable artifact finalized.
+  const bytes = bigPngNonconsecutiveIdat();
+  const res = await route.POST(uploadPost(token, bytes, { "x-prepare-descriptor": descriptor }));
+  assert.equal(res.status, 422);
+  assert.equal((await res.json()).error, "nonconsecutive_idat");
+  // Validation precedes staging and registration: no intent, no
+  // registry entry, no stored object under the final key.
+  const state = await client.getState(sessionId);
+  assert.equal(Object.keys(state?.publicationIntents ?? {}).length, 0);
+  assert.equal(Object.keys(state?.artifactRegistry ?? {}).length, 0);
+  const storage = await import("../../src/lib/downloadArchiveStorage.ts");
+  const head = await storage.headArtifactObject(derived.finalKey);
+  assert.equal(head.present, false);
+});
+
+/** bigPng with the IDAT chunk's first type byte's high bit set
+ * (raw type bytes C9 44 41 54) and the chunk CRC recomputed:
+ * CRC-valid, and it decodes as "IDAT" under Node's
+ * high-bit-clearing ascii decode, but a real decoder reads the
+ * raw bytes and rejects the chunk as an unknown critical chunk. */
+function bigPngHighBitIdatType(fill = 0) {
+  const out = Buffer.from(bigPng(fill));
+  let off = 8;
+  while (off + 8 <= out.length) {
+    const len = out.readUInt32BE(off);
+    if (out.toString("ascii", off + 4, off + 8) === "IDAT") {
+      out[off + 4] = 0xc9;
+      out.writeUInt32BE(
+        pngMod.pngCrc32(out.subarray(off + 4, off + 8 + len)),
+        off + 8 + len,
+      );
+      return out;
+    }
+    off += 12 + len;
+  }
+  throw new Error("no IDAT chunk");
+}
+
+test("descriptor upload with high-bit IDAT chunk type bytes → 422 bad_chunk_type and NOTHING is published (Codex P2 on the round-3 head bc37757)", async () => {
+  const { sessionId, token } = await seedSession();
+  const identifyRes = await route.POST(jsonPost(token, { op: "identify", mapId: MAP }));
+  const { descriptor } = await identifyRes.json();
+  const derived = identity.deriveArtifactIdentity({ sessionId, mapId: MAP, recipe: RECIPE });
+  // The Codex reproduction shape at route scale: a CRC-valid
+  // 6000×6000 RGBA upload whose IDAT chunk's raw type bytes are
+  // C9 44 41 54. Node's ascii decode clears the high bit, so both
+  // structural walks read "IDAT" and the upload validated before
+  // the fix — while a real decoder (Sharp) rejects the chunk as
+  // an unknown critical chunk, leaving an undecodable artifact
+  // permanently finalized.
+  const bytes = bigPngHighBitIdatType();
+  const res = await route.POST(uploadPost(token, bytes, { "x-prepare-descriptor": descriptor }));
+  assert.equal(res.status, 422);
+  assert.equal((await res.json()).error, "bad_chunk_type");
+  // Validation precedes staging and registration: no intent, no
+  // registry entry, no stored object under the final key.
+  const state = await client.getState(sessionId);
+  assert.equal(Object.keys(state?.publicationIntents ?? {}).length, 0);
+  assert.equal(Object.keys(state?.artifactRegistry ?? {}).length, 0);
+  const storage = await import("../../src/lib/downloadArchiveStorage.ts");
+  const head = await storage.headArtifactObject(derived.finalKey);
+  assert.equal(head.present, false);
+});
+
+test("terminal-success comparison (area 7 P2 / CB-P2a): a requester whose retained intent lapses mid-flight while a successor takes governance gets 409, never success", async () => {
+  const { sessionId, token } = await seedSession();
+  const derived = identity.deriveArtifactIdentity({ sessionId, mapId: MAP, recipe: RECIPE });
+  const storage = await import("../../src/lib/downloadArchiveStorage.ts");
+  const bytesA = bigPng(0);
+  const bytesB = bigPng(9);
+  // The requester's descriptor: signed expiry ~200 ms out — live at
+  // classification (request start), lapsed by the time its counted
+  // read + 6000×6000 validation completes and its register applies.
+  const issued = identity.issuePrepareDescriptor({
+    sessionId,
+    mapId: MAP,
+    fingerprint: derived.fingerprint,
+    now: Date.now(),
+    ttlMs: 200,
+    descriptorId: "ab".repeat(16),
+  });
+  assert.ok(issued);
+  // Its retained intent (digest A) recorded with the descriptor's
+  // signed expiry — the R1 replay target.
+  const regA = await client.apply(sessionId, {
+    type: "register_publication_intent",
+    intent: {
+      intentId: "ab".repeat(16),
+      artifactKey: derived.artifactId,
+      sessionId,
+      mapId: MAP,
+      canonicalBinding: derived.canonicalBinding,
+      fingerprint: derived.fingerprint,
+      contractVersion: 1,
+      rendererVersion: 1,
+      digest: sha(bytesA),
+      stagingKey: identity.buildStagingKey("ab".repeat(16)),
+      expectedWidth: 6000,
+      expectedHeight: 6000,
+      expiresAt: issued.payload.expiresAt,
+    },
+    now: Date.now(),
+  });
+  assert.equal(regA.outcome, "publication_intent_recorded");
+  // Fire the requester's upload (do not await yet).
+  const requesterPromise = route.POST(
+    uploadPost(token, bytesA, { "x-prepare-descriptor": issued.descriptor }),
+  );
+  // After the lapse, the successor registers (R7 — governance moves)
+  // and promotes its bytes; its finalize is held until the requester's
+  // staging write is observed (the requester's registry state read has
+  // already happened by then, so the entry cannot predate it).
+  await new Promise((r) => setTimeout(r, 300));
+  const regB = await client.apply(sessionId, {
+    type: "register_publication_intent",
+    intent: {
+      intentId: "cd".repeat(16),
+      artifactKey: derived.artifactId,
+      sessionId,
+      mapId: MAP,
+      canonicalBinding: derived.canonicalBinding,
+      fingerprint: derived.fingerprint,
+      contractVersion: 1,
+      rendererVersion: 1,
+      digest: sha(bytesB),
+      stagingKey: identity.buildStagingKey("cd".repeat(16)),
+      expectedWidth: 6000,
+      expectedHeight: 6000,
+      expiresAt: Date.now() + 600_000,
+    },
+    now: Date.now(),
+  });
+  assert.equal(regB.outcome, "publication_intent_recorded");
+  const promoted = await storage.promoteArtifactCreateOnly(derived.finalKey, bytesB, {
+    protocol: "dl1-archive-v1",
+    artifactKey: derived.artifactId,
+    digest: sha(bytesB),
+    bindingDigest: sha(derived.canonicalBinding),
+  });
+  assert.equal(promoted.outcome, "created");
+  const { existsSync } = await import("node:fs");
+  // The canonical local mapping (fix round 2, area 6): SHA-256 hex of
+  // the key, in a two-hex-char shard directory.
+  const stagingHash = sha(identity.buildStagingKey("ab".repeat(16)));
+  const stagingPath = path.join(
+    process.env.STARMAP_DOWNLOAD_ARCHIVE_DIR,
+    stagingHash.slice(0, 2),
+    stagingHash,
+  );
+  const deadline = Date.now() + 10_000;
+  while (!existsSync(stagingPath) && Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 5));
+  }
+  assert.ok(existsSync(stagingPath), "requester staging write observed (premise: its state read already happened)");
+  const finBPromise = client.apply(sessionId, {
+    type: "finalize_publication",
+    artifactKey: derived.artifactId,
+    intentId: "cd".repeat(16),
+    generation: regB.publication.generation,
+    observation: {
+      finalObjectPresent: true,
+      finalMetadata: {
+        protocol: "dl1-archive-v1",
+        artifactKey: derived.artifactId,
+        digest: sha(bytesB),
+        bindingDigest: sha(derived.canonicalBinding),
+      },
+      bodyVerifiedDigest: sha(bytesB),
+    },
+    now: Date.now(),
+  });
+  const [res, finB] = await Promise.all([requesterPromise, finBPromise]);
+  // Whichever finalize call mints/observes the entry (F6 on the
+  // requester's own call, or F1 already-finalized via the successor's),
+  // the entry names digest B — the requester's digest was never stored,
+  // so its answer is the conflict, never a success shape.
+  assert.ok(["publication_finalized", "publication_already_finalized"].includes(finB.outcome));
+  assert.equal(res.status, 409);
+  assert.equal((await res.json()).error, "publication_conflict");
+  const state = await client.getState(sessionId);
+  const entries = Object.values(state.artifactRegistry);
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].state, "finalized");
+  assert.equal(entries[0].digest, sha(bytesB));
+  const stored = await storage.getArtifactObject(derived.finalKey);
+  assert.equal(sha(stored.bytes), sha(bytesB));
+});
+
+/* ---------------- OFF state: the preserved legacy flow (area 7 P1) ---------------- */
+
+test("OFF state (flag unset): POST is the base legacy flow — descriptorless upload → legacy-key storage → GET serves the bytes; a re-upload overwrites; no authority state is touched", async () => {
+  delete process.env.DL1_AUTHORITY_ROUTING_ENABLED;
+  try {
+    const { sessionId, token } = await seedSession();
+    const bytes = bigPng(0);
+    const res = await route.POST(uploadPost(token, bytes));
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.deepEqual(Object.keys(body).sort(), ["bytes", "ok", "sessionId"]); // the base success shape
+    assert.equal(body.sessionId, sessionId);
+    assert.equal(body.bytes, bytes.length);
+    // GET serves exactly the uploaded bytes (the legacy key the GET reads).
+    const get = await route.GET(new NextRequest(url(token), { method: "GET" }));
+    assert.equal(get.status, 200);
+    assert.deepEqual(Buffer.from(await get.arrayBuffer()), bytes);
+    // Legacy put semantics: a second upload OVERWRITES (no create-only
+    // promotion, no publication protocol).
+    const bytes2 = bigPng(5);
+    const res2 = await route.POST(uploadPost(token, bytes2));
+    assert.equal(res2.status, 200);
+    const get2 = await route.GET(new NextRequest(url(token), { method: "GET" }));
+    assert.equal(get2.status, 200);
+    assert.deepEqual(Buffer.from(await get2.arrayBuffer()), bytes2);
+    // The legacy flow creates no authority publication state.
+    const state = await client.getState(sessionId);
+    assert.deepEqual(Object.keys(state.publicationIntents ?? {}), []);
+    assert.deepEqual(Object.keys(state.publicationIntentJoins ?? {}), []);
+    assert.deepEqual(Object.keys(state.artifactRegistry ?? {}), []);
+  } finally {
+    process.env.DL1_AUTHORITY_ROUTING_ENABLED = "true";
+  }
+});
+
+test("OFF state (flag 'false'): JSON ops are not the protocol (base 415), and a descriptor header does not divert the legacy flow", async () => {
+  process.env.DL1_AUTHORITY_ROUTING_ENABLED = "false";
+  try {
+    const { sessionId, token } = await seedSession();
+    // Base POST: a JSON content-type is refused 415 (token + session first).
+    const json = await route.POST(jsonPost(token, { op: "identify", mapId: MAP }));
+    assert.equal(json.status, 415);
+    // A descriptor header changes nothing while OFF: the upload is the
+    // legacy flow and lands at the legacy key.
+    const bytes = bigPng(0);
+    const res = await route.POST(
+      uploadPost(token, bytes, { "x-prepare-descriptor": "not-a-real-descriptor" }),
+    );
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.sessionId, sessionId);
+    assert.equal(body.bytes, bytes.length);
+    const get = await route.GET(new NextRequest(url(token), { method: "GET" }));
+    assert.equal(get.status, 200);
+    assert.deepEqual(Buffer.from(await get.arrayBuffer()), bytes);
+  } finally {
+    process.env.DL1_AUTHORITY_ROUTING_ENABLED = "true";
+  }
+});

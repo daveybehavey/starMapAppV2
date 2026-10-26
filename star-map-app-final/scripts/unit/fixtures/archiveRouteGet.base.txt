@@ -1,0 +1,40 @@
+export async function GET(req: NextRequest) {
+  const token = req.nextUrl.searchParams.get("token")?.trim() || "";
+  if (!token) {
+    return NextResponse.json({ ok: false, error: "Missing token" }, { status: 400 });
+  }
+
+  const session = await requireEntitledSession(token);
+  if (!session) {
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
+
+  const key = ENTITLEMENT_R2.hdArchiveKey(session.sessionId);
+  const bucket = await getDownloadArchiveR2Bucket();
+  let bodyBytes: Uint8Array | null = null;
+
+  if (bucket) {
+    const object = await bucket.get(key);
+    if (!object) {
+      return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
+    }
+    const arrayBuffer = await object.arrayBuffer();
+    bodyBytes = new Uint8Array(arrayBuffer);
+  } else {
+    bodyBytes = await readLocalObject(key);
+    if (!bodyBytes) {
+      return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
+    }
+  }
+
+  const filenameBase = session.mapId ? `starmapco-${session.mapId}` : `starmapco-${session.sessionId}`;
+  const body = Buffer.from(bodyBytes);
+  return new NextResponse(body, {
+    status: 200,
+    headers: {
+      "content-type": "image/png",
+      "cache-control": "private, max-age=0, no-store",
+      "content-disposition": `attachment; filename="${filenameBase}.png"`,
+    },
+  });
+}

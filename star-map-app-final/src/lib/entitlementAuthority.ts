@@ -67,6 +67,23 @@ const memoryStores = new Map<string, EntitlementAuthorityState>();
 const memoryLocks = new Map<string, Promise<void>>();
 
 /**
+ * Test-only authority-side commit history (conformance fix round, area
+ * 9 — V-11 as clarified by W-3): the serialised in-memory authority
+ * records every op it applies, in COMMIT order, with the outcome it
+ * returned. Entries are appended inside the per-session lock at the
+ * moment of application, so the recorded order is the authority's own
+ * serialised transition order — never the caller's invocation order,
+ * which cannot substitute for it (W-3 pin). The Class A fold test
+ * folds exactly this record.
+ */
+export type EntitlementAuthorityCommitRecord = {
+  op: EntitlementAuthorityOp;
+  outcome: string;
+  refusal: string | null;
+};
+const memoryCommitHistory = new Map<string, EntitlementAuthorityCommitRecord[]>();
+
+/**
  * Whether the volatile in-memory store may stand in for the DO. Slice 3
  * cutover hardening (ticketed on PR #362): a bare ambient `CI=1` NO LONGER
  * permits the fallback — CI is set by all kinds of tooling, and a deployed
@@ -110,6 +127,9 @@ function applyMemory(
   return withMemoryLock(sessionId, () => {
     const current = memoryStores.get(sessionId) ?? createEmptyEntitlementAuthorityState(sessionId);
     const result = applyEntitlementAuthorityOp(current, op);
+    const history = memoryCommitHistory.get(sessionId) ?? [];
+    history.push({ op, outcome: result.outcome, refusal: result.refusal ?? null });
+    memoryCommitHistory.set(sessionId, history);
     if (result.changed) {
       memoryStores.set(sessionId, result.state);
     }
@@ -125,6 +145,16 @@ function getMemoryState(sessionId: string): EntitlementAuthorityState {
 export function __resetEntitlementAuthorityMemoryForTests() {
   memoryStores.clear();
   memoryLocks.clear();
+  memoryCommitHistory.clear();
+}
+
+/** Test-only: the authority-side commit history for a session, in the
+ * order the serialised authority committed the ops (see the record's
+ * declaration above). */
+export function __getEntitlementAuthorityCommitHistoryForTests(
+  sessionId: string,
+): EntitlementAuthorityCommitRecord[] {
+  return [...(memoryCommitHistory.get(sessionId) ?? [])];
 }
 
 function namespaceFromEnvRecord(env: unknown): AuthorityNamespace | null {
