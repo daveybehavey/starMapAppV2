@@ -574,6 +574,14 @@ async function runPublicationUpload(req: NextRequest, form: UploadForm) {
   // (different bytes) diverges on the digest and is refused again.
   // No expiry exemption is introduced anywhere — the comparison is
   // always the full twelve fields.
+  //
+  // Correction round 4 (G-dot re-check verdict #3, area 3): "the
+  // second result stands" includes NULL. If the reconstruction
+  // apply is unavailable, the null propagates into `registered` and
+  // the request answers with the retryable upload_failed handling
+  // below — never with the stale snapshot's intent_payload_conflict
+  // refusal, which would claim a payload conflict the fresh state
+  // does not support.
   const buildRegistration = (expiresAt: number): EntitlementAuthorityOp => ({
     type: "register_publication_intent",
     intent: {
@@ -602,8 +610,7 @@ async function runPublicationUpload(req: NextRequest, form: UploadForm) {
     const freshState = await client.getState(session.sessionId);
     const freshIntent = freshState ? (freshState.publicationIntents ?? {})[form.intentId] : undefined;
     if (freshIntent && freshIntent.expiresAt !== presentedExpiry) {
-      const reconstructed = await client.apply(session.sessionId, buildRegistration(freshIntent.expiresAt));
-      if (reconstructed) registered = reconstructed;
+      registered = await client.apply(session.sessionId, buildRegistration(freshIntent.expiresAt));
     }
   }
   if (!registered) return retryable("upload_failed"); // authority unavailable: retryable, never absence

@@ -784,7 +784,18 @@ async function seedPromotionRace(joinDigest) {
   });
   assert.ok(issued);
   assert.equal(issued.payload.expiresAt, joinerSignedExpiry);
-  return { sessionId, token, derived, joinId, joinerSignedExpiry, descriptor: issued.descriptor };
+  /** Perform the JN1→R7 promotion at the seam (machine-stamped
+   * expiry), as a lapsed-governor registration would. The round-4
+   * failure-injection test calls this while the route's snapshot is
+   * held at the rendezvous, so the promotion lands between the
+   * route's stateBefore read and its first apply. */
+  const promoteJoiner = () =>
+    client.apply(sessionId, {
+      type: "register_publication_intent",
+      intent: { ...baseIntent, intentId: joinId, stagingKey: identity.buildStagingKey(joinId), expiresAt: joinerSignedExpiry },
+      now: t0 + 2000,
+    });
+  return { sessionId, token, derived, joinId, joinerSignedExpiry, descriptor: issued.descriptor, promoteJoiner };
 }
 
 test("route replay race (correction round 3, area 3; rendezvous forced per the Codex P2 on the round-3 head): two IDENTICAL uploads whose stateBefore snapshots are BOTH read before either registration is released, straddling a JN1→R7 promotion — the stale-snapshot registration is reconstructed from the fresh persisted intent and replays; both succeed", async () => {
@@ -865,6 +876,89 @@ test("route replay race, control (correction round 3, area 3; rendezvous forced)
   const entries = Object.values(state.artifactRegistry);
   assert.equal(entries.length, 1);
   assert.equal(entries[0].digest, sha(winner));
+});
+
+test("route replay reconstruction, failure injection (correction round 4, area 3 — G-dot verdict #3): the stale-snapshot registration is refused, a fresh promoted intent stands, and the reconstruction apply is UNAVAILABLE (null) — the route answers the retryable upload_failed, never the stale intent_payload_conflict, and publishes nothing", async () => {
+  const bytes = bigPng(0);
+  const { sessionId, token, derived, joinId, joinerSignedExpiry, descriptor, promoteJoiner } =
+    await seedPromotionRace(sha(bytes));
+  // STRUCTURAL FORCING, both halves genuinely required:
+  // (1) the rendezvous holds the route's stateBefore read after it
+  //     executes, so its snapshot provably predates the promotion
+  //     the test lands at the seam below;
+  // (2) the apply-null injection (dl1S4AuthorityRendezvous.mjs) is
+  //     the only seam that can make exactly the route's SECOND
+  //     register apply — the bounded reconstruction — return null:
+  //     the local authority's apply cannot be made unavailable on a
+  //     chosen call from outside. skip=1 lets the route's first
+  //     (stale-snapshot) registration reach the authority for real.
+  rendezvous.__armAuthorityGetStateRendezvous(sessionId);
+  rendezvous.__armAuthorityApplyNull(sessionId, { skip: 1 });
+  let res, rendezvousStatus, applyNullStatus;
+  try {
+    const pending = route.POST(
+      uploadPost(token, bytes, { "x-prepare-descriptor": descriptor }),
+    );
+    // Wait until the route's stateBefore read has executed and is
+    // held at the barrier: its snapshot shows the joined intent
+    // carrying the signed expiry.
+    const deadline = Date.now() + 15_000;
+    while (rendezvous.__authorityRendezvousStatus().arrived < 1) {
+      if (Date.now() > deadline) throw new Error("the route's stateBefore read never reached the rendezvous");
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    // A fresh promoted intent now stands (machine-stamped expiry).
+    const promote = await promoteJoiner();
+    assert.equal(promote.outcome, "publication_intent_recorded");
+    // Release the held snapshot: a second wrapped read trips the
+    // barrier. The route proceeds with its STALE snapshot, presents
+    // the signed expiry, and is refused intent_payload_conflict; its
+    // bounded reconstruction read then finds the promoted intent —
+    // and the reconstruction apply is the injected null.
+    const trigger = rendezvous.createEntitlementAuthorityClient();
+    await trigger.getState(sessionId);
+    res = await pending;
+  } finally {
+    rendezvousStatus = rendezvous.__authorityRendezvousStatus();
+    applyNullStatus = rendezvous.__authorityApplyNullStatus();
+    rendezvous.__disarmAuthorityGetStateRendezvous();
+    rendezvous.__disarmAuthorityApplyNull();
+  }
+  assert.equal(rendezvousStatus.arrived, 2, "both reads must rendezvous before the route proceeds");
+  assert.equal(rendezvousStatus.timedOut, false, "the rendezvous must engage, not time out");
+  assert.equal(applyNullStatus.fired, true, "the injected unavailability must engage on the reconstruction apply");
+  // THE ROUND-4 ASSERTION: the second result — null — stands. The
+  // answer is the existing retryable unavailability shape (503
+  // upload_failed), NOT the stale snapshot's 409 payload conflict.
+  assert.equal(res.status, 503);
+  const body = await res.json();
+  assert.equal(body.error, "upload_failed");
+  assert.equal(body.state, "upload_failed");
+  // Proven from the authority's commit order: the stale-snapshot
+  // registration WAS refused intent_payload_conflict, and no
+  // registration was recorded after it (the unavailable apply never
+  // reached the authority).
+  const regs = clientMod.__getEntitlementAuthorityCommitHistoryForTests(sessionId).filter(
+    (r) => r.op.type === "register_publication_intent" && r.op.intent.intentId === joinId,
+  );
+  const refusalIdx = regs.findIndex((r) => r.outcome === "refused" && r.refusal === "intent_payload_conflict");
+  assert.ok(refusalIdx >= 0, "the stale-snapshot registration must be refused exactly as in the race");
+  assert.ok(
+    !regs.slice(refusalIdx + 1).some((r) => r.outcome !== "refused"),
+    "no registration may be recorded after the refusal — the second apply was unavailable",
+  );
+  // Zero publication side effects: no registry entry, no stored
+  // object under the final key, and the promoted intent stands
+  // untouched (same digest, machine-stamped expiry).
+  const state = await client.getState(sessionId);
+  assert.equal(Object.keys(state?.artifactRegistry ?? {}).length, 0);
+  const promoted = state.publicationIntents[joinId];
+  assert.ok(promoted, "the promoted intent still stands");
+  assert.equal(promoted.digest, sha(bytes));
+  assert.notEqual(promoted.expiresAt, joinerSignedExpiry);
+  const storage = await import("../../src/lib/downloadArchiveStorage.ts");
+  const head = await storage.headArtifactObject(derived.finalKey);
+  assert.equal(head.present, false);
 });
 
 test("descriptor upload with an unsupported critical PNG chunk → 422 and NOTHING is published (correction round 3 — Codex P2-2)", async () => {
