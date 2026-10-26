@@ -371,6 +371,7 @@ async function postRetryPrintOrder(req: NextRequest) {
     shippingCountry: recipient.country_code,
     amountTotalCents: hydrated.amountTotal ?? null,
     currency: hydrated.currency ?? null,
+    includesSecondCopy: hydrated.includesSecondCopy,
   });
   if (!marginCheck.allowed) {
     const failed = await persistFailedPrintOrder({
@@ -407,6 +408,9 @@ async function postRetryPrintOrder(req: NextRequest) {
       recipient,
       additionalVariants: hydrated.includesCardAddOn ? ["card_4x6"] : undefined,
       variantFileUrls: cardPrintAssetUrl ? { card_4x6: cardPrintAssetUrl } : undefined,
+      // Lever A: replay the recorded quantity — a retried copy order
+      // must not silently ship one copy.
+      mainItemQuantity: hydrated.includesSecondCopy ? 2 : 1,
     });
     if (!printful.ok) {
       const failed = await persistFailedPrintOrder({
