@@ -60,7 +60,7 @@ export const SEO_SURVIVOR_CONTENT: Record<string, SeoSurvivorContent> = {
       dateLine: "August 12, 2024",
       paragraphs: [
         "On the evening of Monday, August 12, 2024, the Perseid meteor shower reached its annual peak. From Spanish Banks, the Sun set over the water at 8:32 p.m. A half-lit Moon (56% illuminated) hung low in the southwest and set at 11:20 p.m., while full darkness arrived at 10:51 p.m. and Saturn climbed into the east-southeast, well placed by 11:30.",
-        "A star map for 10:30 that night shows deep twilight on the edge of full dark — the sky an anniversary walk on that beach actually ended under.",
+        "A star map for 10:30 that night fixes the stars and the low Moon exactly where they stood, in deep twilight on the edge of full dark — the sky an anniversary walk on that beach actually ended under.",
       ],
       caption: "Spanish Banks Beach, Vancouver, BC · August 12, 2024",
     },
