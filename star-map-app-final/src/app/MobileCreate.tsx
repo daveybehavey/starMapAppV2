@@ -1800,7 +1800,7 @@ export function MobileCreate({
                     />
                   </div>
                 )}
-                {secondCopyOffered && onIncludeSecondCopyChange ? (
+                {secondCopyOffered && onIncludeSecondCopyChange && isSecondCopyEligibleVariant(preferredPrintVariant) ? (
                   <label className="mt-2 flex cursor-pointer items-center gap-2 text-[11px] text-amber-100/90">
                     <input
                       type="checkbox"

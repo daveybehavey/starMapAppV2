@@ -9,7 +9,7 @@ StarMapCo (https://starmapco.com) turns a date, time, and location into a person
 - **Free live preview:** Anyone can design and preview a star map free in the editor before paying. The preview is free; the final product is not — payment unlocks the HD file or places a print order.
 - **What the sky model shows:** The map shows the stars for the chosen date, time, and location, and can also show the Moon and the five planets Mercury, Venus, Mars, Jupiter, and Saturn. A body appears only when it is above the horizon at that moment, so not every sky contains all six.
 - **Formats (USD):** HD digital download from $9; unframed poster (18×18) $49; framed print (14×14) $99; canvas gallery wrap (14×14) $79. An HD digital add-on with a print is +$7 (framed print + HD = $106), and a 4×6 keepsake card add-on with a framed print is +$19.
-- **Free standard shipping:** Print orders with a merchandise subtotal of $100 or more (pre-discount, before shipping and tax) ship free with standard shipping.
+- **Free standard shipping:** Print orders with a merchandise subtotal of $89 or more (pre-discount, before shipping and tax) ship free with standard shipping.
 - **Made to order:** Prints are produced after checkout by our print partner (Printful). By default, production begins after payment once the order is submitted to our print partner; if manual approval mode is enabled, physical orders are reviewed before production. Typical production is 2–5 business days before shipment; standard shipping is the only print shipping option, and tracking is provided when the order ships.
 
 ## Products and pages
@@ -48,7 +48,7 @@ The stars visible from your location at that date and time, plus the Moon and th
 HD digital (from $9) arrives immediately after payment and suits last-minute gifts. The unframed poster (18×18, $49) is the lowest-cost print. The canvas gallery wrap (14×14, $79) and framed print (14×14, $99) arrive ready to hang. See the format comparison page for side-by-side detail.
 
 **How does shipping work?**
-Digital downloads are delivered worldwide, immediately after payment. Physical prints are made to order (typically 2–5 business days of production) and shipped to the countries listed on the shipping policy page, with the rate and delivery estimate shown before payment. Print orders with a merchandise subtotal of $100 or more (pre-discount) get free standard shipping.
+Digital downloads are delivered worldwide, immediately after payment. Physical prints are made to order (typically 2–5 business days of production) and shipped to the countries listed on the shipping policy page, with the rate and delivery estimate shown before payment. Print orders with a merchandise subtotal of $89 or more (pre-discount) get free standard shipping.
 
 **What if my print arrives damaged?**
 Star maps are personalized, so digital downloads and made-to-order prints are generally non-refundable. If a print arrives damaged, defective, or materially different from what you approved, contact us within 30 days of delivery with photos and your order details — see the returns page for the full policy.

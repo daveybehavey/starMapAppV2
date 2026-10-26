@@ -657,7 +657,7 @@ export function PaywallModal({
                   </p>
                 ) : null}
                 <CheckoutLegalNotice tone="dark" className="mt-3" />
-                {secondCopyOffered && onIncludeSecondCopyChange ? (
+                {secondCopyOffered && onIncludeSecondCopyChange && isSecondCopyEligibleVariant(preferredPrintVariant) ? (
                   <label className="mt-3 flex cursor-pointer items-center gap-2 text-xs text-amber-100/90">
                     <input
                       type="checkbox"
