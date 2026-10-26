@@ -241,6 +241,13 @@ export default function StarMapGiftPage() {
           >
             Personalized star map
           </Link>
+          <Link
+            href="/compare/starmapco-vs-the-night-sky"
+            prefetch={false}
+            className="text-amber-700 underline hover:text-amber-800"
+          >
+            StarMapCo vs The Night Sky
+          </Link>
         </div>
       </section>
 
