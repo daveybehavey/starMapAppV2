@@ -1,5 +1,6 @@
 import { getPrintDigitalAddOnPrice, getPrintPricingTiers } from "@/lib/pricing";
 import type { PrintVariant } from "@/lib/pricing";
+import { convertCadCentsToUsdCents } from "@/lib/checkoutCurrency";
 import { getPrintCatalogRow } from "@/lib/printCatalog";
 import { getPrintShippingEstimate } from "@/lib/printfulShipping";
 
@@ -179,6 +180,16 @@ export function evaluatePrintMarginForPaidOrder(input: {
   variant: PrintVariant;
   shippingCountry: string | null | undefined;
   amountTotalCents: number | null | undefined;
+  /**
+   * The session's recorded charge currency (PrintOrderRecord.currency,
+   * from Stripe). amountTotalCents is denominated in THIS currency:
+   * Stripe reports amount_total in the session currency, so a CAD
+   * session's total is CAD cents. The guard compares revenue against
+   * USD costs, so CAD revenue is normalized to USD at the 1.40
+   * reference rate below before the comparison. Absent/null (legacy
+   * pre-CAD records) and "usd" pass through unchanged.
+   */
+  currency?: string | null;
 }): PrintMarginEvaluation {
   const config = getPrintMarginGuardConfig();
   const enforced = config.enabled && config.minMarginCents > 0;
@@ -198,6 +209,19 @@ export function evaluatePrintMarginForPaidOrder(input: {
     };
   }
 
+  // Currency normalization at the guard boundary (T-FLEET-103 fix):
+  // without it, a CAD session's cents are read as USD cents and the
+  // margin is overstated by the full conversion gap — e.g. a CA framed
+  // order discounted on the hosted Stripe page to CA$84.48 total reads
+  // as US$84.48 and passes a US$10 floor with a phantom +US$19.03,
+  // while the normalized revenue (CA$84.48 / 1.40 = US$60.34) leaves a
+  // negative margin. The checkout-time guard cannot see hosted-page
+  // discounts, so this paid-order guard is the boundary that must
+  // normalize. USD sessions are byte-identical to before.
+  const isCadSession =
+    typeof input.currency === "string" && input.currency.trim().toLowerCase() === "cad";
+  const revenueCents = isCadSession ? convertCadCentsToUsdCents(amountTotalCents) : amountTotalCents;
+
   const shippingEstimate = getPrintShippingEstimate(input.variant, shippingCountry);
   if (!shippingEstimate) {
     return {
@@ -213,7 +237,7 @@ export function evaluatePrintMarginForPaidOrder(input: {
     variant: input.variant,
     shippingCountry,
     shippingChargeCents: shippingEstimate.amountCents,
-    revenueCents: amountTotalCents,
+    revenueCents,
     discountAmountCents: 0,
     config,
   });

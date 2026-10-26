@@ -119,6 +119,7 @@ export async function GET(req: NextRequest) {
         variant: order.printVariant,
         shippingCountry: recipient.country_code,
         amountTotalCents: order.amountTotal ?? null,
+        currency: order.currency ?? null,
       })
     : null;
 

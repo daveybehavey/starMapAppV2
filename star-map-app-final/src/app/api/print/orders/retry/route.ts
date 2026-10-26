@@ -370,6 +370,7 @@ async function postRetryPrintOrder(req: NextRequest) {
     variant: hydrated.printVariant,
     shippingCountry: recipient.country_code,
     amountTotalCents: hydrated.amountTotal ?? null,
+    currency: hydrated.currency ?? null,
   });
   if (!marginCheck.allowed) {
     const failed = await persistFailedPrintOrder({

@@ -64,3 +64,16 @@ export function convertUsdShippingRateToCadCents(rateDollars: number): number {
 export function convertUsdCentsToCadCents(usdCents: number): number {
   return Math.round(usdCents * CAD_REFERENCE_RATE);
 }
+
+/**
+ * Convert a CAD cent amount into USD cents at the reference rate (the
+ * inverse of convertUsdCentsToCadCents). Used where a CAD session's
+ * charged total must be compared against USD-denominated costs — the
+ * paid-order margin guard (printMargin.ts) is the consumer: Stripe
+ * reports amount_total in the session's currency, so CAD revenue is
+ * normalized back to USD at the same 1.40 rate the CAD book was
+ * struck at before any USD comparison.
+ */
+export function convertCadCentsToUsdCents(cadCents: number): number {
+  return Math.round(cadCents / CAD_REFERENCE_RATE);
+}

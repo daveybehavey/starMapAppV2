@@ -198,10 +198,54 @@ function getPrintShippingOptionsForCountry(
   const configuredShippingRate = process.env.STRIPE_SHIPPING_RATE_ID_PRINT_STANDARD?.trim();
   const configuredFlatShippingCents = parsePositiveInt(process.env.PRINT_STANDARD_SHIPPING_CENTS);
   if (configuredShippingRate && !printDynamicShippingEnabled) {
-    return {
-      shippingOptions: [{ shipping_rate: configuredShippingRate }],
-      shippingChargeCents: configuredFlatShippingCents,
-    };
+    if (currency !== "cad") {
+      return {
+        shippingOptions: [{ shipping_rate: configuredShippingRate }],
+        shippingChargeCents: configuredFlatShippingCents,
+      };
+    }
+    // CAD session on the configured-rate path (T-FLEET-103 fix): the
+    // configured rate ID references a USD Stripe shipping rate, and a
+    // CAD session referencing it mixes currencies — Stripe refuses
+    // session creation. Present the configured flat amount as a
+    // converted fixed-amount CAD option instead, mirroring the dynamic
+    // and flat-fallback branches below (conversion at the 1.40
+    // reference rate; shippingChargeCents stays the canonical USD
+    // figure). With no configured flat amount there is nothing local
+    // to convert, so fall through to the rate-table / flat branches
+    // below rather than emit the USD rate ID.
+    if (configuredFlatShippingCents) {
+      const displayName = process.env.PRINT_STANDARD_SHIPPING_LABEL?.trim() || "Standard shipping";
+      const minBusinessDays = parsePositiveInt(process.env.PRINT_STANDARD_SHIPPING_MIN_BUSINESS_DAYS);
+      const maxBusinessDays = parsePositiveInt(process.env.PRINT_STANDARD_SHIPPING_MAX_BUSINESS_DAYS);
+      const hasDeliveryEstimate =
+        typeof minBusinessDays === "number" &&
+        typeof maxBusinessDays === "number" &&
+        maxBusinessDays >= minBusinessDays;
+      return {
+        shippingOptions: [
+          {
+            shipping_rate_data: {
+              type: "fixed_amount",
+              fixed_amount: {
+                amount: convertUsdCentsToCadCents(configuredFlatShippingCents),
+                currency: "cad",
+              },
+              display_name: displayName,
+              ...(hasDeliveryEstimate
+                ? {
+                    delivery_estimate: {
+                      minimum: { unit: "business_day", value: minBusinessDays },
+                      maximum: { unit: "business_day", value: maxBusinessDays },
+                    },
+                  }
+                : {}),
+            },
+          },
+        ],
+        shippingChargeCents: configuredFlatShippingCents,
+      };
+    }
   }
 
   if (shippingCountry) {
@@ -1343,7 +1387,8 @@ async function createCheckoutSession(input: {
     // shipping the site said was free (audit F4).
     const freeShippingSelection = applyPrintFreeShippingToCheckout(
       { shippingOptions: printShippingOptions, shippingChargeCents: printShippingChargeCents },
-      merchandiseSubtotalCents
+      merchandiseSubtotalCents,
+      checkoutCurrency
     );
     printShippingOptions = freeShippingSelection.shippingOptions;
     printShippingChargeCents = freeShippingSelection.shippingChargeCents;
