@@ -23,6 +23,14 @@ type SubmitPrintfulOrderInput = {
   additionalVariants?: PrintVariant[];
   /** Per-variant artwork URLs (defaults to fileUrl). */
   variantFileUrls?: Partial<Record<PrintVariant, string>>;
+  /**
+   * Quantity for the MAIN item only (Lever A second copy = 2). A second
+   * copy of the same variant cannot ride additionalVariants — the
+   * dedupe below deliberately keeps the base variant out of it — so it
+   * ships as quantity 2 on the main item, one parcel at Printful's
+   * second-item increment. Additional items stay quantity 1.
+   */
+  mainItemQuantity?: number;
 };
 
 export type SubmitPrintfulOrderResult = {
@@ -81,6 +89,12 @@ export async function submitPrintfulOrder(input: SubmitPrintfulOrderInput): Prom
   const additionalVariants = Array.isArray(input.additionalVariants)
     ? input.additionalVariants.filter((v) => v !== input.variant)
     : [];
+  const mainItemQuantity =
+    typeof input.mainItemQuantity === "number" &&
+    Number.isFinite(input.mainItemQuantity) &&
+    input.mainItemQuantity > 1
+      ? Math.floor(input.mainItemQuantity)
+      : 1;
   const itemVariants = [input.variant, ...additionalVariants];
   const items = [];
   for (const itemVariant of itemVariants) {
@@ -90,7 +104,7 @@ export async function submitPrintfulOrder(input: SubmitPrintfulOrderInput): Prom
     }
     items.push({
       variant_id: itemVariantId,
-      quantity: 1,
+      quantity: itemVariant === input.variant ? mainItemQuantity : 1,
       files: [{ url: input.variantFileUrls?.[itemVariant] ?? input.fileUrl }],
     });
   }
