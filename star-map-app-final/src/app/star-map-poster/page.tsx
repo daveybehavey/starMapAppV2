@@ -448,6 +448,12 @@ export default function StarMapPosterPage() {
           >
             Star map gallery
           </Link>
+          <Link
+            href="/compare/starmapco-vs-the-night-sky"
+            className="rounded-full border border-amber-200/60 bg-white/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-50"
+          >
+            StarMapCo vs The Night Sky
+          </Link>
         </div>
       </section>
 

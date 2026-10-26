@@ -157,6 +157,11 @@ export function buildSitemapEntries(options: BuildSitemapOptions): MetadataRoute
       priority: 0.75,
     },
     {
+      url: `${baseUrl}/compare/starmapco-vs-the-night-sky`,
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    {
       url: `${baseUrl}/star-map-gift-ideas`,
       changeFrequency: "monthly",
       priority: 0.75,

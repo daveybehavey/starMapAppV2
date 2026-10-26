@@ -26,6 +26,7 @@ StarMapCo (https://starmapco.com) turns a date, time, and location into a person
 - Birthday star maps: https://starmapco.com/birthday
 - Occasion gift hub: https://starmapco.com/star-map-for
 - How accurate are star maps: https://starmapco.com/how-accurate-are-star-maps
+- StarMapCo vs The Night Sky (sourced comparison): https://starmapco.com/compare/starmapco-vs-the-night-sky
 - Blog: https://starmapco.com/blog
 
 ## Policies and support
