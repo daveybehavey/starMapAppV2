@@ -69,6 +69,12 @@ const PRINT_FREE_SHIPPING_THRESHOLD_CENTS = parseIntEnv(
   ["PRINT_FREE_SHIPPING_THRESHOLD_CENTS", "NEXT_PUBLIC_PRINT_FREE_SHIPPING_THRESHOLD_CENTS"],
   8900,
 );
+// Checkout waives shipping once an order's merchandise subtotal clears the
+// threshold, and a framed-only order is exactly the framed price — so when
+// the framed price qualifies on its own (Lever B: $99 vs the $89 default),
+// the standalone framed item must advertise $0 shipping in the feed, the
+// same total checkout charges. Mirrors the framed + HD bundle rule below.
+const PRINT_FRAMED_FREE_SHIPPING = PRINT_FRAMED_CENTS >= PRINT_FREE_SHIPPING_THRESHOLD_CENTS;
 const PRINT_SHIPPING_CENTS = parseIntEnv("PRINT_STANDARD_SHIPPING_CENTS", 1399);
 let shippingMap = null;
 try {
@@ -293,10 +299,13 @@ const items = [
             const rate = shippingMap.poster_framed?.[country];
             return withDeliveryDefaults({
               country,
-              price: formatShippingPrice(rate),
+              price: PRINT_FRAMED_FREE_SHIPPING ? formatPrice(0) : formatShippingPrice(rate),
             });
           })
-      : [{ country: MERCHANT_FEED_COUNTRIES[0], price: formatPrice(PRINT_SHIPPING_CENTS) }],
+      : [{
+          country: MERCHANT_FEED_COUNTRIES[0],
+          price: PRINT_FRAMED_FREE_SHIPPING ? formatPrice(0) : formatPrice(PRINT_SHIPPING_CENTS),
+        }],
   },
   ...(PRINT_FRAMED_HD_BUNDLE_CENTS >= PRINT_FREE_SHIPPING_THRESHOLD_CENTS
     ? [
