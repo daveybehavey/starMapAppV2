@@ -1483,6 +1483,10 @@ export function EditorExperience({
       );
       const includeDigitalAddOn = Boolean(options?.includeDigitalAddOn);
       const includeCardAddOn = Boolean(options?.includeCardAddOn);
+      // Standalone keepsake card: the purchasable item IS the 4×6 card,
+      // so its artwork is the dedicated card export (below), never the
+      // poster-shaped print export.
+      const isStandaloneCard = printVariant === "card_4x6";
       const includeSecondCopy = Boolean(options?.includeSecondCopy);
       const isGift = Boolean(options?.isGift);
       const recipeForCheckout = buildRecipeFromState({
@@ -1601,7 +1605,7 @@ export function EditorExperience({
           // Retry quality first, then a smaller export size if still too large for API transport.
           let uploadedAssetId: string | null = null;
           let lastAssetError: string | null = null;
-          if (mapId) {
+          if (mapId && !isStandaloneCard) {
             try {
               const resolveRes = await fetch(
                 `/api/print/assets/resolve?map_id=${encodeURIComponent(mapId)}&fingerprint=${encodeURIComponent(recipeFingerprint)}`
@@ -1619,8 +1623,11 @@ export function EditorExperience({
             }
           }
           const lowMemoryDevice = isLikelyLowMemoryDevice();
-          const exportWidths =
-            printVariant === "poster_framed"
+          // Standalone card: no poster-shaped export at all — the card
+          // export block below produces the order's only artwork.
+          const exportWidths = isStandaloneCard
+            ? []
+            : printVariant === "poster_framed"
               ? lowMemoryDevice
                 ? [3200, 2800, 2400, 2000, 1700]
                 : [4200, 3800, 3400, 3000, 2600]
@@ -1695,7 +1702,7 @@ export function EditorExperience({
               if (!shouldRetryForSize) break;
             }
           }
-          if (!uploadedAssetId) {
+          if (!uploadedAssetId && !isStandaloneCard) {
             track("print_asset_generation_failed", {
               source: "editor_checkout",
               reason: lastAssetError ?? "unknown",
@@ -1714,7 +1721,10 @@ export function EditorExperience({
 
           let uploadedCardAssetId: string | null = null;
           let lastCardAssetError: string | null = null;
-          if (includeCardAddOn && printVariant === "poster_framed" && !includeDigitalAddOn) {
+          if (
+            (includeCardAddOn && printVariant === "poster_framed" && !includeDigitalAddOn) ||
+            isStandaloneCard
+          ) {
             const cardFingerprint = cardRecipeFingerprintSuffix(recipeFingerprint);
             if (mapId) {
               try {
@@ -1814,8 +1824,25 @@ export function EditorExperience({
           checkoutPayload.includeDigitalAddOn = includeDigitalAddOn;
           checkoutPayload.includeCardAddOn = includeCardAddOn;
           checkoutPayload.includeSecondCopy = includeSecondCopy;
-          checkoutPayload.printAssetId = uploadedAssetId;
-          if (uploadedCardAssetId) checkoutPayload.cardPrintAssetId = uploadedCardAssetId;
+          if (isStandaloneCard) {
+            // The card export IS this order's print asset: fulfilment
+            // prints printAssetId on the card_4x6 variant as the order's
+            // only item. includeCardAddOn stays false and no
+            // cardPrintAssetId is sent — this is not a framed add-on.
+            if (!uploadedCardAssetId) {
+              throw new Error("card_print_asset_failed");
+            }
+            checkoutPayload.printAssetId = uploadedCardAssetId;
+          } else {
+            // Unreachable in practice — the guard above already threw
+            // for a missing main asset on every non-standalone path —
+            // but fail closed rather than send an asset-less order.
+            if (!uploadedAssetId) {
+              throw new Error("print_asset_failed");
+            }
+            checkoutPayload.printAssetId = uploadedAssetId;
+            if (uploadedCardAssetId) checkoutPayload.cardPrintAssetId = uploadedCardAssetId;
+          }
           checkoutPayload.shippingCountry = printShippingCountry;
         }
 

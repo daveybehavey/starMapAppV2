@@ -49,8 +49,22 @@ test("variants already in the base set are not duplicated", () => {
   }
 });
 
-test("the add-on-only card variant never becomes a standalone row", () => {
-  assert.equal(resolvePaywallOfferRows("card_4x6"), PAYWALL_PRINT_CHECKOUT_ROWS);
+test("card shopper gets a standalone card purchase row, first, with no add-ons forced", () => {
+  // The keepsake card is a standalone purchase (decided 2026-10-25), so a
+  // shopper who arrives with the card selected gets a plain card row
+  // prepended — the same treatment as the mug. The base set (and the
+  // framed + card bundle row inside it) is unchanged.
+  const rows = resolvePaywallOfferRows("card_4x6");
+  assert.equal(rows.length, 7);
+  assert.deepEqual(rows[0], { variant: "card_4x6", includeDigitalAddOn: false });
+  assert.deepEqual(
+    rows.slice(1).map((r) => r.variant),
+    ["poster_framed", "poster_framed", "poster_framed", "poster_unframed", "poster_unframed_16x16", "canvas_wrap"],
+  );
+  assert.ok(
+    rows.some((r) => r.variant === "poster_framed" && r.includeCardAddOn),
+    "the framed + keepsake card bundle row must stay in the offer set",
+  );
 });
 
 test("unknown or absent preferred variants leave the base set untouched", () => {
