@@ -3680,7 +3680,7 @@ export function EditorExperience({
                                 — we won&apos;t email you a review request for this order.
                               </span>
                             </label>
-                            {secondCopyOffered ? (
+                            {secondCopyOffered && isSecondCopyEligibleVariant(preferredPrintVariant) ? (
                               <label className="mt-3 flex cursor-pointer items-center gap-2 text-xs text-amber-100/90">
                                 <input
                                   type="checkbox"
