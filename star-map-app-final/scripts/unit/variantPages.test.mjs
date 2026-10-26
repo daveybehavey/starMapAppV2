@@ -197,6 +197,23 @@ test("T3 routing: valid params resolve; unknown/excluded resolve to not-found", 
   assert.equal(resolveVariantOffer("nope", "usd"), null);
 });
 
+// ------------------------------------------------------- handoff (CTA)
+
+test("handoff: editor href preselects the variant and the page market's shipping country, and carries no price", () => {
+  withEnv({}, () => {
+    for (const row of VARIANT_PAGE_MANIFEST) {
+      const usd = resolveVariantOffer(row.slug, "usd");
+      const cad = resolveVariantOffer(row.slug, "cad");
+      assert.ok(usd.editorHref.includes(`print_variant=${row.variant}`), `${row.slug} usd variant`);
+      assert.ok(cad.editorHref.includes(`print_variant=${row.variant}`), `${row.slug} cad variant`);
+      assert.ok(usd.editorHref.includes("shipping_country=US"), `${row.slug} usd country hint`);
+      assert.ok(cad.editorHref.includes("shipping_country=CA"), `${row.slug} cad country hint`);
+      assert.notEqual(usd.editorHref, cad.editorHref, `${row.slug} markets hand off differently`);
+      assert.ok(!/price|amount|cents/i.test(usd.editorHref), `${row.slug} href carries no price`);
+    }
+  });
+});
+
 // ---------------------------------------------------------------- T4
 
 test("T4 schema: exactly one Offer, equal to the resolver, no gtin/mpn", () => {

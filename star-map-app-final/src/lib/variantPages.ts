@@ -80,7 +80,10 @@ export interface ResolvedVariantOffer {
   path: string;
   /** Absolute self-canonical URL for this page. */
   canonicalUrl: string;
-  /** Editor hand-off with this variant preselected; carries no price. */
+  /**
+   * Editor hand-off with this variant preselected and the page market's
+   * shipping-country hint (`shipping_country=CA|US`); carries no price.
+   */
   editorHref: string;
 }
 
@@ -105,6 +108,19 @@ export function resolveVariantOffer(
   const siteUrl = variantPageSiteUrl();
   const path = `/products/star-map/${row.slug}/${market}`;
 
+  // Preserve the page's market through the editor handoff: the editor
+  // restores a saved shipping country, and checkout picks its price
+  // book from the shipping country (CAD only for CA) — without a hint,
+  // a returning shopper whose saved country differs from this page's
+  // market would silently land in the other market's prices. The
+  // editor already accepts `shipping_country`; it only preselects, and
+  // the shopper can still change country in the editor.
+  const editorBaseHref = buildPrintEditorCheckoutHref({
+    source: "variant-page",
+    variant: row.variant,
+  });
+  const editorHref = `${editorBaseHref}&shipping_country=${market === "cad" ? "CA" : "US"}`;
+
   return {
     slug: row.slug,
     market,
@@ -128,10 +144,7 @@ export function resolveVariantOffer(
     googleProductCategory: row.googleProductCategory,
     path,
     canonicalUrl: `${siteUrl}${path}`,
-    editorHref: buildPrintEditorCheckoutHref({
-      source: "variant-page",
-      variant: row.variant,
-    }),
+    editorHref,
   };
 }
 
