@@ -97,8 +97,8 @@ test("F4 route wiring: checkout decides on the pre-discount merchandise subtotal
   const block = route.slice(blockStart, blockStart + 2500);
   assert.match(
     block,
-    /applyPrintFreeShippingToCheckout\(\s*\{[^}]*\},\s*merchandiseSubtotalCents\s*\)/,
-    "free-shipping decision must receive the pre-discount merchandise subtotal"
+    /applyPrintFreeShippingToCheckout\(\s*\{[^}]*\},\s*merchandiseSubtotalCents,\s*checkoutCurrency\s*\)/,
+    "free-shipping decision must receive the pre-discount merchandise subtotal and the session currency"
   );
   assert.equal(
     route.includes("merchandiseAfterDiscountCents"),

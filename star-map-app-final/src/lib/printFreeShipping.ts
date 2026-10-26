@@ -88,9 +88,22 @@ export type PrintFreeShippingApplication = PrintShippingCheckoutSelection & {
 function zeroShippingOptions(
   options: Stripe.Checkout.SessionCreateParams.ShippingOption[] | undefined,
   displayName: string,
+  sessionCurrency?: string | null,
 ): Stripe.Checkout.SessionCreateParams.ShippingOption[] | undefined {
   if (!options?.length) return options;
-  const currency = (process.env.CURRENCY ?? process.env.NEXT_PUBLIC_CURRENCY ?? "usd").trim().toLowerCase();
+  // The waived (zero-amount) option must be stamped in the SESSION's
+  // currency: Stripe validates a session as single-currency, so a CAD
+  // session whose shipping is waived still fails creation if the zero
+  // option carries the USD default. Callers pass the session currency
+  // (T-FLEET-103); when absent, the configured storefront currency
+  // applies exactly as before.
+  const normalizedSessionCurrency =
+    typeof sessionCurrency === "string" && sessionCurrency.trim()
+      ? sessionCurrency.trim().toLowerCase()
+      : null;
+  const currency =
+    normalizedSessionCurrency ??
+    (process.env.CURRENCY ?? process.env.NEXT_PUBLIC_CURRENCY ?? "usd").trim().toLowerCase();
   return options.map((option) => {
     if ("shipping_rate" in option && option.shipping_rate) {
       return {
@@ -121,6 +134,7 @@ function zeroShippingOptions(
 export function applyPrintFreeShippingToCheckout(
   selection: PrintShippingCheckoutSelection,
   merchandiseSubtotalCents: number,
+  sessionCurrency?: string | null,
 ): PrintFreeShippingApplication {
   if (!qualifiesForPrintFreeShipping(merchandiseSubtotalCents)) {
     return {
@@ -144,7 +158,7 @@ export function applyPrintFreeShippingToCheckout(
   }
 
   return {
-    shippingOptions: zeroShippingOptions(selection.shippingOptions, FREE_SHIPPING_LABEL),
+    shippingOptions: zeroShippingOptions(selection.shippingOptions, FREE_SHIPPING_LABEL, sessionCurrency),
     shippingChargeCents: 0,
     freeShippingApplied: true,
     shippingSubsidyCents: originalCharge,

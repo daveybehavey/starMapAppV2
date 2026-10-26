@@ -2,7 +2,10 @@ import { androidAppCheckoutDecision, isAndroidAppModeRequest } from "@/lib/andro
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import {
+  getDigitalCadPriceCents,
   getPricingTiers,
+  getPrintCadPriceCents,
+  getPrintDigitalAddOnCadPriceCents,
   getPrintDigitalAddOnPrice,
   getPrintPricingTiers,
   type CheckoutOrderType,
@@ -35,6 +38,7 @@ import { evaluatePrintMarginForCheckout } from "@/lib/printMargin";
 import { applyPrintFreeShippingToCheckout } from "@/lib/printFreeShipping";
 import { parsePrintVariant } from "@/lib/printCatalog";
 import {
+  getMerchCadCheckoutPriceCents,
   getMerchCheckoutPriceCents,
   getMerchFamily,
   getMerchStripePriceId,
@@ -54,6 +58,12 @@ import {
   getMerchShippingOptionsForCountry,
   resolveMerchForCheckout,
 } from "@/lib/merchCheckout";
+import {
+  convertUsdCentsToCadCents,
+  convertUsdShippingRateToCadCents,
+  resolveCheckoutCurrency,
+  type CheckoutCurrency,
+} from "@/lib/checkoutCurrency";
 import { getPrintfulShippingCountries, getPrintfulShippingRate } from "@/lib/printfulShipping";
 import { applyMarketingAttributionMetadata } from "@/lib/commerceAnalytics";
 import type { ReferralAttribution } from "@/lib/referralAttribution";
@@ -135,6 +145,20 @@ const stripe =
   });
 const stripePriceProductIdCache = new Map<string, Promise<string | null>>();
 
+/**
+ * Session-create params plus the per-session Adaptive Pricing override
+ * (T-FLEET-103). The pinned stripe@16.12 type surface predates the
+ * parameter (added in Stripe API 2024-11-20; the step-0 audit verified
+ * it overrides the dashboard Adaptive Pricing setting per session), so
+ * it is declared here and forwarded verbatim by the SDK. Set ONLY on
+ * CAD sessions: `adaptive_pricing: { enabled: false }` makes the native
+ * CAD book the deterministic presented/charged currency. USD sessions
+ * never carry the key, keeping their params byte-identical to before.
+ */
+type CheckoutSessionCreateParams = Stripe.Checkout.SessionCreateParams & {
+  adaptive_pricing?: { enabled: boolean };
+};
+
 function siteOrigin() {
   return siteUrl.replace(/\/+$/, "");
 }
@@ -166,7 +190,8 @@ function parsePercentage(raw: string | undefined) {
 
 function getPrintShippingOptionsForCountry(
   variant: PrintVariant,
-  shippingCountry: string | null
+  shippingCountry: string | null,
+  currency: CheckoutCurrency = "usd"
 ): {
   shippingOptions: Stripe.Checkout.SessionCreateParams.ShippingOption[] | undefined;
   shippingChargeCents: number | null;
@@ -174,24 +199,76 @@ function getPrintShippingOptionsForCountry(
   const configuredShippingRate = process.env.STRIPE_SHIPPING_RATE_ID_PRINT_STANDARD?.trim();
   const configuredFlatShippingCents = parsePositiveInt(process.env.PRINT_STANDARD_SHIPPING_CENTS);
   if (configuredShippingRate && !printDynamicShippingEnabled) {
-    return {
-      shippingOptions: [{ shipping_rate: configuredShippingRate }],
-      shippingChargeCents: configuredFlatShippingCents,
-    };
-  }
-
-  if (shippingCountry) {
-    const rate = getPrintfulShippingRate(variant, shippingCountry);
-    if (rate && Number.isFinite(rate.rate)) {
-      const amountCents = Math.round(rate.rate * 100);
+    if (currency !== "cad") {
+      return {
+        shippingOptions: [{ shipping_rate: configuredShippingRate }],
+        shippingChargeCents: configuredFlatShippingCents,
+      };
+    }
+    // CAD session on the configured-rate path (T-FLEET-103 fix): the
+    // configured rate ID references a USD Stripe shipping rate, and a
+    // CAD session referencing it mixes currencies — Stripe refuses
+    // session creation. Present the configured flat amount as a
+    // converted fixed-amount CAD option instead, mirroring the dynamic
+    // and flat-fallback branches below (conversion at the 1.40
+    // reference rate; shippingChargeCents stays the canonical USD
+    // figure). With no configured flat amount there is nothing local
+    // to convert, so fall through to the rate-table / flat branches
+    // below rather than emit the USD rate ID.
+    if (configuredFlatShippingCents) {
+      const displayName = process.env.PRINT_STANDARD_SHIPPING_LABEL?.trim() || "Standard shipping";
+      const minBusinessDays = parsePositiveInt(process.env.PRINT_STANDARD_SHIPPING_MIN_BUSINESS_DAYS);
+      const maxBusinessDays = parsePositiveInt(process.env.PRINT_STANDARD_SHIPPING_MAX_BUSINESS_DAYS);
+      const hasDeliveryEstimate =
+        typeof minBusinessDays === "number" &&
+        typeof maxBusinessDays === "number" &&
+        maxBusinessDays >= minBusinessDays;
       return {
         shippingOptions: [
           {
             shipping_rate_data: {
               type: "fixed_amount",
               fixed_amount: {
-                amount: amountCents,
-                currency: (rate.currency || "USD").toLowerCase(),
+                amount: convertUsdCentsToCadCents(configuredFlatShippingCents),
+                currency: "cad",
+              },
+              display_name: displayName,
+              ...(hasDeliveryEstimate
+                ? {
+                    delivery_estimate: {
+                      minimum: { unit: "business_day", value: minBusinessDays },
+                      maximum: { unit: "business_day", value: maxBusinessDays },
+                    },
+                  }
+                : {}),
+            },
+          },
+        ],
+        shippingChargeCents: configuredFlatShippingCents,
+      };
+    }
+  }
+
+  if (shippingCountry) {
+    const rate = getPrintfulShippingRate(variant, shippingCountry);
+    if (rate && Number.isFinite(rate.rate)) {
+      const amountCents = Math.round(rate.rate * 100);
+      // T-FLEET-103 (§3.4): the rate table is USD-denominated. A CAD
+      // session must be single-currency, so the PRESENTED amount is
+      // converted at the 1.40 reference rate and stamped "cad". The
+      // returned shippingChargeCents stays the canonical USD charge —
+      // the margin guard, free-shipping subsidy and metadata all keep
+      // reading USD exactly as before (design §3.5/§3.6).
+      const rateCurrency = (rate.currency || "USD").toLowerCase();
+      const presentInCad = currency === "cad" && rateCurrency === "usd";
+      return {
+        shippingOptions: [
+          {
+            shipping_rate_data: {
+              type: "fixed_amount",
+              fixed_amount: {
+                amount: presentInCad ? convertUsdShippingRateToCadCents(rate.rate) : amountCents,
+                currency: presentInCad ? "cad" : rateCurrency,
               },
               display_name: "Standard shipping",
               ...(typeof rate.min_delivery_days === "number" && typeof rate.max_delivery_days === "number"
@@ -213,7 +290,12 @@ function getPrintShippingOptionsForCountry(
   const amountCents = configuredFlatShippingCents;
   if (!amountCents) return { shippingOptions: undefined, shippingChargeCents: null };
 
-  const currency = (process.env.CURRENCY ?? process.env.NEXT_PUBLIC_CURRENCY ?? "usd").trim().toLowerCase();
+  // Flat-rate fallback (T-FLEET-103 §3.4): the configured amount is
+  // USD-denominated; a CAD session presents it converted at the 1.40
+  // reference rate, stamped "cad". shippingChargeCents (returned
+  // below) stays the USD amount, as in the dynamic path.
+  const configuredCurrency = (process.env.CURRENCY ?? process.env.NEXT_PUBLIC_CURRENCY ?? "usd").trim().toLowerCase();
+  const presentInCad = currency === "cad";
   const displayName = process.env.PRINT_STANDARD_SHIPPING_LABEL?.trim() || "Standard shipping";
   const minBusinessDays = parsePositiveInt(process.env.PRINT_STANDARD_SHIPPING_MIN_BUSINESS_DAYS);
   const maxBusinessDays = parsePositiveInt(process.env.PRINT_STANDARD_SHIPPING_MAX_BUSINESS_DAYS);
@@ -228,8 +310,8 @@ function getPrintShippingOptionsForCountry(
         shipping_rate_data: {
           type: "fixed_amount",
           fixed_amount: {
-            amount: amountCents,
-            currency,
+            amount: presentInCad ? convertUsdCentsToCadCents(amountCents) : amountCents,
+            currency: presentInCad ? "cad" : configuredCurrency,
           },
           display_name: displayName,
           ...(hasDeliveryEstimate
@@ -688,6 +770,13 @@ function boundStripeIdempotencyKey(key: string, maxLength = 200): string {
  * idempotency key minted at the old price, while same-price retries
  * still dedupe to the same key. MUST track the line-item construction
  * in createCheckoutSession.
+ *
+ * T-FLEET-103: the session currency comes from the same single
+ * resolver the session builder uses (resolveCheckoutCurrency). A CAD
+ * session always charges price_data from the native CAD book, so its
+ * components are pd:cad:<cents> per charged line — a CA cart can never
+ * share a cache key or Stripe idempotency key with the same cart
+ * priced in USD, in either direction, across the flip.
  */
 function resolveCheckoutPricingIdentity(input: {
   plan: CheckoutPlan;
@@ -696,11 +785,21 @@ function resolveCheckoutPricingIdentity(input: {
   includeDigitalAddOn?: boolean;
   includeCardAddOn?: boolean;
   merchFamily?: MerchFamilyId;
+  shippingCountry?: string | null;
   clientCountry?: string | null;
 }): string {
   const isPrintOrder = parseOrderType(input.orderType) === "print";
+  const currency = resolveCheckoutCurrency({
+    orderType: input.orderType,
+    shippingCountry: input.shippingCountry,
+    clientCountry: input.clientCountry,
+  });
   const components: CheckoutPriceComponent[] = [];
   if (!isPrintOrder) {
+    if (currency === "cad") {
+      components.push(priceDataComponent("cad", getDigitalCadPriceCents(input.plan)));
+      return buildCheckoutPricingIdentity(components);
+    }
     const tier = getPricingTiers()[input.plan];
     const geoDigitalSingle =
       input.plan === "single" ? getGeoDigitalSinglePrice(input.clientCountry) : null;
@@ -717,12 +816,32 @@ function resolveCheckoutPricingIdentity(input: {
   const normalizedPrintVariant = parsePrintVariant(input.printVariant);
   if (input.merchFamily) {
     const family = getMerchFamily(input.merchFamily);
+    if (currency === "cad") {
+      components.push(priceDataComponent("cad", getMerchCadCheckoutPriceCents(family)));
+      return buildCheckoutPricingIdentity(components);
+    }
     const priceId = getMerchStripePriceId(family);
     components.push(
       priceId
         ? priceIdComponent(priceId)
         : priceDataComponent("usd", getMerchCheckoutPriceCents(family)),
     );
+    return buildCheckoutPricingIdentity(components);
+  }
+  if (currency === "cad") {
+    components.push(priceDataComponent("cad", getPrintCadPriceCents(normalizedPrintVariant)));
+    if (input.includeDigitalAddOn) {
+      components.push(priceDataComponent("cad", getPrintDigitalAddOnCadPriceCents()));
+    }
+    // Mirror createCheckoutSession: the card add-on is charged only for
+    // framed posters without the digital add-on (merch handled above).
+    if (
+      input.includeCardAddOn &&
+      normalizedPrintVariant === "poster_framed" &&
+      !input.includeDigitalAddOn
+    ) {
+      components.push(priceDataComponent("cad", getPrintCadPriceCents("card_4x6")));
+    }
     return buildCheckoutPricingIdentity(components);
   }
   const printTiers = getPrintPricingTiers();
@@ -931,19 +1050,42 @@ async function createCheckoutSession(input: {
     includeDigitalAddOn: !isMerchOrder && includeDigitalAddOn,
     includeCardAddOn: normalizedIncludeCardAddOn,
   });
+  // T-FLEET-103: one currency decision for the whole session, from the
+  // single resolver the pricing identity also uses (print/merch follow
+  // the validated shipping country; digital follows the client IP
+  // country). CA sessions charge the native CAD book with Adaptive
+  // Pricing switched off per session; everyone else is unchanged.
+  const checkoutCurrency = resolveCheckoutCurrency({
+    orderType: normalizedOrderType,
+    shippingCountry: resolvedShippingCountry,
+    clientCountry,
+  });
+  const isCadCheckout = checkoutCurrency === "cad";
   const printShippingSelection =
     isPrintOrder && isMerchOrder && resolvedMerch
-      ? await getMerchShippingOptionsForCountry(resolvedMerch.catalogVariantId, resolvedShippingCountry)
+      ? await getMerchShippingOptionsForCountry(
+          resolvedMerch.catalogVariantId,
+          resolvedShippingCountry,
+          checkoutCurrency
+        )
       : isPrintOrder
-        ? getPrintShippingOptionsForCountry(normalizedPrintVariant, resolvedShippingCountry)
+        ? getPrintShippingOptionsForCountry(normalizedPrintVariant, resolvedShippingCountry, checkoutCurrency)
         : { shippingOptions: undefined, shippingChargeCents: null };
   let printShippingOptions = printShippingSelection.shippingOptions;
   let printShippingChargeCents = printShippingSelection.shippingChargeCents;
+  // The geo-pricing experiment never prices CA (design §1.2); for a CA
+  // buyer the native CAD book takes precedence so the session stays
+  // single-currency. Non-CA behaviour is untouched.
   const geoDigitalSingle =
-    !isPrintOrder && effectivePlan === "single" ? getGeoDigitalSinglePrice(clientCountry) : null;
+    !isPrintOrder && effectivePlan === "single" && !isCadCheckout
+      ? getGeoDigitalSinglePrice(clientCountry)
+      : null;
   const useGeoDigitalSinglePricing = Boolean(geoDigitalSingle?.amountCents);
 
   const metadata: Record<string, string> = { order_type: normalizedOrderType };
+  // Reconciliation marker (T-FLEET-103 §3.8): the currency this session
+  // charges in. No fulfillment or DL-1 metadata key changes meaning.
+  metadata.checkout_currency = checkoutCurrency;
   const normalizedCheckoutSource = normalizeIdempotencyToken(checkoutSource, 48);
   if (normalizedCheckoutSource) metadata.checkout_source = normalizedCheckoutSource;
   metadata.checkout_handoff = checkoutHandoff === "browser" ? "browser" : "missing";
@@ -995,56 +1137,94 @@ async function createCheckoutSession(input: {
 
   const digitalPriceId = stripePriceIds[effectivePlan]?.trim();
   const useDigitalPriceId = Boolean(digitalPriceId) && !useGeoDigitalSinglePricing;
+  const digitalCadPriceCents = getDigitalCadPriceCents(effectivePlan);
 
   const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
+  // Estimate lines in the SESSION's currency: the promotion estimator
+  // must see the amounts and currency the buyer will actually be
+  // charged (a USD amount-off coupon correctly fails its currency
+  // check against a CAD session — design §3.7).
   const promotionEstimateLineItems: Array<{ amountCents: number; priceId?: string | null }> = [];
+  // Canonical USD mirror of the same lines. Free-shipping eligibility
+  // is decided on the USD merchandise subtotal and the margin guard is
+  // evaluated on USD amounts, both exactly as before (design
+  // §3.5/§3.6) — buyer currency never enters either.
+  const promotionEstimateLineItemsUsd: Array<{ amountCents: number; priceId?: string | null }> = [];
   if (isPrintOrder && isMerchOrder && resolvedMerch) {
-    const merchLine = buildMerchCheckoutLineItem(resolvedMerch);
+    const merchLine = buildMerchCheckoutLineItem(resolvedMerch, checkoutCurrency);
     lineItems.push(merchLine.lineItem);
     promotionEstimateLineItems.push(merchLine.promotionEstimate);
   } else if (isPrintOrder) {
     const printPriceId = stripePrintVariantPriceIds[normalizedPrintVariant]?.trim();
+    const printCadPriceCents = isCadCheckout ? getPrintCadPriceCents(normalizedPrintVariant) : null;
+    const printProductData = {
+      name: `Custom Star Map — ${printTier.label}`,
+      description: printTier.includesFrame
+        ? `${printTier.label} • Shipping address required`
+        : `${printTier.label} • Shipping address required`,
+      images: [`${siteUrl}/custom-star-map-anniversary.webp`],
+    };
     lineItems.push({
-      ...(printPriceId
-        ? { price: printPriceId }
-        : {
+      ...(printCadPriceCents !== null
+        ? {
             price_data: {
-              currency: printTier.currency,
-              unit_amount: printTier.amountCents,
-              product_data: {
-                name: `Custom Star Map — ${printTier.label}`,
-                description: printTier.includesFrame
-                  ? `${printTier.label} • Shipping address required`
-                  : `${printTier.label} • Shipping address required`,
-                images: [`${siteUrl}/custom-star-map-anniversary.webp`],
-              },
+              currency: "cad",
+              unit_amount: printCadPriceCents,
+              product_data: printProductData,
             },
-          }),
+          }
+        : printPriceId
+          ? { price: printPriceId }
+          : {
+              price_data: {
+                currency: printTier.currency,
+                unit_amount: printTier.amountCents,
+                product_data: printProductData,
+              },
+            }),
       quantity: 1,
     });
     promotionEstimateLineItems.push({
+      amountCents: printCadPriceCents ?? printTier.amountCents,
+      priceId: printCadPriceCents !== null ? null : printPriceId || null,
+    });
+    promotionEstimateLineItemsUsd.push({
       amountCents: printTier.amountCents,
       priceId: printPriceId || null,
     });
     if (includeDigitalAddOn) {
       const digitalAddOnPriceId = stripePrintDigitalAddOnPriceId?.trim();
+      const addOnCadPriceCents = isCadCheckout ? getPrintDigitalAddOnCadPriceCents() : null;
+      const addOnProductData = {
+        name: "HD Digital Download Add-on",
+        description: "6000px-wide digital file (up to 6000×9000 by format) delivered instantly after payment",
+        images: [`${siteUrl}/custom-star-map-anniversary.webp`],
+      };
       lineItems.push({
-        ...(digitalAddOnPriceId
-          ? { price: digitalAddOnPriceId }
-          : {
+        ...(addOnCadPriceCents !== null
+          ? {
               price_data: {
-                currency: digitalAddOnTier.currency,
-                unit_amount: digitalAddOnTier.amountCents,
-                product_data: {
-                  name: "HD Digital Download Add-on",
-                  description: "6000px-wide digital file (up to 6000×9000 by format) delivered instantly after payment",
-                  images: [`${siteUrl}/custom-star-map-anniversary.webp`],
-                },
+                currency: "cad",
+                unit_amount: addOnCadPriceCents,
+                product_data: addOnProductData,
               },
-            }),
+            }
+          : digitalAddOnPriceId
+            ? { price: digitalAddOnPriceId }
+            : {
+                price_data: {
+                  currency: digitalAddOnTier.currency,
+                  unit_amount: digitalAddOnTier.amountCents,
+                  product_data: addOnProductData,
+                },
+              }),
         quantity: 1,
       });
       promotionEstimateLineItems.push({
+        amountCents: addOnCadPriceCents ?? digitalAddOnTier.amountCents,
+        priceId: addOnCadPriceCents !== null ? null : digitalAddOnPriceId || null,
+      });
+      promotionEstimateLineItemsUsd.push({
         amountCents: digitalAddOnTier.amountCents,
         priceId: digitalAddOnPriceId || null,
       });
@@ -1052,23 +1232,37 @@ async function createCheckoutSession(input: {
     if (normalizedIncludeCardAddOn) {
       const cardTier = printTiers.card_4x6;
       const cardPriceId = stripePrintVariantPriceIds.card_4x6?.trim();
+      const cardCadPriceCents = isCadCheckout ? getPrintCadPriceCents("card_4x6") : null;
+      const cardProductData = {
+        name: `Custom Star Map — ${cardTier.label}`,
+        description: `${cardTier.label} • Bundled with framed print`,
+        images: [`${siteUrl}/custom-star-map-anniversary.webp`],
+      };
       lineItems.push({
-        ...(cardPriceId
-          ? { price: cardPriceId }
-          : {
+        ...(cardCadPriceCents !== null
+          ? {
               price_data: {
-                currency: cardTier.currency,
-                unit_amount: cardTier.amountCents,
-                product_data: {
-                  name: `Custom Star Map — ${cardTier.label}`,
-                  description: `${cardTier.label} • Bundled with framed print`,
-                  images: [`${siteUrl}/custom-star-map-anniversary.webp`],
-                },
+                currency: "cad",
+                unit_amount: cardCadPriceCents,
+                product_data: cardProductData,
               },
-            }),
+            }
+          : cardPriceId
+            ? { price: cardPriceId }
+            : {
+                price_data: {
+                  currency: cardTier.currency,
+                  unit_amount: cardTier.amountCents,
+                  product_data: cardProductData,
+                },
+              }),
         quantity: 1,
       });
       promotionEstimateLineItems.push({
+        amountCents: cardCadPriceCents ?? cardTier.amountCents,
+        priceId: cardCadPriceCents !== null ? null : cardPriceId || null,
+      });
+      promotionEstimateLineItemsUsd.push({
         amountCents: cardTier.amountCents,
         priceId: cardPriceId || null,
       });
@@ -1076,8 +1270,39 @@ async function createCheckoutSession(input: {
   } else {
     const digitalLineItem:
       | { price: string }
-      | { price_data: Stripe.Checkout.SessionCreateParams.LineItem.PriceData } = useDigitalPriceId
-      ? { price: digitalPriceId as string }
+      | { price_data: Stripe.Checkout.SessionCreateParams.LineItem.PriceData } = isCadCheckout
+      ? {
+          // CAD digital always mints via price_data from the native CAD
+          // book — never a USD Price ID (design §2.2). Product strings
+          // mirror the USD price_data branches below exactly.
+          price_data:
+            effectivePlan === "subscription"
+              ? {
+                  currency: "cad",
+                  unit_amount: digitalCadPriceCents,
+                  recurring: { interval: "month" },
+                  product_data: {
+                    name: "Unlimited HD Star Maps (Monthly)",
+                    description: "Unlimited HD exports • No watermark • Instant download",
+                    images: [`${siteUrl}/custom-star-map-anniversary.webp`],
+                  },
+                }
+              : {
+                  currency: "cad",
+                  unit_amount: digitalCadPriceCents,
+                  product_data: {
+                    name:
+                      effectivePlan === "pack3" ? "HD Star Map Export Credits (3)" : "HD Star Map Download",
+                    description:
+                      effectivePlan === "pack3"
+                        ? "3 HD export credits for your map versions • No watermark • Instant unlock"
+                        : "Print-ready 6000px-wide star map (up to 6000×9000 by format) • No watermark • Instant download • Perfect for framing",
+                    images: [`${siteUrl}/custom-star-map-anniversary.webp`],
+                  },
+                },
+        }
+      : useDigitalPriceId
+        ? { price: digitalPriceId as string }
       : effectivePlan === "single" && geoDigitalSingle
         ? {
             price_data: {
@@ -1126,9 +1351,13 @@ async function createCheckoutSession(input: {
 
   let estimatedPromotionDiscountCents = 0;
   if (isPrintOrder && promotionCodeId) {
+    // The estimator validates against the SESSION's currency and
+    // amounts (design §3.7): a USD amount-off coupon fails its currency
+    // check on a CAD session and the buyer hears the promo does not
+    // apply — rather than being charged in CAD against a USD discount.
     const discountEstimate = await estimatePromotionDiscountCents({
       promotionCode: resolvedPromotionCode,
-      currency: printTier.currency,
+      currency: isCadCheckout ? "cad" : printTier.currency,
       lineItems: promotionEstimateLineItems,
     });
     if (discountEstimate === null || discountEstimate <= 0) {
@@ -1143,7 +1372,10 @@ async function createCheckoutSession(input: {
   }
 
   if (isPrintOrder && !isMerchOrder) {
-    const merchandiseSubtotalCents = promotionEstimateLineItems.reduce(
+    // USD mirror lines: the free-shipping threshold is a USD figure
+    // (design §3.5), so eligibility reads the USD subtotal even for a
+    // CAD session. For USD sessions this is the same sum as before.
+    const merchandiseSubtotalCents = promotionEstimateLineItemsUsd.reduce(
       (sum, item) => sum + item.amountCents,
       0
     );
@@ -1156,7 +1388,8 @@ async function createCheckoutSession(input: {
     // shipping the site said was free (audit F4).
     const freeShippingSelection = applyPrintFreeShippingToCheckout(
       { shippingOptions: printShippingOptions, shippingChargeCents: printShippingChargeCents },
-      merchandiseSubtotalCents
+      merchandiseSubtotalCents,
+      checkoutCurrency
     );
     printShippingOptions = freeShippingSelection.shippingOptions;
     printShippingChargeCents = freeShippingSelection.shippingChargeCents;
@@ -1170,13 +1403,30 @@ async function createCheckoutSession(input: {
       metadata.print_shipping_charge_cents = String(printShippingChargeCents);
     }
 
+    // The margin guard evaluates USD revenue against USD costs
+    // (design §3.6): for a CAD session, re-estimate the promotion
+    // against the USD lines so the guard sees the same discount it
+    // would have seen pre-change. Only percent coupons can pass the
+    // CAD estimator gate above (amount-off fails its currency check),
+    // and the step-0 audit verified no amount-off coupon carries a
+    // minimum-amount restriction, so this estimate exists whenever
+    // the session estimate did.
+    let guardDiscountCents = estimatedPromotionDiscountCents;
+    if (isCadCheckout && promotionCodeId) {
+      const usdDiscountEstimate = await estimatePromotionDiscountCents({
+        promotionCode: resolvedPromotionCode,
+        currency: "usd",
+        lineItems: promotionEstimateLineItemsUsd,
+      });
+      guardDiscountCents = usdDiscountEstimate ?? 0;
+    }
     const marginCheck = evaluatePrintMarginForCheckout({
       variant: normalizedPrintVariant,
       shippingCountry: resolvedShippingCountry,
       shippingChargeCents: printShippingChargeCents,
       includeDigitalAddOn,
       includeCardAddOn: normalizedIncludeCardAddOn,
-      discountAmountCents: estimatedPromotionDiscountCents,
+      discountAmountCents: guardDiscountCents,
     });
     if (!marginCheck.allowed) {
       const baseMessage =
@@ -1194,7 +1444,7 @@ async function createCheckoutSession(input: {
   }
 
   const attemptPromotionsConsent = shouldAttemptPromotionsConsent();
-  const sessionParams: Stripe.Checkout.SessionCreateParams = {
+  const sessionParams: CheckoutSessionCreateParams = {
     mode: !isPrintOrder && effectivePlan === "subscription" ? "subscription" : "payment",
     success_url: successUrl,
     cancel_url: cancelUrl,
@@ -1208,6 +1458,11 @@ async function createCheckoutSession(input: {
     },
     client_reference_id: mapId,
     line_items: lineItems,
+    // T-FLEET-103 §3.3: CAD sessions ONLY — the native CAD book is the
+    // presented and charged currency, with no Adaptive Pricing
+    // conversion or uplift layered on top. Non-CAD sessions never
+    // carry this key and keep today's presentment behaviour exactly.
+    ...(isCadCheckout ? { adaptive_pricing: { enabled: false } } : {}),
     metadata,
     subscription_data: !isPrintOrder && effectivePlan === "subscription" ? { metadata } : undefined,
     ...(allowPromotionCodes && !promotionCodeId ? { allow_promotion_codes: true } : {}),
@@ -1251,7 +1506,7 @@ async function createCheckoutSession(input: {
   };
 
   async function createStripeSession(
-    params: Stripe.Checkout.SessionCreateParams,
+    params: CheckoutSessionCreateParams,
     key?: string
   ): Promise<Stripe.Checkout.Session> {
     if (!stripe) {
@@ -1261,7 +1516,7 @@ async function createCheckoutSession(input: {
   }
 
   async function createSessionWithConsentFallback(
-    params: Stripe.Checkout.SessionCreateParams,
+    params: CheckoutSessionCreateParams,
     key: string | undefined
   ): Promise<Stripe.Checkout.Session> {
     try {
@@ -1275,7 +1530,7 @@ async function createCheckoutSession(input: {
         plan,
         orderType: normalizedOrderType,
       });
-      const withoutPromotions: Stripe.Checkout.SessionCreateParams = {
+      const withoutPromotions: CheckoutSessionCreateParams = {
         ...params,
         consent_collection: buildCheckoutConsentCollection(false),
       };
@@ -1322,7 +1577,7 @@ async function createCheckoutSession(input: {
     } else {
       delete fallbackMetadata.referral_offer_variant;
     }
-    const fallbackParams: Stripe.Checkout.SessionCreateParams = {
+    const fallbackParams: CheckoutSessionCreateParams = {
       ...sessionParams,
       allow_promotion_codes: allowPromotionCodes,
       discounts: undefined,
@@ -1997,6 +2252,7 @@ export async function POST(req: NextRequest) {
       includeDigitalAddOn,
       includeCardAddOn,
       merchFamily,
+      shippingCountry: shippingCountry ?? null,
       clientCountry,
     });
     const idempotencyKey = checkoutIdempotencyKey({

@@ -1139,6 +1139,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
         variant: payload.printVariant,
         shippingCountry: recipient.country_code,
         amountTotalCents: payload.amountTotal ?? null,
+        currency: payload.currency ?? null,
       });
   if (!marginCheck.allowed) {
     await persistProblemPrintOrder({

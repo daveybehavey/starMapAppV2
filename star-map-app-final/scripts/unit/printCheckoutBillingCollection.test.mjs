@@ -18,7 +18,10 @@ const CHECKOUT_ROUTE = path.join(ROOT, "src/app/api/checkout/route.ts");
  * @param {string} route
  */
 function extractSessionParamsBlock(route) {
-  const marker = "const sessionParams: Stripe.Checkout.SessionCreateParams = {";
+  // T-FLEET-103 renamed the params type to the route-local
+  // CheckoutSessionCreateParams (SessionCreateParams + the optional
+  // adaptive_pricing override); the pinned contents are unchanged.
+  const marker = "const sessionParams: CheckoutSessionCreateParams = {";
   const start = route.indexOf(marker);
   assert.ok(start >= 0, "sessionParams declaration missing from checkout route");
   const after = route.slice(start + marker.length);
@@ -117,11 +120,11 @@ test("discount fallback spreads sessionParams so billing auto is preserved", () 
   const route = fs.readFileSync(CHECKOUT_ROUTE, "utf8");
   assert.match(
     route,
-    /const fallbackParams: Stripe\.Checkout\.SessionCreateParams = \{\s*\.\.\.sessionParams/,
+    /const fallbackParams: CheckoutSessionCreateParams = \{\s*\.\.\.sessionParams/,
     "promo fallback must spread sessionParams (inherits billing_address_collection: auto)"
   );
   // Fallback must not override billing collection back to required.
-  const fallbackStart = route.indexOf("const fallbackParams: Stripe.Checkout.SessionCreateParams = {");
+  const fallbackStart = route.indexOf("const fallbackParams: CheckoutSessionCreateParams = {");
   assert.ok(fallbackStart >= 0);
   const fallbackSlice = route.slice(fallbackStart, fallbackStart + 600);
   assert.equal(
