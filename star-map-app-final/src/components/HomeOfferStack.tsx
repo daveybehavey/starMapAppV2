@@ -21,6 +21,7 @@ type HomeOfferStackProps = {
   };
   printLabels: {
     unframed: string;
+    unframed16: string;
     framed: string;
     digitalAddOn: string;
   };
@@ -77,7 +78,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
           </div>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <article data-digital-offer className="brand-dark-card flex h-full flex-col rounded-2xl p-4">
             <div className="relative mb-3 aspect-[4/3] overflow-hidden rounded-xl border border-white/15 bg-[#0a1228]">
               <ResilientImage
@@ -195,6 +196,44 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
             </div>
             <a
               href="/editor?mode=quick&source=home-delivery-print-unframed&checkout=print&print_variant=poster_unframed"
+              className="mt-auto inline-flex w-full items-center justify-center rounded-full border border-amber-300/40 bg-white/5 px-3.5 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:border-amber-300/60 hover:bg-white/10"
+            >
+              Preview unframed print
+            </a>
+          </article>
+
+          <article className="brand-dark-card flex h-full flex-col rounded-2xl p-4">
+            <div className="relative mb-3 aspect-[4/3] overflow-hidden rounded-xl border border-white/18 bg-[#eceae6]">
+              <ResilientImage
+                src={OFFER_MOCKUPS.unframed}
+                fallbackSrc={OFFER_MOCKUPS.unframed}
+                alt="Unframed StarMapCo 16×16 poster print on a white background"
+                fill
+                sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 25vw"
+                className="object-cover object-center"
+              />
+            </div>
+            <span className="mb-1 inline-flex w-fit rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] font-semibold tracking-[0.14em] text-neutral-200 uppercase">
+              Entry poster
+            </span>
+            <p className="text-sm font-semibold text-white">Unframed poster (16×16)</p>
+            <p className="mt-1 text-xs leading-relaxed text-neutral-200">
+              Professionally printed 16x16 poster for buyers who already have a frame plan.
+            </p>
+            <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-neutral-200">
+              <li>Museum-quality poster stock</li>
+              <li>Lowest-cost physical option</li>
+              <li>
+                {PRINT_NEUTRAL_SHIPPING_CARD_NOTE}
+              </li>
+              <li>{printLabels.unframed16}</li>
+            </ul>
+            <div className="mt-3 rounded-xl border border-white/10 bg-black/15 px-3 py-2 text-[11px] text-neutral-200">
+              Built for physical delivery at the entry poster price, especially if the buyer already has a
+              frame plan.
+            </div>
+            <a
+              href="/editor?mode=quick&source=home-delivery-print-unframed-16x16&checkout=print&print_variant=poster_unframed_16x16"
               className="mt-auto inline-flex w-full items-center justify-center rounded-full border border-amber-300/40 bg-white/5 px-3.5 py-2 text-xs font-semibold text-white transition hover:-translate-y-[1px] hover:border-amber-300/60 hover:bg-white/10"
             >
               Preview unframed print

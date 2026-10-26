@@ -82,8 +82,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     (printTiers.poster_framed.currency || "USD").toUpperCase(),
   );
   const printUnframedOfferLabel = formatPrintPriceWithShipping(
-    printTiers.poster_unframed.amountCents,
-    (printTiers.poster_unframed.currency || "USD").toUpperCase(),
+    printTiers.poster_unframed_16x16.amountCents,
+    (printTiers.poster_unframed_16x16.currency || "USD").toUpperCase(),
   );
   const isUsOnlyPrint = isUsOnlyPrintCheckout();
   const packSavingsPercent =
@@ -163,6 +163,15 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                   priceValidUntil,
                   availability: "https://schema.org/InStock",
                   url: `${siteUrl}/editor?mode=quick&source=home-schema-print-unframed`,
+                },
+                {
+                  "@type": "Offer" as const,
+                  name: "Unframed poster (16×16)",
+                  priceCurrency: (printTiers.poster_unframed_16x16.currency || "USD").toUpperCase(),
+                  price: (printTiers.poster_unframed_16x16.amountCents / 100).toFixed(2),
+                  priceValidUntil,
+                  availability: "https://schema.org/InStock",
+                  url: `${siteUrl}/editor?mode=quick&source=home-schema-print-unframed-16x16&checkout=print&print_variant=poster_unframed_16x16`,
                 },
                 {
                   "@type": "Offer" as const,

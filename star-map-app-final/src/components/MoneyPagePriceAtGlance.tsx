@@ -29,8 +29,8 @@ export default function MoneyPagePriceAtGlance({
     printTiers.poster_framed.currency,
   );
   const unframedPrice = formatPrintPriceWithShipping(
-    printTiers.poster_unframed.amountCents,
-    printTiers.poster_unframed.currency,
+    printTiers.poster_unframed_16x16.amountCents,
+    printTiers.poster_unframed_16x16.currency,
   );
   const framedHdBundle = getFramedHdBundlePriceLine();
   const shippingDisclosure = getPrintShippingDisclosure();

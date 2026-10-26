@@ -171,6 +171,10 @@ export default function HomeStaticSections({ priceLabels, promoStatus, promoCode
       printTiers.poster_unframed.amountCents,
       printTiers.poster_unframed.currency
     ),
+    unframed16: formatPrintPriceWithShipping(
+      printTiers.poster_unframed_16x16.amountCents,
+      printTiers.poster_unframed_16x16.currency
+    ),
     framed: formatPrintPriceWithShipping(
       printTiers.poster_framed.amountCents,
       printTiers.poster_framed.currency
@@ -478,7 +482,7 @@ export default function HomeStaticSections({ priceLabels, promoStatus, promoCode
             {buildHomeFaqItems({
               single: priceLabels.single,
               framed: printLabels.framed,
-              unframed: printLabels.unframed,
+              unframed: printLabels.unframed16,
             }).map((item) => (
               <div
                 key={item.id}

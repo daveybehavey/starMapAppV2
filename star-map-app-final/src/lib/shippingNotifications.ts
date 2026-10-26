@@ -55,6 +55,8 @@ function pickProductLabel(record: ExtendedPrintOrderRecord, override?: string | 
       return "Framed star map poster";
     case "poster_unframed":
       return "Star map poster";
+    case "poster_unframed_16x16":
+      return "Star map poster (16×16)";
     case "canvas_wrap":
       return "Star map canvas";
     case "mug_11oz":

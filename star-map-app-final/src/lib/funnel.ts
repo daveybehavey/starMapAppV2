@@ -46,6 +46,7 @@ export const CHECKOUT_CLASSIFICATION_PLANS = [
   "subscription",
   "poster_framed",
   "poster_unframed",
+  "poster_unframed_16x16",
   "canvas_wrap",
   "mug_11oz",
   "card_4x6",

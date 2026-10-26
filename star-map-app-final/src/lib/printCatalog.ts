@@ -28,6 +28,30 @@ export const PRINT_CATALOG = [
     defaultCogsCents: 1300,
   },
   {
+    // S1 (issue #380): second square unframed poster, 16×16. Same Printful
+    // product (Enhanced Matte Paper Poster) and shipping profile as the
+    // 18×18. Price: $39 entry pricing, chosen over the delivered-margin
+    // parity point with the 18×18 ($46.87); verified delivered margins at
+    // $39 are 54.45% US / 51.72% CA (see #380).
+    // COGS default = verified Printful catalog price for variant 4465
+    // ($12.75, read 2026-10-25). No Stripe Price ID yet: checkout uses the
+    // price_data fallback until activation sets STRIPE_PRICE_ID_PRINT_UNFRAMED_16X16.
+    id: "poster_unframed_16x16",
+    printfulVariantId: 4465,
+    printfulVariantEnv: "PRINTFUL_VARIANT_ID_POSTER_UNFRAMED_16X16",
+    shippingProfile: "poster_unframed",
+    includesFrame: false,
+    labelFallback: "Museum-grade poster (16×16)",
+    priceFallbackCents: 3900,
+    priceEnv: "PRINT_UNFRAMED_16X16_PRICE_CENTS",
+    publicPriceEnv: "NEXT_PUBLIC_PRINT_UNFRAMED_16X16_PRICE_CENTS",
+    labelEnv: "PRINT_UNFRAMED_16X16_LABEL",
+    publicLabelEnv: "NEXT_PUBLIC_PRINT_UNFRAMED_16X16_LABEL",
+    stripePriceEnv: "STRIPE_PRICE_ID_PRINT_UNFRAMED_16X16",
+    cogsEnv: "PRINT_COGS_POSTER_UNFRAMED_16X16_CENTS",
+    defaultCogsCents: 1275,
+  },
+  {
     id: "poster_framed",
     printfulVariantId: 4654,
     printfulVariantEnv: "PRINTFUL_VARIANT_ID_POSTER_FRAMED",
@@ -121,6 +145,7 @@ export function getPrintCatalogRow(id: PrintVariant): PrintCatalogRow {
 export const PAYWALL_LIVE_PRINT_VARIANTS: readonly PrintVariant[] = [
   "poster_framed",
   "poster_unframed",
+  "poster_unframed_16x16",
   "canvas_wrap",
 ];
 
@@ -157,7 +182,8 @@ export const PAYWALL_PRINT_CHECKOUT_ROWS: readonly PaywallPrintCheckoutRow[] = [
     includeCardAddOn: true,
     headline: "Framed + keepsake card",
   },
-  { variant: "poster_unframed", includeDigitalAddOn: false, headline: "Unframed poster" },
+  { variant: "poster_unframed", includeDigitalAddOn: false, headline: "Unframed poster (18×18)" },
+  { variant: "poster_unframed_16x16", includeDigitalAddOn: false, headline: "Unframed poster (16×16)" },
   {
     variant: "canvas_wrap",
     includeDigitalAddOn: false,

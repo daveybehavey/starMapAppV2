@@ -126,6 +126,10 @@ export default function ShopPage() {
     printTiers.poster_unframed.amountCents,
     (printTiers.poster_unframed.currency || "USD").toUpperCase(),
   );
+  const unframed16Price = formatPrintPriceWithShipping(
+    printTiers.poster_unframed_16x16.amountCents,
+    (printTiers.poster_unframed_16x16.currency || "USD").toUpperCase(),
+  );
   const digitalPrice = formatPrice(digitals.single.amountCents, (digitals.single.currency || "USD").toUpperCase());
 
   const partnerOffers = parseShopExternalOffers(process.env.NEXT_PUBLIC_SHOP_EXTERNAL_OFFERS_JSON);
@@ -164,6 +168,20 @@ export default function ShopPage() {
       price: unframedPrice,
       shippingNote: PRINT_NEUTRAL_SHIPPING_CARD_NOTE,
       href: "/editor?mode=quick&source=shop-unframed&checkout=print&print_variant=poster_unframed",
+      cta: "Customize poster",
+      ctaClass:
+        "mt-auto inline-flex justify-center rounded-full border border-amber-400/70 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-950 transition hover:bg-amber-100",
+      darkCard: false,
+    },
+    {
+      key: "unframed_16x16",
+      imageSrc: HOME_MOCKUPS.unframedPoster,
+      alt: "Unframed StarMapCo 16×16 square poster print on a white background",
+      title: printTiers.poster_unframed_16x16.label,
+      detail: "Smaller square poster print — the entry poster size, ideal when you want to frame it locally or keep total cost lower.",
+      price: unframed16Price,
+      shippingNote: PRINT_NEUTRAL_SHIPPING_CARD_NOTE,
+      href: "/editor?mode=quick&source=shop-unframed-16x16&checkout=print&print_variant=poster_unframed_16x16",
       cta: "Customize poster",
       ctaClass:
         "mt-auto inline-flex justify-center rounded-full border border-amber-400/70 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-950 transition hover:bg-amber-100",
@@ -231,7 +249,7 @@ export default function ShopPage() {
         <p className="mt-2 text-sm text-neutral-700">
           HD from <span className="font-semibold text-midnight">{digitalPrice}</span>
           {" · "}
-          unframed from <span className="font-semibold text-midnight">{unframedPrice}</span>
+          unframed from <span className="font-semibold text-midnight">{unframed16Price}</span>
           {" · "}
           framed from <span className="font-semibold text-midnight">{framedPrice}</span>
         </p>

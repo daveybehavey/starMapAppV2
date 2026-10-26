@@ -44,6 +44,10 @@ const PRINT_VARIANT_BASE_CENTS: Record<PrintVariant, number> = {
     "NEXT_PUBLIC_PRINT_UNFRAMED_PRICE_CENTS",
     getPublicNumber("PRINT_UNFRAMED_PRICE_CENTS", 4900),
   ),
+  poster_unframed_16x16: getPublicNumber(
+    "NEXT_PUBLIC_PRINT_UNFRAMED_16X16_PRICE_CENTS",
+    getPublicNumber("PRINT_UNFRAMED_16X16_PRICE_CENTS", 3900),
+  ),
   poster_framed: getPublicNumber(
     "NEXT_PUBLIC_PRINT_FRAMED_PRICE_CENTS",
     getPublicNumber("PRINT_FRAMED_PRICE_CENTS", 9900),
@@ -92,6 +96,7 @@ function getCheckoutItemName(input: Ga4PurchaseInput) {
     const names: Record<PrintVariant, string> = {
       poster_framed: "Custom Framed Star Map Print",
       poster_unframed: "Custom Star Map Print",
+      poster_unframed_16x16: "Custom Star Map Print (16×16)",
       canvas_wrap: "Canvas Gallery Wrap Star Map",
       mug_11oz: "Star Map Mug (11 oz)",
       card_4x6: "Star Map Greeting Card",

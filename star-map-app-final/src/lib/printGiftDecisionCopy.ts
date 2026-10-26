@@ -19,7 +19,7 @@ export function describeAspectRatioLabel(aspectRatio: AspectRatio): string {
 
 export function getPosterAspectMismatchMessage(aspectRatio: AspectRatio): string {
   if (aspectRatio === "square") return "";
-  return `Poster prints are square (18×18 unframed, 14×14 framed). Your map is ${describeAspectRatioLabel(
+  return `Poster prints are square (18×18 or 16×16 unframed, 14×14 framed). Your map is ${describeAspectRatioLabel(
     aspectRatio
   )} — switch to Square in Advanced before checkout to avoid letterboxing on the print.`;
 }
@@ -30,6 +30,8 @@ export function getPrintSizingLine(variant: PrintVariant = "poster_framed"): str
       return "Framed: 14×14 in finished size, ready to hang.";
     case "poster_unframed":
       return "Unframed poster: 18×18 in — plan your own frame.";
+    case "poster_unframed_16x16":
+      return "Unframed poster: 16×16 in — plan your own frame.";
     case "canvas_wrap":
       return "Canvas gallery wrap: 14×14 in, edge-to-edge print, gallery-style mount.";
     case "mug_11oz":
@@ -61,6 +63,11 @@ export const PRINT_GIFT_TIER_STEPS = [
     id: "poster",
     label: "Unframed poster",
     detail: "Lower total — you supply the frame (18×18).",
+  },
+  {
+    id: "poster_16x16",
+    label: "Unframed poster (16×16)",
+    detail: "Entry poster size — you supply the frame (16×16).",
   },
   {
     id: "framed_hd",
