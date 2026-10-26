@@ -9,6 +9,7 @@ import PreviewStartForm from "@/components/PreviewStartForm";
 import { HOME_MOCKUPS } from "@/lib/homeMockups";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import StickyCtaBar from "@/components/StickyCtaBar";
+import VariantFormatLinks from "@/components/VariantFormatLinks";
 import {
   formatPrintPriceWithShipping,
   getPrintProductionReviewDisclosure,
@@ -455,6 +456,10 @@ export default function StarMapPosterPage() {
             StarMapCo vs The Night Sky
           </Link>
         </div>
+      </section>
+
+      <section className="content-visibility-auto mt-6 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+        <VariantFormatLinks tone="light" />
       </section>
 
       <OccasionLinks />
