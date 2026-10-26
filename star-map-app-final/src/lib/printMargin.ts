@@ -1,7 +1,12 @@
-import { getPrintDigitalAddOnPrice, getPrintPricingTiers } from "@/lib/pricing";
+import {
+  getPrintDigitalAddOnPrice,
+  getPrintPricingTiers,
+  getPrintSecondCopyPriceCents,
+} from "@/lib/pricing";
 import type { PrintVariant } from "@/lib/pricing";
 import { convertCadCentsToUsdCents } from "@/lib/checkoutCurrency";
-import { getPrintCatalogRow } from "@/lib/printCatalog";
+import { getPrintCatalogRow, getPrintShippingProfile } from "@/lib/printCatalog";
+import type { PrintShippingProfile } from "@/lib/printCatalog";
 import { getPrintShippingEstimate } from "@/lib/printfulShipping";
 
 type PrintMarginGuardConfig = {
@@ -58,6 +63,42 @@ function getVariantProductCostCents(variant: PrintVariant): number {
   return parseIntValue(process.env[row.cogsEnv], row.defaultCogsCents, 0);
 }
 
+/**
+ * Lever A — the second copy's EXTRA Printful shipping cost, by shipping
+ * profile and destination country (USD cents). The guard's base
+ * estimate is a single-parcel matrix rate; a quantity-2 item costs
+ * Printful more, by these measured increments. Measured read-only via
+ * Printful estimate-costs (StarMapCo store, 2026-10-26): quantity 2 on
+ * a single item vs quantity 1, converted from the account's CAD
+ * figures at this codebase's 1.40 reference rate — poster US +$0.39
+ * (matches the margin pack's independent probe to the cent), poster
+ * CA +$0.25, framed US +$4.07, framed CA +$5.68, canvas US +$9.71,
+ * canvas CA +$16.49. Canvas pairs consolidate least — the increment
+ * is ~a full second parcel — which is exactly why the measured values
+ * are wired here rather than the combined-parcel premise assumed.
+ * Countries not measured fall back to the full single-parcel matrix
+ * rate for that country: the documented upper bound (a second parcel),
+ * never an invented figure.
+ */
+const SECOND_COPY_SHIPPING_INCREMENT_CENTS: Partial<
+  Record<PrintShippingProfile, Partial<Record<string, number>>>
+> = {
+  poster_unframed: { US: 39, CA: 25 },
+  poster_framed: { US: 407, CA: 568 },
+  canvas_wrap: { US: 971, CA: 1649 },
+};
+
+export function getSecondCopyShippingIncrementCents(
+  variant: PrintVariant,
+  shippingCountry: string,
+): number {
+  const profile = getPrintShippingProfile(variant);
+  const country = shippingCountry.trim().toUpperCase();
+  const measured = SECOND_COPY_SHIPPING_INCREMENT_CENTS[profile]?.[country];
+  if (typeof measured === "number") return measured;
+  return getPrintShippingEstimate(variant, country)?.amountCents ?? 0;
+}
+
 export function getPrintMarginGuardConfig(): PrintMarginGuardConfig {
   return {
     enabled: parseBool(process.env.PRINT_MARGIN_GUARD_ENABLED, false),
@@ -80,13 +121,15 @@ function buildEstimate(input: {
   discountAmountCents?: number;
   config: PrintMarginGuardConfig;
   extraProductCostCents?: number;
+  extraShippingCostCents?: number;
 }): PrintMarginEstimate | null {
   const shippingEstimate = getPrintShippingEstimate(input.variant, input.shippingCountry);
   if (!shippingEstimate) return null;
 
   const productCostCents =
     getVariantProductCostCents(input.variant) + Math.max(0, input.extraProductCostCents ?? 0);
-  const shippingCostCents = shippingEstimate.amountCents;
+  const shippingCostCents =
+    shippingEstimate.amountCents + Math.max(0, input.extraShippingCostCents ?? 0);
   const fulfillmentCents = productCostCents + shippingCostCents;
   const stripeFeeCents = estimateStripeFeeCents(input.revenueCents, input.config);
   const marginCents = input.revenueCents - stripeFeeCents - fulfillmentCents;
@@ -109,6 +152,7 @@ export function evaluatePrintMarginForCheckout(input: {
   shippingChargeCents: number | null;
   includeDigitalAddOn: boolean;
   includeCardAddOn?: boolean;
+  includeSecondCopy?: boolean;
   discountAmountCents?: number | null;
 }): PrintMarginEvaluation {
   const config = getPrintMarginGuardConfig();
@@ -133,6 +177,10 @@ export function evaluatePrintMarginForCheckout(input: {
     printTier.amountCents +
     (input.includeDigitalAddOn ? digitalAddOn.amountCents : 0) +
     (input.includeCardAddOn ? cardTier.amountCents : 0) +
+    // Lever A: the copy's 90% price is revenue, and it nets against the
+    // promo estimate exactly as charged (the copy sits in the route's
+    // promotion-estimate lines).
+    (input.includeSecondCopy ? getPrintSecondCopyPriceCents(input.variant) : 0) +
     fallbackShippingCharge;
   const discountAmountCents = Number.isFinite(input.discountAmountCents ?? Number.NaN)
     ? Math.max(0, Math.round(input.discountAmountCents ?? 0))
@@ -145,7 +193,14 @@ export function evaluatePrintMarginForCheckout(input: {
     revenueCents,
     discountAmountCents,
     config,
-    extraProductCostCents: input.includeCardAddOn ? getVariantProductCostCents("card_4x6") : 0,
+    // Lever A: a second copy costs a full second unit of COGS, plus
+    // the measured extra shipping for a quantity-2 parcel.
+    extraProductCostCents:
+      (input.includeCardAddOn ? getVariantProductCostCents("card_4x6") : 0) +
+      (input.includeSecondCopy ? getVariantProductCostCents(input.variant) : 0),
+    extraShippingCostCents: input.includeSecondCopy
+      ? getSecondCopyShippingIncrementCents(input.variant, input.shippingCountry)
+      : 0,
   });
 
   if (!estimate) {
@@ -190,6 +245,14 @@ export function evaluatePrintMarginForPaidOrder(input: {
    * pre-CAD records) and "usd" pass through unchanged.
    */
   currency?: string | null;
+  /**
+   * Lever A: the order record's second-copy flag (print_include_second_copy).
+   * Revenue already includes the copy (it is inside amount_total), but
+   * without this flag the cost side prices ONE unit — every copy
+   * order's margin would be overstated by a full COGS (up to $33.81
+   * framed) plus the quantity-2 shipping increment.
+   */
+  includesSecondCopy?: boolean;
 }): PrintMarginEvaluation {
   const config = getPrintMarginGuardConfig();
   const enforced = config.enabled && config.minMarginCents > 0;
@@ -240,6 +303,12 @@ export function evaluatePrintMarginForPaidOrder(input: {
     revenueCents,
     discountAmountCents: 0,
     config,
+    extraProductCostCents: input.includesSecondCopy
+      ? getVariantProductCostCents(input.variant)
+      : 0,
+    extraShippingCostCents: input.includesSecondCopy
+      ? getSecondCopyShippingIncrementCents(input.variant, shippingCountry)
+      : 0,
   });
 
   if (!estimate) {
