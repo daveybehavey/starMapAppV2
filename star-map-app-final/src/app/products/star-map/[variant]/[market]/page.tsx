@@ -8,7 +8,7 @@ import {
   getPrintProductionReviewDisclosure,
   getPrintShippingDisclosure,
 } from "@/lib/printCheckoutConfig";
-import { getPrintFreeShippingOfferLine } from "@/lib/printFreeShipping";
+import { getPrintFreeShippingThresholdCents } from "@/lib/printFreeShipping";
 import {
   VARIANT_PAGE_MANIFEST,
   buildVariantPageMetadata,
@@ -57,7 +57,12 @@ export default async function VariantLandingPage({ params }: PageProps) {
   const otherMarket = parsed.market === "usd" ? "cad" : "usd";
   const otherMarketOffer = resolveVariantOffer(parsed.slug, otherMarket);
   const shippingDisclosure = getPrintShippingDisclosure();
-  const freeShippingLine = getPrintFreeShippingOfferLine(parsed.market);
+  // Free-shipping eligibility is judged on the USD merchandise subtotal
+  // at checkout (route.ts promotionEstimateLineItemsUsd), in BOTH
+  // markets — so the page makes no market-currency threshold claim.
+  // The single threshold statement lives inside shippingDisclosure,
+  // whose offer line is USD-denominated; the pill below claims no amount.
+  const freeShippingActive = getPrintFreeShippingThresholdCents() !== null;
   const productionReviewDisclosure = getPrintProductionReviewDisclosure();
   const schema = buildVariantProductSchema(offer);
 
@@ -85,7 +90,7 @@ export default async function VariantLandingPage({ params }: PageProps) {
               <span className="rounded-full border border-white/10 bg-white/8 px-3 py-1">
                 {offer.sizeLabel}
               </span>
-              {freeShippingLine ? (
+              {freeShippingActive ? (
                 <span className="rounded-full border border-white/10 bg-white/8 px-3 py-1">
                   Free standard shipping on qualifying orders
                 </span>
@@ -110,7 +115,6 @@ export default async function VariantLandingPage({ params }: PageProps) {
                 {offer.label.toLowerCase()} price charged at checkout for this format.
               </p>
               <p className="mt-2 text-xs leading-relaxed text-white/78">
-                {freeShippingLine ? `${freeShippingLine} ` : ""}
                 {shippingDisclosure}
               </p>
             </div>
