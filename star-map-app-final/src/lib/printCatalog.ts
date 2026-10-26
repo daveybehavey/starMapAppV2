@@ -214,15 +214,21 @@ export const PAYWALL_PRINT_CHECKOUT_ROWS: readonly PaywallPrintCheckoutRow[] = [
  * at all (fleet walk Oct 2026, M03). Prepend a plain row for the preferred
  * variant when the base set doesn't already offer it.
  *
- * card_4x6 is excluded: it is only ever sold as an add-on to a framed
- * order (includeCardAddOn), never as a standalone purchase.
+ * card_4x6 is a standalone purchase too (decided 2026-10-25: the
+ * keepsake card sells on its own at its catalog price, not only as the
+ * framed add-on). Like the mug it is NOT in the base offer set — it is
+ * never pushed to shoppers who didn't choose it — but a shopper who
+ * arrives with the card selected gets a plain card row prepended, and
+ * the card remains available as the framed add-on (includeCardAddOn)
+ * exactly as before. Lever A second copy still never applies to the
+ * card (PRINT_SECOND_COPY_VARIANTS below is the one set every surface
+ * consults, and the card is not in it).
  */
 export function resolvePaywallOfferRows(
   preferredVariant?: PrintVariant | string | null,
 ): readonly PaywallPrintCheckoutRow[] {
   if (
     !preferredVariant ||
-    preferredVariant === "card_4x6" ||
     !isPrintVariant(preferredVariant) ||
     PAYWALL_PRINT_CHECKOUT_ROWS.some(
       (row) => row.variant === preferredVariant && !row.includeDigitalAddOn && !row.includeCardAddOn,

@@ -153,6 +153,11 @@ export function buildSitemapEntries(options: BuildSitemapOptions): MetadataRoute
       priority: 0.75,
     },
     {
+      url: `${baseUrl}/star-map-keepsake-card`,
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    {
       url: `${baseUrl}/star-map-gallery`,
       changeFrequency: "monthly",
       priority: 0.75,

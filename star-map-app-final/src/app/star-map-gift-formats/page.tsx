@@ -136,6 +136,22 @@ export default function StarMapGiftFormatsPage() {
       printVariant: "poster_unframed_16x16" as const,
       index: 3,
     },
+    {
+      title: `${printPricing.card_4x6.label}`,
+      badge: "Now standalone",
+      price: formatPrintPriceWithShipping(printPricing.card_4x6.amountCents, printPricing.card_4x6.currency),
+      detail: `The folded greeting card from the framed bundle, orderable on its own. ${PRINT_NEUTRAL_SHIPPING_CARD_NOTE}`,
+      href: "/editor?mode=quick&source=gift-formats-card&checkout=print&print_variant=card_4x6",
+      imageSrc: "/printproof/gift-raw/card/card-mockup.jpg",
+      fallbackSrc: "/printproof/gift-raw/card/card-mockup.jpg",
+      bulletA: "Folded 4×6 card — write your message inside",
+      bulletB: "Same map design as your print or digital order",
+      source: "gift-formats-card-cta",
+      orderType: "print" as const,
+      plan: "single" as const,
+      printVariant: "card_4x6" as const,
+      index: 4,
+    },
   ] as const;
 
   return (
@@ -223,6 +239,13 @@ export default function StarMapGiftFormatsPage() {
             framed + HD bundle
           </Link>{" "}
           pairs the ready-to-hang framed print with the instant HD download from the same approved design.
+        </p>
+        <p className="text-sm text-neutral-800 sm:text-base">
+          Just want the card? The{" "}
+          <Link href="/star-map-keepsake-card" className="font-semibold text-amber-800 underline">
+            keepsake card page
+          </Link>{" "}
+          covers the folded 4×6 card on its own — pricing, shipping, and Christmas order-by dates.
         </p>
       </section>
 

@@ -143,6 +143,10 @@ export default function ShopPage() {
     printTiers.mug_11oz.amountCents,
     (printTiers.mug_11oz.currency || "USD").toUpperCase(),
   );
+  const cardPrice = formatPrintPriceWithShipping(
+    printTiers.card_4x6.amountCents,
+    (printTiers.card_4x6.currency || "USD").toUpperCase(),
+  );
 
   const productCards = [
     {
@@ -211,6 +215,21 @@ export default function ShopPage() {
       shippingNote: PRINT_NEUTRAL_SHIPPING_CARD_NOTE,
       href: "/editor?mode=quick&source=shop-mug&checkout=print&print_variant=mug_11oz",
       cta: "Customize mug",
+      ctaClass:
+        "mt-auto inline-flex justify-center rounded-full border border-neutral-300 bg-white px-4 py-2.5 text-sm font-semibold text-midnight transition hover:bg-neutral-50",
+      darkCard: false,
+    },
+    {
+      key: "card",
+      imageSrc: "/printproof/gift-raw/card/card-mockup.jpg",
+      alt: "Folded keepsake card with an example star map design — your own map is printed to order",
+      title: printTiers.card_4x6.label,
+      detail:
+        "Your star map on a folded 4×6 greeting card — the keepsake that used to come only with a framed print, now orderable on its own.",
+      price: cardPrice,
+      shippingNote: PRINT_NEUTRAL_SHIPPING_CARD_NOTE,
+      href: "/editor?mode=quick&source=shop-card&checkout=print&print_variant=card_4x6",
+      cta: "Customize keepsake card",
       ctaClass:
         "mt-auto inline-flex justify-center rounded-full border border-neutral-300 bg-white px-4 py-2.5 text-sm font-semibold text-midnight transition hover:bg-neutral-50",
       darkCard: false,
@@ -372,6 +391,15 @@ export default function ShopPage() {
                       className="text-center text-xs font-semibold text-amber-800 underline hover:text-amber-950"
                     >
                       Or see the framed + HD bundle
+                    </Link>
+                  ) : null}
+                  {card.key === "card" ? (
+                    <Link
+                      href="/star-map-keepsake-card"
+                      prefetch={false}
+                      className="text-center text-xs font-semibold text-amber-800 underline hover:text-amber-950"
+                    >
+                      About the keepsake card
                     </Link>
                   ) : null}
                 </div>
