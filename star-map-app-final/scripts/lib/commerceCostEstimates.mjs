@@ -28,7 +28,7 @@ export const STRIPE_FIXED_ENV = "PRINT_MARGIN_STRIPE_FIXED_CENTS";
 export const PRINT_VARIANT_COST_ROWS = Object.freeze({
   poster_unframed: Object.freeze({
     cogsEnv: "PRINT_COGS_POSTER_UNFRAMED_CENTS",
-    defaultCogsCents: 1300,
+    defaultCogsCents: 1475,
     shippingProfile: "poster_unframed",
   }),
   poster_unframed_16x16: Object.freeze({
@@ -38,22 +38,22 @@ export const PRINT_VARIANT_COST_ROWS = Object.freeze({
   }),
   poster_framed: Object.freeze({
     cogsEnv: "PRINT_COGS_POSTER_FRAMED_CENTS",
-    defaultCogsCents: 5200,
+    defaultCogsCents: 3381,
     shippingProfile: "poster_framed",
   }),
   canvas_wrap: Object.freeze({
     cogsEnv: "PRINT_COGS_CANVAS_WRAP_CENTS",
-    defaultCogsCents: 3400,
-    shippingProfile: "poster_framed",
+    defaultCogsCents: 2075,
+    shippingProfile: "canvas_wrap",
   }),
   mug_11oz: Object.freeze({
     cogsEnv: "PRINT_COGS_MUG_11OZ_CENTS",
-    defaultCogsCents: 1200,
-    shippingProfile: "poster_unframed",
+    defaultCogsCents: 975,
+    shippingProfile: "mug_11oz",
   }),
   card_4x6: Object.freeze({
     cogsEnv: "PRINT_COGS_CARD_4X6_CENTS",
-    defaultCogsCents: 450,
+    defaultCogsCents: 255,
     shippingProfile: "poster_unframed",
   }),
 });
@@ -125,7 +125,7 @@ export function getConfiguredProductCostCents(variant, env = process.env) {
 
 /**
  * @param {string} variant
- * @returns {"poster_unframed" | "poster_framed" | null}
+ * @returns {"poster_unframed" | "poster_framed" | "canvas_wrap" | "mug_11oz" | null}
  */
 export function getShippingProfile(variant) {
   if (!isSupportedPrintVariant(variant)) return null;

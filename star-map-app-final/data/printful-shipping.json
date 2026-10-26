@@ -78,893 +78,1785 @@
   ],
   "poster_unframed": {
     "US": {
-      "rate": 4.62,
+      "rate": 4.49,
       "currency": "USD",
       "min_delivery_days": 4,
       "max_delivery_days": 6
     },
     "CA": {
-      "rate": 5.33,
+      "rate": 5.17,
       "currency": "USD",
-      "min_delivery_days": 2,
-      "max_delivery_days": 5
+      "min_delivery_days": 3,
+      "max_delivery_days": 6
     },
     "GB": {
-      "rate": 5.65,
+      "rate": 5.49,
       "currency": "USD",
       "min_delivery_days": 2,
       "max_delivery_days": 4
     },
     "IE": {
-      "rate": 5.51,
+      "rate": 5.35,
       "currency": "USD",
       "min_delivery_days": 4,
       "max_delivery_days": 5
     },
     "AU": {
-      "rate": 5.73,
+      "rate": 5.99,
       "currency": "USD",
       "min_delivery_days": 3,
       "max_delivery_days": 7
     },
     "NZ": {
-      "rate": 5.73,
+      "rate": 5.99,
       "currency": "USD",
-      "min_delivery_days": 6,
-      "max_delivery_days": 9
+      "min_delivery_days": 7,
+      "max_delivery_days": 10
     },
     "DE": {
-      "rate": 5.51,
+      "rate": 5.35,
       "currency": "USD",
-      "min_delivery_days": 4,
-      "max_delivery_days": 4
+      "min_delivery_days": 3,
+      "max_delivery_days": 6
     },
     "FR": {
-      "rate": 5.51,
+      "rate": 5.35,
       "currency": "USD",
-      "min_delivery_days": 5,
-      "max_delivery_days": 7
+      "min_delivery_days": 4,
+      "max_delivery_days": 6
     },
     "ES": {
-      "rate": 5.51,
+      "rate": 5.35,
       "currency": "USD",
       "min_delivery_days": 3,
       "max_delivery_days": 3
     },
     "IT": {
-      "rate": 5.51,
+      "rate": 5.35,
       "currency": "USD",
-      "min_delivery_days": 4,
-      "max_delivery_days": 5
+      "min_delivery_days": 3,
+      "max_delivery_days": 6
     },
     "NL": {
-      "rate": 5.51,
+      "rate": 5.35,
       "currency": "USD",
       "min_delivery_days": 3,
-      "max_delivery_days": 4
+      "max_delivery_days": 6
     },
     "BE": {
-      "rate": 5.51,
+      "rate": 5.35,
       "currency": "USD",
-      "min_delivery_days": 2,
-      "max_delivery_days": 3
+      "min_delivery_days": 4,
+      "max_delivery_days": 6
     },
     "SE": {
-      "rate": 5.51,
+      "rate": 5.35,
       "currency": "USD",
-      "min_delivery_days": 3,
-      "max_delivery_days": 4
+      "min_delivery_days": 4,
+      "max_delivery_days": 6
     },
     "NO": {
-      "rate": 9.77,
+      "rate": 9.48,
       "currency": "USD",
       "min_delivery_days": 5,
       "max_delivery_days": 8
     },
     "DK": {
-      "rate": 5.51,
+      "rate": 5.35,
       "currency": "USD",
       "min_delivery_days": 3,
-      "max_delivery_days": 3
+      "max_delivery_days": 6
     },
     "FI": {
-      "rate": 5.51,
+      "rate": 5.35,
       "currency": "USD",
-      "min_delivery_days": 3,
-      "max_delivery_days": 4
+      "min_delivery_days": 4,
+      "max_delivery_days": 6
     },
     "CH": {
-      "rate": 9.77,
+      "rate": 9.48,
       "currency": "USD",
       "min_delivery_days": 6,
       "max_delivery_days": 9
     },
     "AT": {
-      "rate": 5.51,
-      "currency": "USD",
-      "min_delivery_days": 3,
-      "max_delivery_days": 4
-    },
-    "PT": {
-      "rate": 5.51,
-      "currency": "USD",
-      "min_delivery_days": 5,
-      "max_delivery_days": 5
-    },
-    "PL": {
-      "rate": 5.51,
+      "rate": 5.35,
       "currency": "USD",
       "min_delivery_days": 4,
-      "max_delivery_days": 4
+      "max_delivery_days": 6
     },
-    "CZ": {
-      "rate": 5.51,
+    "PT": {
+      "rate": 5.35,
       "currency": "USD",
       "min_delivery_days": 3,
-      "max_delivery_days": 5
+      "max_delivery_days": 4
+    },
+    "PL": {
+      "rate": 5.35,
+      "currency": "USD",
+      "min_delivery_days": 4,
+      "max_delivery_days": 6
+    },
+    "CZ": {
+      "rate": 5.35,
+      "currency": "USD",
+      "min_delivery_days": 3,
+      "max_delivery_days": 6
     },
     "RO": {
-      "rate": 5.51,
+      "rate": 5.35,
       "currency": "USD",
       "min_delivery_days": 6,
       "max_delivery_days": 7
     },
     "HU": {
-      "rate": 5.51,
+      "rate": 5.35,
       "currency": "USD",
       "min_delivery_days": 3,
-      "max_delivery_days": 4
+      "max_delivery_days": 6
     },
     "GR": {
-      "rate": 5.51,
+      "rate": 5.35,
       "currency": "USD",
-      "min_delivery_days": 5,
+      "min_delivery_days": 4,
       "max_delivery_days": 6
     },
     "SG": {
-      "rate": 11.17,
+      "rate": 10.84,
       "currency": "USD",
-      "min_delivery_days": 6,
-      "max_delivery_days": 6
+      "min_delivery_days": 5,
+      "max_delivery_days": 8
     },
     "JP": {
-      "rate": 6.02,
+      "rate": 5.84,
       "currency": "USD",
       "min_delivery_days": 2,
-      "max_delivery_days": 3
+      "max_delivery_days": 4
     },
     "MX": {
-      "rate": 11.17,
+      "rate": 10.84,
       "currency": "USD",
       "min_delivery_days": 6,
       "max_delivery_days": 8
     },
     "BR": {
-      "rate": 12.64,
+      "rate": 10.84,
       "currency": "USD",
       "min_delivery_days": 10,
       "max_delivery_days": 25
     },
     "AR": {
-      "rate": 11.17,
+      "rate": 10.84,
       "currency": "USD",
       "min_delivery_days": 23,
       "max_delivery_days": 23
     },
     "CL": {
-      "rate": 11.17,
+      "rate": 10.84,
       "currency": "USD",
       "min_delivery_days": 8,
       "max_delivery_days": 14
     },
     "CO": {
-      "rate": 11.17,
+      "rate": 10.84,
       "currency": "USD",
       "min_delivery_days": 11,
       "max_delivery_days": 11
     },
     "PE": {
-      "rate": 11.17,
+      "rate": 10.84,
       "currency": "USD",
       "min_delivery_days": 8,
       "max_delivery_days": 14
     },
     "UY": {
-      "rate": 11.17,
+      "rate": 10.84,
       "currency": "USD",
       "min_delivery_days": 8,
       "max_delivery_days": 14
     },
     "PA": {
-      "rate": 11.17,
+      "rate": 10.84,
       "currency": "USD",
       "min_delivery_days": 8,
       "max_delivery_days": 14
     },
     "CR": {
-      "rate": 11.17,
+      "rate": 10.84,
       "currency": "USD",
       "min_delivery_days": 8,
       "max_delivery_days": 14
     },
     "DO": {
-      "rate": 11.17,
+      "rate": 10.84,
       "currency": "USD",
       "min_delivery_days": 6,
       "max_delivery_days": 14
     },
     "PR": {
-      "rate": 4.62,
+      "rate": 4.49,
       "currency": "USD",
-      "min_delivery_days": 10,
-      "max_delivery_days": 10
+      "min_delivery_days": 6,
+      "max_delivery_days": 8
     },
     "IN": {
-      "rate": 11.17,
+      "rate": 10.84,
       "currency": "USD",
       "min_delivery_days": 8,
       "max_delivery_days": 11
     },
     "PH": {
-      "rate": 11.17,
+      "rate": 10.84,
       "currency": "USD",
       "min_delivery_days": 7,
       "max_delivery_days": 8
     },
     "TH": {
-      "rate": 11.17,
+      "rate": 10.84,
       "currency": "USD",
       "min_delivery_days": 8,
       "max_delivery_days": 10
     },
     "MY": {
-      "rate": 11.17,
+      "rate": 10.84,
       "currency": "USD",
       "min_delivery_days": 10,
       "max_delivery_days": 12
     },
     "ID": {
-      "rate": 11.17,
+      "rate": 10.84,
       "currency": "USD",
       "min_delivery_days": 10,
       "max_delivery_days": 12
     },
     "VN": {
-      "rate": 11.17,
+      "rate": 10.84,
       "currency": "USD",
       "min_delivery_days": 10,
       "max_delivery_days": 12
     },
     "KR": {
-      "rate": 11.17,
+      "rate": 10.84,
       "currency": "USD",
       "min_delivery_days": 7,
       "max_delivery_days": 7
     },
     "TW": {
-      "rate": 11.17,
+      "rate": 10.84,
       "currency": "USD",
-      "min_delivery_days": 6,
-      "max_delivery_days": 7
+      "min_delivery_days": 4,
+      "max_delivery_days": 5
     },
     "HK": {
-      "rate": 11.17,
+      "rate": 10.84,
       "currency": "USD",
       "min_delivery_days": 5,
       "max_delivery_days": 5
     },
     "CN": {
-      "rate": 11.17,
+      "rate": 10.84,
       "currency": "USD",
       "min_delivery_days": 8,
       "max_delivery_days": 14
     },
     "TR": {
-      "rate": 11.17,
+      "rate": 10.84,
       "currency": "USD",
-      "min_delivery_days": 6,
-      "max_delivery_days": 9
-    },
-    "ZA": {
-      "rate": 11.17,
-      "currency": "USD",
-      "min_delivery_days": 7,
+      "min_delivery_days": 5,
       "max_delivery_days": 7
     },
+    "ZA": {
+      "rate": 10.84,
+      "currency": "USD",
+      "min_delivery_days": 10,
+      "max_delivery_days": 20
+    },
     "MA": {
-      "rate": 11.17,
+      "rate": 10.84,
       "currency": "USD",
       "min_delivery_days": 10,
       "max_delivery_days": 20
     },
     "NG": {
-      "rate": 11.17,
+      "rate": 10.84,
       "currency": "USD",
       "min_delivery_days": 10,
       "max_delivery_days": 20
     },
     "KE": {
-      "rate": 11.17,
+      "rate": 10.84,
       "currency": "USD",
       "min_delivery_days": 10,
       "max_delivery_days": 20
     },
     "GH": {
-      "rate": 11.17,
+      "rate": 10.84,
       "currency": "USD",
       "min_delivery_days": 10,
       "max_delivery_days": 20
     },
     "UG": {
-      "rate": 11.17,
+      "rate": 10.84,
       "currency": "USD",
       "min_delivery_days": 8,
       "max_delivery_days": 14
     },
     "BD": {
-      "rate": 11.17,
+      "rate": 10.84,
       "currency": "USD",
       "min_delivery_days": 8,
       "max_delivery_days": 9
     },
     "LK": {
-      "rate": 11.17,
+      "rate": 10.84,
       "currency": "USD",
       "min_delivery_days": 10,
       "max_delivery_days": 14
     },
     "NP": {
-      "rate": 11.17,
+      "rate": 10.84,
       "currency": "USD",
       "min_delivery_days": 6,
       "max_delivery_days": 14
     },
     "RS": {
-      "rate": 5.51,
+      "rate": 5.35,
       "currency": "USD",
       "min_delivery_days": 8,
       "max_delivery_days": 14
     },
     "HR": {
-      "rate": 5.51,
+      "rate": 5.35,
       "currency": "USD",
-      "min_delivery_days": 3,
-      "max_delivery_days": 4
+      "min_delivery_days": 4,
+      "max_delivery_days": 6
     },
     "SI": {
-      "rate": 5.51,
+      "rate": 5.35,
       "currency": "USD",
-      "min_delivery_days": 2,
-      "max_delivery_days": 3
+      "min_delivery_days": 3,
+      "max_delivery_days": 6
     },
     "SK": {
-      "rate": 5.51,
+      "rate": 5.35,
       "currency": "USD",
-      "min_delivery_days": 2,
-      "max_delivery_days": 3
+      "min_delivery_days": 3,
+      "max_delivery_days": 6
     },
     "LT": {
-      "rate": 5.51,
+      "rate": 5.35,
       "currency": "USD",
-      "min_delivery_days": 2,
+      "min_delivery_days": 3,
       "max_delivery_days": 3
     },
     "LV": {
-      "rate": 5.51,
+      "rate": 5.35,
       "currency": "USD",
       "min_delivery_days": 1,
-      "max_delivery_days": 1
+      "max_delivery_days": 2
     },
     "EE": {
-      "rate": 5.51,
+      "rate": 5.35,
       "currency": "USD",
       "min_delivery_days": 3,
       "max_delivery_days": 3
     },
     "LU": {
-      "rate": 5.51,
+      "rate": 5.35,
       "currency": "USD",
       "min_delivery_days": 4,
-      "max_delivery_days": 4
+      "max_delivery_days": 6
     },
     "IS": {
-      "rate": 9.77,
+      "rate": 9.48,
       "currency": "USD",
       "min_delivery_days": 7,
       "max_delivery_days": 9
     },
     "MT": {
-      "rate": 5.51,
+      "rate": 5.35,
       "currency": "USD",
       "min_delivery_days": 6,
       "max_delivery_days": 9
     },
     "CY": {
-      "rate": 5.51,
+      "rate": 5.35,
       "currency": "USD",
       "min_delivery_days": 5,
       "max_delivery_days": 7
     },
     "AL": {
-      "rate": 5.51,
+      "rate": 5.35,
       "currency": "USD",
-      "min_delivery_days": 7,
-      "max_delivery_days": 13
+      "min_delivery_days": 8,
+      "max_delivery_days": 14
     },
     "BA": {
-      "rate": 5.51,
+      "rate": 5.35,
       "currency": "USD",
       "min_delivery_days": 10,
       "max_delivery_days": 20
     },
     "MK": {
-      "rate": 5.51,
+      "rate": 5.35,
       "currency": "USD",
       "min_delivery_days": 6,
       "max_delivery_days": 14
     },
     "MD": {
-      "rate": 5.51,
+      "rate": 5.35,
       "currency": "USD",
       "min_delivery_days": 8,
       "max_delivery_days": 14
     },
     "GE": {
-      "rate": 5.51,
+      "rate": 5.35,
       "currency": "USD",
       "min_delivery_days": 6,
       "max_delivery_days": 14
     },
     "AZ": {
-      "rate": 5.51,
+      "rate": 5.35,
       "currency": "USD",
-      "min_delivery_days": 8,
+      "min_delivery_days": 10,
       "max_delivery_days": 14
     }
   },
   "poster_framed": {
     "US": {
-      "rate": 9.77,
+      "rate": 9.84,
       "currency": "USD",
       "min_delivery_days": 4,
       "max_delivery_days": 6
     },
     "CA": {
-      "rate": 10.7,
-      "currency": "USD",
-      "min_delivery_days": 7,
-      "max_delivery_days": 10
-    },
-    "GB": {
-      "rate": 6.61,
+      "rate": 10.77,
       "currency": "USD",
       "min_delivery_days": 8,
-      "max_delivery_days": 11
+      "max_delivery_days": 13
+    },
+    "GB": {
+      "rate": 6.7,
+      "currency": "USD",
+      "min_delivery_days": 12,
+      "max_delivery_days": 15
     },
     "IE": {
-      "rate": 7.2,
+      "rate": 7.27,
       "currency": "USD",
       "min_delivery_days": 14,
       "max_delivery_days": 17
     },
     "AU": {
-      "rate": 8.52,
+      "rate": 8.63,
       "currency": "USD",
       "min_delivery_days": 3,
       "max_delivery_days": 7
     },
     "NZ": {
-      "rate": 8.52,
+      "rate": 8.63,
       "currency": "USD",
-      "min_delivery_days": 6,
-      "max_delivery_days": 9
+      "min_delivery_days": 7,
+      "max_delivery_days": 10
     },
     "DE": {
-      "rate": 7.2,
+      "rate": 7.27,
       "currency": "USD",
-      "min_delivery_days": 8,
-      "max_delivery_days": 11
+      "min_delivery_days": 14,
+      "max_delivery_days": 15
     },
     "FR": {
-      "rate": 7.2,
+      "rate": 7.27,
       "currency": "USD",
       "min_delivery_days": 17,
       "max_delivery_days": 20
     },
     "ES": {
-      "rate": 7.2,
+      "rate": 7.27,
       "currency": "USD",
-      "min_delivery_days": 10,
-      "max_delivery_days": 13
+      "min_delivery_days": 7,
+      "max_delivery_days": 14
     },
     "IT": {
-      "rate": 7.2,
+      "rate": 7.27,
       "currency": "USD",
       "min_delivery_days": 18,
-      "max_delivery_days": 20
+      "max_delivery_days": 21
     },
     "NL": {
-      "rate": 7.2,
+      "rate": 7.27,
       "currency": "USD",
-      "min_delivery_days": 8,
-      "max_delivery_days": 11
+      "min_delivery_days": 17,
+      "max_delivery_days": 19
     },
     "BE": {
-      "rate": 7.2,
+      "rate": 7.27,
       "currency": "USD",
       "min_delivery_days": 14,
       "max_delivery_days": 16
     },
     "SE": {
-      "rate": 7.2,
+      "rate": 7.27,
       "currency": "USD",
       "min_delivery_days": 25,
       "max_delivery_days": 28
     },
     "NO": {
-      "rate": 10.21,
+      "rate": 10.27,
       "currency": "USD",
       "min_delivery_days": 14,
       "max_delivery_days": 16
     },
     "DK": {
-      "rate": 7.2,
+      "rate": 7.27,
       "currency": "USD",
       "min_delivery_days": 22,
       "max_delivery_days": 24
     },
     "FI": {
-      "rate": 7.2,
+      "rate": 7.27,
       "currency": "USD",
       "min_delivery_days": 20,
       "max_delivery_days": 25
     },
     "CH": {
-      "rate": 10.21,
+      "rate": 10.27,
       "currency": "USD",
-      "min_delivery_days": 7,
-      "max_delivery_days": 10
+      "min_delivery_days": 14,
+      "max_delivery_days": 16
     },
     "AT": {
-      "rate": 7.2,
+      "rate": 7.27,
       "currency": "USD",
       "min_delivery_days": 17,
       "max_delivery_days": 19
     },
     "PT": {
-      "rate": 7.2,
+      "rate": 7.27,
       "currency": "USD",
       "min_delivery_days": 10,
       "max_delivery_days": 20
     },
     "PL": {
-      "rate": 7.2,
+      "rate": 7.27,
       "currency": "USD",
       "min_delivery_days": 8,
       "max_delivery_days": 14
     },
     "CZ": {
-      "rate": 7.2,
+      "rate": 7.27,
       "currency": "USD",
       "min_delivery_days": 11,
       "max_delivery_days": 16
     },
     "RO": {
-      "rate": 7.2,
+      "rate": 7.27,
       "currency": "USD",
       "min_delivery_days": 10,
       "max_delivery_days": 14
     },
     "HU": {
-      "rate": 7.2,
+      "rate": 7.27,
       "currency": "USD",
       "min_delivery_days": 10,
       "max_delivery_days": 25
     },
     "GR": {
-      "rate": 7.2,
+      "rate": 7.27,
       "currency": "USD",
       "min_delivery_days": 10,
       "max_delivery_days": 20
     },
     "SG": {
-      "rate": 14.84,
+      "rate": 14.91,
       "currency": "USD",
       "min_delivery_days": 10,
-      "max_delivery_days": 13
+      "max_delivery_days": 20
     },
     "JP": {
-      "rate": 19.11,
+      "rate": 19.26,
       "currency": "USD",
-      "min_delivery_days": 9,
+      "min_delivery_days": 10,
       "max_delivery_days": 12
     },
     "MX": {
-      "rate": 14.84,
+      "rate": 14.91,
       "currency": "USD",
       "min_delivery_days": 6,
       "max_delivery_days": 8
     },
     "BR": {
-      "rate": 14.84,
+      "rate": 14.91,
       "currency": "USD",
       "min_delivery_days": 10,
       "max_delivery_days": 25
     },
     "AR": {
-      "rate": 14.84,
+      "rate": 14.91,
       "currency": "USD",
       "min_delivery_days": 8,
       "max_delivery_days": 14
     },
     "CL": {
-      "rate": 14.84,
+      "rate": 14.91,
       "currency": "USD",
       "min_delivery_days": 8,
       "max_delivery_days": 14
     },
     "CO": {
-      "rate": 14.84,
+      "rate": 14.91,
       "currency": "USD",
-      "min_delivery_days": 11,
-      "max_delivery_days": 11
+      "min_delivery_days": 8,
+      "max_delivery_days": 14
     },
     "PE": {
-      "rate": 14.84,
+      "rate": 14.91,
       "currency": "USD",
       "min_delivery_days": 8,
       "max_delivery_days": 14
     },
     "UY": {
-      "rate": 14.84,
+      "rate": 14.91,
       "currency": "USD",
       "min_delivery_days": 8,
       "max_delivery_days": 14
     },
     "PA": {
-      "rate": 14.84,
+      "rate": 14.91,
       "currency": "USD",
       "min_delivery_days": 8,
       "max_delivery_days": 14
     },
     "CR": {
-      "rate": 14.84,
+      "rate": 14.91,
       "currency": "USD",
       "min_delivery_days": 8,
-      "max_delivery_days": 14
+      "max_delivery_days": 15
     },
     "DO": {
-      "rate": 14.84,
+      "rate": 14.91,
       "currency": "USD",
       "min_delivery_days": 6,
       "max_delivery_days": 14
     },
     "PR": {
-      "rate": 9.77,
+      "rate": 9.84,
       "currency": "USD",
-      "min_delivery_days": 10,
-      "max_delivery_days": 10
+      "min_delivery_days": 6,
+      "max_delivery_days": 8
     },
     "IN": {
-      "rate": 14.84,
+      "rate": 14.91,
       "currency": "USD",
       "min_delivery_days": 8,
       "max_delivery_days": 11
     },
     "PH": {
-      "rate": 14.84,
+      "rate": 14.91,
       "currency": "USD",
       "min_delivery_days": 10,
       "max_delivery_days": 14
     },
     "TH": {
-      "rate": 14.84,
+      "rate": 14.91,
       "currency": "USD",
       "min_delivery_days": 15,
       "max_delivery_days": 25
     },
     "MY": {
-      "rate": 14.84,
+      "rate": 14.91,
       "currency": "USD",
       "min_delivery_days": 10,
       "max_delivery_days": 14
     },
     "ID": {
-      "rate": 14.84,
+      "rate": 14.91,
       "currency": "USD",
       "min_delivery_days": 10,
       "max_delivery_days": 14
     },
     "VN": {
-      "rate": 14.84,
+      "rate": 14.91,
       "currency": "USD",
       "min_delivery_days": 10,
       "max_delivery_days": 14
     },
     "KR": {
-      "rate": 14.84,
+      "rate": 14.91,
       "currency": "USD",
       "min_delivery_days": 10,
       "max_delivery_days": 15
     },
     "TW": {
-      "rate": 14.84,
+      "rate": 14.91,
       "currency": "USD",
       "min_delivery_days": 15,
       "max_delivery_days": 25
     },
     "HK": {
-      "rate": 14.84,
+      "rate": 14.91,
       "currency": "USD",
       "min_delivery_days": 18,
       "max_delivery_days": 25
     },
     "CN": {
-      "rate": 14.84,
+      "rate": 14.91,
       "currency": "USD",
       "min_delivery_days": 8,
       "max_delivery_days": 14
     },
     "TR": {
-      "rate": 14.84,
+      "rate": 14.91,
       "currency": "USD",
       "min_delivery_days": 8,
       "max_delivery_days": 14
     },
     "ZA": {
-      "rate": 14.84,
+      "rate": 14.91,
       "currency": "USD",
       "min_delivery_days": 8,
       "max_delivery_days": 14
     },
     "MA": {
-      "rate": 14.84,
+      "rate": 14.91,
       "currency": "USD",
       "min_delivery_days": 8,
       "max_delivery_days": 14
     },
     "NG": {
-      "rate": 14.84,
+      "rate": 14.91,
       "currency": "USD",
       "min_delivery_days": 8,
       "max_delivery_days": 14
     },
     "KE": {
-      "rate": 14.84,
+      "rate": 14.91,
       "currency": "USD",
       "min_delivery_days": 8,
       "max_delivery_days": 14
     },
     "GH": {
-      "rate": 14.84,
+      "rate": 14.91,
       "currency": "USD",
       "min_delivery_days": 8,
       "max_delivery_days": 14
     },
     "UG": {
-      "rate": 14.84,
+      "rate": 14.91,
       "currency": "USD",
       "min_delivery_days": 8,
       "max_delivery_days": 14
     },
     "BD": {
-      "rate": 14.84,
+      "rate": 14.91,
       "currency": "USD",
       "min_delivery_days": 10,
       "max_delivery_days": 14
     },
     "LK": {
-      "rate": 14.84,
+      "rate": 14.91,
       "currency": "USD",
       "min_delivery_days": 10,
       "max_delivery_days": 14
     },
     "NP": {
-      "rate": 14.84,
+      "rate": 14.91,
       "currency": "USD",
       "min_delivery_days": 10,
       "max_delivery_days": 14
     },
     "RS": {
-      "rate": 7.2,
+      "rate": 7.27,
       "currency": "USD",
       "min_delivery_days": 10,
       "max_delivery_days": 14
     },
     "HR": {
-      "rate": 7.2,
+      "rate": 7.27,
       "currency": "USD",
       "min_delivery_days": 15,
       "max_delivery_days": 25
     },
     "SI": {
-      "rate": 7.2,
+      "rate": 7.27,
       "currency": "USD",
       "min_delivery_days": 8,
       "max_delivery_days": 14
     },
     "SK": {
-      "rate": 7.2,
+      "rate": 7.27,
       "currency": "USD",
       "min_delivery_days": 15,
       "max_delivery_days": 25
     },
     "LT": {
-      "rate": 7.2,
+      "rate": 7.27,
       "currency": "USD",
       "min_delivery_days": 10,
       "max_delivery_days": 25
     },
     "LV": {
-      "rate": 7.2,
+      "rate": 7.27,
       "currency": "USD",
       "min_delivery_days": 8,
       "max_delivery_days": 11
     },
     "EE": {
-      "rate": 7.2,
+      "rate": 7.27,
       "currency": "USD",
       "min_delivery_days": 10,
       "max_delivery_days": 20
     },
     "LU": {
-      "rate": 7.2,
+      "rate": 7.27,
       "currency": "USD",
       "min_delivery_days": 10,
       "max_delivery_days": 15
     },
     "IS": {
-      "rate": 10.21,
+      "rate": 10.27,
       "currency": "USD",
       "min_delivery_days": 8,
       "max_delivery_days": 11
     },
     "MT": {
-      "rate": 7.2,
+      "rate": 7.27,
       "currency": "USD",
       "min_delivery_days": 8,
-      "max_delivery_days": 11
+      "max_delivery_days": 14
     },
     "CY": {
-      "rate": 7.2,
+      "rate": 7.27,
       "currency": "USD",
       "min_delivery_days": 10,
       "max_delivery_days": 25
     },
     "AL": {
-      "rate": 7.2,
+      "rate": 7.27,
       "currency": "USD",
       "min_delivery_days": 8,
       "max_delivery_days": 14
     },
     "BA": {
-      "rate": 7.2,
+      "rate": 7.27,
       "currency": "USD",
       "min_delivery_days": 8,
       "max_delivery_days": 14
     },
     "MK": {
-      "rate": 7.2,
+      "rate": 7.27,
       "currency": "USD",
       "min_delivery_days": 10,
       "max_delivery_days": 14
     },
     "MD": {
-      "rate": 7.2,
+      "rate": 7.27,
       "currency": "USD",
       "min_delivery_days": 10,
       "max_delivery_days": 14
     },
     "GE": {
-      "rate": 7.2,
+      "rate": 7.27,
       "currency": "USD",
       "min_delivery_days": 10,
       "max_delivery_days": 14
     },
     "AZ": {
-      "rate": 7.2,
+      "rate": 7.27,
       "currency": "USD",
       "min_delivery_days": 10,
+      "max_delivery_days": 14
+    }
+  },
+  "canvas_wrap": {
+    "US": {
+      "rate": 10.05,
+      "currency": "USD",
+      "min_delivery_days": 4,
+      "max_delivery_days": 7
+    },
+    "CA": {
+      "rate": 17.12,
+      "currency": "USD",
+      "min_delivery_days": 2,
+      "max_delivery_days": 6
+    },
+    "GB": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 2,
+      "max_delivery_days": 4
+    },
+    "IE": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 2,
+      "max_delivery_days": 6
+    },
+    "AU": {
+      "rate": 18.05,
+      "currency": "USD",
+      "min_delivery_days": 2,
+      "max_delivery_days": 6
+    },
+    "NZ": {
+      "rate": 18.05,
+      "currency": "USD",
+      "min_delivery_days": 7,
+      "max_delivery_days": 14
+    },
+    "DE": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 5,
+      "max_delivery_days": 8
+    },
+    "FR": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 3,
+      "max_delivery_days": 6
+    },
+    "ES": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 2,
+      "max_delivery_days": 6
+    },
+    "IT": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 2,
+      "max_delivery_days": 6
+    },
+    "NL": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 2,
+      "max_delivery_days": 6
+    },
+    "BE": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 2,
+      "max_delivery_days": 6
+    },
+    "SE": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 7,
+      "max_delivery_days": 14
+    },
+    "NO": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 2,
+      "max_delivery_days": 6
+    },
+    "DK": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 2,
+      "max_delivery_days": 6
+    },
+    "FI": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 2,
+      "max_delivery_days": 6
+    },
+    "CH": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 3,
+      "max_delivery_days": 7
+    },
+    "AT": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 2,
+      "max_delivery_days": 6
+    },
+    "PT": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 2,
+      "max_delivery_days": 6
+    },
+    "PL": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 3,
+      "max_delivery_days": 7
+    },
+    "CZ": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 2,
+      "max_delivery_days": 6
+    },
+    "RO": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 7,
+      "max_delivery_days": 14
+    },
+    "HU": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 3,
+      "max_delivery_days": 7
+    },
+    "GR": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 7,
+      "max_delivery_days": 14
+    },
+    "SG": {
+      "rate": 112.6,
+      "currency": "USD",
+      "min_delivery_days": 21,
+      "max_delivery_days": 21
+    },
+    "JP": {
+      "rate": 112.6,
+      "currency": "USD",
+      "min_delivery_days": 21,
+      "max_delivery_days": 21
+    },
+    "MX": {
+      "rate": 112.6,
+      "currency": "USD",
+      "min_delivery_days": 7,
+      "max_delivery_days": 21
+    },
+    "BR": {
+      "rate": 112.6,
+      "currency": "USD",
+      "min_delivery_days": 21,
+      "max_delivery_days": 21
+    },
+    "AR": {
+      "rate": 112.6,
+      "currency": "USD",
+      "min_delivery_days": 30,
+      "max_delivery_days": 30
+    },
+    "CL": {
+      "rate": 112.6,
+      "currency": "USD",
+      "min_delivery_days": 30,
+      "max_delivery_days": 30
+    },
+    "CO": {
+      "rate": 112.6,
+      "currency": "USD",
+      "min_delivery_days": 30,
+      "max_delivery_days": 30
+    },
+    "PE": {
+      "rate": 112.6,
+      "currency": "USD",
+      "min_delivery_days": 29,
+      "max_delivery_days": 29
+    },
+    "UY": {
+      "rate": 112.6,
+      "currency": "USD",
+      "min_delivery_days": 30,
+      "max_delivery_days": 30
+    },
+    "PA": {
+      "rate": 112.6,
+      "currency": "USD",
+      "min_delivery_days": 30,
+      "max_delivery_days": 30
+    },
+    "CR": {
+      "rate": 112.6,
+      "currency": "USD",
+      "min_delivery_days": 7,
+      "max_delivery_days": 21
+    },
+    "DO": {
+      "rate": 112.6,
+      "currency": "USD",
+      "min_delivery_days": 30,
+      "max_delivery_days": 30
+    },
+    "PR": {
+      "rate": 10.05,
+      "currency": "USD",
+      "min_delivery_days": 30,
+      "max_delivery_days": 30
+    },
+    "IN": {
+      "rate": 112.6,
+      "currency": "USD",
+      "min_delivery_days": 30,
+      "max_delivery_days": 30
+    },
+    "PH": {
+      "rate": 112.6,
+      "currency": "USD",
+      "min_delivery_days": 30,
+      "max_delivery_days": 30
+    },
+    "TH": {
+      "rate": 112.6,
+      "currency": "USD",
+      "min_delivery_days": 30,
+      "max_delivery_days": 30
+    },
+    "MY": {
+      "rate": 112.6,
+      "currency": "USD",
+      "min_delivery_days": 30,
+      "max_delivery_days": 30
+    },
+    "ID": {
+      "rate": 112.6,
+      "currency": "USD",
+      "min_delivery_days": 30,
+      "max_delivery_days": 30
+    },
+    "VN": {
+      "rate": 112.6,
+      "currency": "USD",
+      "min_delivery_days": 7,
+      "max_delivery_days": 21
+    },
+    "KR": {
+      "rate": 112.6,
+      "currency": "USD",
+      "min_delivery_days": 30,
+      "max_delivery_days": 30
+    },
+    "TW": {
+      "rate": 112.6,
+      "currency": "USD",
+      "min_delivery_days": 30,
+      "max_delivery_days": 30
+    },
+    "HK": {
+      "rate": 112.6,
+      "currency": "USD",
+      "min_delivery_days": 30,
+      "max_delivery_days": 30
+    },
+    "CN": {
+      "rate": 112.6,
+      "currency": "USD",
+      "min_delivery_days": 7,
+      "max_delivery_days": 21
+    },
+    "TR": {
+      "rate": 112.6,
+      "currency": "USD",
+      "min_delivery_days": 30,
+      "max_delivery_days": 30
+    },
+    "ZA": {
+      "rate": 112.6,
+      "currency": "USD",
+      "min_delivery_days": 30,
+      "max_delivery_days": 30
+    },
+    "MA": {
+      "rate": 112.6,
+      "currency": "USD",
+      "min_delivery_days": 30,
+      "max_delivery_days": 30
+    },
+    "NG": {
+      "rate": 112.6,
+      "currency": "USD",
+      "min_delivery_days": 30,
+      "max_delivery_days": 30
+    },
+    "KE": {
+      "rate": 112.6,
+      "currency": "USD",
+      "min_delivery_days": 30,
+      "max_delivery_days": 30
+    },
+    "GH": {
+      "rate": 112.6,
+      "currency": "USD",
+      "min_delivery_days": 30,
+      "max_delivery_days": 30
+    },
+    "UG": {
+      "rate": 112.6,
+      "currency": "USD",
+      "min_delivery_days": 30,
+      "max_delivery_days": 30
+    },
+    "BD": {
+      "rate": 112.6,
+      "currency": "USD",
+      "min_delivery_days": 7,
+      "max_delivery_days": 21
+    },
+    "LK": {
+      "rate": 112.6,
+      "currency": "USD",
+      "min_delivery_days": 7,
+      "max_delivery_days": 21
+    },
+    "NP": {
+      "rate": 112.6,
+      "currency": "USD",
+      "min_delivery_days": 7,
+      "max_delivery_days": 21
+    },
+    "RS": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 30,
+      "max_delivery_days": 30
+    },
+    "HR": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 7,
+      "max_delivery_days": 14
+    },
+    "SI": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 7,
+      "max_delivery_days": 14
+    },
+    "SK": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 7,
+      "max_delivery_days": 14
+    },
+    "LT": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 7,
+      "max_delivery_days": 14
+    },
+    "LV": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 7,
+      "max_delivery_days": 14
+    },
+    "EE": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 3,
+      "max_delivery_days": 7
+    },
+    "LU": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 2,
+      "max_delivery_days": 6
+    },
+    "IS": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 7,
+      "max_delivery_days": 14
+    },
+    "MT": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 3,
+      "max_delivery_days": 7
+    },
+    "CY": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 3,
+      "max_delivery_days": 7
+    },
+    "AL": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 7,
+      "max_delivery_days": 14
+    },
+    "BA": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 7,
+      "max_delivery_days": 21
+    },
+    "MK": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 7,
+      "max_delivery_days": 21
+    },
+    "MD": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 7,
+      "max_delivery_days": 21
+    },
+    "GE": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 7,
+      "max_delivery_days": 14
+    },
+    "AZ": {
+      "rate": 10.98,
+      "currency": "USD",
+      "min_delivery_days": 7,
+      "max_delivery_days": 14
+    }
+  },
+  "mug_11oz": {
+    "US": {
+      "rate": 5.99,
+      "currency": "USD",
+      "min_delivery_days": 4,
+      "max_delivery_days": 6
+    },
+    "CA": {
+      "rate": 7.34,
+      "currency": "USD",
+      "min_delivery_days": 7,
+      "max_delivery_days": 10
+    },
+    "GB": {
+      "rate": 4.7,
+      "currency": "USD",
+      "min_delivery_days": 2,
+      "max_delivery_days": 4
+    },
+    "IE": {
+      "rate": 5.06,
+      "currency": "USD",
+      "min_delivery_days": 3,
+      "max_delivery_days": 6
+    },
+    "AU": {
+      "rate": 7.84,
+      "currency": "USD",
+      "min_delivery_days": 16,
+      "max_delivery_days": 17
+    },
+    "NZ": {
+      "rate": 7.84,
+      "currency": "USD",
+      "min_delivery_days": 15,
+      "max_delivery_days": 17
+    },
+    "DE": {
+      "rate": 5.06,
+      "currency": "USD",
+      "min_delivery_days": 3,
+      "max_delivery_days": 6
+    },
+    "FR": {
+      "rate": 5.06,
+      "currency": "USD",
+      "min_delivery_days": 3,
+      "max_delivery_days": 6
+    },
+    "ES": {
+      "rate": 5.06,
+      "currency": "USD",
+      "min_delivery_days": 4,
+      "max_delivery_days": 6
+    },
+    "IT": {
+      "rate": 5.06,
+      "currency": "USD",
+      "min_delivery_days": 3,
+      "max_delivery_days": 6
+    },
+    "NL": {
+      "rate": 5.06,
+      "currency": "USD",
+      "min_delivery_days": 3,
+      "max_delivery_days": 6
+    },
+    "BE": {
+      "rate": 5.06,
+      "currency": "USD",
+      "min_delivery_days": 4,
+      "max_delivery_days": 6
+    },
+    "SE": {
+      "rate": 5.06,
+      "currency": "USD",
+      "min_delivery_days": 3,
+      "max_delivery_days": 6
+    },
+    "NO": {
+      "rate": 9.98,
+      "currency": "USD",
+      "min_delivery_days": 5,
+      "max_delivery_days": 8
+    },
+    "DK": {
+      "rate": 5.06,
+      "currency": "USD",
+      "min_delivery_days": 3,
+      "max_delivery_days": 6
+    },
+    "FI": {
+      "rate": 5.06,
+      "currency": "USD",
+      "min_delivery_days": 4,
+      "max_delivery_days": 6
+    },
+    "CH": {
+      "rate": 9.98,
+      "currency": "USD",
+      "min_delivery_days": 3,
+      "max_delivery_days": 6
+    },
+    "AT": {
+      "rate": 5.06,
+      "currency": "USD",
+      "min_delivery_days": 4,
+      "max_delivery_days": 6
+    },
+    "PT": {
+      "rate": 5.06,
+      "currency": "USD",
+      "min_delivery_days": 4,
+      "max_delivery_days": 6
+    },
+    "PL": {
+      "rate": 5.06,
+      "currency": "USD",
+      "min_delivery_days": 4,
+      "max_delivery_days": 6
+    },
+    "CZ": {
+      "rate": 5.06,
+      "currency": "USD",
+      "min_delivery_days": 3,
+      "max_delivery_days": 6
+    },
+    "RO": {
+      "rate": 5.06,
+      "currency": "USD",
+      "min_delivery_days": 6,
+      "max_delivery_days": 7
+    },
+    "HU": {
+      "rate": 5.06,
+      "currency": "USD",
+      "min_delivery_days": 3,
+      "max_delivery_days": 6
+    },
+    "GR": {
+      "rate": 5.06,
+      "currency": "USD",
+      "min_delivery_days": 4,
+      "max_delivery_days": 6
+    },
+    "SG": {
+      "rate": 11.27,
+      "currency": "USD",
+      "min_delivery_days": 6,
+      "max_delivery_days": 8
+    },
+    "JP": {
+      "rate": 4.42,
+      "currency": "USD",
+      "min_delivery_days": 9,
+      "max_delivery_days": 12
+    },
+    "MX": {
+      "rate": 11.27,
+      "currency": "USD",
+      "min_delivery_days": 5,
+      "max_delivery_days": 7
+    },
+    "BR": {
+      "rate": 11.27,
+      "currency": "USD",
+      "min_delivery_days": 8,
+      "max_delivery_days": 10
+    },
+    "AR": {
+      "rate": 11.27,
+      "currency": "USD",
+      "min_delivery_days": 26,
+      "max_delivery_days": 26
+    },
+    "CL": {
+      "rate": 11.27,
+      "currency": "USD",
+      "min_delivery_days": 8,
+      "max_delivery_days": 14
+    },
+    "CO": {
+      "rate": 11.27,
+      "currency": "USD",
+      "min_delivery_days": 11,
+      "max_delivery_days": 11
+    },
+    "PE": {
+      "rate": 11.27,
+      "currency": "USD",
+      "min_delivery_days": 8,
+      "max_delivery_days": 14
+    },
+    "UY": {
+      "rate": 11.27,
+      "currency": "USD",
+      "min_delivery_days": 8,
+      "max_delivery_days": 14
+    },
+    "PA": {
+      "rate": 11.27,
+      "currency": "USD",
+      "min_delivery_days": 8,
+      "max_delivery_days": 14
+    },
+    "CR": {
+      "rate": 11.27,
+      "currency": "USD",
+      "min_delivery_days": 10,
+      "max_delivery_days": 25
+    },
+    "DO": {
+      "rate": 11.27,
+      "currency": "USD",
+      "min_delivery_days": 6,
+      "max_delivery_days": 14
+    },
+    "PR": {
+      "rate": 5.99,
+      "currency": "USD",
+      "min_delivery_days": 6,
+      "max_delivery_days": 8
+    },
+    "IN": {
+      "rate": 11.27,
+      "currency": "USD",
+      "min_delivery_days": 8,
+      "max_delivery_days": 11
+    },
+    "PH": {
+      "rate": 11.27,
+      "currency": "USD",
+      "min_delivery_days": 8,
+      "max_delivery_days": 11
+    },
+    "TH": {
+      "rate": 11.27,
+      "currency": "USD",
+      "min_delivery_days": 7,
+      "max_delivery_days": 10
+    },
+    "MY": {
+      "rate": 11.27,
+      "currency": "USD",
+      "min_delivery_days": 8,
+      "max_delivery_days": 11
+    },
+    "ID": {
+      "rate": 11.27,
+      "currency": "USD",
+      "min_delivery_days": 6,
+      "max_delivery_days": 10
+    },
+    "VN": {
+      "rate": 11.27,
+      "currency": "USD",
+      "min_delivery_days": 6,
+      "max_delivery_days": 10
+    },
+    "KR": {
+      "rate": 11.27,
+      "currency": "USD",
+      "min_delivery_days": 8,
+      "max_delivery_days": 11
+    },
+    "TW": {
+      "rate": 11.27,
+      "currency": "USD",
+      "min_delivery_days": 8,
+      "max_delivery_days": 11
+    },
+    "HK": {
+      "rate": 11.27,
+      "currency": "USD",
+      "min_delivery_days": 8,
+      "max_delivery_days": 11
+    },
+    "CN": {
+      "rate": 11.27,
+      "currency": "USD",
+      "min_delivery_days": 10,
+      "max_delivery_days": 20
+    },
+    "TR": {
+      "rate": 11.27,
+      "currency": "USD",
+      "min_delivery_days": 5,
+      "max_delivery_days": 7
+    },
+    "ZA": {
+      "rate": 11.27,
+      "currency": "USD",
+      "min_delivery_days": 27,
+      "max_delivery_days": 29
+    },
+    "MA": {
+      "rate": 11.27,
+      "currency": "USD",
+      "min_delivery_days": 10,
+      "max_delivery_days": 20
+    },
+    "NG": {
+      "rate": 11.27,
+      "currency": "USD",
+      "min_delivery_days": 10,
+      "max_delivery_days": 20
+    },
+    "KE": {
+      "rate": 11.27,
+      "currency": "USD",
+      "min_delivery_days": 10,
+      "max_delivery_days": 20
+    },
+    "GH": {
+      "rate": 11.27,
+      "currency": "USD",
+      "min_delivery_days": 8,
+      "max_delivery_days": 14
+    },
+    "UG": {
+      "rate": 11.27,
+      "currency": "USD",
+      "min_delivery_days": 8,
+      "max_delivery_days": 14
+    },
+    "BD": {
+      "rate": 11.27,
+      "currency": "USD",
+      "min_delivery_days": 8,
+      "max_delivery_days": 9
+    },
+    "LK": {
+      "rate": 11.27,
+      "currency": "USD",
+      "min_delivery_days": 10,
+      "max_delivery_days": 14
+    },
+    "NP": {
+      "rate": 11.27,
+      "currency": "USD",
+      "min_delivery_days": 8,
+      "max_delivery_days": 14
+    },
+    "RS": {
+      "rate": 5.06,
+      "currency": "USD",
+      "min_delivery_days": 8,
+      "max_delivery_days": 14
+    },
+    "HR": {
+      "rate": 5.06,
+      "currency": "USD",
+      "min_delivery_days": 4,
+      "max_delivery_days": 6
+    },
+    "SI": {
+      "rate": 5.06,
+      "currency": "USD",
+      "min_delivery_days": 3,
+      "max_delivery_days": 6
+    },
+    "SK": {
+      "rate": 5.06,
+      "currency": "USD",
+      "min_delivery_days": 3,
+      "max_delivery_days": 6
+    },
+    "LT": {
+      "rate": 5.06,
+      "currency": "USD",
+      "min_delivery_days": 3,
+      "max_delivery_days": 3
+    },
+    "LV": {
+      "rate": 5.06,
+      "currency": "USD",
+      "min_delivery_days": 1,
+      "max_delivery_days": 2
+    },
+    "EE": {
+      "rate": 5.06,
+      "currency": "USD",
+      "min_delivery_days": 3,
+      "max_delivery_days": 3
+    },
+    "LU": {
+      "rate": 5.06,
+      "currency": "USD",
+      "min_delivery_days": 4,
+      "max_delivery_days": 6
+    },
+    "IS": {
+      "rate": 9.98,
+      "currency": "USD",
+      "min_delivery_days": 7,
+      "max_delivery_days": 9
+    },
+    "MT": {
+      "rate": 5.06,
+      "currency": "USD",
+      "min_delivery_days": 6,
+      "max_delivery_days": 9
+    },
+    "CY": {
+      "rate": 5.06,
+      "currency": "USD",
+      "min_delivery_days": 5,
+      "max_delivery_days": 7
+    },
+    "AL": {
+      "rate": 5.06,
+      "currency": "USD",
+      "min_delivery_days": 7,
+      "max_delivery_days": 13
+    },
+    "BA": {
+      "rate": 5.06,
+      "currency": "USD",
+      "min_delivery_days": 8,
+      "max_delivery_days": 14
+    },
+    "MK": {
+      "rate": 5.06,
+      "currency": "USD",
+      "min_delivery_days": 6,
+      "max_delivery_days": 14
+    },
+    "MD": {
+      "rate": 5.06,
+      "currency": "USD",
+      "min_delivery_days": 8,
+      "max_delivery_days": 14
+    },
+    "GE": {
+      "rate": 5.06,
+      "currency": "USD",
+      "min_delivery_days": 6,
+      "max_delivery_days": 14
+    },
+    "AZ": {
+      "rate": 5.06,
+      "currency": "USD",
+      "min_delivery_days": 8,
       "max_delivery_days": 14
     }
   }

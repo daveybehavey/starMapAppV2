@@ -25,7 +25,9 @@ export const PRINT_CATALOG = [
     publicLabelEnv: "NEXT_PUBLIC_PRINT_UNFRAMED_LABEL",
     stripePriceEnv: "STRIPE_PRICE_ID_PRINT_UNFRAMED",
     cogsEnv: "PRINT_COGS_POSTER_UNFRAMED_CENTS",
-    defaultCogsCents: 1300,
+    // COGS default = live Printful catalog price for variant 6242
+    // ($14.75, read 2026-10-26).
+    defaultCogsCents: 1475,
   },
   {
     // S1 (issue #380): second square unframed poster, 16×16. Same Printful
@@ -67,13 +69,15 @@ export const PRINT_CATALOG = [
     publicLabelEnv: "NEXT_PUBLIC_PRINT_FRAMED_LABEL",
     stripePriceEnv: "STRIPE_PRICE_ID_PRINT_FRAMED",
     cogsEnv: "PRINT_COGS_POSTER_FRAMED_CENTS",
-    defaultCogsCents: 5200,
+    // COGS default = live Printful catalog price for variant 4654
+    // ($33.81, read 2026-10-26).
+    defaultCogsCents: 3381,
   },
   {
     id: "canvas_wrap",
     printfulVariantId: 19302,
     printfulVariantEnv: "PRINTFUL_VARIANT_ID_CANVAS_WRAP",
-    shippingProfile: "poster_framed",
+    shippingProfile: "canvas_wrap",
     includesFrame: false,
     labelFallback: "Canvas gallery wrap (14×14)",
     priceFallbackCents: 7900,
@@ -84,13 +88,15 @@ export const PRINT_CATALOG = [
     publicLabelEnv: "NEXT_PUBLIC_PRINT_CANVAS_WRAP_LABEL",
     stripePriceEnv: "STRIPE_PRICE_ID_PRINT_CANVAS_WRAP",
     cogsEnv: "PRINT_COGS_CANVAS_WRAP_CENTS",
-    defaultCogsCents: 3400,
+    // COGS default = live Printful catalog price for variant 19302
+    // ($20.75, read 2026-10-26).
+    defaultCogsCents: 2075,
   },
   {
     id: "mug_11oz",
     printfulVariantId: 9323,
     printfulVariantEnv: "PRINTFUL_VARIANT_ID_MUG_11OZ",
-    shippingProfile: "poster_unframed",
+    shippingProfile: "mug_11oz",
     includesFrame: false,
     labelFallback: "Black glossy mug (11 oz)",
     priceFallbackCents: 3900,
@@ -101,7 +107,9 @@ export const PRINT_CATALOG = [
     publicLabelEnv: "NEXT_PUBLIC_PRINT_MUG_11OZ_LABEL",
     stripePriceEnv: "STRIPE_PRICE_ID_PRINT_MUG_11OZ",
     cogsEnv: "PRINT_COGS_MUG_11OZ_CENTS",
-    defaultCogsCents: 1200,
+    // COGS default = live Printful catalog price for variant 9323
+    // ($9.75, read 2026-10-26).
+    defaultCogsCents: 975,
   },
   {
     id: "card_4x6",
@@ -118,7 +126,9 @@ export const PRINT_CATALOG = [
     publicLabelEnv: "NEXT_PUBLIC_PRINT_CARD_4X6_LABEL",
     stripePriceEnv: "STRIPE_PRICE_ID_PRINT_CARD_4X6",
     cogsEnv: "PRINT_COGS_CARD_4X6_CENTS",
-    defaultCogsCents: 450,
+    // COGS default = live Printful catalog price for variant 14457
+    // ($2.55, read 2026-10-26).
+    defaultCogsCents: 255,
   },
 ] as const;
 
@@ -223,7 +233,7 @@ export function resolvePaywallOfferRows(
   return [{ variant: preferredVariant, includeDigitalAddOn: false }, ...PAYWALL_PRINT_CHECKOUT_ROWS];
 }
 
-export type PrintShippingProfile = "poster_unframed" | "poster_framed";
+export type PrintShippingProfile = "poster_unframed" | "poster_framed" | "canvas_wrap" | "mug_11oz";
 
 export function getPrintShippingProfile(variant: PrintVariant): PrintShippingProfile {
   return getPrintCatalogRow(variant).shippingProfile;
