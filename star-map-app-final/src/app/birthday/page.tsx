@@ -37,7 +37,7 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Birthday Star Map Generator | StarMapCo",
   description:
-    "Birthday star map generator for any date and place—preview the exact night sky free, then choose framed + HD (free shipping at $100+ USD), poster, or instant digital delivery.",
+    "Birthday star map generator for any date and place—preview the exact night sky free, then choose framed + HD (free shipping at $89+ USD), poster, or instant digital delivery.",
   alternates: { canonical: `${siteUrl}/birthday` },
   openGraph: {
     title: "Birthday Star Map Generator | StarMapCo",

@@ -1,6 +1,6 @@
 /** Keep in sync with src/lib/printFreeShipping.ts (checkout waive logic). */
 
-const DEFAULT_THRESHOLD_CENTS = 10_000;
+const DEFAULT_THRESHOLD_CENTS = 8_900;
 
 export function parseThresholdCents(raw) {
   if (!raw || !String(raw).trim()) return null;
