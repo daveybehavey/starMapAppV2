@@ -77,6 +77,21 @@ test("landing page: exists, prices from the catalog tier, and enters checkout wi
   assert.match(page, /\/printproof\/gift-raw\/card\/card-mockup\.jpg/);
 });
 
+test("landing page: sticky CTA reuses the card checkout href, not the generic editor fallback", () => {
+  const page = read("../../src/app/star-map-keepsake-card/page.tsx");
+  // Without primaryHref, StickyCtaBar falls back to
+  // /editor?mode=quick&source=sticky-keepsake-card — no checkout=print and
+  // no print_variant, so the editor defaults to another variant and the
+  // standalone card is unreachable from the sticky bar. The bar must get
+  // the same primaryHref as the main CTA: buildPrintEditorCheckoutHref
+  // with variant card_4x6 (checkout=print&print_variant=card_4x6, pinned
+  // in the landing-page test above).
+  assert.match(
+    page,
+    /<StickyCtaBar\s+source="sticky-keepsake-card"\s+primaryHref=\{primaryHref\}/,
+  );
+});
+
 test("shop and gift formats link the card purchase path and the landing page", () => {
   const shop = read("../../src/app/shop/page.tsx");
   assert.match(shop, /print_variant=card_4x6/);

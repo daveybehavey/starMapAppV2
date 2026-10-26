@@ -218,6 +218,7 @@ export default function KeepsakeCardLandingPage() {
 
       <StickyCtaBar
         source="sticky-keepsake-card"
+        primaryHref={primaryHref}
         secondaryButtonLabel="Preview framed print"
         secondaryHref="/editor?mode=quick&source=sticky-keepsake-card-framed&checkout=print&print_variant=poster_framed"
         secondaryPlan="print_framed"
