@@ -115,7 +115,7 @@ export const SEO_SURVIVOR_CONTENT: Record<string, SeoSurvivorContent> = {
       dateLine: "September 17, 2024",
       paragraphs: [
         "The night of Tuesday, September 17, 2024 brought a full Harvest Moon — and a partial lunar eclipse. From Centre Island, with full darkness by 9:03 p.m., the Moon stood about a third of the way up the southeastern sky over the lake when the eclipse peaked at 10:44 p.m., Earth's shadow covering about 4% of its disc. Saturn shone in the same part of the sky, at almost the same height.",
-        "A star map for that hour shows the eclipsed full Moon over the water — the sky a proposal before the last ferry home actually happened under.",
+        "A star map for that hour fixes the full Moon and stars exactly where they stood over the water that night — the sky a proposal before the last ferry home actually happened under.",
       ],
       caption: "Centre Island, Toronto, ON · September 17, 2024",
     },
