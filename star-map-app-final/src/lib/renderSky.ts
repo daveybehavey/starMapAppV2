@@ -1,7 +1,7 @@
 import { Horizon, Observer } from "astronomy-engine";
 import { computeVisibleStars, toUTCDateFromLocal, type VisibleSky } from "@/lib/astronomy";
 import type { LocationState, RenderOptions, StyleId, TextBox } from "@/lib/store";
-import { SHAPE_PATHS } from "@/lib/shapes";
+import { SHAPE_PATHS, SHAPE_CIRCLE_INSET_RATIO } from "@/lib/shapes";
 import type { AspectRatio, Shape } from "@/lib/types";
 import { FONT_STACKS } from "@/lib/fonts";
 import { adjustColor, parseHexColor, parseRgbColor, toRgba } from "@/lib/colorUtils";
@@ -1441,7 +1441,7 @@ function buildShapeClip(shape: string, width: number, height: number): Path2D | 
   if (shape === "circle") {
     const path = new Path2D();
     const minDim = Math.min(width, height);
-    const inset = minDim * 0.06; // slight inset to match star map footprint
+    const inset = minDim * SHAPE_CIRCLE_INSET_RATIO; // slight inset to match star map footprint
     const radius = Math.max(1, minDim / 2 - inset);
     path.arc(width / 2, height / 2, radius, 0, TWO_PI);
     return path;

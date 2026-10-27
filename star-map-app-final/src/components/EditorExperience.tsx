@@ -11,6 +11,8 @@ import {
   renderStarMap,
 } from "@/lib/renderSky";
 import { getExportDimensions } from "@/lib/aspectRatio";
+import { ASPECT_OPTIONS } from "@/lib/aspectOptions";
+import { ShapeIcon } from "@/components/ShapeIcon";
 
 import { buildStarMapDownloadFilename } from "@/lib/downloadFilename";
 import {
@@ -49,7 +51,7 @@ import {
 import { applyStyleDefaults } from "@/lib/styleDefaults";
 import { occasionPresets } from "@/lib/occasionPresets";
 import type { RenderModeId } from "@/lib/renderModes";
-import { styles, fontOptions, shapes, shapeSymbols, shapeSymbolScale, mapLookTiers } from "@/lib/config";
+import { styles, fontOptions, shapes, mapLookTiers } from "@/lib/config";
 import {
   applyMapLookTier,
   applyTierTypography,
@@ -3105,12 +3107,7 @@ export function EditorExperience({
                                                   : "border-white/15 bg-white/5 text-white hover:border-amber-400/50"
                                               }`}
                                             >
-                                              <span
-                                                className="mb-1 text-2xl"
-                                                style={{ transform: shapeSymbolScale[shapeOption.id] }}
-                                              >
-                                                {shapeSymbols[shapeOption.id]}
-                                              </span>
+                                              <ShapeIcon shape={shapeOption.id} className="mb-1" />
                                               <span className="text-[10px]">{shapeOption.label}</span>
                                               {isPremium && (
                                                 <span
@@ -3160,12 +3157,8 @@ export function EditorExperience({
                                   </button>
                                   {!collapsedCards.frame && (
                                     <>
-                                      <div className="mt-2 grid grid-cols-3 gap-2">
-                                        {[
-                                          { id: "square" as const, label: "Square" },
-                                          { id: "4:5" as const, label: "Poster" },
-                                          { id: "2:3" as const, label: "Wide" },
-                                        ].map((ratio) => {
+                                      <div className="mt-2 grid grid-cols-2 gap-2">
+                                        {ASPECT_OPTIONS.map((ratio) => {
                                           const isSelected = aspectRatio === ratio.id;
 
                                           return (
@@ -3184,6 +3177,7 @@ export function EditorExperience({
                                           );
                                         })}
                                       </div>
+                                      <PrintAspectMismatchNotice aspectRatio={aspectRatio} className="mt-2" />
                                       <button
                                         type="button"
                                         onClick={() =>

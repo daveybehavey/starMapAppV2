@@ -17,11 +17,15 @@ export function describeAspectRatioLabel(aspectRatio: AspectRatio): string {
   }
 }
 
-export function getPosterAspectMismatchMessage(aspectRatio: AspectRatio): string {
-  if (aspectRatio === "square") return "";
-  return `Poster prints are square (18×18 or 16×16 unframed, 14×14 framed). Your map is ${describeAspectRatioLabel(
-    aspectRatio
-  )} — switch to Square in Advanced before checkout to avoid letterboxing on the print.`;
+/**
+ * Square-poster note (#410): one exact string, shown below the aspect
+ * pickers while designing and retained at the existing poster-purchase
+ * placements. Returns null for square (no mismatch to explain) and the
+ * same copy for all three portrait ratios.
+ */
+export function getPosterAspectMismatchMessage(aspectRatio: AspectRatio): string | null {
+  if (aspectRatio === "square") return null;
+  return "Our posters are square. Portrait designs fit inside the square print with space on either side. Choose Square to match the poster's shape.";
 }
 
 export function getPrintSizingLine(variant: PrintVariant = "poster_framed"): string {

@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { SHAPE_PATHS } from "../../src/lib/shapes/index.ts";
+import { SHAPE_PATHS, getShapeGeometry } from "../../src/lib/shapes/index.ts";
 import { resolveRecipeShape } from "../../src/lib/mapRecipeHydration.ts";
 import { parseEditorDraft, writeEditorDraft } from "../../src/lib/editorDraft.ts";
 
@@ -33,11 +33,14 @@ test("shape picker offers diamond, after star, with a label", () => {
   ]);
 });
 
-test("picker support records cover diamond (desktop symbol + scale)", () => {
-  const symbols = sourceBlock("export const shapeSymbols", "};");
-  assert.match(symbols, /diamond: "◆"/);
-  const scales = sourceBlock("export const shapeSymbolScale", "};");
-  assert.match(scales, /diamond: "scale\(/);
+test("picker support covers diamond via the shared mask geometry (#415)", () => {
+  // The unicode symbol/scale records were removed by #415 — picker icons
+  // are SVGs of the actual mask geometry now. Diamond's support record
+  // is getShapeGeometry passing the renderer's path through verbatim.
+  assert.ok(!configSource.includes("export const shapeSymbols"));
+  assert.ok(!configSource.includes("export const shapeSymbolScale"));
+  assert.equal(getShapeGeometry("diamond").d, SHAPE_PATHS.diamond.d);
+  assert.deepEqual(getShapeGeometry("diamond").viewBox, [0, 0, 100, 100]);
 });
 
 test("renderer has a real clip path for diamond and every picker shape", () => {
