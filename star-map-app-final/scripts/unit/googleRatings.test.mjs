@@ -58,13 +58,16 @@ test("no surface hard-codes the rating — all read the one lib module", () => {
   assert.match(shop, /<GoogleRatingsTrust variant="strip"/);
 });
 
-test("homepage Product schema claims NO aggregateRating; the visible component still renders the constants", () => {
-  // The 5.0-star rating belongs to the Google Business Profile (the business),
-  // not to the homepage's Product. Google's review-snippet guidelines require
+test("homepage Product schema claims NO aggregateRating; the visible component renders NO numbers (owner ruling 2026-10-27)", () => {
+  // The rating belongs to the Google Business Profile (the business), not
+  // to the homepage's Product. Google's review-snippet guidelines require
   // a Product's aggregateRating to be reviews of that product and prohibit
   // presenting another entity's ratings as product ratings — so the schema
   // must not carry one (and it must not move onto an Organization node
-  // either). The visible, clearly-labeled "on Google" display stays.
+  // either). Separately, the owner ruled on 2026-10-27 that the site shows
+  // no rating value or review count anywhere until the count is
+  // impressive: the component links to the Google listing qualitatively
+  // and the constants stay on file in the lib only.
   const page = read("src/app/page.tsx");
   assert.ok(
     !page.includes("aggregateRating"),
@@ -76,7 +79,9 @@ test("homepage Product schema claims NO aggregateRating; the visible component s
   );
 
   const component = read("src/components/GoogleRatingsTrust.tsx");
-  assert.match(component, /formatGoogleRatingValue\(\)/);
-  assert.match(component, /getGoogleReviewCountLabel\(\)/);
   assert.match(component, /GOOGLE_RATINGS/);
+  assert.doesNotMatch(component, /formatGoogleRatingValue\(\)/);
+  assert.doesNotMatch(component, /getGoogleReviewCountLabel\(\)/);
+  assert.doesNotMatch(component, /getGoogleFullStarCount\(\)/);
+  assert.doesNotMatch(component, /\.ratingValue|\.reviewCount/);
 });

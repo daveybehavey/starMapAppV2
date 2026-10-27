@@ -122,11 +122,12 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         image: [`${siteUrl}/custom-star-map-anniversary.webp`],
         category: "Personalized gifts",
         // Deliberately NO review aggregate in this Product schema: the
-        // 5.0-star rating belongs to the Google Business Profile (the
-        // business), not to this product, and Google prohibits presenting
-        // one entity's reviews as another's. The rating is displayed
-        // visibly, labeled "on Google", by GoogleRatingsTrust — it is not
-        // claimed in structured data.
+        // rating belongs to the Google Business Profile (the business),
+        // not to this product, and Google prohibits presenting one
+        // entity's reviews as another's. GoogleRatingsTrust links to the
+        // Google listing qualitatively — per the owner ruling of
+        // 2026-10-27 the site displays no rating value or review count
+        // anywhere until the count is impressive.
         additionalProperty: [
           {
             "@type": "PropertyValue",
