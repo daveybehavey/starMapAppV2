@@ -13,11 +13,20 @@
  * (compared as a SHA-256 strip-tree over the raw bytes; see page code).
  *
  * Method: the runner writes a temporary harness page
- * (src/app/frame-inset-harness/page.tsx) into each tree, starts that
- * tree's Next dev server, drives it with the candidate tree's
- * @playwright/test Chromium (same pinned browser for both revisions),
- * collects per-fixture {dimensions, sha256}, then removes the page and
- * stops the server. The page is never committed.
+ * (src/app/frame-inset-harness/page.tsx) into each tree, runs that
+ * tree's production build and `next start`, drives it with the
+ * candidate tree's @playwright/test Chromium (same pinned browser for
+ * both revisions), collects per-fixture {dimensions, sha256}, then
+ * removes the page and stops the server. The page is never committed.
+ *
+ * Baseline compatibility: the page calls the purpose-aware helper
+ * signatures (e.g. resolveFrameInsetPx(w, h, "preview")) even in the
+ * baseline tree, whose helpers predate them. That build still succeeds
+ * because the app's next.config sets typescript.ignoreBuildErrors, and
+ * at runtime the extra argument is ignored — the baseline helpers
+ * exhibit exactly the legacy behaviour being measured. The numeric
+ * and integration assertions are evaluated against the CANDIDATE
+ * results only.
  *
  * Usage:
  *   node scripts/frame-inset-print-invariance/run.mjs \
