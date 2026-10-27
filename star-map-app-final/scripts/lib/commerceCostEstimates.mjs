@@ -54,7 +54,7 @@ export const PRINT_VARIANT_COST_ROWS = Object.freeze({
   card_4x6: Object.freeze({
     cogsEnv: "PRINT_COGS_CARD_4X6_CENTS",
     defaultCogsCents: 255,
-    shippingProfile: "poster_unframed",
+    shippingProfile: "card_4x6",
   }),
 });
 
@@ -125,7 +125,7 @@ export function getConfiguredProductCostCents(variant, env = process.env) {
 
 /**
  * @param {string} variant
- * @returns {"poster_unframed" | "poster_framed" | "canvas_wrap" | "mug_11oz" | null}
+ * @returns {"poster_unframed" | "poster_framed" | "canvas_wrap" | "mug_11oz" | "card_4x6" | null}
  */
 export function getShippingProfile(variant) {
   if (!isSupportedPrintVariant(variant)) return null;

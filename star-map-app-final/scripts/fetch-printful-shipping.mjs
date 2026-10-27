@@ -10,8 +10,9 @@ const UNFRAMED = process.env.PRINTFUL_VARIANT_ID_POSTER_UNFRAMED;
 const FRAMED = process.env.PRINTFUL_VARIANT_ID_POSTER_FRAMED;
 const CANVAS = process.env.PRINTFUL_VARIANT_ID_CANVAS_WRAP;
 const MUG = process.env.PRINTFUL_VARIANT_ID_MUG_11OZ;
+const CARD = process.env.PRINTFUL_VARIANT_ID_CARD_4X6;
 
-if (!TOKEN || !STORE_ID || !UNFRAMED || !FRAMED || !CANVAS || !MUG) {
+if (!TOKEN || !STORE_ID || !UNFRAMED || !FRAMED || !CANVAS || !MUG || !CARD) {
   console.error("Missing PRINTFUL_API_TOKEN, PRINTFUL_STORE_ID, or variant IDs.");
   process.exit(1);
 }
@@ -181,9 +182,11 @@ async function main() {
   const posterFramed = await buildMap("poster_framed", FRAMED);
   const canvasWrap = await buildMap("canvas_wrap", CANVAS);
   const mug11oz = await buildMap("mug_11oz", MUG);
+  const card4x6 = await buildMap("card_4x6", CARD);
 
   const supportedCountries = TARGET_COUNTRIES.filter(
-    (country) => posterUnframed[country] && posterFramed[country] && canvasWrap[country] && mug11oz[country],
+    (country) =>
+      posterUnframed[country] && posterFramed[country] && canvasWrap[country] && mug11oz[country] && card4x6[country],
   );
 
   const output = {
@@ -193,6 +196,7 @@ async function main() {
     poster_framed: posterFramed,
     canvas_wrap: canvasWrap,
     mug_11oz: mug11oz,
+    card_4x6: card4x6,
   };
 
   const outputPath = resolve(process.cwd(), "data", "printful-shipping.json");

@@ -28,6 +28,7 @@ function getPrintShippingProfile(variant) {
   if (variant === "poster_framed") return "poster_framed";
   if (variant === "canvas_wrap") return "canvas_wrap";
   if (variant === "mug_11oz") return "mug_11oz";
+  if (variant === "card_4x6") return "card_4x6";
   return "poster_unframed";
 }
 
