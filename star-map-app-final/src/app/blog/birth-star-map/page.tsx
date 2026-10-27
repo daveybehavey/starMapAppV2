@@ -33,7 +33,7 @@ const faqItems = [
   {
     question: "Is a star map a good baby shower gift?",
     answer:
-      "Yes. A baby shower star map gift works well when the due date is known or when the group wants something the parents can display after birth. You can preview the design free, then order framed print, unframed poster, or instant HD digital delivery.",
+      "Yes. A baby shower star map gift works well when the due date is known or when the group wants something the parents can display after birth. You can preview the design free, then order framed print, unframed poster, or HD digital delivery.",
   },
   {
     question: "What format is best for a nursery?",
@@ -195,7 +195,7 @@ export default function BirthStarMapPostPage() {
               nursery.
             </p>
             <p className="mt-2">
-              Instant HD digital delivery helps when the shower is this weekend and shipping will not arrive in time —
+              HD digital delivery helps when the shower is this weekend and shipping will not arrive in time —
               parents get a file to print locally while a framed version ships separately. You can also browse the{" "}
               <Link href="/star-map-for/baby-shower" className="text-amber-300 hover:underline">
                 baby shower star map page

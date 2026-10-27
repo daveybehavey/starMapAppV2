@@ -274,7 +274,7 @@ export default function StarMapGiftIdeasPage() {
         leftTitle="Checkout and files"
         leftPoints={[
           "Secure Stripe checkout",
-          "Instant HD download after payment",
+          "HD digital download after payment",
           "No watermark on paid exports",
         ]}
         rightTitle="Print and support"

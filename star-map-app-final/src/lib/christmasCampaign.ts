@@ -109,7 +109,7 @@ function parseYmd(ymd: string): { y: number; m: number; d: number } {
   return { y, m, d };
 }
 
-/** Calendar YYYY-MM-DD in America/Los_Angeles for a given instant. */
+/** Calendar YYYY-MM-DD in America/Los_Angeles for a given moment. */
 export function getPacificCalendarDate(nowMs: number = Date.now()): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Los_Angeles",
@@ -203,9 +203,9 @@ export function getChristmasBannerContent(
   if (phase === "digital_last_minute") {
     return {
       phase,
-      message: `Last-minute Christmas gift: get the ${instantHdPriceLabel} instant HD star map file — ready to send today.`,
+      message: `Last-minute Christmas gift: get the ${instantHdPriceLabel} HD digital star map file — ready to send today.`,
       ctaHref: "/christmas-star-map-gift",
-      ctaLabel: "Shop instant HD gift",
+      ctaLabel: "Shop HD digital gift",
     };
   }
 
@@ -412,7 +412,7 @@ export function getChristmasPromoCodesFaqAnswer(): string {
 
 export type ChristmasOrderByTableRow = {
   product: string;
-  /** Display date (e.g. "Dec 9") per region; null only on the instant row. */
+  /** Display date (e.g. "Dec 9") per region; null only on the digital row. */
   canada: string | null;
   unitedStates: string | null;
   restOfWorld: string | null;
@@ -586,7 +586,7 @@ export function getChristmasOrderByTableRows(): ChristmasOrderByTableRow[] {
     canada: null,
     unitedStates: null,
     restOfWorld: null,
-    instantNote: "Order any time — delivered instantly",
+    instantNote: "Order any time — download right after checkout",
   });
   return rows;
 }
@@ -602,5 +602,5 @@ export function __christmasDatePartsForTests(ymd: string) {
 }
 
 export function getChristmasDigitalPitchLine(instantHdPriceLabel: string): string {
-  return `Missed the print window? The ${instantHdPriceLabel} instant HD file is a last-minute gift through December 25 — ready to send the same day.`;
+  return `Missed the print window? The ${instantHdPriceLabel} HD digital file is a last-minute gift through December 25 — ready to send the same day.`;
 }

@@ -37,7 +37,7 @@ export default function WeddingDesignExampleSection({ previewHref }: WeddingDesi
             {[
               "Heart or circle layout with gold accents for wedding gifts",
               "Accurate constellations for your date, time, and coordinates",
-              "Framed print + instant HD digital from one checkout",
+              "Framed print + HD digital from one checkout",
             ].map((item) => (
               <li key={item} className="flex gap-2">
                 <span className="mt-0.5 text-amber-600" aria-hidden="true">

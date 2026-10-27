@@ -151,12 +151,12 @@ export function buildHomeFaqItems(input: { single: string; framed: string; unfra
     {
       id: "why-starmapco",
       q: "Why choose StarMapCo over other star map generators?",
-      a: "Free live preview, accurate science, and a clear delivery ladder: framed for premium gifting, unframed for lower physical cost, or HD digital for instant access.",
+      a: "Free live preview, accurate science, and a clear delivery ladder: framed for premium gifting, unframed for lower physical cost, or HD digital with download right after checkout.",
       aNode: (
         <>
           Free live preview, accurate science, and a clear delivery ladder: framed for premium gifting, unframed for
           lower physical cost
-          <span data-digital-offer>, or HD digital for instant access</span>.
+          <span data-digital-offer>, or HD digital with download right after checkout</span>.
         </>
       ),
     },
@@ -241,7 +241,7 @@ export default function HomeStaticSections({ priceLabels, promoStatus, promoCode
             href="/hd-star-map"
             className="font-semibold text-amber-300 underline decoration-amber-400/60 underline-offset-2 hover:text-amber-200"
           >
-            instant HD
+            HD digital
           </Link>
           , or{" "}
           <Link
@@ -430,7 +430,7 @@ export default function HomeStaticSections({ priceLabels, promoStatus, promoCode
               From date to finished star map
             </h2>
             <p className="max-w-3xl text-base text-neutral-200 sm:text-lg">
-              Pick a meaningful moment, see the night sky instantly, personalize, and export a print-ready map
+              Pick a meaningful moment, see the night sky, personalize, and export a print-ready map
               in minutes.
             </p>
           </div>
@@ -445,7 +445,7 @@ export default function HomeStaticSections({ priceLabels, promoStatus, promoCode
               },
               {
                 icon: "✨",
-                title: "Preview instantly",
+                title: "Live preview",
                 desc: "Watch the stars render in real time as you personalize.",
               },
               {
@@ -519,11 +519,11 @@ export default function HomeStaticSections({ priceLabels, promoStatus, promoCode
           <p className="text-xs font-semibold tracking-[0.25em] text-amber-800 uppercase">Explore more</p>
           <h2 className="mt-3 text-2xl font-semibold sm:text-3xl">Popular star map destinations</h2>
           <p className="mt-3 text-sm text-neutral-700 sm:text-base">
-            Jump straight to gift, poster, and instant star map generator pages.
+            Jump straight to gift, poster, and star map generator pages.
           </p>
           <div className="mt-4 flex flex-wrap gap-2 text-sm font-semibold text-amber-700">
             {[
-              { href: "/hd-star-map", label: "Instant HD star map" },
+              { href: "/hd-star-map", label: "HD star map" },
               { href: "/star-map-generator", label: "Star map generator" },
               { href: "/star-map-for", label: "Star map by occasion" },
               { href: "/star-map-in", label: "Star map by city" },

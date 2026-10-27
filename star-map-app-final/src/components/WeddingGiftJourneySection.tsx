@@ -17,7 +17,7 @@ const steps = [
       "Choose framed + HD, unframed, or HD-only. Shipping and total show before Stripe — no surprise fees.",
   },
   {
-    title: "HD instant · print ships after checkout",
+    title: "HD digital · print ships after checkout",
     detail: getPrintFramedHdBundleTimingLine(),
   },
 ] as const;

@@ -50,7 +50,7 @@ const breadcrumbs = [
 
 const christmasTitle = "Christmas Star Map Gift | Order-By Dates | StarMapCo";
 const christmasDescription =
-  "Give a personalized Christmas star map of a meaningful night sky. Free preview — framed, poster, or instant HD. See Christmas order-by dates for US, Canada, and worldwide.";
+  "Give a personalized Christmas star map of a meaningful night sky. Free preview — framed, poster, or HD digital. See Christmas order-by dates for US, Canada, and worldwide.";
 
 export const metadata: Metadata = {
   title: christmasTitle,
@@ -93,7 +93,7 @@ export default async function ChristmasStarMapGiftPage({ searchParams }: PagePro
     },
     {
       question: "What if I miss the print cutoff?",
-      answer: `Choose the ${instantPrice} instant HD digital file — ready to send the same day, even at the last minute.`,
+      answer: `Choose the ${instantPrice} HD digital file — ready to send the same day, even at the last minute.`,
     },
     {
       question: "How long does print delivery take?",
@@ -122,7 +122,7 @@ export default async function ChristmasStarMapGiftPage({ searchParams }: PagePro
         <h1 className="text-3xl font-bold text-white sm:text-4xl">Christmas Star Map Gift</h1>
         <p className="text-sm text-neutral-200 sm:text-base">
           Capture a meaningful night sky as a Christmas keepsake — preview free, then choose framed print,
-          poster, or instant HD digital delivery.
+          poster, or HD digital delivery.
         </p>
         <MoneyPagePriceAtGlance className="mx-auto max-w-lg" />
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
@@ -148,7 +148,7 @@ export default async function ChristmasStarMapGiftPage({ searchParams }: PagePro
             data-digital-offer
             className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#f1c27d] bg-transparent px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10 focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent focus:outline-none"
           >
-            Instant HD from {instantPrice}
+            HD digital from {instantPrice}
           </Link>
           <Link
             href="/editor?mode=quick&source=christmas-hero-preview"
@@ -200,14 +200,14 @@ export default async function ChristmasStarMapGiftPage({ searchParams }: PagePro
       <PreviewStartForm
         source="christmas"
         title="Start your Christmas preview"
-        description="Enter a meaningful date and place — choose instant HD for last-minute gifts or framed + HD for a shipped keepsake."
+        description="Enter a meaningful date and place — choose HD digital for last-minute gifts or framed + HD for a shipped keepsake."
         intentOptions={previewIntents}
       />
       <StickyCtaBar
         source="sticky-christmas-instant-hd"
         title="Need it before Christmas?"
-        description={`Instant HD from ${instantPrice} unlocks right after checkout — no shipping wait.`}
-        buttonLabel="Preview instant HD"
+        description={`HD digital from ${instantPrice} unlocks right after checkout — no shipping wait.`}
+        buttonLabel="Preview HD digital"
         primaryHref={instantHref}
         primaryPlan="hd_digital"
         secondaryButtonLabel="Framed + HD instead"
@@ -224,9 +224,9 @@ export default async function ChristmasStarMapGiftPage({ searchParams }: PagePro
         </p>
         <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li>Astronomically accurate to the date, time, and location you choose</li>
-          <li>Framed + HD for a ready-to-hang gift with an instant backup file</li>
+          <li>Framed + HD for a ready-to-hang gift with an HD backup file</li>
           <li>Poster option when you already have a frame plan</li>
-          <li>Instant HD for last-minute and international gifting</li>
+          <li>HD digital for last-minute and international gifting</li>
         </ul>
       </section>
 
@@ -247,7 +247,7 @@ export default async function ChristmasStarMapGiftPage({ searchParams }: PagePro
         leftTitle="Checkout and files"
         leftPoints={[
           "Secure Stripe checkout",
-          "Instant HD download after payment",
+          "HD digital download after payment",
           "No watermark on paid exports",
         ]}
         rightTitle="Print and support"
@@ -265,7 +265,7 @@ export default async function ChristmasStarMapGiftPage({ searchParams }: PagePro
       />
       <RevenueTrustModule
         heading="Christmas gift confidence"
-        intro="Decide with the preview first, then choose framed, poster, or instant HD based on shipping timing."
+        intro="Decide with the preview first, then choose framed, poster, or HD digital based on shipping timing."
       />
 
       <OccasionLinks />

@@ -184,7 +184,7 @@ export default function MemorialStarMapPostPage() {
                 or countries. Everyone can receive the same map file and choose to print it locally, frame it
                 themselves, or simply keep it on a device where it can be revisited quietly. See{" "}
                 <Link href="/hd-star-map" className="text-amber-300 hover:underline">
-                  instant HD delivery
+                  HD digital delivery
                 </Link>{" "}
                 for same-day sharing options.
               </li>

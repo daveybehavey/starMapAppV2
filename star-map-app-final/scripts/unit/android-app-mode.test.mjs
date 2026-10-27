@@ -159,7 +159,7 @@ test("residual homepage add-on claims, shop HD quick start, and gift-format tele
   const home = read("src/components/HomeOfferStack.tsx");
   assert.match(home, /<li data-digital-offer>Pair with the HD add-on/);
   assert.match(home, /<li data-digital-offer>✓ HD digital add-on available/);
-  assert.match(home, /<span data-digital-offer>instant HD digital, <\/span>/);
+  assert.match(home, /<span data-digital-offer>HD digital, <\/span>/);
   assert.match(home, /<div data-digital-offer[^>]*>\s*<p[^>]*>Fastest route/);
   const form = read("src/components/PreviewStartForm.tsx");
   assert.match(form, /return intent\.checkout !== "print" && DIGITAL_PLANS\.has\(intent\.plan\);/);
@@ -222,7 +222,7 @@ test("merged homepage FAQ marks every digital-advertising answer (aNode + data-d
     /<span data-digital-offer>\s*, or a single HD file\. Subscription is optional only for repeat digital\s+exports\s*<\/span>/
   );
   // why-starmapco: the HD digital route is a marked fragment
-  assert.match(home, /<span data-digital-offer>, or HD digital for instant access<\/span>/);
+  assert.match(home, /<span data-digital-offer>, or HD digital with download right after checkout<\/span>/);
   // each digital-advertising FAQ item must actually define a marked aNode — a
   // marked span in an unrendered string would not change what app mode shows
   for (const id of ["premium-unlock", "order-printed", "subscription", "why-starmapco"]) {

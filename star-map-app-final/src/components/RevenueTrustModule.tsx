@@ -51,11 +51,11 @@ export default function RevenueTrustModule({
         </div>
         <div data-digital-offer className="brand-light-card-accent rounded-2xl p-4">
           <p className="text-sm font-semibold text-midnight">
-            {printCheckoutEnabled ? "Digital + physical options" : "Instant digital delivery"}
+            {printCheckoutEnabled ? "Digital + physical options" : "HD digital delivery"}
           </p>
           <p className="mt-1 text-xs text-neutral-700">
             {printCheckoutEnabled
-              ? `Unlock HD instantly, or choose ${printFormats[0]} or ${printFormats[1]} from the editor. ${getPrintFreeShippingShortTag() ?? shippingDisclosure}`
+              ? `Unlock HD right after payment, or choose ${printFormats[0]} or ${printFormats[1]} from the editor. ${getPrintFreeShippingShortTag() ?? shippingDisclosure}`
               : "HD file unlocks immediately after successful payment verification."}
           </p>
         </div>

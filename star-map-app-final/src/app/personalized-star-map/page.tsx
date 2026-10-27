@@ -142,7 +142,7 @@ export default function PersonalizedStarMapPage() {
         <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li>Accurate night sky based on real astronomical data</li>
           <li>Custom text, fonts, and layout options</li>
-          <li>Instant preview so you can fine-tune details</li>
+          <li>Live preview so you can fine-tune details</li>
           <li>One preview can flow into framed, unframed, or HD delivery</li>
         </ul>
       </section>
@@ -152,7 +152,7 @@ export default function PersonalizedStarMapPage() {
         <ol className="list-decimal space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li>Enter the date, time, and location</li>
           <li>Add names, a title, and a short message</li>
-          <li>Preview the design instantly</li>
+          <li>Preview the design free</li>
           <li>Choose framed print, unframed print, or HD digital delivery at checkout</li>
         </ol>
         <div className="pt-2">
@@ -168,7 +168,7 @@ export default function PersonalizedStarMapPage() {
 
       <DeliveryFormatModule
         heading="Pick the right format after you preview"
-        intro={`Recommended presentation is framed + HD (${bundlePriceLine}) for a presentation-ready gift plus an instant file. Unframed lowers the total; canvas adds a premium wall option.`}
+        intro={`Recommended presentation is framed + HD (${bundlePriceLine}) for a presentation-ready gift plus the HD file. Unframed lowers the total; canvas adds a premium wall option.`}
         sourcePrefix="personalized-format"
       />
       <FramedProofSection sourcePrefix="personalized-proof" />
@@ -226,7 +226,7 @@ export default function PersonalizedStarMapPage() {
         leftPoints={[
           "Secure Stripe checkout",
           "One-time checkout for framed print, unframed print, or HD digital delivery",
-          "Instant HD file unlock after successful payment",
+          "HD digital file unlock after successful payment",
         ]}
         rightTitle="Print quality and support"
         rightPoints={[

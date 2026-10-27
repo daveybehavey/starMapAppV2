@@ -92,7 +92,7 @@ export default function ConstellationMapPage() {
         </p>
         <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li>Accurate to the date, time, and location you choose</li>
-          <li>Instant preview so you can refine details before checkout</li>
+          <li>Live preview so you can refine details before checkout</li>
           <li>Elegant styles and clean layouts for framing or gifting</li>
           <li>The same approved design can stay digital, go unframed, or arrive framed</li>
         </ul>
@@ -103,7 +103,7 @@ export default function ConstellationMapPage() {
         <ol className="list-decimal space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li>Enter the date, time, and location</li>
           <li>Choose a layout, style, and optional labels</li>
-          <li>Preview your exact sky instantly</li>
+          <li>Preview your exact sky free</li>
           <li>Choose framed print, unframed print, or HD digital delivery at checkout</li>
         </ol>
         <div className="pt-2">

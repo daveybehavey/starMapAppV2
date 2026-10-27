@@ -32,13 +32,13 @@ const howToSteps = [
     url: `${pageUrl}#generator-step-2`,
   },
   {
-    name: "Preview the sky instantly",
+    name: "Preview the sky",
     text: "Review the calculated night sky for free. Adjust text, colors, or render settings until the design looks right — no payment required for preview.",
     url: `${pageUrl}#generator-step-3`,
   },
   {
     name: "Choose framed print, unframed print, or HD digital delivery",
-    text: "When the preview looks right, unlock HD digital delivery for instant download, or order a framed or unframed print shipped from our print partner.",
+    text: "When the preview looks right, unlock HD digital delivery to download right after checkout, or order a framed or unframed print shipped from our print partner.",
     url: `${pageUrl}#generator-step-4`,
   },
 ] as const;
@@ -111,7 +111,7 @@ export default function StarMapGeneratorPage() {
         </h1>
         <p className="text-sm text-white/90 sm:text-base">
           Use our free star map generator to preview the exact night sky for any date and location. When it
-          looks right, upgrade to framed print, unframed poster, or instant HD — no watermark on paid exports.
+          looks right, upgrade to framed print, unframed poster, or HD digital — no watermark on paid exports.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
           <Link
@@ -124,7 +124,7 @@ export default function StarMapGeneratorPage() {
             href={instantHref}
             className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#f1c27d] bg-transparent px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10 focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent focus:outline-none"
           >
-            Instant HD from {instantPrice}
+            HD digital from {instantPrice}
           </Link>
         </div>
         <InstantHdHeroExtras source="star-map-generator-hero-instant" showButton={false} />
@@ -176,7 +176,7 @@ export default function StarMapGeneratorPage() {
         </p>
         <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li>Accurate to the minute and precise location</li>
-          <li>Instant preview so you can refine details</li>
+          <li>Live preview so you can refine details</li>
           <li>Multiple styles and layout options</li>
           <li>The same approved design can stay digital or move into framed or unframed print</li>
         </ul>
@@ -198,7 +198,7 @@ export default function StarMapGeneratorPage() {
         <ol className="list-decimal space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li id="generator-step-1">Enter the date, time, and location that matter to you</li>
           <li id="generator-step-2">Choose a style, shape, and text layout</li>
-          <li id="generator-step-3">Preview the sky instantly</li>
+          <li id="generator-step-3">Preview the sky</li>
           <li id="generator-step-4">
             Choose framed print, unframed print, or HD digital delivery at checkout
           </li>
@@ -373,7 +373,7 @@ export default function StarMapGeneratorPage() {
             <p>
               Yes. Enter the birthday date and the location where the person was born (or where they
               celebrated) to generate the exact night sky for that moment. The result works as a framed print,
-              unframed poster, or instant HD digital gift.
+              unframed poster, or HD digital gift.
             </p>
           </div>
           <div>
@@ -401,7 +401,7 @@ export default function StarMapGeneratorPage() {
       />
       <ProductSchema
         name="Custom Star Map Generator"
-        description="Free star map generator for any date and location. Preview the exact night sky for free, then choose framed print, unframed poster, or instant HD digital download."
+        description="Free star map generator for any date and location. Preview the exact night sky for free, then choose framed print, unframed poster, or HD digital download."
         imageUrl={`${siteUrl}/custom-star-map-anniversary.webp`}
         offers={productOffers}
       />
@@ -425,7 +425,7 @@ export default function StarMapGeneratorPage() {
           {
             question: "Can I generate a birthday star map?",
             answer:
-              "Yes. Enter the birthday date and the location where the person was born (or where they celebrated) to generate the exact night sky for that moment. The result works as a framed print, unframed poster, or instant HD digital gift.",
+              "Yes. Enter the birthday date and the location where the person was born (or where they celebrated) to generate the exact night sky for that moment. The result works as a framed print, unframed poster, or HD digital gift.",
           },
           {
             question: "How do I generate a star map for an anniversary?",

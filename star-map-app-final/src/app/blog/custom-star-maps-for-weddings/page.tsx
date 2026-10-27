@@ -142,7 +142,7 @@ export default function WeddingsPostPage() {
               <Link href="/star-map-gift-formats" className="text-amber-300 hover:underline">
                 framed, unframed, and HD digital formats
               </Link>{" "}
-              if you are deciding between wall art and instant delivery.
+              if you are deciding between wall art and digital delivery.
             </p>
             <div className="overflow-x-auto">
               <table className="min-w-full border border-amber-200/40 text-left text-sm text-neutral-100">

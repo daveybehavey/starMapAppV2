@@ -37,8 +37,8 @@ export default function MediaKitPage() {
       <section className="mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-xl font-semibold text-midnight">Short description</h2>
         <p className="text-sm leading-relaxed text-neutral-700 sm:text-base">
-          StarMapCo lets you create a custom star map of the exact night sky from any date and location. It is an instant
-          preview, print‑ready digital download designed for gifting and framing.
+          StarMapCo lets you create a custom star map of the exact night sky from any date and location. It offers a live
+          preview and a print‑ready digital download designed for gifting and framing.
         </p>
       </section>
 

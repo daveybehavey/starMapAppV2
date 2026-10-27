@@ -37,12 +37,12 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: `${BUNDLE_PRODUCT_NAME} | StarMapCo`,
   description:
-    "Framed custom star map print plus instant HD digital download from the same approved design. Preview free, then checkout the framed + HD bundle with free standard shipping on qualifying orders.",
+    "Framed custom star map print plus HD digital download from the same approved design. Preview free, then checkout the framed + HD bundle with free standard shipping on qualifying orders.",
   alternates: { canonical: `${siteUrl}${BUNDLE_PATH}` },
   openGraph: {
     title: `${BUNDLE_PRODUCT_NAME} | StarMapCo`,
     description:
-      "Ready-to-hang framed star map print plus instant HD digital download. Free preview first; free standard shipping when the bundle merchandise threshold is met.",
+      "Ready-to-hang framed star map print plus HD digital download. Free preview first; free standard shipping when the bundle merchandise threshold is met.",
     url: `${siteUrl}${BUNDLE_PATH}`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -79,7 +79,7 @@ export default function FramedHdBundleLandingPage() {
   const faqItems = [
     {
       question: "What does the framed + HD bundle include?",
-      answer: `A ready-to-hang framed physical print and an instant HD digital download from the same approved design. Bundle merchandise is ${bundlePriceLabel} (${framedLabel} framed print + ${digitalLabel} HD add-on).`,
+      answer: `A ready-to-hang framed physical print and an HD digital download from the same approved design. Bundle merchandise is ${bundlePriceLabel} (${framedLabel} framed print + ${digitalLabel} HD add-on).`,
     },
     {
       question: "Is shipping free on this bundle?",
@@ -103,7 +103,7 @@ export default function FramedHdBundleLandingPage() {
     "@type": "Product",
     name: BUNDLE_PRODUCT_NAME,
     description:
-      "Made-to-order custom star map framed print with instant HD digital download from the same approved design.",
+      "Made-to-order custom star map framed print with HD digital download from the same approved design.",
     brand: { "@type": "Brand", name: "StarMapCo" },
     image: [`${siteUrl}${HOME_MOCKUPS.framedBedroom}`, `${siteUrl}${HOME_MOCKUPS.digitalHd}`],
     category: "Home & Garden > Decor > Artwork > Posters, Prints, & Visual Artwork",
@@ -126,7 +126,7 @@ export default function FramedHdBundleLandingPage() {
             <div className="flex flex-wrap gap-2 text-[11px] font-semibold tracking-[0.2em] text-amber-100/85 uppercase">
               <span className="brand-pill rounded-full px-3 py-1">Framed + HD bundle</span>
               <span className="rounded-full border border-white/10 bg-white/8 px-3 py-1">
-                Instant digital included
+                HD digital included
               </span>
               {qualifiesFreeShipping ? (
                 <span className="rounded-full border border-white/10 bg-white/8 px-3 py-1">
@@ -139,7 +139,7 @@ export default function FramedHdBundleLandingPage() {
               <h1 className="max-w-2xl text-3xl font-bold text-white sm:text-4xl">{BUNDLE_PRODUCT_NAME}</h1>
               <p className="max-w-2xl text-sm leading-relaxed text-white/88 sm:text-base">
                 Preview the exact night sky free, then checkout this bundle: a ready-to-hang framed physical
-                print plus an instant HD digital download from the same approved design.
+                print plus an HD digital download from the same approved design.
               </p>
             </div>
             <div className="rounded-2xl border border-amber-200/35 bg-amber-300/12 p-5">
@@ -182,7 +182,7 @@ export default function FramedHdBundleLandingPage() {
                   Ready-to-hang framed physical star map print from your approved preview.
                 </li>
                 <li className="rounded-2xl border border-white/10 bg-white/6 p-4">
-                  Instant HD digital download of the same design after checkout.
+                  HD digital download of the same design after checkout.
                 </li>
                 <li className="rounded-2xl border border-white/10 bg-white/6 p-4">
                   {qualifiesFreeShipping
@@ -218,7 +218,7 @@ export default function FramedHdBundleLandingPage() {
         leftTitle="What you are ordering"
         leftPoints={[
           `${BUNDLE_PRODUCT_NAME} at ${bundlePriceLabel}.`,
-          "Framed physical print plus instant HD digital from the same approved map.",
+          "Framed physical print plus HD digital from the same approved map.",
           `Support is handled directly by ${profile.name} at ${profile.email}.`,
         ]}
         rightTitle="Shipping and fulfillment"

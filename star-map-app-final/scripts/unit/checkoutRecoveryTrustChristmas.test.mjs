@@ -167,11 +167,11 @@ test("Christmas banner discount windows (Pacific) cover each promo phase", async
     assert.equal(content.promoCode, "XMAS15");
   }
 
-  // Dec 11–25 → $9 HD instant pitch, no discount
+  // Dec 11–25 → $9 HD digital pitch, no discount
   for (const day of ["2026-12-11", "2026-12-25"]) {
     assert.equal(resolveChristmasBannerPhase(at(day)), "digital_last_minute", day);
     const content = getChristmasBannerContent(at(day), "$9");
-    assert.match(content.message, /\$9|instant HD/i);
+    assert.match(content.message, /\$9|HD digital/i);
     assert.equal(content.promoCode, undefined);
     assert.equal(/XMAS15|BLACKFRIDAY25|15%|25%/.test(content.message), false);
     const landing = getChristmasLandingPromo(at(day));
@@ -317,7 +317,7 @@ test("Christmas order-by table rows derive from CHRISTMAS_ORDER_BY_DATES", async
   assert.equal(digital.canada, null);
   assert.equal(digital.unitedStates, null);
   assert.equal(digital.restOfWorld, null);
-  assert.match(digital.instantNote, /delivered instantly/i);
+  assert.match(digital.instantNote, /download right after checkout/i);
 });
 
 test("Christmas order-by summary lines carry no rest-of-world dates", async () => {

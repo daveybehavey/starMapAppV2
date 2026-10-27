@@ -65,7 +65,7 @@ export default function StarMapGiftFormatsPage() {
   const liveFormats = [
     {
       title: "HD digital download",
-      badge: "Instant",
+      badge: "Digital",
       price: formatPrice(pricing.single.amountCents, pricing.single.currency),
       detail: "Built for same-day gifting and local print shops.",
       href: "/editor?mode=quick&source=gift-formats-digital",
@@ -238,7 +238,7 @@ export default function StarMapGiftFormatsPage() {
           <Link href="/star-map-poster/framed-hd-bundle" className="font-semibold text-amber-800 underline">
             framed + HD bundle
           </Link>{" "}
-          pairs the ready-to-hang framed print with the instant HD download from the same approved design.
+          pairs the ready-to-hang framed print with the HD digital download from the same approved design.
         </p>
         <p className="text-sm text-neutral-800 sm:text-base">
           Just want the card? The{" "}
@@ -315,7 +315,7 @@ export default function StarMapGiftFormatsPage() {
         leftTitle="Checkout and files"
         leftPoints={[
           "Secure Stripe checkout",
-          "Instant HD download after payment",
+          "HD digital download after payment",
           "No watermark on paid exports",
         ]}
         rightTitle="Print and support"

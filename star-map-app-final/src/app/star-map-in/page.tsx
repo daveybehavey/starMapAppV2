@@ -144,7 +144,7 @@ export default function StarMapByCityPage() {
         leftTitle="Checkout and access"
         leftPoints={[
           "Secure Stripe checkout",
-          "Instant HD unlock after payment",
+          "HD digital unlock after payment",
           "No watermark on paid exports",
         ]}
         rightTitle="Print and support"

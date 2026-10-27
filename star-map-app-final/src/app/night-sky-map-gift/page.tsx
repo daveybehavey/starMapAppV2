@@ -99,8 +99,7 @@ export default function NightSkyMapGiftPage() {
         <p className="text-sm text-white/90 sm:text-base">
           A night sky map gift captures the exact stars from a meaningful date and place — perfect for
           anniversaries, weddings, birthdays, and milestones. Preview the real sky for free, then choose a{" "}
-          <strong className="font-semibold text-amber-100">framed print</strong>, unframed poster, or instant
-          HD digital.
+          <strong className="font-semibold text-amber-100">framed print</strong>, unframed poster, or HD digital.
         </p>
         <MoneyPagePriceAtGlance className="mx-auto max-w-lg" />
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
@@ -168,7 +167,7 @@ export default function NightSkyMapGiftPage() {
         <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li>Perfect for anniversaries, weddings, birthdays, and memorials</li>
           <li>Accurate sky based on real astronomical data</li>
-          <li>Instant preview and easy personalization</li>
+          <li>Live preview and easy personalization</li>
           <li>One approved design can stay digital, go unframed, or arrive framed</li>
         </ul>
       </section>
@@ -178,7 +177,7 @@ export default function NightSkyMapGiftPage() {
         <ol className="list-decimal space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li>Choose the date and location that matter most</li>
           <li>Pick a style and add names or a dedication</li>
-          <li>Preview the map instantly</li>
+          <li>Preview the map free</li>
           <li>Choose framed print, unframed print, or HD digital delivery at checkout</li>
         </ol>
         <div className="pt-2">
@@ -215,7 +214,7 @@ export default function NightSkyMapGiftPage() {
         leftTitle="Checkout and files"
         leftPoints={[
           "Secure Stripe checkout",
-          "Instant HD unlock after payment",
+          "HD digital unlock after payment",
           "No watermark on paid exports",
         ]}
         rightTitle="Print and support"
@@ -268,7 +267,7 @@ export default function NightSkyMapGiftPage() {
           <div>
             <h3 className="text-midnight font-semibold">How fast do I receive a night sky map gift?</h3>
             <p>
-              The HD digital download is available instantly after payment — ideal for last-minute gifting.
+              The HD digital download is available right after payment — ideal for last-minute gifting.
               Framed and unframed print routes show exact shipping timelines before you pay. All routes start
               with a free preview.
             </p>
@@ -292,7 +291,7 @@ export default function NightSkyMapGiftPage() {
           <div>
             <h3 className="text-midnight font-semibold">Can I get a night sky map gift same-day?</h3>
             <p>
-              Yes. The HD digital download is delivered instantly after payment and can be printed at home or
+              Yes. The HD digital download is delivered right after payment and can be printed at home or
               at a local print shop on the same day.
             </p>
           </div>
@@ -300,7 +299,7 @@ export default function NightSkyMapGiftPage() {
       </section>
       <ProductSchema
         name="Night Sky Map Gift"
-        description="Personalized night sky map gift showing the exact stars from any meaningful date and location. Perfect for anniversaries, weddings, birthdays, and milestones. Choose framed print, unframed poster, or instant HD digital."
+        description="Personalized night sky map gift showing the exact stars from any meaningful date and location. Perfect for anniversaries, weddings, birthdays, and milestones. Choose framed print, unframed poster, or HD digital."
         imageUrl={`${siteUrl}/custom-star-map-anniversary.webp`}
         offers={productOffers}
       />
@@ -314,7 +313,7 @@ export default function NightSkyMapGiftPage() {
           {
             question: "How fast do I receive a night sky map gift?",
             answer:
-              "The HD digital download is available instantly after payment — ideal for last-minute gifting. Framed and unframed print routes show exact shipping timelines before you pay. All routes start with a free preview.",
+              "The HD digital download is available right after payment — ideal for last-minute gifting. Framed and unframed print routes show exact shipping timelines before you pay. All routes start with a free preview.",
           },
           {
             question: "What makes this a personalized gift?",
@@ -329,7 +328,7 @@ export default function NightSkyMapGiftPage() {
           {
             question: "Can I get a night sky map gift same-day?",
             answer:
-              "Yes. The HD digital download is delivered instantly after payment and can be printed at home or at a local print shop on the same day.",
+              "Yes. The HD digital download is delivered right after payment and can be printed at home or at a local print shop on the same day.",
           },
         ]}
       />

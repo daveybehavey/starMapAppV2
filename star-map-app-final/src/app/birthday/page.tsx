@@ -37,7 +37,7 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Birthday Star Map Generator | StarMapCo",
   description:
-    "Birthday star map generator for any date and place—preview the exact night sky free, then choose framed + HD (free shipping at $89+ USD), poster, or instant digital delivery.",
+    "Birthday star map generator for any date and place—preview the exact night sky free, then choose framed + HD (free shipping at $89+ USD), poster, or HD digital delivery.",
   alternates: { canonical: `${siteUrl}/birthday` },
   openGraph: {
     title: "Birthday Star Map Generator | StarMapCo",
@@ -92,7 +92,7 @@ export default function BirthdayPage() {
             href={instantHref}
             className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#f1c27d] bg-transparent px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10 focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent focus:outline-none"
           >
-            Instant HD from {instantPrice}
+            HD digital from {instantPrice}
           </Link>
           <Link
             href="/editor?mode=quick&source=birthday-hero-preview"
@@ -115,14 +115,14 @@ export default function BirthdayPage() {
       <PreviewStartForm
         source="birthday"
         title="Start your birthday preview"
-        description="Enter the birth date and place — choose instant HD for same-night gifts or framed + HD for a shipped keepsake."
+        description="Enter the birth date and place — choose HD digital for same-night gifts or framed + HD for a shipped keepsake."
         intentOptions={previewIntents}
       />
       <StickyCtaBar
         source="sticky-birthday-instant-hd"
         title="Party tomorrow?"
-        description="Instant HD unlocks right after checkout — no shipping wait."
-        buttonLabel="Preview instant HD"
+        description="HD digital unlocks right after checkout — no shipping wait."
+        buttonLabel="Preview HD digital"
         primaryHref={instantHref}
         primaryPlan="hd_digital"
         secondaryButtonLabel="Framed + HD instead"
@@ -157,7 +157,7 @@ export default function BirthdayPage() {
         </ol>
         <p className="text-sm text-neutral-800 sm:text-base">
           Share a preview for free. Once the wording feels right, take the framed route, the unframed route,
-          or instant HD delivery from the same approved design.
+          or HD digital delivery from the same approved design.
         </p>
         <div className="pt-2">
           <Link
@@ -171,7 +171,7 @@ export default function BirthdayPage() {
 
       <DeliveryFormatModule
         heading="Choose the birthday delivery format"
-        intro={`Recommended presentation is framed + HD (${bundlePriceLine}) for a ready-to-hang gift plus an instant file. Unframed is the lower-cost physical option; HD-only is fastest for same-day gifting.`}
+        intro={`Recommended presentation is framed + HD (${bundlePriceLine}) for a ready-to-hang gift plus the HD file. Unframed is the lower-cost physical option; HD-only is fastest for same-day gifting.`}
         sourcePrefix="birthday-format"
       />
       <FramedProofSection
@@ -212,7 +212,7 @@ export default function BirthdayPage() {
         leftTitle="Checkout and files"
         leftPoints={[
           "Secure Stripe checkout",
-          "Instant HD download after payment",
+          "HD digital download after payment",
           "No watermark on paid exports",
         ]}
         rightTitle="Print and support"
@@ -291,7 +291,7 @@ export default function BirthdayPage() {
             </h3>
             <p>
               Framed print is the premium birthday gift route because it arrives ready to display. Unframed
-              lowers the total if the recipient already has a frame. Instant HD digital is the fastest option
+              lowers the total if the recipient already has a frame. HD digital is the fastest option
               when you need the gift same-day.
             </p>
           </div>
@@ -332,7 +332,7 @@ export default function BirthdayPage() {
           {
             question: "What gift format works best for a birthday star map?",
             answer:
-              "Framed print is the premium birthday gift route because it arrives ready to display. Unframed lowers the total if the recipient already has a frame. Instant HD digital is the fastest option when you need the gift same-day.",
+              "Framed print is the premium birthday gift route because it arrives ready to display. Unframed lowers the total if the recipient already has a frame. HD digital is the fastest option when you need the gift same-day.",
           },
         ]}
       />

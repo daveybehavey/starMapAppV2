@@ -430,7 +430,7 @@ const PRODUCT_SUPERIORITY_NEGATIVE_FIXTURES = [
   "What delivery format works best for memorial gifts?",
   "Which format is best for a wedding keepsake?",
   "Which gift format works best for long-distance gifting?",
-  "Who is instant HD best for?",
+  "Who is HD digital best for?",
   "Recommended presentation",
   "Premium gift route",
   "Premium gift",
@@ -845,7 +845,7 @@ test("declarative is/works best-for claims are caught while FAQ questions are ex
   assert.equal(matchesProductSuperiority("What format is best for an anniversary gift?"), false);
   assert.equal(matchesProductSuperiority("What gift format works best for a birthday star map?"), false);
   assert.equal(matchesProductSuperiority("Which format is best for a wedding keepsake?"), false);
-  assert.equal(matchesProductSuperiority("Who is instant HD best for?"), false);
+  assert.equal(matchesProductSuperiority("Who is HD digital best for?"), false);
 
   const faqOnly = "What format is best for an anniversary gift?";
   assert.equal(findProductSuperiorityHits(faqOnly).length, 0, "FAQ alone must not match");
@@ -875,7 +875,7 @@ test("declarative is/works best-for claims are caught while FAQ questions are ex
   );
 
   const worksBracketed =
-    "What gift format works best for a birthday star map? HD digital works best for same-night delivery. Who is instant HD best for?";
+    "What gift format works best for a birthday star map? HD digital works best for same-night delivery. Who is HD digital best for?";
   const worksBracketedHits = findProductSuperiorityHits(worksBracketed);
   assert.ok(
     worksBracketedHits.some((hit) => /works best for/i.test(hit.snippet)),
@@ -891,7 +891,7 @@ test("PreviewStartForm and offer surfaces no longer claim best wedding gift or g
 
   const wedding = readSrc("app/wedding/page.tsx");
   assert.doesNotMatch(wedding, /best wedding gift/i);
-  assert.match(wedding, /framed print plus instant HD/);
+  assert.match(wedding, /framed print plus HD digital/);
 
   const home = readSrc("components/HomeOfferStack.tsx");
   assert.doesNotMatch(home, /Highest gift impact/i);
@@ -953,7 +953,7 @@ test("HD money page and digitalGiftCheckout are inventoried without unsupported 
   assert.equal(collectPopularityOrSuperiorityMatches(page).length, 0);
   assert.equal(collectPopularityOrSuperiorityMatches(helper).length, 0);
   assert.equal(matchesProductSuperiority(page), false);
-  assert.match(page, /Who is instant HD best for\?/);
+  assert.match(page, /Who is HD digital best for\?/);
   assert.doesNotMatch(helper, /\bBest if\b/i);
   assert.doesNotMatch(helper, /\bBest when\b/i);
 });

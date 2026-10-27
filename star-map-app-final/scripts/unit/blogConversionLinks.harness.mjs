@@ -7,7 +7,7 @@ export const BLOG_MONEY_PAGE_LINKS = [
   { href: "/birthday", label: "Birthday star maps" },
   { href: "/star-map-for/new-baby", label: "New baby star maps" },
   { href: "/star-map-for/memorial", label: "Memorial star maps" },
-  { href: "/hd-star-map", label: "Instant HD download" },
+  { href: "/hd-star-map", label: "HD digital download" },
   { href: "/shop", label: "Shop prints & formats" },
   { href: "/personalized-star-map", label: "Personalized star map gifts" },
   { href: "/star-map-gift", label: "Star map gift ideas" },

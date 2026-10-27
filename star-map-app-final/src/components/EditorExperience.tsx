@@ -3620,12 +3620,12 @@ export function EditorExperience({
                             <div className="mt-3 grid gap-2 sm:grid-cols-3">
                               <div className="rounded-xl border border-amber-300/25 bg-black/15 px-3 py-2 text-[11px] text-amber-100/90">
                                 <p className="font-semibold text-amber-100">Fastest</p>
-                                <p className="mt-1">Digital only. Instant access after payment.</p>
+                                <p className="mt-1">Digital only. Access right after payment.</p>
                               </div>
                               <div className="rounded-xl border border-amber-300/35 bg-black/20 px-3 py-2 text-[11px] text-amber-100/90">
                                 <p className="font-semibold text-amber-100">Premium gift</p>
                                 <p className="mt-1">
-                                  Framed + HD — instant file plus shipped wall art.{" "}
+                                  Framed + HD — HD file plus shipped wall art.{" "}
                                   {getPrintFramedHdBundleShortLine()}
                                 </p>
                               </div>
