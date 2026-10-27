@@ -54,8 +54,19 @@ jobs:
           SENTRY_SOURCEMAPS: ${{ vars.SENTRY_ORG != '' && vars.SENTRY_PROJECT != '' && '1' || '' }}
         run: npm run build
 
+      - name: Check Sentry credentials
+        id: sentry-creds
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: |
+          if [ -n "$SENTRY_AUTH_TOKEN" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Upload Sentry release and source maps
-        if: ${{ vars.SENTRY_ORG != '' && vars.SENTRY_PROJECT != '' }}
+        if: ${{ vars.SENTRY_ORG != '' && vars.SENTRY_PROJECT != '' && steps.sentry-creds.outputs.available == 'true' }}
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ vars.SENTRY_ORG }}
