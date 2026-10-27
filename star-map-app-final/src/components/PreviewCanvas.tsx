@@ -339,7 +339,13 @@ export default function PreviewCanvas({
         canvas,
         width,
         height,
-        watermark: !paid,
+        // #413: the watermark is NOT painted on this base canvas. The
+        // text-overlay canvas stacks above it, so a base-canvas mark
+        // could be covered by customer text; the text-layer pass below
+        // paints the mark last, above the text (SQ-55 composition
+        // order). Single-canvas renders (exports, share image) still
+        // draw it inside renderStarMap, after their text.
+        watermark: false,
         // Keep editor preview visually aligned with purchased exports (no preview-only grain/sparkle).
         quality: "export",
         premium: paid,
@@ -390,6 +396,11 @@ export default function PreviewCanvas({
       // a transparent mat draws no frame, so the overlay must not fit
       // text against the frame's inset either.
       frameEnabled: resolveTextFitFrameEnabled("preview", baseRecipe?.renderOptions),
+      // #413 paid-state fence: the existing `!paid` wiring, unchanged —
+      // when the authoritative entitlement state resolves paid, this
+      // effect re-runs (paid is a dependency below) and the overlay
+      // repaints without the mark; unpaid, the mark returns.
+      watermark: !paid,
     });
     if (activeBox) {
       const rect = textBoundsRef.current.get(activeBox);
@@ -533,6 +544,7 @@ export default function PreviewCanvas({
     textBoxes,
     updateTextBox,
     readOnly,
+    paid,
   ]);
 
   useEffect(() => {
