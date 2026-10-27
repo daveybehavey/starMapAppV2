@@ -1159,7 +1159,7 @@ test("wiring: REFERRAL_DISCOVERY binding, v4 migration, worker export; routes ke
   assert.match(wrangler, /tag = "v4-referral-discovery"/);
   assert.match(wrangler, /new_sqlite_classes = \["ReferralDiscoveryDO"\]/);
   const worker = readFileSync(path.join(appRoot, "cloudflare-worker.ts"), "utf8");
-  assert.match(worker, /export \{ ReferralDiscoveryDO \}/);
+  assert.match(worker, /export const ReferralDiscoveryDO = Sentry\.instrumentDurableObjectWithSentry\(/);
   for (const route of ["consume", "compensate"]) {
     const src = readFileSync(
       path.join(appRoot, "src", "app", "api", "entitlements", route, "route.ts"),

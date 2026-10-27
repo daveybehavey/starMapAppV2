@@ -984,7 +984,7 @@ test("wiring: DO binding, migration, and worker export exist", () => {
   assert.match(wrangler, /class_name = "EntitlementAuthorityDO"/);
   assert.match(wrangler, /tag = "v3-entitlement-authority"/);
   const worker = readFileSync(path.join(appRoot, "cloudflare-worker.ts"), "utf8");
-  assert.match(worker, /export \{ EntitlementAuthorityDO \}/);
+  assert.match(worker, /export const EntitlementAuthorityDO = Sentry\.instrumentDurableObjectWithSentry\(/);
 });
 
 test("wiring: only the fenced routes and the webhook reference the authority (Slices 3+4)", () => {
