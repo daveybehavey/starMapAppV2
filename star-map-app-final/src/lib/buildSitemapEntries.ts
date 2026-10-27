@@ -34,6 +34,9 @@ export type BuildSitemapOptions = {
  *   is recorded (the Valentine's route records none, so it omits lastModified)
  * - Policy pages: `POLICY_LAST_UPDATED_ISO` from policyMeta
  * - Marketing, hub, location, and occasion URLs: omit lastModified (no generation-time "now")
+ * - URLs are deduplicated by URL (first occurrence wins, order preserved):
+ *   the Valentine's blog route is a static entry and would be generated a
+ *   second time if its slug ever entered `blogPosts` (SQ-30).
  */
 export function buildSitemapEntries(options: BuildSitemapOptions): MetadataRoute.Sitemap {
   const baseUrl = options.baseUrl.replace(/\/$/, "");
@@ -263,5 +266,21 @@ export function buildSitemapEntries(options: BuildSitemapOptions): MetadataRoute
     priority: 0.8,
   }));
 
-  return [...staticEntries, ...variantPageEntries, ...locationEntries, ...occasionEntries, ...staticIndexableBlogRoutes, ...blogEntries];
+  const allEntries = [
+    ...staticEntries,
+    ...variantPageEntries,
+    ...locationEntries,
+    ...occasionEntries,
+    ...staticIndexableBlogRoutes,
+    ...blogEntries,
+  ];
+
+  // SQ-30: no source list may double-add a URL. First occurrence wins so the
+  // curated static entries keep their metadata over generated duplicates.
+  const seenUrls = new Set<string>();
+  return allEntries.filter((entry) => {
+    if (seenUrls.has(entry.url)) return false;
+    seenUrls.add(entry.url);
+    return true;
+  });
 }

@@ -379,23 +379,68 @@ export const seoOccasions: SeoOccasion[] = [
     seoTitle: "Valentine's Day Star Map Gift — Romantic Night Sky | StarMapCo",
     seoH1: "Valentine's Day Star Map Gift",
     seoDescription:
-      "Give a Valentine's Day star map from your special date and place. Free preview, then framed + HD, poster, or instant HD — a personalized romantic gift that ships or downloads fast.",
-    intro: "Create a Valentine’s Day star map that captures the sky from a romantic date or anniversary.",
+      "The real night sky from the night you met, a first date, or February 14 itself — as a framed print, poster, canvas, mug or HD file. Free preview, no account. HD from $9.",
+    intro:
+      "The sky from the night you met, the first date, or Valentine’s night itself — the real stars over that place, on that date, rendered from astronomy data. Preview free, no account.",
     detail:
-      "Use February 14 or any romantic date you want to remember. Pair it with a short message to make the print feel personal and intentional.",
-    exampleLine: "Valentine’s Day · Chicago, IL · February 14, 2024",
+      "Common choices are the night you met, the first date, or February 14 from the year it mattered most. Add both names and a short line in the editor — the words under the stars are yours. Exact time is optional: date plus city still produces an accurate sky, and adding the time sharpens Moon and planet placement.",
+    exampleLine: "Valentine’s Night · Toronto, ON · February 14, 2026",
+    storyHeading: "The night it started, on the wall",
+    storyParagraphs: [
+      "Most Valentine’s gifts could be given to anyone. A star map can only belong to one person: it shows the actual night sky over the place where your story started, on the date it happened — the night you met, the night of the first date, or a February 14 that still matters. It is rendered from real astronomy data for that date and place, so it can be checked, not just admired.",
+      "Choosing the date is the whole gift, and it is worth taking a minute over: the city, the date, and the time if you remember it. The time is optional — date plus city still produces an accurate sky — but adding it places the Moon and planets exactly where they stood. Then add both names and a line of your own. A few words from that night beat a long inscription.",
+      "For a wall-ready gift, framed print + HD digital is the recommended route: the print arrives ready to hang and the HD file is yours to keep. Unframed posters are $39–$49, canvas and mugs carry the same design, and the keepsake card is a $19 card-sized version of the same design. If you want one for each of you, a second copy of the same design is 10% off on posters, canvas and framed prints.",
+      "Distance does not have to decide the gift. If you are apart this February, the HD digital file is available to download right after checkout, so the same sky can be on their screen the day you send it — and a print can follow to either address. Use the place and date of the night that matters most to you both.",
+      "There is no need to decide before you see it. The preview is free and needs no account, so you can try the night you met and the first date side by side, check the spelling of every name, and order only when it looks right. Couples often come back for the same design in a new style on an anniversary — the sky does not change, even as the years add up.",
+    ],
+    storyCtaHref:
+      "/editor?mode=quick&source=occasion-valentines-day-story-preview&utm_source=site&utm_medium=landing&utm_campaign=valentines-day_story",
+    storyCtaLabel: "Start free preview",
+    artwork: [
+      {
+        src: "/examples/example-valentines-toronto-2026.webp",
+        alt: "Star map example — the real night sky over Toronto, Ontario, on Valentine's night, February 14, 2026",
+      },
+      {
+        src: "/examples/example-valentines-yellowknife.webp",
+        alt: "Star map example — the real night sky over Yellowknife, Northwest Territories, on January 16, 2027, a mid-winter sky weeks before Valentine's Day",
+      },
+    ],
     faqs: [
       {
-        question: "Is a star map romantic enough for Valentine’s Day?",
-        answer: "Yes. A personalized sky from a special date is a meaningful Valentine’s gift.",
+        question: "Is a star map a good Valentine’s Day gift?",
+        answer:
+          "Yes. It shows the real night sky from a date that belongs to the two of you — the night you met, a first date, or February 14 itself — rendered from astronomy data for that date and place. It is personal in a way a generic Valentine’s gift cannot be.",
       },
       {
-        question: "Can I choose any date?",
-        answer: "Yes. Use Valentine’s Day or any date that matters most.",
+        question: "Which date should I use?",
+        answer:
+          "Common choices are the night you met, the first date, and the first Valentine’s Day you spent together. Any date that matters works — the map is rendered from the astronomy data for that date, over the place you choose.",
       },
       {
-        question: "Is this only for couples?",
-        answer: "No. Valentine’s star maps are also thoughtful for friends and family.",
+        question: "Do I need the exact time of night?",
+        answer:
+          "No. Date plus city still produces an accurate, beautiful sky. Add the time if you remember it and Moon and planet placement will be precise to that hour.",
+      },
+      {
+        question: "What can I write on the map?",
+        answer:
+          "Add both names, a title, and a short dedication line in the editor before checkout. The same design can be ordered as a framed print, unframed poster, canvas, mug, keepsake card, or HD digital file.",
+      },
+      {
+        question: "Which format fits Valentine’s Day best?",
+        answer:
+          "Framed print + HD digital ($106) is the wall-ready route: ready to hang, with the HD file included. Unframed posters are $39–$49, the keepsake card is $19, and the HD file on its own starts at $9. A second copy of the same design is 10% off on posters, canvas, and framed prints.",
+      },
+      {
+        question: "We are long-distance. Can I still give one?",
+        answer:
+          "Yes. Use the date and place of the night that matters to you both. The HD digital file is available to download right after checkout, so distance does not decide whether the gift arrives — and a print can be shipped to either of you.",
+      },
+      {
+        question: "Will a print arrive by February 14?",
+        answer:
+          "Check the shipping page for the current Valentine’s order-by dates before relying on a specific delivery date — print orders of $89 or more ship free. The free preview lets you design yours now, and the HD file is there if you leave it late.",
       },
     ],
   },
