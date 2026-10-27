@@ -175,6 +175,18 @@ export default function StarMapGiftPage() {
       <GiftFormatRoadmapModule sourcePrefix="gift-format-roadmap" />
       <FramedProofSection sourcePrefix="gift-proof" />
 
+      <section className="mt-10 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+        <h2 className="text-2xl font-semibold text-slate-900">Want the wall piece and the file together?</h2>
+        <p className="mt-3 text-slate-700">
+          The{" "}
+          <Link href="/star-map-poster/framed-hd-bundle" className="font-semibold text-sky-800 underline">
+            framed print + HD digital download bundle
+          </Link>{" "}
+          pairs the ready-to-hang framed print with the HD file from the same approved design, so the framed gift is
+          ready to hang and the high-resolution artwork stays with you.
+        </p>
+      </section>
+
       <PurchaseTrustPanel
         heading="Confidence before checkout"
         intro="Build and share your preview for free. Pay only when the wording, frame choice, and delivery route feel right."
