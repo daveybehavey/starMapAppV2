@@ -16,6 +16,7 @@ import {
   resolveTextFitScale,
   type TextFitLayout,
 } from "./textFit";
+import { resolveShapeTextProfile } from "./shapeTextProfile";
 import {
   resolveWatermarkPlacement,
   WATERMARK_OPACITY,
@@ -553,6 +554,9 @@ export function renderStarMap({
       // #406: the diamond fit evaluates against the same footprint
       // the clip was built from (null under the legacy layout).
       shapeMaskFootprint: resolveShapeMaskFootprint(width, targetHeight, shapeLayoutVersion),
+      // #407: the heart/star fit evaluates against the shape's
+      // interior profile (the renderer's own SHAPE_PATHS geometry).
+      shapeTextProfile: resolveShapeTextProfile(shapeName),
     });
     ctx.restore();
   } else if (textBounds) {
@@ -647,6 +651,8 @@ export function renderStarMapTextLayer({
     frameEnabled,
     matPurpose,
     shapeMaskFootprint: resolveShapeMaskFootprint(width, height, resolvedShapeLayoutVersion),
+    // #407: same interior profile the base render fits against.
+    shapeTextProfile: resolveShapeTextProfile(shape),
   });
   if (watermark) {
     const shapeName: Shape =
@@ -1416,7 +1422,7 @@ function drawText(
   textBoxes: TextBox[],
   bounds?: Map<string, { x: number; y: number; width: number; height: number }>,
   scale = 1,
-  textLayout?: Pick<TextFitLayout, "shape" | "frameEnabled" | "matPurpose" | "shapeMaskFootprint">,
+  textLayout?: Pick<TextFitLayout, "shape" | "frameEnabled" | "matPurpose" | "shapeMaskFootprint" | "shapeTextProfile">,
 ) {
   if (bounds) bounds.clear();
 
@@ -1451,6 +1457,7 @@ function drawText(
       frameEnabled: textLayout?.frameEnabled ?? true,
       matPurpose: textLayout?.matPurpose,
       shapeMaskFootprint: textLayout?.shapeMaskFootprint,
+      shapeTextProfile: textLayout?.shapeTextProfile,
       centerYNorm: provisional.y,
       lineHeightPx: baseFontSize * 1.2,
       width,

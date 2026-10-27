@@ -46,8 +46,10 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
   DIAMOND_TEXT_BOX_ROWS,
+  HEART_TEXT_BOX_ROWS,
   MIN_TEXT_FIT_SCALE,
   STANDARD_TEXT_BOX_ROWS,
+  STAR_TEXT_BOX_ROWS,
   applyDefaultTextRowsForShape,
   resolveDefaultTextBoxRows,
   resolveFrameInsetPx,
@@ -180,19 +182,33 @@ test("U14-fix: boxes on standard rows move to the diamond rows when diamond appl
   assert.deepEqual(boxes.map((b) => b.position.y), [0.12, 0.18, 0.9]);
 });
 
-test("U14-fix: boxes on diamond rows move back to the standard rows for other shapes", () => {
+test("U14-fix: boxes on diamond rows move to the target shape's rows for other shapes", () => {
   const boxes = [
     box("title", DIAMOND_TEXT_BOX_ROWS.title),
     box("subtitle", DIAMOND_TEXT_BOX_ROWS.subtitle),
     box("dedication", DIAMOND_TEXT_BOX_ROWS.dedication),
   ];
-  for (const shape of ["rectangle", "circle", "heart", "star"]) {
+  // Standard-row shapes keep the original behaviour.
+  for (const shape of ["rectangle", "circle"]) {
     assert.deepEqual(
       applyDefaultTextRowsForShape(boxes, shape).map((b) => b.position.y),
       [0.12, 0.18, 0.9],
       shape,
     );
   }
+  // #407 (SQ-03 section 4): heart/star have their own row sets now,
+  // so a recognised default moves to the TARGET set's rows (D -> H/T),
+  // not back to the standard rows this test originally pinned.
+  assert.deepEqual(
+    applyDefaultTextRowsForShape(boxes, "heart").map((b) => b.position.y),
+    [HEART_TEXT_BOX_ROWS.title, HEART_TEXT_BOX_ROWS.subtitle, HEART_TEXT_BOX_ROWS.dedication],
+    "heart",
+  );
+  assert.deepEqual(
+    applyDefaultTextRowsForShape(boxes, "star").map((b) => b.position.y),
+    [STAR_TEXT_BOX_ROWS.title, STAR_TEXT_BOX_ROWS.subtitle, STAR_TEXT_BOX_ROWS.dedication],
+    "star",
+  );
 });
 
 test("U14-fix: user-moved, off-centre, custom and position-less boxes are never relocated", () => {
@@ -220,9 +236,11 @@ test("U14-fix: relocation is idempotent and a no-op (same reference) when rows a
 
 test("U14-fix: wiring — setShape relocates, and the SimplifiedEditor sample fallback resolves rows per shape", () => {
   const store = read("src/lib/store.ts");
-  assert.match(store, /textBoxes: applyDefaultTextRowsForShape\(state\.textBoxes, shape\)/);
+  // #407: setShape also threads the design's layout footprint, so the
+  // mask-authored heart/star rows convert for the current aspect.
+  assert.match(store, /textBoxes: applyDefaultTextRowsForShape\(\s*state\.textBoxes,\s*shape,\s*resolveShapeMaskFootprint\(/);
   const simplified = read("src/components/SimplifiedEditor/SimplifiedEditor.tsx");
-  assert.match(simplified, /applyDefaultTextRowsForShape\(SAMPLE_RECIPE\.textBoxes, shape\)/);
+  assert.match(simplified, /applyDefaultTextRowsForShape\(\s*SAMPLE_RECIPE\.textBoxes,\s*shape,\s*resolveShapeMaskFootprint\(1, 1, renderOptions\.shapeLayoutVersion\),\s*1,\s*\)/);
 });
 
 /* ---------- Rider: framed-rectangle fit padding (fleet PR #16 nit) ---------- */

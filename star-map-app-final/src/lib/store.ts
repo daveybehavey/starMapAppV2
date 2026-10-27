@@ -7,6 +7,7 @@ import {
 } from "./dateTime";
 import type { MapLookTier } from "./mapLookTiers";
 import { applyDefaultTextRowsForShape } from "./textFit";
+import { resolveShapeMaskFootprint } from "./shapeLayout";
 import { getStyleTextDefaults } from "./styleDefaults";
 import {
   AUTOMATIC_TEXT_STYLE_BINDING,
@@ -334,16 +335,37 @@ const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) =
   // the two must never disagree (fleet U14: mask stayed "circle" for
   // every shape while `shape` was correct).
   setShape: (shape) =>
-    set((state) => ({
-      shape,
-      renderOptions: { ...state.renderOptions, shapeMask: shape },
-      // Designed boxes still sitting on the previous shape's DEFAULT
-      // rows follow the shape (fleet PR #16: on diamond the standard
-      // rows sit in the apex zones). Boxes the user moved — or that a
-      // preset authored — are user data and stay put; see
-      // applyDefaultTextRowsForShape in textFit.ts.
-      textBoxes: applyDefaultTextRowsForShape(state.textBoxes, shape),
-    })),
+    set((state) => {
+      // #407: the heart/star default rows are mask-authored, so the
+      // migration converts them through the design's layout — the
+      // mask footprint for the CURRENT aspect under the design's
+      // persisted layout version. Aspect-ratio parts are used as the
+      // canvas (any canvas of this aspect gives identical row
+      // fractions), so every caller derives the same rows.
+      const [aspectW, aspectH] =
+        state.aspectRatio === "square"
+          ? [1, 1]
+          : state.aspectRatio.split(":").map(Number);
+      return {
+        shape,
+        renderOptions: { ...state.renderOptions, shapeMask: shape },
+        // Designed boxes still sitting on the previous shape's DEFAULT
+        // rows follow the shape (fleet PR #16: on diamond the standard
+        // rows sit in the apex zones). Boxes the user moved — or that a
+        // preset authored — are user data and stay put; see
+        // applyDefaultTextRowsForShape in textFit.ts.
+        textBoxes: applyDefaultTextRowsForShape(
+          state.textBoxes,
+          shape,
+          resolveShapeMaskFootprint(
+            aspectW,
+            aspectH,
+            state.renderOptions.shapeLayoutVersion,
+          ),
+          aspectH,
+        ),
+      };
+    }),
   setRenderOptions: (options) =>
     set((state) => ({ renderOptions: { ...state.renderOptions, ...options } })),
   setPreviewFidelity: (previewFidelity) => set({ previewFidelity }),
