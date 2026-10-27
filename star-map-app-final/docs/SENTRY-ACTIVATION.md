@@ -18,14 +18,18 @@ sampling, no traces/replay/breadcrumbs) is already in code and unit-tested.
 3. **Project-side settings** — in the Sentry project: enable sensitive-data
    scrubbing and IP-address exclusion (defense in depth; `beforeSend` cannot
    control network source addresses at ingestion).
-4. **CI release + source-map upload** — set repository variables
-   `SENTRY_ORG` and `SENTRY_PROJECT`, then add the step below to
-   `.github/workflows/ci.yml` in the `build-and-commerce-smoke` job,
-   immediately after the "Production build" step, and add the two `env`
-   entries to that build step. (This step is not yet in ci.yml: the agent
-   environment's GitHub OAuth token lacks the `workflow` scope needed to
-   push workflow-file changes. The existing `SENTRY_AUTH_TOKEN` Actions
-   secret is already in place.)
+4. **CI release + source-map upload** — DONE (merged in PR #438): the
+   repository variables `SENTRY_ORG` and `SENTRY_PROJECT` are set, and the
+   steps below are in `.github/workflows/ci.yml` in the
+   `build-and-commerce-smoke` job, immediately after the "Production build"
+   step, with the two `env` entries on that build step. The "Check Sentry
+   credentials" step gates the upload step, and a `workflow_dispatch` run
+   on merged main succeeded with the Sentry steps executing. The steps are
+   reproduced below for reference. (The workflow-file change landed via
+   the owner's signed-in web-editor session: the agent environment's
+   GitHub OAuth token lacks the `workflow` scope needed to push
+   workflow-file changes. The `SENTRY_AUTH_TOKEN` Actions secret is in
+   place.)
 
    Build-step env additions:
 
