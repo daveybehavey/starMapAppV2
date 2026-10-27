@@ -391,6 +391,51 @@ const clampCandidateRowCache = {
   },
 };
 
+/**
+ * #407 (Codex P2 on PR #432): aspect changes remap untouched
+ * mask-relative rows through the footprint change. A heart/star
+ * default row is STORED as a canvas fraction converted through the
+ * footprint of the aspect in force when it was written; if the
+ * aspect changes before the next shape switch, the mask-space
+ * recognition in applyDefaultTextRowsForShape would read the stored
+ * row through the NEW footprint and strand it as a "custom"
+ * position. This remap runs at the aspect change, while the old
+ * footprint is still known: a designed box centred on the current
+ * shape's default mask row (under the FROM footprint) is rewritten
+ * to the same mask row under the TO footprint, snapped to the
+ * canonical row value. Legacy designs (null footprint on either
+ * side) store mask rows as canvas rows at every aspect — nothing
+ * to remap. Reference-stable when nothing changes.
+ */
+export function remapDefaultTextRowsForFootprintChange<
+  T extends { id: string; position?: { x: number; y: number } },
+>(
+  boxes: T[],
+  shape: string | undefined,
+  fromFootprint: ShapeMaskFootprint | null | undefined,
+  toFootprint: ShapeMaskFootprint | null | undefined,
+  fromCanvasHeight: number,
+  toCanvasHeight: number,
+): T[] {
+  if (shape !== "heart" && shape !== "star") return boxes;
+  if (!fromFootprint || !toFootprint) return boxes;
+  if (!(fromCanvasHeight > 0) || !(toCanvasHeight > 0)) return boxes;
+  const rows = resolveDefaultTextBoxRows(shape);
+  let changed: T[] | null = null;
+  boxes.forEach((box, index) => {
+    const targetRow = rows[box.id as keyof typeof rows];
+    if (targetRow === undefined || !box.position || box.position.x !== 0.5) return;
+    const maskY =
+      (box.position.y * fromCanvasHeight - fromFootprint.offsetY) / fromFootprint.size;
+    if (Math.abs(maskY - targetRow) > MASK_ROW_RECOGNITION_EPSILON) return;
+    const y = (toFootprint.offsetY + targetRow * toFootprint.size) / toCanvasHeight;
+    if (y === box.position.y) return;
+    if (!changed) changed = [...boxes];
+    changed[index] = { ...box, position: { ...box.position, y } };
+  });
+  return changed ?? boxes;
+}
+
 export function clampTextCenterToShape(
   center: { x: number; y: number },
   layout: TextDragClampLayout,

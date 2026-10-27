@@ -6,7 +6,10 @@ import {
   resolveBrowserTimeZone,
 } from "./dateTime";
 import type { MapLookTier } from "./mapLookTiers";
-import { applyDefaultTextRowsForShape } from "./textFit";
+import {
+  applyDefaultTextRowsForShape,
+  remapDefaultTextRowsForFootprintChange,
+} from "./textFit";
 import { resolveShapeMaskFootprint } from "./shapeLayout";
 import { getStyleTextDefaults } from "./styleDefaults";
 import {
@@ -329,7 +332,29 @@ const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) =
   clearSampleDesignLastAutoSynced: () =>
     set({ sampleDesignLastAutoSynced: { ...EMPTY_SAMPLE_DESIGN_LAST_AUTO_SYNCED } }),
   setStyle: (selectedStyle) => set({ selectedStyle }),
-  setAspectRatio: (aspectRatio) => set({ aspectRatio }),
+  setAspectRatio: (aspectRatio) =>
+    set((state) => {
+      // #407 (Codex P2 on PR #432): heart/star default rows are
+      // stored converted through the footprint of the aspect in
+      // force; remap untouched defaults through the footprint
+      // change so the next shape switch still recognises them.
+      const parseAspect = (value: string): [number, number] =>
+        value === "square" ? [1, 1] : (value.split(":").map(Number) as [number, number]);
+      const [fromW, fromH] = parseAspect(state.aspectRatio);
+      const [toW, toH] = parseAspect(aspectRatio);
+      const version = state.renderOptions.shapeLayoutVersion;
+      return {
+        aspectRatio,
+        textBoxes: remapDefaultTextRowsForFootprintChange(
+          state.textBoxes,
+          state.shape,
+          resolveShapeMaskFootprint(fromW, fromH, version),
+          resolveShapeMaskFootprint(toW, toH, version),
+          fromH,
+          toH,
+        ),
+      };
+    }),
   // renderOptions.shapeMask mirrors the selected shape: legacy readers
   // (recipe hydration, older drafts) resolve the shape from the mask, so
   // the two must never disagree (fleet U14: mask stayed "circle" for

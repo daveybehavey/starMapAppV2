@@ -34,6 +34,7 @@ import {
   STAR_TEXT_BOX_ROWS,
   applyDefaultTextRowsForShape,
   clampTextCenterToShape,
+  remapDefaultTextRowsForFootprintChange,
   resolveDefaultTextBoxRows,
   resolveShapeTextAvailableWidth,
   resolveTextAnchorToCenterX,
@@ -285,6 +286,42 @@ test("migration under the uniform layout round-trips through the footprint", () 
   assert.notEqual(toStar[0].position.y, toHeart[0].position.y);
 });
 
+test("aspect-change remap: untouched v2 heart defaults survive an aspect change (Codex P2 repro)", () => {
+  // Codex's repro on PR #432: v2 heart at 2:3, aspect -> square,
+  // shape -> rectangle must restore the standard rows; without the
+  // remap the subtitle/dedication strand at their 2:3-converted
+  // canvas rows (0.47333 / 0.60) as if they were custom positions.
+  const from23 = resolveShapeMaskFootprint(2, 3, 2);
+  const heartAt23 = applyDefaultTextRowsForShape(boxesAt(STANDARD_TEXT_BOX_ROWS), "heart", from23, 3);
+  assert.deepEqual(rowsOf(heartAt23), [0.42, (0.5 + 0.46 * 2) / 3, 0.6]);
+  const square = resolveShapeMaskFootprint(1, 1, 2);
+  const remapped = remapDefaultTextRowsForFootprintChange(heartAt23, "heart", from23, square, 3, 1);
+  assert.deepEqual(rowsOf(remapped), [
+    HEART_TEXT_BOX_ROWS.title,
+    HEART_TEXT_BOX_ROWS.subtitle,
+    HEART_TEXT_BOX_ROWS.dedication,
+  ]);
+  const backToRectangle = applyDefaultTextRowsForShape(remapped, "rectangle", square, 1);
+  assert.deepEqual(rowsOf(backToRectangle), rowsOf(boxesAt(STANDARD_TEXT_BOX_ROWS)));
+});
+
+test("aspect-change remap: reference-stable, custom rows untouched, legacy is a no-op", () => {
+  const from23 = resolveShapeMaskFootprint(2, 3, 2);
+  const square = resolveShapeMaskFootprint(1, 1, 2);
+  const custom = [
+    { id: "title", position: { x: 0.5, y: 0.31 } },
+    { id: "subtitle", position: { x: 0.4, y: (0.5 + 0.46 * 2) / 3 } },
+  ];
+  assert.equal(remapDefaultTextRowsForFootprintChange(custom, "heart", from23, square, 3, 1), custom);
+  const heartAt23 = applyDefaultTextRowsForShape(boxesAt(STANDARD_TEXT_BOX_ROWS), "heart", from23, 3);
+  // Same footprint on both sides -> nothing to rewrite.
+  assert.equal(remapDefaultTextRowsForFootprintChange(heartAt23, "heart", from23, from23, 3, 3), heartAt23);
+  // Legacy designs (null footprints) store mask rows as canvas rows.
+  assert.equal(remapDefaultTextRowsForFootprintChange(heartAt23, "heart", null, null, 3, 1), heartAt23);
+  // Non-mask-row shapes never remap.
+  assert.equal(remapDefaultTextRowsForFootprintChange(heartAt23, "diamond", from23, square, 3, 1), heartAt23);
+});
+
 /* ------------------------------------------------------------------ */
 /* Drag clamp                                                          */
 /* ------------------------------------------------------------------ */
@@ -421,4 +458,5 @@ test("wiring: render paths thread the interior profile into the fit", () => {
   assert.match(preview, /shapeTextProfile: resolveShapeTextProfile\(dragShapeLayoutRef\.current\.shape\)/);
   const store = read("src/lib/store.ts");
   assert.match(store, /applyDefaultTextRowsForShape\(\s*state\.textBoxes,\s*shape,\s*resolveShapeMaskFootprint\(/);
+  assert.match(store, /remapDefaultTextRowsForFootprintChange\(\s*state\.textBoxes,\s*state\.shape,\s*resolveShapeMaskFootprint\(fromW, fromH, version\),\s*resolveShapeMaskFootprint\(toW, toH, version\),/);
 });
