@@ -261,7 +261,13 @@ const STYLE_RENDER_PROFILES: Record<StyleId, StyleRenderProfile> = {
   parchmentScroll: {
     useFixedStarColor: true,
     allowGlow: false,
-    starAlphaFloor: 0.075,
+    // #412 (SQ-60): alpha floor derived from a 3:1 contrast criterion for
+    // the fixed ink #3a2d1f over the cream paper #e9d3a5 — at 0.575 the
+    // composited core measures ≈3.11:1. The old 0.075 floor left most
+    // stars as faint specks. Per-star backing compensation in
+    // drawStarLayer raises this further where the warm wash darkens the
+    // paper. Escalate only in 0.025 steps (0.600, 0.625) if proof fails.
+    starAlphaFloor: 0.575,
     starSizeBoost: 1.12,
     starVisibilityCutoff: 0,
     starAlphaBoost: 1,
@@ -472,9 +478,10 @@ export function renderStarMap({
     recipe.renderOptions,
     matPurpose,
   );
-  if (recipe.selectedStyle === "parchmentScroll") {
-    drawPaperTexture(ctx, width, targetHeight, quality);
-  }
+  // #412 (SQ-60): the parchment paper texture is removed, not replaced —
+  // its deterministic square cells darkened the whole paper before the
+  // sky was drawn and read as dirt. drawFilmGrain already excludes
+  // parchment, so parchment now renders on the clean paper + warm wash.
   drawSky(
     ctx,
     width,
@@ -688,6 +695,153 @@ export function buildRecipeFromState(input: {
   };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// #412 Parchment Scroll sky treatment (SQ-60)
+//
+// There is no painted circular sky disc in this renderer: drawBackground
+// fills the whole clipped shape and drawSky paints onto it. The visible
+// circular boundary is where sky content ends at the projection radius
+// R = PROJECTION_RADIUS_FACTOR × min(width, height). The parchment fix is
+// therefore a sky-content transition at that radius plus an ink-contrast
+// floor — never a background vignette (STYLE_THEME.parchmentScroll.vignette
+// stays transparent).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Fraction of R where the parchment sky-content fade begins. */
+const PARCHMENT_FADE_START = 0.9;
+/** Contrast criterion for parchment star cores (SQ-60 section 1). */
+const PARCHMENT_CONTRAST_RATIO = 3;
+/** Warm edge wash painted by drawBackground for parchmentScroll. */
+const PARCHMENT_WASH_RGB = { r: 92, g: 64, b: 36 };
+const PARCHMENT_WASH_MAX_ALPHA = 0.18;
+
+function smoothstep01(t: number) {
+  const x = clamp(t, 0, 1);
+  return x * x * (3 - 2 * x);
+}
+
+/**
+ * Radial retention for parchment sky content: 1 at or inside
+ * PARCHMENT_FADE_START × R, 0 at R and beyond, smoothstep between.
+ * Stars consume this as a deterministic keep/omit probability (retained
+ * stars keep their full contrast-qualified alpha); non-star sky layers
+ * consume it as an opacity mask.
+ */
+function parchmentRetentionFactor(distance: number, radius: number) {
+  if (radius <= 0) return 1;
+  const t = distance / radius;
+  if (t <= PARCHMENT_FADE_START) return 1;
+  if (t >= 1) return 0;
+  return 1 - smoothstep01((t - PARCHMENT_FADE_START) / (1 - PARCHMENT_FADE_START));
+}
+
+type Rgb = { r: number; g: number; b: number };
+
+function relativeLuminance({ r, g, b }: Rgb) {
+  const linear = (channel: number) => {
+    const c = channel / 255;
+    return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
+}
+
+/**
+ * Minimum source-over alpha at which `ink` composited over `backing`
+ * reaches `target` contrast against that backing, or null when even
+ * fully opaque ink cannot reach it.
+ */
+function minAlphaForContrast(ink: Rgb, backing: Rgb, target: number): number | null {
+  const maxCompositeLuminance = (relativeLuminance(backing) + 0.05) / target - 0.05;
+  if (maxCompositeLuminance < 0) return null;
+  if (relativeLuminance(ink) > maxCompositeLuminance) return null;
+  let lo = 0;
+  let hi = 1;
+  for (let i = 0; i < 24; i += 1) {
+    const mid = (lo + hi) / 2;
+    const composite: Rgb = {
+      r: ink.r * mid + backing.r * (1 - mid),
+      g: ink.g * mid + backing.g * (1 - mid),
+      b: ink.b * mid + backing.b * (1 - mid),
+    };
+    if (relativeLuminance(composite) <= maxCompositeLuminance) {
+      hi = mid;
+    } else {
+      lo = mid;
+    }
+  }
+  return hi;
+}
+
+/**
+ * The parchment backing under a point: the paper base with drawBackground's
+ * warm edge wash composited over it. The wash is a concentric radial
+ * gradient — transparent inside 0.35 × min(width, height),
+ * rgba(92, 64, 36, 0.18) at 0.85 × max(width, height) — so its effective
+ * colour is constant and only its alpha varies with distance.
+ */
+function parchmentBackingAt(base: Rgb, x: number, y: number, width: number, height: number): Rgb {
+  const distance = Math.hypot(x - width / 2, y - height / 2);
+  const inner = Math.min(width, height) * 0.35;
+  const outer = Math.max(width, height) * 0.85;
+  const washAlpha =
+    PARCHMENT_WASH_MAX_ALPHA * clamp((distance - inner) / Math.max(1, outer - inner), 0, 1);
+  return {
+    r: PARCHMENT_WASH_RGB.r * washAlpha + base.r * (1 - washAlpha),
+    g: PARCHMENT_WASH_RGB.g * washAlpha + base.g * (1 - washAlpha),
+    b: PARCHMENT_WASH_RGB.b * washAlpha + base.b * (1 - washAlpha),
+  };
+}
+
+/**
+ * Draw `drawLayer` into a transparent offscreen layer, fade it radially
+ * per parchmentRetentionFactor (destination-in), and composite it back
+ * over `ctx` in place. The layer inherits ctx's current transform (pixel
+ * ratio + print-safe), so the mask lives in the same logical coordinate
+ * space as the sky. Falls back to drawing directly when no offscreen
+ * canvas is available.
+ */
+function drawParchmentFadedLayer(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  drawLayer: (target: CanvasRenderingContext2D) => void,
+) {
+  const ownerDocument = typeof document !== "undefined" ? document : null;
+  if (!ownerDocument || typeof ctx.getTransform !== "function") {
+    drawLayer(ctx);
+    return;
+  }
+  const layer = ownerDocument.createElement("canvas");
+  layer.width = Math.max(1, ctx.canvas.width);
+  layer.height = Math.max(1, ctx.canvas.height);
+  const layerCtx = layer.getContext("2d");
+  if (!layerCtx) {
+    drawLayer(ctx);
+    return;
+  }
+  layerCtx.setTransform(ctx.getTransform());
+  drawLayer(layerCtx);
+
+  const radius = Math.min(width, height) * PROJECTION_RADIUS_FACTOR;
+  const gradient = layerCtx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, radius);
+  gradient.addColorStop(0, "rgba(0, 0, 0, 1)");
+  gradient.addColorStop(PARCHMENT_FADE_START, "rgba(0, 0, 0, 1)");
+  for (const t of [0.925, 0.95, 0.975]) {
+    gradient.addColorStop(t, `rgba(0, 0, 0, ${parchmentRetentionFactor(t * radius, radius)})`);
+  }
+  gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+  layerCtx.save();
+  layerCtx.globalCompositeOperation = "destination-in";
+  layerCtx.fillStyle = gradient;
+  layerCtx.fillRect(-width, -height, width * 3, height * 3);
+  layerCtx.restore();
+
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(layer, 0, 0);
+  ctx.restore();
+}
+
 function drawBackground(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -851,6 +1005,10 @@ function drawStarLayer(
   premiumThreshold: number,
   scale: number,
   densityTuning: ReturnType<typeof getStarDensityTuning>,
+  width = 0,
+  height = 0,
+  isParchment = false,
+  parchmentPaper: Rgb | null = null,
 ) {
   const starIntensity = resolveStarIntensity(renderOptions?.starIntensity);
   const intensityFactor = STAR_INTENSITY_FACTORS[starIntensity].size;
@@ -859,6 +1017,14 @@ function drawStarLayer(
   const baseGlow = mode?.glowBlur ?? 8;
   const glow = (starGlowEnabled ? baseGlow + 4 : baseGlow) * scale;
   const glowMagnitudeCutoff = 3.2;
+  // #412: parchment contrast compensation resolves the fixed ink once
+  // per layer, not once per star. The paper base is resolved by the
+  // caller (drawSky) with drawBackground's precedence — explicit
+  // background override, then mode palette, then theme.
+  const parchmentInk = isParchment
+    ? (parseHexColor(palette.star) ?? parseRgbColor(palette.star))
+    : null;
+  const parchmentRadius = Math.min(width, height) * PROJECTION_RADIUS_FACTOR;
 
   ctx.save();
   ctx.fillStyle = palette.star;
@@ -871,7 +1037,17 @@ function drawStarLayer(
     const baseAlpha = brightnessFromMagnitude(star.magnitude);
     if (!Number.isFinite(baseAlpha)) continue;
 
-    const alpha = clamp(
+    if (isParchment) {
+      // #412 disc-edge fade: deterministic density retention. A star is
+      // kept whole or omitted — never alpha-faded — so retained cores
+      // keep their contrast-qualified alpha (SQ-60 section 2).
+      const distance = Math.hypot(star.x - width / 2, star.y - height / 2);
+      const retention = parchmentRetentionFactor(distance, parchmentRadius);
+      if (retention <= 0) continue;
+      if (retention < 1 && randFromSeed((i + 1) * 61.37) >= retention) continue;
+    }
+
+    let alpha = clamp(
       baseAlpha *
         (star.opacity ?? 1) *
         (mode?.starAlpha ?? 1) *
@@ -882,6 +1058,19 @@ function drawStarLayer(
       1,
     );
     if (!Number.isFinite(alpha)) continue;
+    if (isParchment && parchmentInk && parchmentPaper) {
+      // #412: raise the alpha to the 3:1 floor against this star's
+      // actual backing (paper + warm edge wash). If even opaque ink
+      // cannot reach 3:1 over that backing, omit the star explicitly
+      // (SQ-60 section 1) rather than painting a sub-criterion speck.
+      const needed = minAlphaForContrast(
+        parchmentInk,
+        parchmentBackingAt(parchmentPaper, star.x, star.y, width, height),
+        PARCHMENT_CONTRAST_RATIO,
+      );
+      if (needed === null) continue;
+      if (needed > alpha) alpha = needed;
+    }
     if (styleProfile.starVisibilityCutoff > 0 && alpha < styleProfile.starVisibilityCutoff + densityTuning.visibilityCutoffDelta) continue;
 
     const jitter = styleProfile.starJitterMin + randFromSeed((i + 1) * 17) * styleProfile.starJitterRange;
@@ -1055,35 +1244,66 @@ function drawSky(
 ) {
   if (!sky) return;
   const theme = STYLE_THEME[styleId];
+  const isParchment = styleId === "parchmentScroll";
   const palette = {
     background: mode?.palette?.background ?? theme.background,
     vignette: theme.vignette,
     accent: mode?.palette?.accent ?? theme.accent,
-    star: mode?.palette?.star ?? theme.star,
+    // #412 (SQ-60 section 1): parchment ink is fixed by the style, not
+    // the visual mode — a mode palette must not substitute a light
+    // "star" colour, or the ink-on-paper assertion has no ink to assert
+    // (the astronomical palette's #f8fbff would render the whole sky
+    // near-invisible on paper and fail every contrast check).
+    star: isParchment ? theme.star : (mode?.palette?.star ?? theme.star),
     glow: mode?.palette?.glow ?? theme.glow,
   };
+  // The backing base for the parchment contrast model is the colour
+  // drawBackground actually paints: explicit background override first,
+  // then mode palette, then theme (same precedence as drawBackground).
+  const parchmentPaper = isParchment
+    ? (parseHexColor((renderOptions?.backgroundColor ?? "").trim() || palette.background) ??
+      parseRgbColor((renderOptions?.backgroundColor ?? "").trim() || palette.background))
+    : null;
   const lineFactor = mode?.lineWidthFactor ?? 1;
   const polishFinish = shouldApplyPolishFinish(renderOptions, styleId);
   const cinematicDetail = premium || polishFinish;
-  const premiumStars = premium && (renderOptions?.premiumStars ?? "off") !== "off";
+  // #412 (SQ-60 section 1): parchment stars always take the ordinary
+  // fixed-ink path, even when premiumStars is enabled — the premium path
+  // bypasses the fixed colour and adds a white core, so its alpha floor
+  // cannot establish the ink-on-paper contrast assertion. The saved
+  // option value itself is preserved; only its parchment rendering
+  // treatment differs.
+  const premiumStars =
+    premium && !isParchment && (renderOptions?.premiumStars ?? "off") !== "off";
   const premiumPlanets = premium && (renderOptions?.premiumPlanets ?? "off") !== "off";
   const premiumThreshold = (renderOptions?.premiumStars ?? "off") === "realistic" ? 2.2 : 0.6;
   const styleProfile = STYLE_RENDER_PROFILES[styleId];
   const qualityTuning = QUALITY_VISUAL_TUNING[quality];
-  drawConstellationLayer(
-    ctx,
-    sky,
-    renderOptions,
-    mode,
-    styleProfile,
-    qualityTuning,
-    palette,
-    lineFactor,
-    scale,
-    cinematicDetail,
-    styleId,
-    mapLookTier,
-  );
+  // #412 (SQ-60 section 2): for parchment, constellations and planetary
+  // content render through a radial opacity fade at the projection
+  // radius (stars use density retention instead — see drawStarLayer).
+  // Background, warm wash, frame, shape outline, text and watermark
+  // stay outside the fade, as does an explicitly enabled technical ring.
+  const drawConstellations = (target: CanvasRenderingContext2D) =>
+    drawConstellationLayer(
+      target,
+      sky,
+      renderOptions,
+      mode,
+      styleProfile,
+      qualityTuning,
+      palette,
+      lineFactor,
+      scale,
+      cinematicDetail,
+      styleId,
+      mapLookTier,
+    );
+  if (isParchment) {
+    drawParchmentFadedLayer(ctx, width, height, drawConstellations);
+  } else {
+    drawConstellations(ctx);
+  }
 
   if (cinematicDetail && styleProfile.showMilkyWayBand) {
     const bandColor = resolveBandColor(palette.star);
@@ -1103,18 +1323,28 @@ function drawSky(
     premiumThreshold,
     scale,
     densityTuning,
+    width,
+    height,
+    isParchment,
+    parchmentPaper,
   );
-  drawPlanetaryLayer(
-    ctx,
-    sky,
-    renderOptions,
-    mode,
-    styleProfile,
-    palette,
-    premiumPlanets,
-    theme.glow,
-    scale,
-  );
+  const drawPlanetary = (target: CanvasRenderingContext2D) =>
+    drawPlanetaryLayer(
+      target,
+      sky,
+      renderOptions,
+      mode,
+      styleProfile,
+      palette,
+      premiumPlanets,
+      theme.glow,
+      scale,
+    );
+  if (isParchment) {
+    drawParchmentFadedLayer(ctx, width, height, drawPlanetary);
+  } else {
+    drawPlanetary(ctx);
+  }
 
   if (renderOptions?.showTechnicalRing) {
     drawTechnicalRing(ctx, width, height, palette.accent, scale);
@@ -1201,27 +1431,6 @@ function drawFilmGrain(
       const seed = (x + 1) * 73856093 ^ (y + 1) * 19349663;
       const v = Math.floor(randFromSeed(seed) * 255);
       ctx.fillStyle = `rgba(${v},${v},${v},${strength})`;
-      ctx.fillRect(x * grainSize, y * grainSize, grainSize, grainSize);
-    }
-  }
-  ctx.restore();
-}
-
-function drawPaperTexture(ctx: CanvasRenderingContext2D, width: number, height: number, quality: RenderQuality) {
-  // Avoid large block artifacts on high-res exports by increasing paper texture detail.
-  const divisor = quality === "export" ? 500 : 180;
-  const grainSize = Math.max(1, Math.round(Math.min(width, height) / divisor));
-  const alphaBase = quality === "export" ? 0.018 : 0.05;
-  const alphaRange = quality === "export" ? 0.038 : 0.08;
-  const cols = Math.ceil(width / grainSize);
-  const rows = Math.ceil(height / grainSize);
-  ctx.save();
-  for (let y = 0; y < rows; y += 1) {
-    for (let x = 0; x < cols; x += 1) {
-      const seed = (x + 3) * 4099 ^ (y + 7) * 1319;
-      const n = randFromSeed(seed);
-      const alpha = alphaBase + n * alphaRange;
-      ctx.fillStyle = `rgba(104, 76, 38, ${alpha})`;
       ctx.fillRect(x * grainSize, y * grainSize, grainSize, grainSize);
     }
   }
@@ -2101,6 +2310,10 @@ export const __testUtils = {
   adjustColor,
   toUTCDateFromLocal,
   resolveTextCenterNormalized,
+  parchmentRetentionFactor,
+  minAlphaForContrast,
+  parchmentBackingAt,
+  relativeLuminance,
 };
 
 export { STYLE_THEME, clamp };
