@@ -35,11 +35,22 @@ sampling, no traces/replay/breadcrumbs) is already in code and unit-tested.
      SENTRY_SOURCEMAPS: ${{ vars.SENTRY_ORG != '' && vars.SENTRY_PROJECT != '' && '1' || '' }}
    ```
 
-   New step after "Production build":
+   New steps after "Production build":
 
    ```yaml
+   - name: Check Sentry credentials
+     id: sentry-creds
+     env:
+       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+     run: |
+       if [ -n "$SENTRY_AUTH_TOKEN" ]; then
+         echo "available=true" >> "$GITHUB_OUTPUT"
+       else
+         echo "available=false" >> "$GITHUB_OUTPUT"
+       fi
+
    - name: Upload Sentry release and source maps
-     if: ${{ vars.SENTRY_ORG != '' && vars.SENTRY_PROJECT != '' }}
+     if: ${{ vars.SENTRY_ORG != '' && vars.SENTRY_PROJECT != '' && steps.sentry-creds.outputs.available == 'true' }}
      env:
        SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
        SENTRY_ORG: ${{ vars.SENTRY_ORG }}
@@ -50,6 +61,11 @@ sampling, no traces/replay/breadcrumbs) is already in code and unit-tested.
        npx --yes @sentry/cli@2 sourcemaps upload --release "$SENTRY_RELEASE" --url-prefix "~/_next/static" .next/static
        npx --yes @sentry/cli@2 releases finalize "$SENTRY_RELEASE"
    ```
+
+   The credential check gates the upload because fork and Dependabot runs
+   withhold the `SENTRY_AUTH_TOKEN` secret while the repository variables
+   remain set, so without the gate the upload would fail the job before the
+   smoke tests run.
 
    With `SENTRY_SOURCEMAPS=1` in the build env, `next.config.mjs` emits
    browser source maps for that build only — maps are never emitted for
