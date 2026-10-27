@@ -70,7 +70,7 @@ export default function MoneyPagePriceAtGlance({
       </p>
       {!compact ? (
         <p className="text-[11px] leading-relaxed text-white/75 sm:text-xs">
-          Free preview first. <span data-digital-offer>HD unlocks instantly after checkout. </span>
+          Free preview first. <span data-digital-offer>HD unlocks right after checkout. </span>
           {productionDisclosure} {framedDelivery}.{" "}
           {getPrintFreeShippingShortTag() ?? shippingDisclosure}
         </p>

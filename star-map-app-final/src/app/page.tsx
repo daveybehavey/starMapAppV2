@@ -6,9 +6,9 @@ import { formatPrintPriceWithShipping, isUsOnlyPrintCheckout } from "@/lib/print
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 const homepageDescription =
-  "Create a personalized star map for any date and location — preview the exact night sky for free, then order a framed print, unframed poster, or instant HD digital download. Perfect for anniversaries, weddings, and birthdays.";
+  "Create a personalized star map for any date and location — preview the exact night sky for free, then order a framed print, unframed poster, or HD digital download. Perfect for anniversaries, weddings, and birthdays.";
 const homepageDescriptionDigitalOnly =
-  "Create a personalized star map for any date and location — preview the exact night sky for free, then order an instant HD digital download. Perfect for anniversaries, weddings, and birthdays.";
+  "Create a personalized star map for any date and location — preview the exact night sky for free, then order an HD digital download. Perfect for anniversaries, weddings, and birthdays.";
 
 function isPrintCheckoutEnabled(): boolean {
   return /^(1|true|yes)$/i.test(
@@ -138,9 +138,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             name: "Delivery",
             value: printCheckoutEnabled
               ? isUsOnlyPrint
-                ? "Instant digital + optional physical print checkout"
-                : "Instant digital + optional physical print checkout"
-              : "Instant digital",
+                ? "HD digital + optional physical print checkout"
+                : "HD digital + optional physical print checkout"
+              : "HD digital",
           },
         ],
         offers: [

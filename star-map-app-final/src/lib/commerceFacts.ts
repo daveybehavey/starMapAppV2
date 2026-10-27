@@ -66,7 +66,7 @@ export function getPaywallDigitalBullets(): string[] {
     "6,000 px high resolution — poster-quality print",
     "No watermark on your downloaded file",
     "Secure checkout — card, Apple Pay, Google Pay",
-    "Instant download after payment",
+    "Download right after payment",
   ];
 }
 
@@ -129,7 +129,7 @@ export function getPrintFramedHdBundleTimingLine(): string {
 }
 
 export function getPrintFramedHdBundleShortLine(): string {
-  return "Instant HD after payment; the framed print follows standard production and shipping.";
+  return "HD digital right after payment; the framed print follows standard production and shipping.";
 }
 
 export function getPrintOrderConfirmationNextSteps(input: {

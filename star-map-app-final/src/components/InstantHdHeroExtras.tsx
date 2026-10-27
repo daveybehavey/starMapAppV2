@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getInstantHdHeroHref, getInstantHdPriceLine } from "@/lib/digitalGiftCheckout";
 
 type InstantHdHeroExtrasProps = {
-  /** Analytics source for the instant HD editor entry (checkout=digital). */
+  /** Analytics source for the HD digital editor entry (checkout=digital). */
   source: string;
   /** Secondary hero button — keep false on wedding ad landing. */
   showButton?: boolean;
@@ -27,7 +27,7 @@ export default function InstantHdHeroExtras({
           href={instantHref}
           className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#f1c27d] bg-transparent px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent"
         >
-          Instant HD from {instantPrice}
+          HD digital from {instantPrice}
         </Link>
       ) : null}
       {showFunnelLink ? (
@@ -37,7 +37,7 @@ export default function InstantHdHeroExtras({
             href="/hd-star-map"
             className="font-semibold text-amber-200 underline decoration-amber-400/50 underline-offset-2 hover:text-amber-100"
           >
-            Instant HD
+            HD digital
           </Link>
         </p>
       ) : null}

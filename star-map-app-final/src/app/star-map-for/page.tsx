@@ -42,12 +42,12 @@ const indexableOccasions = seoOccasions.filter((occasion) => isIndexableOccasion
 export const metadata: Metadata = {
   title: "Custom Star Map Gifts by Occasion | StarMapCo",
   description:
-    "Personalized star map gifts for engagement, proposal, new baby, memorial, graduation, and more. Free preview — framed + HD digital, poster, or instant HD download.",
+    "Personalized star map gifts for engagement, proposal, new baby, memorial, graduation, and more. Free preview — framed + HD digital, poster, or HD digital download.",
   alternates: { canonical: `${siteUrl}/star-map-for` },
   openGraph: {
     title: "Custom Star Map Gifts by Occasion | StarMapCo",
     description:
-      "Personalized star map gifts for engagement, proposal, new baby, memorial, graduation, and more. Free preview — framed + HD digital, poster, or instant HD download.",
+      "Personalized star map gifts for engagement, proposal, new baby, memorial, graduation, and more. Free preview — framed + HD digital, poster, or HD digital download.",
     url: `${siteUrl}/star-map-for`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -55,7 +55,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     description:
-      "Personalized star map gifts for engagement, proposal, new baby, memorial, graduation, and more. Free preview — framed + HD digital, poster, or instant HD download.",
+      "Personalized star map gifts for engagement, proposal, new baby, memorial, graduation, and more. Free preview — framed + HD digital, poster, or HD digital download.",
     images: [ogImage],
   },
 };
@@ -106,7 +106,7 @@ export default function StarMapForOccasionsPage() {
             href="/hd-star-map"
             className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/20 bg-transparent px-4 py-3 text-sm font-semibold text-neutral-200 underline decoration-white/30 underline-offset-2 transition hover:text-white"
           >
-            Instant HD
+            HD digital
           </Link>
         </div>
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
@@ -200,7 +200,7 @@ export default function StarMapForOccasionsPage() {
         leftTitle="Checkout and access"
         leftPoints={[
           "Secure Stripe checkout",
-          "Instant HD unlock after payment",
+          "HD unlock right after payment",
           "No watermark on paid exports",
         ]}
         rightTitle="Print and support"

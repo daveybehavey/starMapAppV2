@@ -19,7 +19,7 @@ export function getInstantHdPriceLine(): string {
 }
 
 export function getInstantHdGiftDetail(): string {
-  return `${getInstantHdPriceLine()} — unlocks immediately after checkout. No shipping wait.`;
+  return `${getInstantHdPriceLine()} — download right after checkout. No shipping wait.`;
 }
 
 /** HD-first preview intents (last-minute / international / DIY print). */
@@ -28,7 +28,7 @@ export function buildInstantHdPreviewIntents(_source: string): MoneyPagePreviewI
   const bundlePriceLine = getFramedHdBundlePriceLine();
   return [
     {
-      label: "Preview instant HD gift",
+      label: "Preview HD digital gift",
       sourceSuffix: "instant-hd",
       checkout: "digital",
       plan: "hd_digital",
@@ -43,7 +43,7 @@ export function buildInstantHdPreviewIntents(_source: string): MoneyPagePreviewI
       includeDigitalAddOn: true,
       plan: "print_framed_hd",
       tone: "default",
-      detail: `${bundlePriceLine} — wall art plus instant file.`,
+      detail: `${bundlePriceLine} — wall art plus HD file.`,
     },
     {
       label: "Preview first, decide later",
@@ -62,7 +62,7 @@ export function getInstantHdHeroHref(source: string): string {
 export function getInstantHdLadderIntro(): string {
   const instantPrice = getInstantHdPriceLine();
   const bundlePriceLine = getFramedHdBundlePriceLine();
-  return `Need it tonight? Start with instant HD (${instantPrice}). Want a physical gift too? Framed + HD (${bundlePriceLine}) adds a shipped print from the same design.`;
+  return `Need it tonight? Start with HD digital (${instantPrice}). Want a physical gift too? Framed + HD (${bundlePriceLine}) adds a shipped print from the same design.`;
 }
 
 /** Cross-link from print pages when buyer may prefer digital. */

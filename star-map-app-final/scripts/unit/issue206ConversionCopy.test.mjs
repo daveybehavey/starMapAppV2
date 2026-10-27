@@ -1246,7 +1246,7 @@ test("moneyPageGiftCheckout source keeps factual ladder/intent copy", () => {
   const source = readSrc("lib/moneyPageGiftCheckout.ts");
   assert.match(source, /FRAMED_HD_RECOMMENDED_BADGE = "Premium gift"/);
   assert.match(source, /recommended presentation is framed \+ HD/);
-  assert.match(source, /premium gift route with instant HD/);
+  assert.match(source, /premium gift route with HD digital/);
   assert.doesNotMatch(source, /most gift buyers choose/i);
   assert.doesNotMatch(source, /most buyers choose/i);
 });
