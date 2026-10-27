@@ -574,8 +574,8 @@ export function renderStarMapTextLayer({
   textBounds,
   shape,
   frameEnabled,
-  matPurpose = "preview",
   watermark = false,
+  matPurpose = "preview",
 }: {
   canvas: CanvasLike;
   width: number;
