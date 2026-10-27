@@ -122,10 +122,29 @@ function isSafeToken(value: unknown): value is string {
 }
 
 /**
- * Reduce a stack-frame filename to an application path: scheme and host are
- * stripped, query string and fragment are removed, and the result is capped.
- * Build-artifact paths (e.g. /_next/static/chunks/…) carry no customer data;
- * anything unrecognizable collapses to a constant.
+ * Path prefixes recognized as build/source artifacts whose frames are safe
+ * to retain verbatim (chunk hashes and source paths carry no customer
+ * identifiers). Everything else — notably document/route URLs such as
+ * `/m/<map-id>`, whose path segments can BE customer identifiers — collapses
+ * to the fixed unknown value.
+ */
+const ARTIFACT_PATH_PREFIXES: readonly string[] = [
+  "/_next/",
+  "/src/",
+  "/app/",
+  "/chunks/",
+  "/node_modules/",
+  "/server-functions/",
+];
+const CODE_BASENAME = /^[A-Za-z0-9._-]+\.(?:m?js|jsx?|tsx?)$/;
+
+/**
+ * Reduce a stack-frame filename to a recognized artifact path: scheme and
+ * host are stripped, query string and fragment are removed, and the path is
+ * retained only when it matches a known build/source artifact shape (or is
+ * a bare code-file basename, e.g. a bundled worker entry). Anything else —
+ * including route/document URLs with identifiers in their path segments —
+ * becomes `app://unknown`.
  */
 export function sanitizeSentryFilename(raw: unknown): string {
   if (typeof raw !== "string") return "app://unknown";
@@ -151,8 +170,12 @@ export function sanitizeSentryFilename(raw: unknown): string {
     path = path.slice(path.indexOf("/") + 1);
   }
   if (!path) return "app://unknown";
-  if (path.length > 200) path = path.slice(path.length - 200);
-  return `/${path}`;
+  const normalized = `/${path}`;
+  if (ARTIFACT_PATH_PREFIXES.some((prefix) => normalized.startsWith(prefix))) {
+    return normalized.length > 200 ? normalized.slice(normalized.length - 200) : normalized;
+  }
+  if (!path.includes("/") && CODE_BASENAME.test(path)) return normalized;
+  return "app://unknown";
 }
 
 function scrubFrame(frame: unknown): UnknownRecord | null {

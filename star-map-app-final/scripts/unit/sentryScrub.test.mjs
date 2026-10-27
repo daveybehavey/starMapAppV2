@@ -97,6 +97,12 @@ function dirtyEvent() {
           stacktrace: {
             frames: [
               {
+                filename: "https://starmapco.com/m/canary-map-id?token=CANARYTOKEN123",
+                function: "renderMapPage",
+                lineno: 12,
+                colno: 3,
+              },
+              {
                 filename:
                   "https://starmapco.com/_next/static/chunks/checkout.js?token=CANARYTOKEN123#frag",
                 abs_path: "/home/canary-user/app/checkout.js",
@@ -151,13 +157,25 @@ test("scrubbed event keeps only the allowlisted diagnostic shape", () => {
   assert.equal(value.type, "Error");
   // Raw provider/customer message replaced by the fixed operation code.
   assert.equal(value.value, "operation:checkout_failure");
-  const frame = value.stacktrace.frames[0];
+  const frame = value.stacktrace.frames[1];
   assert.equal(frame.filename, "/_next/static/chunks/checkout.js");
   assert.equal(frame.function, "submitCheckout");
   assert.equal(frame.lineno, 42);
   assert.equal("vars" in frame, false);
   assert.equal("context_line" in frame, false);
   assert.equal("abs_path" in frame, false);
+});
+
+test("route/document URLs collapse to the fixed unknown filename", () => {
+  // Regression (Codex P2 on #431): a frame filename can be a document URL
+  // whose PATH segments are customer identifiers (/m/<map-id> is a real
+  // route). Stripping host+query is not enough — such paths must not be
+  // retained at all.
+  const scrubbed = scrubSentryEvent(dirtyEvent());
+  assert.ok(scrubbed);
+  const documentFrame = scrubbed.exception.values[0].stacktrace.frames[0];
+  assert.equal(documentFrame.filename, "app://unknown");
+  assert.equal(documentFrame.function, "renderMapPage");
 });
 
 test("events without an exception payload are dropped", () => {
@@ -204,6 +222,13 @@ test("sanitizeSentryFilename strips scheme, host, query and fragment", () => {
     "/_next/static/a.js",
   );
   assert.equal(sanitizeSentryFilename("webpack:///./src/lib/x.ts"), "/src/lib/x.ts");
+  assert.equal(sanitizeSentryFilename("cloudflare-worker.js"), "/cloudflare-worker.js");
+  assert.equal(
+    sanitizeSentryFilename("https://starmapco.com/m/canary-map-id?token=CANARYTOKEN123"),
+    "app://unknown",
+  );
+  assert.equal(sanitizeSentryFilename("https://starmapco.com/editor"), "app://unknown");
+  assert.equal(sanitizeSentryFilename("/api/print/assets/canary-asset-id"), "app://unknown");
   assert.equal(sanitizeSentryFilename(""), "app://unknown");
   assert.equal(sanitizeSentryFilename(undefined), "app://unknown");
   assert.equal(sanitizeSentryFilename(42), "app://unknown");
