@@ -734,17 +734,68 @@ export const seoOccasions: SeoOccasion[] = [
     seoTitle: "First Date Star Map Gift — Custom Night Sky | StarMapCo",
     seoH1: "First Date Star Map Gift",
     seoDescription:
-      "Remember your first date with a custom star map from that night and place. Free preview, then framed print, poster, or instant HD for a romantic keepsake.",
-    intro: "Remember your first date with a star map of the night sky from that exact evening.",
+      "A custom star map of the sky over the place of your first date, on that date — by date and location. Free preview, no account. Framed print, poster, canvas or HD file; HD from $9.",
+    intro:
+      "The real stars over where your first date happened, on that date — rendered from astronomy data for that date and place. Preview free, no account.",
+    detail:
+      "Start with the date and the place, as close as you can get them — a reservation confirmation, the first photos you took together, the message one of you sent afterwards. Use the place itself where it fits (the restaurant, the neighbourhood, the park) rather than just the city. The exact time is optional: date plus city still produces an accurate sky, and adding the time sharpens Moon and planet placement.",
     exampleLine: "Our First Date · Seattle, WA · November 3, 2018",
-    faqs: [
+    storyHeading: "The evening that started it",
+    storyParagraphs: [
+      "A first date is the first night the two of you chose on purpose. The meeting might have been an accident — a party, a platform, a friend with a plan — but the date was a decision, and decisions leave a sky behind: the real stars over that restaurant, that street, that walk home, on that date. A first date star map renders that sky from astronomy data and prints it as a keepsake of the evening that started it.",
+      "Deciding which night counts is the one real choice on this page, and there is a simple test: the first date is the first time you went out meaning it — the coffee that ran for three hours, the group thing where the two of you drifted away from everyone else, the walk that was not on the way anywhere. If you first met on the date itself, set up by friends or matched online, the meeting and the date may be the same night, and the Night We Met page is the companion piece for the moment before it. Pick the night you would celebrate, and the map follows.",
+      "Pinning the date down is detective work with good evidence: the reservation or ticket confirmation in an old inbox, a calendar entry, the timestamp on the first photo of you together, the card receipt, the message afterwards that said tonight was fun. For the place, the venue or neighbourhood is more personal than the city alone, and the editor takes either. For the time, use roughly when the evening began; if it is gone, choose the evening hour that feels right — date and place carry the sky, and the exact time mainly sharpens where the Moon and planets sit.",
+      "The words under the stars do the rest. A clear title (Our First Date), both names, and the place carry most of it; the dedication line is better short — the restaurant's name, what one of you ordered, the thing that made you stay for one more drink. You can check every spelling in the free preview before anything is made, and if you are torn between the meeting night and the first date, preview both and keep the one that feels like the start.",
+      "For the gift itself, think print first: framed print + HD digital ($106) arrives ready to hang, with the HD file included for keeping and sharing. Posters run $39–$49 unframed and canvas is $79, with print orders of $89 or more shipping free; order a second copy of the same design — one for each of you — and it is 10% off on posters, canvas and framed prints. The $19 keepsake card carries the same sky at card size, and the HD file alone is $9, available to download right after checkout when the print would arrive too late.",
+    ],
+    storyCtaHref:
+      "/editor?mode=quick&source=occasion-first-date-story-preview&utm_source=site&utm_medium=landing&utm_campaign=first-date_story",
+    storyCtaLabel: "Start free preview",
+    artwork: [
       {
-        question: "Is a first date star map romantic?",
-        answer: "Yes. It’s a thoughtful way to capture a meaningful moment in your relationship.",
+        src: "/examples/example-first-date-seattle-2018.webp",
+        alt: "Star map example — the real night sky over Seattle, Washington, on the evening of November 3, 2018",
       },
       {
-        question: "Can I choose any date and place?",
-        answer: "Yes. Use the date and location that matter most.",
+        src: "/examples/example-first-date-chicago-2019.webp",
+        alt: "Star map example — the night sky over Chicago, Illinois, on the evening of June 14, 2019, a summer first date",
+      },
+    ],
+    faqs: [
+      {
+        question: "What is a first date star map?",
+        answer:
+          "It is a custom star map showing the real night sky over the place of your first date, on that date, rendered from astronomy data for that date and place. You build the design and wording in a free preview, then order it as a framed print, unframed poster, canvas, mug, keepsake card, or HD digital file.",
+      },
+      {
+        question: "We met before we ever went out. Which night is our first date?",
+        answer:
+          "The first time you went out meaning it — the first occasion that was a date, not the first time you were in the same room. If the night you want to keep is the meeting itself, the Night We Met page (/star-map-for/night-we-met) is the better fit. For the milestone you celebrate each year, the Anniversary page (/anniversary) covers wedding and relationship anniversaries.",
+      },
+      {
+        question: "How do I work out the date of our first date?",
+        answer:
+          "Work backwards from things that carry dates: a reservation or ticket confirmation, a calendar entry, the timestamp on an early photo of you together, a card receipt, or the first messages you exchanged afterwards. The preview is free, so you can try the most likely date and adjust it as often as you like before ordering.",
+      },
+      {
+        question: "Do I need the exact time of the date?",
+        answer:
+          "No. Date plus city still produces an accurate sky — the date and the place of your first date are enough. If you remember roughly when the evening began, choose the closest hour: adding the exact time makes Moon and planet placement precise to that hour.",
+      },
+      {
+        question: "Our first date was during the day. Which sky does the map show?",
+        answer:
+          "Use the date of the date, with an evening time. The map then shows the first night sky over that place after your date — the night that followed it. The same approach works for morning or afternoon dates, from a first coffee to a daytime walk.",
+      },
+      {
+        question: "What can I write on the map?",
+        answer:
+          "Add a title, both names, the place of the date, the date line, and a short dedication in the editor. Short lines work best — the restaurant's name, a line from that evening — and you can check every word in the free preview before you order.",
+      },
+      {
+        question: "Which format works best as a gift?",
+        answer:
+          "Framed print + HD digital ($106) is the wall-ready route: ready to hang, with the HD file included, and print orders of $89 or more ship free. Unframed posters are $39–$49 and canvas is $79; a second copy of the same design is 10% off on posters, canvas and framed prints. The keepsake card is $19, and the HD file on its own is $9.",
       },
     ],
   },
