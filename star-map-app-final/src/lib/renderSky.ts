@@ -563,7 +563,10 @@ export function renderStarMap({
     height: targetHeight,
     show: watermark,
     clipPath,
-    maskKey: shapeName,
+    // #406: the mask sampler cache keys on maskKey + dimensions, so
+    // the layout version rides the key — a legacy and a v2 design of
+    // the same shape at the same size must never share a cached mask.
+    maskKey: `${shapeName}|layout-${shapeLayoutVersion}`,
     pixelRatio,
   });
   const allowGrain =
@@ -655,7 +658,8 @@ export function renderStarMapTextLayer({
       height,
       show: true,
       clipPath: buildShapeClip(shapeName, width, height, resolvedShapeLayoutVersion),
-      maskKey: shapeName,
+      // Same cache-key rule as the base render: version in the key.
+      maskKey: `${shapeName}|layout-${resolvedShapeLayoutVersion}`,
       pixelRatio,
     });
   }

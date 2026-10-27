@@ -299,3 +299,13 @@ test("wiring: sanitizer, draft normalizer and creation stamps keep the version",
   assert.match(experience, /shapeLayoutVersion: recipe\.renderOptions\.shapeLayoutVersion/);
   assert.match(simplified, /shapeLayoutVersion: parsed\.renderOptions\.shapeLayoutVersion/);
 });
+
+test("wiring: watermark mask cache keys carry the layout version (Codex P2, PR #430)", () => {
+  // The #413 mask sampler caches by maskKey + dimensions; both
+  // watermark calls must key by shape AND resolved layout version, or
+  // a legacy and a v2 design of one shape at one size share a cached
+  // mask and the watermark anchors to the wrong silhouette.
+  const renderSky = read("src/lib/renderSky.ts");
+  assert.match(renderSky, /maskKey: `\$\{shapeName\}\|layout-\$\{shapeLayoutVersion\}`/);
+  assert.match(renderSky, /maskKey: `\$\{shapeName\}\|layout-\$\{resolvedShapeLayoutVersion\}`/);
+});
