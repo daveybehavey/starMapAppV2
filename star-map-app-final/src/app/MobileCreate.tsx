@@ -210,8 +210,6 @@ export function MobileCreate({
   const [showIntensityBanner, setShowIntensityBanner] = useState(false);
   const [showRenderModeBanner, setShowRenderModeBanner] = useState(false);
   const renderModeBannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [showFontBanner, setShowFontBanner] = useState(false);
-  const fontBannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [subtitleTouched, setSubtitleTouched] = useState(false);
   const [dedicationTouched, setDedicationTouched] = useState(false);
 
@@ -567,24 +565,6 @@ export function MobileCreate({
       }
     };
   }, [showRenderModeBanner]);
-
-  // Auto-dismiss font upsell banner after 20 seconds
-  useEffect(() => {
-    if (!showFontBanner) return;
-    if (fontBannerTimerRef.current) {
-      clearTimeout(fontBannerTimerRef.current);
-    }
-    fontBannerTimerRef.current = setTimeout(() => {
-      setShowFontBanner(false);
-      fontBannerTimerRef.current = null;
-    }, 20000);
-    return () => {
-      if (fontBannerTimerRef.current) {
-        clearTimeout(fontBannerTimerRef.current);
-        fontBannerTimerRef.current = null;
-      }
-    };
-  }, [showFontBanner]);
 
   useEffect(() => {
     if (!canReveal || revealed) {
@@ -1124,22 +1104,13 @@ export function MobileCreate({
                                 value={box.fontFamily}
                                 onChange={(e) => {
                                   const next = e.target.value as TextBox["fontFamily"];
-                                  const fontMeta = fontOptions.find((opt) => opt.id === next);
-                                  if (fontMeta?.premium && !paid) {
-                                    track("paywall_font_blocked", { font: next });
-                                    if (!showFontBanner) {
-                                      setShowFontBanner(true);
-                                      track("mobile_font_upsell_shown", { font: next });
-                                    }
-                                    return;
-                                  }
                                   updateTextBox(box.id, { fontFamily: next });
                                 }}
                                 className="w-full rounded-md border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"
                               >
                                 {fontOptions.map((opt) => (
                                   <option key={opt.id} value={opt.id}>
-                                    {opt.premium ? `🔒 ${opt.label}` : opt.label}
+                                    {opt.label}
                                   </option>
                                 ))}
                               </select>
@@ -1215,35 +1186,6 @@ export function MobileCreate({
                     </div>
                   );
                 })}
-                {!paid && showFontBanner && (
-                  <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-300/40 bg-amber-300/10 px-3 py-2">
-                    <p className="text-[11px] font-semibold text-amber-100">
-                      This font style requires HD access — unlock to apply it
-                    </p>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          track("mobile_font_upsell_clicked");
-                          onIntensityPaywall?.();
-                        }}
-                        data-cta-priority="secondary"
-                        data-digital-offer
-                        className="rounded-full border border-white/25 bg-white/10 px-2.5 py-1 text-[10px] font-semibold text-white transition hover:bg-white/15 active:scale-95"
-                      >
-                        Unlock HD →
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowFontBanner(false)}
-                        aria-label="Dismiss font upsell"
-                        className="text-amber-100/60 hover:text-amber-100 text-[14px] leading-none"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </div>
-                )}
                 <button
                   type="button"
                   onClick={addTextBox}

@@ -328,8 +328,6 @@ export function AdvancedOptionsPanel({
                     value={box.fontFamily}
                     onChange={(font) => handleFontChange(box.id, font)}
                     fontOptions={fontOptions}
-                    paid={paid}
-                    onPremiumClick={onPremiumClick || (() => {})}
                   />
                 </div>
 

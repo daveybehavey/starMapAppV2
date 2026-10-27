@@ -7,17 +7,15 @@ import { FONT_STACKS } from "@/lib/fonts";
 interface FontSelectorProps {
   value: TextBox["fontFamily"];
   onChange: (fontId: TextBox["fontFamily"]) => void;
-  fontOptions: Array<{ id: TextBox["fontFamily"]; label: string; premium?: boolean }>;
-  paid: boolean;
-  onPremiumClick: () => void;
+  fontOptions: Array<{ id: TextBox["fontFamily"]; label: string }>;
 }
 
+// #411: all fonts are available to everyone — this picker has no locked
+// state and no payment branch.
 export default function FontSelector({
   value,
   onChange,
   fontOptions,
-  paid,
-  onPremiumClick,
 }: FontSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -59,11 +57,7 @@ export default function FontSelector({
         if (newIndex >= fontOptions.length) newIndex = 0;
 
         const newOption = fontOptions[newIndex];
-        if (newOption.premium && !paid) {
-          onPremiumClick();
-        } else {
-          onChange(newOption.id);
-        }
+        onChange(newOption.id);
       }
 
       if (event.key === "Enter") {
@@ -73,14 +67,10 @@ export default function FontSelector({
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, value, fontOptions, paid, onChange, onPremiumClick]);
+  }, [isOpen, value, fontOptions, onChange]);
 
   const handleOptionClick = (option: typeof fontOptions[0]) => {
-    if (option.premium && !paid) {
-      onPremiumClick();
-    } else {
-      onChange(option.id);
-    }
+    onChange(option.id);
     setIsOpen(false);
   };
 
@@ -105,7 +95,6 @@ export default function FontSelector({
           role="listbox"
         >
           {fontOptions.map((option) => {
-            const isLocked = option.premium && !paid;
             const isSelected = option.id === value;
 
             return (
@@ -116,19 +105,16 @@ export default function FontSelector({
                 className={`block w-full px-4 py-2 text-left text-sm transition ${
                   isSelected
                     ? "bg-amber-100"
-                    : isLocked
-                    ? "cursor-not-allowed bg-gray-50"
                     : "bg-white hover:bg-gray-100"
                 }`}
                 style={{
                   fontFamily: FONT_STACKS[option.id],
-                  color: isSelected ? '#111827' : isLocked ? '#9ca3af' : '#111827'
+                  color: '#111827'
                 }}
                 role="option"
                 aria-selected={isSelected}
-                disabled={isLocked}
               >
-                {isLocked ? `🔒 ${option.label}` : option.label}
+                {option.label}
               </button>
             );
           })}

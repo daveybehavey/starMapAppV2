@@ -1,26 +1,28 @@
 import type { TextBox } from "./store";
 
-export const fontOptions: Array<{ id: TextBox["fontFamily"]; label: string; premium?: boolean }> = [
-  // Free fonts
+// #411: every font is available to everyone — there is no premium/locked
+// font tier. Do not reintroduce a `premium` flag here; the editor pickers
+// and the render path must never branch on a font entitlement.
+export const fontOptions: Array<{ id: TextBox["fontFamily"]; label: string }> = [
   { id: "playfair", label: "Playfair Display" },
   { id: "cinzel", label: "Cinzel" },
   { id: "script", label: "Great Vibes" },
   { id: "cormorant", label: "Cormorant Garamond" },
   { id: "montserrat", label: "Montserrat" },
-  // Premium fonts - Serif
-  { id: "libreBaskerville", label: "Libre Baskerville", premium: true },
-  { id: "ebGaramond", label: "EB Garamond", premium: true },
-  { id: "crimsonText", label: "Crimson Text", premium: true },
-  { id: "lora", label: "Lora", premium: true },
-  // Premium fonts - Sans-serif
-  { id: "raleway", label: "Raleway", premium: true },
-  { id: "poppins", label: "Poppins", premium: true },
-  // Premium fonts - Script/Decorative
-  { id: "dancingScript", label: "Dancing Script", premium: true },
-  { id: "parisienne", label: "Parisienne", premium: true },
-  // Premium fonts - Display
-  { id: "bebasNeue", label: "Bebas Neue", premium: true },
-  { id: "abrilFatface", label: "Abril Fatface", premium: true },
+  // Serif
+  { id: "libreBaskerville", label: "Libre Baskerville" },
+  { id: "ebGaramond", label: "EB Garamond" },
+  { id: "crimsonText", label: "Crimson Text" },
+  { id: "lora", label: "Lora" },
+  // Sans-serif
+  { id: "raleway", label: "Raleway" },
+  { id: "poppins", label: "Poppins" },
+  // Script/Decorative
+  { id: "dancingScript", label: "Dancing Script" },
+  { id: "parisienne", label: "Parisienne" },
+  // Display
+  { id: "bebasNeue", label: "Bebas Neue" },
+  { id: "abrilFatface", label: "Abril Fatface" },
 ];
 
 export const FONT_STACKS: Record<TextBox["fontFamily"], string> = {
