@@ -92,7 +92,7 @@ const anniversaryFaqItems = [
   {
     question: "What format is best for an anniversary gift?",
     answer:
-      "The premium gift route is the framed print bundled with HD digital — the finished piece arrives ready to hang and the digital file is available instantly. Unframed print is a lower-cost option if you already have a frame in mind.",
+      "The premium gift route is the framed print bundled with HD digital — the finished piece arrives ready to hang and the digital file is available right after checkout. Unframed print is a lower-cost option if you already have a frame in mind.",
   },
   {
     question: "Is the preview really free?",
@@ -246,7 +246,7 @@ export default function AnniversaryPage() {
           "Every couple has a night they come back to. Maybe it was the first date that ran three hours past closing time, the walk home after the proposal, or the evening you signed the lease on a too-small first apartment. The stars above you that night were in one exact arrangement, and they will never sit quite that way over that spot again. An anniversary star map captures that arrangement and turns it into something you can hang on the wall.",
           "With StarMapCo you enter a date, a time if you know it, and a place. The map is calculated for that moment, then set in a design you choose, with a title and a short line of text such as your names or the words you said that night. The result is not a generic constellation poster; it is the sky that belonged to the two of you.",
           "Anniversaries reward thought more than price. A star map says you remembered the date, you remembered where you were, and you wanted the memory to outlast the dinner reservation. It works for a first anniversary as easily as a fortieth, and it pairs naturally with a handwritten card.",
-          "Start with the free preview. There is no account to create and nothing to pay to see your map. Adjust the title, try a warm parchment style like our Heirloom design or a deep navy look, and only decide on a format once it feels right. You can choose an instant digital file to print yourself, an unframed print, or a framed print that arrives ready to give.",
+          "Start with the free preview. There is no account to create and nothing to pay to see your map. Adjust the title, try a warm parchment style like our Heirloom design or a deep navy look, and only decide on a format once it feels right. You can choose an HD digital file to print yourself, an unframed print, or a framed print that arrives ready to give.",
           "If the anniversary is close, the digital option means you can still give something personal tonight. If you have a little time, a framed print turns the moment into a piece for the living room or bedroom that you will both walk past every day.",
         ]}
         ctaHref="/editor?mode=quick&source=occasion-anniversary-story-preview&utm_source=site&utm_medium=landing&utm_campaign=anniversary_story"
@@ -286,7 +286,7 @@ export default function AnniversaryPage() {
         </ol>
         <p className="text-sm text-neutral-800 sm:text-base">
           Share a preview for free. Once the wording feels right, take the framed route, the unframed route,
-          or instant HD delivery from the same approved design.
+          or HD digital delivery from the same approved design.
         </p>
         <div className="pt-2">
           <Link
@@ -301,7 +301,7 @@ export default function AnniversaryPage() {
 
       <DeliveryFormatModule
         heading="Choose how you want to keep the anniversary map"
-        intro={`Recommended presentation is framed + HD (${bundlePriceLine}) for a ready-to-hang keepsake plus an instant file. Canvas adds a premium wall option between poster and framed.`}
+        intro={`Recommended presentation is framed + HD (${bundlePriceLine}) for a ready-to-hang keepsake plus the HD file. Canvas adds a premium wall option between poster and framed.`}
         sourcePrefix="anniversary-format"
       />
       <FramedProofSection
@@ -342,7 +342,7 @@ export default function AnniversaryPage() {
         leftTitle="Checkout and files"
         leftPoints={[
           "Secure Stripe checkout",
-          "Instant HD download after payment",
+          "HD digital download after payment",
           "No watermark on paid exports",
         ]}
         rightTitle="Print and support"
@@ -377,7 +377,7 @@ export default function AnniversaryPage() {
       </section>
       <ProductSchema
         name="Anniversary Star Map"
-        description="Personalized anniversary star map showing the exact night sky from your milestone date and location. Order a framed print, unframed poster, or instant HD digital download."
+        description="Personalized anniversary star map showing the exact night sky from your milestone date and location. Order a framed print, unframed poster, or HD digital download."
         imageUrl={`${siteUrl}/custom-star-map-anniversary.webp`}
         offers={productOffers}
       />

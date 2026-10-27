@@ -100,7 +100,7 @@ export function getPrintFramedHdBundleTimingLine() {
 }
 
 export function getPrintFramedHdBundleShortLine() {
-  return "Instant HD after payment; the framed print follows standard production and shipping.";
+  return "HD digital right after payment; the framed print follows standard production and shipping.";
 }
 
 export function getPrintOrderConfirmationNextSteps(input) {

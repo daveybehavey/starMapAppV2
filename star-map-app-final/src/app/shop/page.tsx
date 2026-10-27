@@ -266,9 +266,9 @@ export default function ShopPage() {
       alt: "StarMapCo HD download on laptop and phone",
       title: "HD digital export",
       detail:
-        "Same editor fidelity — instant download credits for DIY printing, same-night gifting, or international delivery without freight.",
+        "Same editor fidelity — HD download credits for DIY printing, same-night gifting, or international delivery without freight.",
       price: digitalPrice,
-      shippingNote: "Delivered instantly after checkout",
+      shippingNote: "Delivered right after checkout",
       href: "/editor?mode=quick&source=shop-digital",
       cta: "Start free preview",
       ctaClass:
@@ -285,7 +285,7 @@ export default function ShopPage() {
       <div className="rounded-3xl border border-white/15 bg-white/90 px-5 py-8 shadow-xl shadow-black/10 sm:px-10 sm:py-10">
         <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-700">Shop</p>
         <h1 className="mt-2 text-3xl font-bold leading-tight text-midnight sm:text-4xl">
-          Physical prints & instant downloads
+          Physical prints & HD downloads
         </h1>
         <p className="mt-3 max-w-2xl text-base leading-relaxed text-neutral-700 sm:text-lg">
           Every product starts in the editor so your sky, typography, and occasion lines stay yours. Physical orders ship
@@ -361,7 +361,7 @@ export default function ShopPage() {
               sourceSuffix: "digital",
               plan: "single",
               tone: "neutral",
-              detail: "Instant file after payment — no shipping wait.",
+              detail: "HD file after payment — no shipping wait.",
             },
           ]}
         />
@@ -548,7 +548,7 @@ export default function ShopPage() {
         leftTitle="Checkout and files"
         leftPoints={[
           "Secure Stripe checkout",
-          "Instant HD download after payment",
+          "HD digital download after payment",
           "No watermark on paid exports",
         ]}
         rightTitle="Print and support"

@@ -148,7 +148,7 @@ export default function WeddingPage() {
     (item) => item.question === "Can I order a framed wedding print directly?"
   );
   const framedFaqAnswer = weddingFaqItems[framedFaqIndex].answer;
-  const deliveryIntro = `Recommended presentation is framed + HD (${bundlePriceLine}) for a ready-to-hang keepsake plus an instant digital file. Unframed is the lower-cost option if you already have a frame. HD-only is fastest when you need same-day delivery.`;
+  const deliveryIntro = `Recommended presentation is framed + HD (${bundlePriceLine}) for a ready-to-hang keepsake plus an HD digital file. Unframed is the lower-cost option if you already have a frame. HD-only is fastest when you need same-day delivery.`;
 
   return (
     <main className="mx-auto max-w-4xl px-4 pt-8 pb-16 sm:pt-12">
@@ -211,7 +211,7 @@ export default function WeddingPage() {
             includeDigitalAddOn: true,
             plan: "print_framed_hd",
             tone: "recommended",
-            detail: `${bundlePriceLine} — framed print plus instant HD.`,
+            detail: `${bundlePriceLine} — framed print plus HD digital.`,
           },
           {
             label: "Preview framed + keepsake card",
@@ -326,7 +326,7 @@ export default function WeddingPage() {
         leftTitle="Checkout and files"
         leftPoints={[
           "Secure Stripe checkout",
-          "Instant HD download after payment",
+          "HD digital download after payment",
           "No watermark on paid exports",
         ]}
         rightTitle="Print and support"
@@ -438,7 +438,7 @@ export default function WeddingPage() {
       </section>
       <ProductSchema
         name="Wedding Star Map Gift"
-        description="Personalized wedding star map showing the exact night sky from your ceremony date and location. Order a framed print, unframed poster, or instant HD digital download."
+        description="Personalized wedding star map showing the exact night sky from your ceremony date and location. Order a framed print, unframed poster, or HD digital download."
         imageUrl={`${siteUrl}/custom-star-map-anniversary.webp`}
         offers={productOffers}
       />

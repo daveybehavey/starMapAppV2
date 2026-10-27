@@ -19,6 +19,16 @@
  * copy. For those files the pin fails on any STANDALONE "instant" word that
  * is not part of a hyphenated analytics source id, and on "instantly"
  * anywhere. Rendered-output checks cover the main copy functions directly.
+ *
+ * Extension (owner ruling, 2026-10-27, later the same day): "Instant HD"
+ * was also scrubbed as a PRODUCT NAME from every remaining customer-visible
+ * surface (money pages, blog posts, shop, success, editor, email copy) —
+ * the honest name is "HD digital". The file lists below now cover those
+ * surfaces too, and a whole-tree scan fails on the two-word product name
+ * anywhere in src/ (identifiers never contain a space, so any hit is copy
+ * or a comment about copy). Blog prose that uses "instant" for a moment in
+ * time ("one unrepeatable instant", "Instant chemistry") is not a claim and
+ * stays; the product-name scan still covers those files.
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -52,6 +62,33 @@ const STRICT_FILES = [
   "src/app/api/checkout/route.ts",
   "src/app/page.tsx",
   "scripts/generate-merchant-feed.mjs",
+  // Product-name scrub surfaces (2026-10-27 extension).
+  "src/app/HomeStaticSections.tsx",
+  "src/app/blog/custom-star-maps-for-weddings/page.tsx",
+  "src/app/blog/memorial-star-map/page.tsx",
+  "src/app/constellation-map/page.tsx",
+  "src/app/custom-night-sky-map/page.tsx",
+  "src/app/download/DownloadClient.tsx",
+  "src/app/media-kit/page.tsx",
+  "src/app/shop/page.tsx",
+  "src/app/star-map-gallery/page.tsx",
+  "src/app/star-map-gift-formats/page.tsx",
+  "src/app/star-map-gift-ideas/page.tsx",
+  "src/app/star-map-gift/page.tsx",
+  "src/app/star-map-in/[slug]/page.tsx",
+  "src/app/star-map-in/page.tsx",
+  "src/app/star-map-poster/framed-hd-bundle/page.tsx",
+  "src/app/success/SuccessClient.tsx",
+  "src/app/wedding/page.tsx",
+  "src/components/EditorExperience.tsx",
+  "src/components/HomeOfferStack.tsx",
+  "src/components/RevenueTrustModule.tsx",
+  "src/components/WeddingDesignExampleSection.tsx",
+  "src/components/WeddingGiftJourneySection.tsx",
+  "src/lib/blogConversionLinks.ts",
+  "src/lib/checkoutClientFailure.ts",
+  "src/lib/checkoutRecoveryAlerts.ts",
+  "src/lib/mapCommerceLinks.ts",
 ];
 
 /**
@@ -64,6 +101,18 @@ const IDENTIFIER_FILES = [
   "src/components/PaywallModal.tsx",
   "src/lib/digitalGiftCheckout.ts",
   "src/lib/commerceFacts.ts",
+  // Product-name scrub surfaces that keep InstantHd* identifiers and
+  // hyphenated analytics source ids (2026-10-27 extension).
+  "src/app/anniversary/page.tsx",
+  "src/app/birthday/page.tsx",
+  "src/app/christmas-star-map-gift/page.tsx",
+  "src/app/hd-star-map/page.tsx",
+  "src/app/how-to-print-star-map/page.tsx",
+  "src/app/night-sky-map-gift/page.tsx",
+  "src/app/personalized-star-map/page.tsx",
+  "src/app/star-map-generator/page.tsx",
+  "src/components/ChristmasOrderByTable.tsx",
+  "src/lib/christmasCampaign.ts",
 ];
 
 test("strict surfaces contain no 'instant' anywhere", () => {
@@ -88,6 +137,27 @@ test("identifier surfaces keep 'instant' out of copy (identifiers/source ids onl
       );
     }
   }
+});
+
+test("the 'Instant HD' product name appears nowhere in src copy or comments", () => {
+  // Identifiers (InstantHd, getInstantHdPriceLine) never contain a space,
+  // so the two-word name with whitespace can only be rendered copy or a
+  // comment describing copy — both are regressions of the 2026-10-27
+  // name scrub. Covers blog pages whose poetic "instant" (a moment in
+  // time) is deliberately not pinned by the file lists above.
+  const roots = ["src/app", "src/components", "src/lib", "src/data"];
+  const offenders = [];
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (/\.(ts|tsx)$/.test(entry.name) && /instant\s+hd/i.test(fs.readFileSync(full, "utf8"))) {
+        offenders.push(path.relative(ROOT, full));
+      }
+    }
+  };
+  for (const rel of roots) walk(path.join(ROOT, rel));
+  assert.deepEqual(offenders, [], `product name 'Instant HD' regressed in: ${offenders.join(", ")}`);
 });
 
 test("occasions data carries no 'instant' claim in any entry", async () => {

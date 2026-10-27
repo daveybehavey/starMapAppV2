@@ -141,7 +141,7 @@ export default function StarMapGiftPage() {
         <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li>Perfect for anniversaries, weddings, birthdays, and memorials</li>
           <li>Accurate night sky based on real astronomical data</li>
-          <li>Instant preview and easy personalization</li>
+          <li>Live preview and easy personalization</li>
           <li>Choose the same approved design for framed print, unframed print, or HD digital delivery</li>
         </ul>
       </section>
@@ -151,7 +151,7 @@ export default function StarMapGiftPage() {
         <ol className="list-decimal space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li>Choose the date and location that matter most</li>
           <li>Add names, a title, and a dedication line</li>
-          <li>Preview the map instantly</li>
+          <li>Preview the map free</li>
           <li>Choose framed print, unframed print, or HD digital delivery at checkout</li>
         </ol>
         <div className="pt-2">

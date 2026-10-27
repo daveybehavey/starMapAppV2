@@ -20,12 +20,12 @@ const breadcrumbs = [
 export const metadata: Metadata = {
   title: "Custom Night Sky Map — Personalized Print or Digital Gift | StarMapCo",
   description:
-    "Create a custom night sky map from any date and location. Preview free, then choose a framed print, unframed poster, or instant HD digital download — no account required.",
+    "Create a custom night sky map from any date and location. Preview free, then choose a framed print, unframed poster, or HD digital download — no account required.",
   alternates: { canonical: `${siteUrl}/custom-night-sky-map` },
   openGraph: {
     title: "Custom Night Sky Map — Personalized Print or Digital Gift | StarMapCo",
     description:
-      "Create a custom night sky map from any date and location. Preview free, then choose a framed print, unframed poster, or instant HD digital download — no account required.",
+      "Create a custom night sky map from any date and location. Preview free, then choose a framed print, unframed poster, or HD digital download — no account required.",
     url: `${siteUrl}/custom-night-sky-map`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -43,8 +43,7 @@ export default function CustomNightSkyMapPage() {
         <p className="text-sm text-white/90 sm:text-base">
           Design a custom night sky map showing the exact stars above a meaningful date and place — a wedding,
           a birth, an anniversary. Preview free with no account, then choose a{" "}
-          <strong className="font-semibold text-amber-100">framed print</strong>, unframed poster, or instant
-          HD digital download.
+          <strong className="font-semibold text-amber-100">framed print</strong>, unframed poster, or HD digital download.
         </p>
       </header>
 
@@ -95,7 +94,7 @@ export default function CustomNightSkyMapPage() {
         <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li>Accurate star positions for any date and location</li>
           <li>Custom styles, labels, and typography</li>
-          <li>Instant preview with framed, unframed, and HD delivery routes</li>
+          <li>Live preview with framed, unframed, and HD delivery routes</li>
           <li>One approved design can stay digital or move into print without rebuilding</li>
         </ul>
       </section>
@@ -105,7 +104,7 @@ export default function CustomNightSkyMapPage() {
         <ol className="list-decimal space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li>Enter your date, time, and location</li>
           <li>Choose a design style and shape</li>
-          <li>Preview the sky instantly</li>
+          <li>Preview the sky free</li>
           <li>Choose framed print, unframed print, or HD digital delivery at checkout</li>
         </ol>
         <div className="pt-2">
@@ -200,7 +199,7 @@ export default function CustomNightSkyMapPage() {
             </h3>
             <p>
               After preview, you can choose a framed print (arrives ready to display), an unframed poster
-              (lower cost, you frame it), or an instant HD digital download. All three use the same approved
+              (lower cost, you frame it), or an HD digital download. All three use the same approved
               design.
             </p>
           </div>
@@ -231,7 +230,7 @@ export default function CustomNightSkyMapPage() {
           {
             question: "What formats are available for the custom night sky map?",
             answer:
-              "After preview, you can choose a framed print (arrives ready to display), an unframed poster (lower cost, you frame it), or an instant HD digital download. All three use the same approved design.",
+              "After preview, you can choose a framed print (arrives ready to display), an unframed poster (lower cost, you frame it), or an HD digital download. All three use the same approved design.",
           },
         ]}
       />

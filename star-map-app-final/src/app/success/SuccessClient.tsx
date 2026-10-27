@@ -915,7 +915,7 @@ export default function SuccessClient() {
                     <p className="mt-1 text-xs text-amber-100/80">
                       {hasDigitalEntitlement
                         ? "Use this link on another device anytime."
-                        : `Add an instant HD download for ${digitalPriceLabel}.`}
+                        : `Add an HD digital download for ${digitalPriceLabel}.`}
                     </p>
                   </div>
                   {hasDigitalEntitlement ? (
@@ -978,7 +978,7 @@ export default function SuccessClient() {
                   </>
                 ) : (
                   <p className="mt-2 text-[11px] text-amber-100/70">
-                    Your print order remains active either way. This adds instant file access.
+                    Your print order remains active either way. This adds HD file access.
                   </p>
                 )}
                 <div className="mt-3 flex flex-wrap items-center gap-2">

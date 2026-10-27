@@ -180,7 +180,7 @@ export default async function StarMapLocationPage({ params }: PageProps) {
         </p>
         <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-700 sm:text-base">
           <li>Accurate to your date, time, and location</li>
-          <li>Instant preview so you can refine the details</li>
+          <li>Live preview so you can refine the details</li>
           <li>Multiple styles, shapes, and text layouts</li>
           <li>Print‑ready HD download after unlock</li>
         </ul>
@@ -199,7 +199,7 @@ export default async function StarMapLocationPage({ params }: PageProps) {
         <h2 className="text-midnight text-lg font-semibold">Start your {display} star map</h2>
         <ol className="list-decimal space-y-2 pl-5 text-sm text-neutral-700 sm:text-base">
           <li>Enter the date, time, and location</li>
-          <li>Preview the sky instantly</li>
+          <li>Preview the sky free</li>
           <li>Customize text, styles, and shapes</li>
           <li>
             Continue into framed print, unframed print, or HD digital delivery once the preview looks right
@@ -294,7 +294,7 @@ export default async function StarMapLocationPage({ params }: PageProps) {
         leftTitle="Checkout and access"
         leftPoints={[
           "Secure Stripe checkout",
-          "Instant HD unlock after payment",
+          "HD digital unlock after payment",
           "No watermark on paid exports",
         ]}
         rightTitle="Print and support"

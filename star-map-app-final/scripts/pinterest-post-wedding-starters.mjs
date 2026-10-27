@@ -23,7 +23,7 @@ const STARTER_PINS = [
     id: "pin_lifestyle_framed",
     title: "Personalized Wedding Star Map Gift | Framed + HD | Free Preview",
     description:
-      "Looking for a meaningful wedding gift they'll actually keep? Turn your ceremony date and location into a custom star map — preview free, then order a gift-ready framed print with instant HD digital. Astronomically accurate sky for the night you said I do. Preview your map now.",
+      "Looking for a meaningful wedding gift they'll actually keep? Turn your ceremony date and location into a custom star map — preview free, then order a gift-ready framed print with HD digital. Astronomically accurate sky for the night you said I do. Preview your map now.",
     imageUrl: `${SITE}/home-mockups/offer-framed-print.png`,
     altText:
       "Framed wedding star map gift mockup in a bedroom — personalized night sky print from StarMapCo.",

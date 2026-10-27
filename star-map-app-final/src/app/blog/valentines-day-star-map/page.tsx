@@ -154,7 +154,7 @@ export default function ValentinesStarMapPage() {
             reveal, pair the print with a handwritten note or the playlist you fell in love to.
           </p>
           <p className="text-sm text-neutral-400">
-            Need it in a rush? Digital downloads arrive instantly, so you can email a surprise “Our stars are ready”
+            Need it in a rush? Digital downloads arrive right after checkout, so you can email a surprise “Our stars are ready”
             message while deciding whether to keep it digital or add the framed print route after preview.
           </p>
         </section>

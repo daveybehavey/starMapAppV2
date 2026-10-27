@@ -118,7 +118,7 @@ export default function StarMapGalleryPage() {
           <li>Choose any date, time, and location worldwide</li>
           <li>Pick a shape, layout, and style preset</li>
           <li>Add names, a title, and a dedication line</li>
-          <li>Preview instantly before unlocking HD</li>
+          <li>Preview free before unlocking HD</li>
         </ul>
         <div className="pt-2">
           <Link

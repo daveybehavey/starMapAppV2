@@ -21,7 +21,7 @@ export const BLOG_MONEY_PAGE_LINKS: readonly BlogMoneyPageLink[] = [
   { href: "/birthday", label: "Birthday star maps" },
   { href: "/star-map-for/new-baby", label: "New baby star maps" },
   { href: "/star-map-for/memorial", label: "Memorial star maps" },
-  { href: "/hd-star-map", label: "Instant HD download" },
+  { href: "/hd-star-map", label: "HD digital download" },
   { href: "/shop", label: "Shop prints & formats" },
   { href: "/personalized-star-map", label: "Personalized star map gifts" },
   { href: "/star-map-gift", label: "Star map gift ideas" },
@@ -79,7 +79,7 @@ export function getOrderedBlogConversionLinks(slug: string): BlogMoneyPageLink[]
 export function getBlogConversionIntro(occasion: BlogOccasion): string {
   switch (occasion) {
     case "wedding":
-      return "Preview free, then choose framed print, unframed poster, or instant HD for wedding and engagement gifts.";
+      return "Preview free, then choose framed print, unframed poster, or HD digital for wedding and engagement gifts.";
     case "anniversary":
       return "Start with a free preview, then pick the anniversary format that fits your timeline and budget.";
     case "birthday":
@@ -87,7 +87,7 @@ export function getBlogConversionIntro(occasion: BlogOccasion): string {
     case "new-baby":
       return "Capture the night they arrived — nursery prints, HD for sharing with family, or both from one design.";
     case "memorial":
-      return "Quiet, personal tribute options — instant HD for family near and far, or a physical print when ready.";
+      return "Quiet, personal tribute options — HD digital for family near and far, or a physical print when ready.";
     case "seasonal":
       return "Need it soon? HD unlocks right after checkout. Physical prints follow standard production and shipping.";
     case "gift-guide":

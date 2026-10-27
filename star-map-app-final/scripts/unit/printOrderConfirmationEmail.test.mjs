@@ -61,7 +61,7 @@ test("renderPrintOrderConfirmationEmail includes HD-first step for framed + HD b
     includesDigitalAddOn: true,
   });
   assert.match(rendered.text, /HD digital file is available right away/);
-  assert.match(rendered.text, /Instant HD after payment; the framed print follows standard production and shipping/);
+  assert.match(rendered.text, /HD digital right after payment; the framed print follows standard production and shipping/);
 });
 
 test("renderPrintOrderConfirmationEmail keeps manual review path when flagged", () => {

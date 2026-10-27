@@ -109,4 +109,4 @@ export function shouldOfferDigitalSingleFallback(input: {
   return false;
 }
 
-export const DIGITAL_SINGLE_FALLBACK_LABEL = "Try instant HD instead";
+export const DIGITAL_SINGLE_FALLBACK_LABEL = "Try HD digital instead";

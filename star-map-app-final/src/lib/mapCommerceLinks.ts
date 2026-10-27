@@ -68,7 +68,7 @@ function listPrintOffers(mapId: string): MapCommerceOffer[] {
       kind: "print",
       label: row.headline ?? getPrintPricingTiers()[row.variant].label,
       detail: row.includeDigitalAddOn
-        ? "Framed wall gift plus instant HD download."
+        ? "Framed wall gift plus HD digital download."
         : row.includeCardAddOn
           ? "Framed print with a matching keepsake card."
           : "Museum-grade poster — frame it yourself.",
@@ -103,10 +103,10 @@ export function listMapCommerceOffers(mapId: string): MapCommerceOffer[] {
       id: "digital-hd",
       kind: "digital_hd",
       label: "HD digital download",
-      detail: "Instant high-resolution file for sharing or printing at home.",
+      detail: "High-resolution HD file for sharing or printing at home.",
       priceLine: formatPrice(hd.amountCents, hd.currency),
       href: buildMapEditorHref(mapId, { checkout: "hd" }),
-      badge: "Instant",
+      badge: "Digital",
     },
     ...listPrintOffers(mapId),
     ...listMerchOffers(mapId),

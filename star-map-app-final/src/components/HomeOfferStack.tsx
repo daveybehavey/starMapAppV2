@@ -59,7 +59,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
             Preview first, then pick how you want it delivered
           </h2>
           <p className="max-w-3xl text-sm leading-relaxed text-neutral-200 sm:text-base">
-            Build the exact sky map first. Then choose <span data-digital-offer>instant HD digital, </span>gift-ready framed print, or a
+            Build the exact sky map first. Then choose <span data-digital-offer>HD digital, </span>gift-ready framed print, or a
             lower-cost unframed poster.
           </p>
           <div className="grid gap-2 pt-2 sm:grid-cols-3">
@@ -91,9 +91,9 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
               />
             </div>
             <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-semibold text-white">Instant digital</p>
+              <p className="text-sm font-semibold text-white">HD digital</p>
               <span className="inline-flex rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] font-semibold tracking-[0.14em] text-neutral-200 uppercase">
-                Instant
+                Digital
               </span>
             </div>
             <p className="mt-1 inline-flex w-fit rounded-full border border-emerald-300/35 bg-emerald-300/10 px-2 py-0.5 text-[10px] font-semibold tracking-[0.14em] text-emerald-100 uppercase">
@@ -144,7 +144,7 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
             </p>
             <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-neutral-200">
               <li>Delivered framed and gift-ready</li>
-              <li data-digital-offer>Pair with the HD add-on for instant digital from the same design</li>
+              <li data-digital-offer>Pair with the HD add-on for HD digital from the same design</li>
               {freeShippingOffer ? <li>{getPrintFreeShippingShortTag() ?? freeShippingOffer}</li> : null}
               <li>Ready-to-hang premium option for special occasions</li>
               <li>

@@ -49,27 +49,27 @@ export default function HowToPrintStarMapPage() {
           <Link href="/star-map-generator" className="font-semibold text-amber-200 hover:underline">
             free star map generator
           </Link>{" "}
-          or instant HD — then print locally or order framed from the same design.
+          or HD digital — then print locally or order framed from the same design.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
           <Link
             href={instantHref}
             className="inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-transparent"
           >
-            Get instant HD from {instantPrice}
+            Get HD digital from {instantPrice}
           </Link>
           <Link
             href="/hd-star-map"
             className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#f1c27d] bg-transparent px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent"
           >
-            Instant HD
+            HD digital
           </Link>
         </div>
       </header>
 
       <PreviewStartForm
         title="Start your preview"
-        description="Enter date and location — instant HD unlocks after checkout, or add a framed print from the same approved design."
+        description="Enter date and location — HD digital unlocks right after checkout, or add a framed print from the same approved design."
         buttonLabel="Preview your map"
         source="how-to-print-star-map"
         intentOptions={previewIntents}
@@ -78,7 +78,7 @@ export default function HowToPrintStarMapPage() {
         source="sticky-how-to-print-instant-hd"
         title="Printing locally?"
         description="Unlock the HD file first — same preview, poster-quality PNG."
-        buttonLabel="Preview instant HD"
+        buttonLabel="Preview HD digital"
         primaryHref={instantHref}
         primaryPlan="hd_digital"
         secondaryButtonLabel="Order framed print"
@@ -160,7 +160,7 @@ export default function HowToPrintStarMapPage() {
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
         <h2 className="text-lg font-semibold text-midnight">Create your print‑ready star map</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
-          Start with an instant preview, then choose framed print, unframed print, or HD digital delivery once the
+          Start with the free preview, then choose framed print, unframed print, or HD digital delivery once the
           design is final.
         </p>
         <div className="pt-2 flex flex-wrap gap-3">
@@ -168,7 +168,7 @@ export default function HowToPrintStarMapPage() {
             href={instantHref}
             className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-amber-700 focus:ring-offset-2 focus:ring-offset-amber-50"
           >
-            Get instant HD from {instantPrice}
+            Get HD digital from {instantPrice}
           </Link>
           <Link
             href="/editor?mode=quick&source=how-to-print-star-map-cta"

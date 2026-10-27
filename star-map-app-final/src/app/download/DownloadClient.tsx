@@ -1751,7 +1751,7 @@ export default function DownloadClient() {
                 desc: "Clean, high-resolution file ready to gift.",
               },
               {
-                title: "Instant filename",
+                title: "Saved automatically",
                 desc: "Saved as starmap-*.png in your Downloads folder.",
               },
             ].map((item) => (

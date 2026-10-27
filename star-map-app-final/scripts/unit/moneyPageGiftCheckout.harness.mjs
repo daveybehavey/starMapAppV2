@@ -3,7 +3,7 @@
 export const FRAMED_HD_RECOMMENDED_BADGE = "Premium gift";
 
 export function getFramedHdPremiumPositioningLine(bundlePriceLine = "$106 framed + HD · free shipping") {
-  return `Premium framed gift route (${bundlePriceLine}) — ready-to-hang print plus instant HD from the same design.`;
+  return `Premium framed gift route (${bundlePriceLine}) — ready-to-hang print plus HD digital from the same design.`;
 }
 
 export function getFramedHdEditorOpenDescription(bundlePriceLine = "$106 framed + HD · free shipping") {
@@ -24,7 +24,7 @@ export function getGiftLadderIntro(options = {}, bundlePriceLine = "$106 framed 
 
 export function buildStandardGiftPreviewIntentDetails(bundlePriceLine = "$106 framed + HD · free shipping") {
   return [
-    `${bundlePriceLine} — premium gift route with instant HD.`,
+    `${bundlePriceLine} — premium gift route with HD digital.`,
     "Lower-cost physical option when you already have a frame plan.",
     "Keep the editor neutral until the design feels final.",
   ];

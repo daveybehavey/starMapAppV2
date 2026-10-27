@@ -404,7 +404,7 @@ export const blogPosts: BlogPost[] = [
         <ul>
           <li>They are not tied to a specific shared moment.</li>
           <li>They look good online but not on a wall or shelf.</li>
-          <li>The buyer cannot choose between instant digital vs physical delivery.</li>
+          <li>The buyer cannot choose between HD digital vs physical delivery.</li>
           <li>The checkout flow is unclear about what arrives and when.</li>
         </ul>
         <p>
@@ -649,7 +649,7 @@ export const blogPosts: BlogPost[] = [
         <h3>5) Preview and download</h3>
         <p>
           Check the design, then download a print-ready file or share digitally. You can start with the{" "}
-          <Link href="/star-map-generator">star map generator</Link> and preview instantly.
+          <Link href="/star-map-generator">star map generator</Link> and preview it free.
         </p>
 
         <h2>A perfect last-minute Valentine's Day gift</h2>
@@ -672,7 +672,7 @@ export const blogPosts: BlogPost[] = [
         <ul>
           <li>Clean, modern designs made to last</li>
           <li>Real astronomical sky calculations</li>
-          <li>Instant previews before purchase</li>
+          <li>Live previews before purchase</li>
           <li>Digital and print-ready formats</li>
           <li>Simple, gift-ready experience</li>
         </ul>
@@ -1194,7 +1194,7 @@ export const blogPosts: BlogPost[] = [
         <ul>
           <li>Astronomy-based accuracy</li>
           <li>Fully customizable design</li>
-          <li>Instant preview of your exact sky</li>
+          <li>Live preview of your exact sky</li>
           <li>One-time purchase, no subscription</li>
           <li>Created to be framed, gifted, and kept forever</li>
         </ul>
@@ -1382,8 +1382,7 @@ export const blogPosts: BlogPost[] = [
         </p>
         <p>
           If you already have a date in mind, open the{" "}
-          <Link href="/star-map-generator">star map generator</Link> and see the sky
-          instantly.
+          <Link href="/star-map-generator">star map generator</Link> and see the exact sky.
         </p>
         <p>Your moment happened once. The stars that night are still waiting to be remembered.</p>
       </article>
@@ -1596,7 +1595,7 @@ export const blogPosts: BlogPost[] = [
         <h2>How to create a Mother&apos;s Day star map in minutes</h2>
         <ol>
           <li>Enter the date and location that matter most.</li>
-          <li>Preview the sky instantly.</li>
+          <li>Preview the sky free.</li>
           <li>Customize the text and style.</li>
           <li>Unlock the HD file for printing or sharing.</li>
         </ol>
@@ -1668,7 +1667,7 @@ export const blogPosts: BlogPost[] = [
         <h2>Create the map in minutes</h2>
         <ol>
           <li>Enter the date and location.</li>
-          <li>Preview instantly.</li>
+          <li>Preview free.</li>
           <li>Choose a style and add text.</li>
           <li>Unlock the HD download.</li>
         </ol>

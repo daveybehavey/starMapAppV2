@@ -305,7 +305,7 @@ function getIncludesBullets(input: CheckoutRecoveryAlertInput): string[] {
     bullets.push("Printed star map");
   }
   if (input.includesDigitalAddOn) {
-    bullets.push("HD digital download (unlocked instantly after payment)");
+    bullets.push("HD digital download (unlocked right after payment)");
   }
   bullets.push("Your custom text, date, and location — all saved");
   return bullets;
