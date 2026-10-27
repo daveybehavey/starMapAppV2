@@ -10,6 +10,7 @@ import {
   type MapRecipe,
 } from "@/lib/renderSky";
 import { resolveTextFitFrameEnabled } from "@/lib/mapLookTiers";
+import { resolveShapeMaskFootprint } from "@/lib/shapeLayout";
 import {
   clampTextCenterToShape,
   resolveTextAnchorToCenterX,
@@ -104,7 +105,7 @@ export default function PreviewCanvas({
   // the pointer handlers (registered once) always read the current
   // values. Synced by the effect below once effectiveShape/baseRecipe
   // exist.
-  const dragShapeLayoutRef = useRef<{ shape?: string; frameEnabled: boolean }>({
+  const dragShapeLayoutRef = useRef<{ shape?: string; frameEnabled: boolean; shapeLayoutVersion?: number }>({
     shape: undefined,
     frameEnabled: true,
   });
@@ -248,6 +249,9 @@ export default function PreviewCanvas({
     dragShapeLayoutRef.current = {
       shape: effectiveShape,
       frameEnabled: resolveTextFitFrameEnabled("preview", baseRecipe?.renderOptions),
+      // #406: the diamond drag clamp must run in the same mask space
+      // the render fits against — the design's persisted layout.
+      shapeLayoutVersion: baseRecipe?.renderOptions?.shapeLayoutVersion,
     };
   }, [effectiveShape, baseRecipe]);
 
@@ -266,6 +270,13 @@ export default function PreviewCanvas({
     return clampTextCenterToShape(center, {
       shape: dragShapeLayoutRef.current.shape,
       frameEnabled: dragShapeLayoutRef.current.frameEnabled,
+      // #406: resolved here, at the clamp's own canvas size, from the
+      // design's layout version (null = legacy canvas-space clamp).
+      shapeMaskFootprint: resolveShapeMaskFootprint(
+        Math.max(bounds.width, 1),
+        Math.max(bounds.height, 1),
+        dragShapeLayoutRef.current.shapeLayoutVersion,
+      ),
       rectWidthPx: rect.width,
       rectHeightPx: rect.height,
       width: Math.max(bounds.width, 1),
@@ -396,6 +407,10 @@ export default function PreviewCanvas({
       // a transparent mat draws no frame, so the overlay must not fit
       // text against the frame's inset either.
       frameEnabled: resolveTextFitFrameEnabled("preview", baseRecipe?.renderOptions),
+      // #406: the overlay's fit + watermark mask follow the design's
+      // shape layout, exactly as the base render resolves it from the
+      // same recipe.
+      shapeLayoutVersion: baseRecipe?.renderOptions?.shapeLayoutVersion,
       // #413 paid-state fence: the existing `!paid` wiring, unchanged —
       // when the authoritative entitlement state resolves paid, this
       // effect re-runs (paid is a dependency below) and the overlay

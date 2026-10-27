@@ -223,6 +223,10 @@ function sanitizeRenderOptions(options: Record<string, unknown>) {
     "showMoon",
     "moonSize",
     "shapeMask",
+    // #406: persisted so a saved design keeps its shape layout —
+    // without it a v2 design would come back from the server as
+    // legacy (and a legacy design must stay absent, not gain a key).
+    "shapeLayoutVersion",
     "frameEnabled",
     "backgroundColor",
     "constellationColor",

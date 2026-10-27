@@ -261,12 +261,14 @@ test("wiring: renderSky threads renderStarMap's resolved purpose to stroke and f
   // renderStarMap forwards its resolved purpose to drawBackground.
   assert.match(source, /recipe\.renderOptions,\n\s+matPurpose,\n\s+\)/);
   // drawText's layout Pick carries the purpose and forwards it to the fit.
-  assert.match(source, /Pick<TextFitLayout, "shape" \| "frameEnabled" \| "matPurpose">/);
+  assert.match(source, /Pick<TextFitLayout, "shape" \| "frameEnabled" \| "matPurpose" \| "shapeMaskFootprint">/);
   assert.match(source, /matPurpose: textLayout\?\.matPurpose,/);
-  // renderStarMap's own drawText layout carries the resolved purpose.
-  assert.match(source, /frameEnabled: resolveTextFitFrameEnabled\(matPurpose, recipe\.renderOptions\),\n\s+matPurpose,\n\s+\}\)/);
+  // renderStarMap's own drawText layout carries the resolved purpose
+  // (and, since #406, the shape-mask footprint resolved from the same
+  // design's layout version).
+  assert.match(source, /frameEnabled: resolveTextFitFrameEnabled\(matPurpose, recipe\.renderOptions\),\n\s+matPurpose,\n\s+\/\/ #406:[\s\S]*?shapeMaskFootprint: resolveShapeMaskFootprint\(width, targetHeight, shapeLayoutVersion\),\n\s+\}\)/);
   // The live-preview text overlay is a preview surface: purpose defaults
   // to "preview" there and is forwarded into its drawText layout.
-  assert.match(source, /matPurpose = "preview",\n\}: \{\n\s+canvas: CanvasLike;/);
-  assert.match(source, /drawText\(ctx, width, height, textBoxes, textBounds, scale, \{ shape, frameEnabled, matPurpose \}\)/);
+  assert.match(source, /matPurpose = "preview",\n\s+shapeLayoutVersion,\n\}: \{\n\s+canvas: CanvasLike;/);
+  assert.match(source, /drawText\(ctx, width, height, textBoxes, textBounds, scale, \{\n\s+shape,\n\s+frameEnabled,\n\s+matPurpose,\n\s+shapeMaskFootprint: resolveShapeMaskFootprint\(width, height, resolvedShapeLayoutVersion\),\n\s+\}\);/);
 });

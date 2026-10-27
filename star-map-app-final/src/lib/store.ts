@@ -94,6 +94,16 @@ export interface RenderOptions {
   showMoon: boolean;
   moonSize: "normal" | "large";
   shapeMask: "rectangle" | "circle" | "heart" | "star" | "diamond";
+  /**
+   * Shape-mask layout version (#406, SQ-02): 2 renders the path
+   * shapes (heart/star/diamond) with uniform contain scaling —
+   * proportionate silhouettes at every aspect, mat fills the
+   * remainder. Absent or 1 is the historical independent X/Y stretch.
+   * New designs are stamped 2 (see the store's initial state); a
+   * saved design's stored value — including its absence — is carried
+   * through verbatim and never silently converted.
+   */
+  shapeLayoutVersion?: number;
   frameEnabled: boolean;
   backgroundColor?: string;
   constellationColor?: string;
@@ -233,6 +243,11 @@ const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) =
     showMoon: true,
     moonSize: "large",
     shapeMask: "rectangle",
+    // #406: a fresh editor session is a NEW design, so it is stamped
+    // with the uniform shape layout. Hydration of a saved design or
+    // draft overwrites this explicitly with the stored value (absent
+    // = legacy) — see EditorExperience / SimplifiedEditor.
+    shapeLayoutVersion: 2,
     frameEnabled: true,
     backgroundColor: "",
     constellationColor: "",

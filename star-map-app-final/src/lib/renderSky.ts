@@ -2,6 +2,11 @@ import { Horizon, Observer } from "astronomy-engine";
 import { computeVisibleStars, toUTCDateFromLocal, type VisibleSky } from "@/lib/astronomy";
 import type { LocationState, RenderOptions, StyleId, TextBox } from "@/lib/store";
 import { SHAPE_PATHS, SHAPE_CIRCLE_INSET_RATIO } from "@/lib/shapes";
+import {
+  resolveShapeClipTransform,
+  resolveShapeLayoutVersion,
+  resolveShapeMaskFootprint,
+} from "@/lib/shapeLayout";
 import type { AspectRatio, Shape } from "@/lib/types";
 import { FONT_STACKS } from "@/lib/fonts";
 import { adjustColor, parseHexColor, parseRgbColor, toRgba } from "@/lib/colorUtils";
@@ -460,7 +465,12 @@ export function renderStarMap({
   const mapLookTier = resolveMapLookTier(recipe.renderOptions, recipe.selectedStyle);
   const transparentMat = resolveTransparentMat(matPurpose, recipe.renderOptions);
   const printSafeInset = resolvePrintSafeInset(matPurpose, width, targetHeight);
-  const clipPath = buildShapeClip(shapeName, width, targetHeight);
+  // #406: the design's persisted shape-layout version (absent = the
+  // legacy stretch every saved design was rendered with).
+  const shapeLayoutVersion = resolveShapeLayoutVersion(
+    recipe.renderOptions?.shapeLayoutVersion,
+  );
+  const clipPath = buildShapeClip(shapeName, width, targetHeight, shapeLayoutVersion);
 
   ctx.save();
   ctx.scale(pixelRatio, pixelRatio);
@@ -540,6 +550,9 @@ export function renderStarMap({
       shape: shapeName,
       frameEnabled: resolveTextFitFrameEnabled(matPurpose, recipe.renderOptions),
       matPurpose,
+      // #406: the diamond fit evaluates against the same footprint
+      // the clip was built from (null under the legacy layout).
+      shapeMaskFootprint: resolveShapeMaskFootprint(width, targetHeight, shapeLayoutVersion),
     });
     ctx.restore();
   } else if (textBounds) {
@@ -576,6 +589,7 @@ export function renderStarMapTextLayer({
   frameEnabled,
   watermark = false,
   matPurpose = "preview",
+  shapeLayoutVersion,
 }: {
   canvas: CanvasLike;
   width: number;
@@ -592,6 +606,10 @@ export function renderStarMapTextLayer({
    * its frame-aware bound must scale exactly like the base canvas
    * renderStarMap draws underneath it. */
   matPurpose?: ExportMatPurpose;
+  /** #406: the design's shape-layout version, so the overlay's text
+   * fit and watermark mask match the base canvas render underneath
+   * (absent = legacy, as for every pre-#406 design). */
+  shapeLayoutVersion?: unknown;
   /** #413: the overlay canvas stacks ABOVE the base canvas in the
    * editor, so the watermark is painted here — after the text — to keep
    * it on top of the final preview composition (SQ-55 composition
@@ -620,7 +638,13 @@ export function renderStarMapTextLayer({
   ctx.save();
   ctx.scale(pixelRatio, pixelRatio);
   const scale = width / BASE_CANVAS_WIDTH;
-  drawText(ctx, width, height, textBoxes, textBounds, scale, { shape, frameEnabled, matPurpose });
+  const resolvedShapeLayoutVersion = resolveShapeLayoutVersion(shapeLayoutVersion);
+  drawText(ctx, width, height, textBoxes, textBounds, scale, {
+    shape,
+    frameEnabled,
+    matPurpose,
+    shapeMaskFootprint: resolveShapeMaskFootprint(width, height, resolvedShapeLayoutVersion),
+  });
   if (watermark) {
     const shapeName: Shape =
       typeof shape === "string" && VALID_SHAPES.has(shape as Shape)
@@ -630,7 +654,7 @@ export function renderStarMapTextLayer({
       width,
       height,
       show: true,
-      clipPath: buildShapeClip(shapeName, width, height),
+      clipPath: buildShapeClip(shapeName, width, height, resolvedShapeLayoutVersion),
       maskKey: shapeName,
       pixelRatio,
     });
@@ -725,6 +749,11 @@ export function buildRecipeFromState(input: {
       // the mask stayed "circle" for every selected shape).
       shapeMask:
         input.shape || (input.renderOptions?.shapeMask as Shape) || "rectangle",
+      // #406: the design's shape-layout version rides through verbatim
+      // — including undefined. Defaulting it here would silently
+      // convert every legacy design that passes through a rebuild
+      // (download normalize, checkout, hydration fingerprints).
+      shapeLayoutVersion: input.renderOptions?.shapeLayoutVersion,
       frameEnabled: input.renderOptions?.frameEnabled ?? true,
       backgroundColor: input.renderOptions?.backgroundColor ?? "",
       constellationColor: input.renderOptions?.constellationColor ?? "",
@@ -1383,7 +1412,7 @@ function drawText(
   textBoxes: TextBox[],
   bounds?: Map<string, { x: number; y: number; width: number; height: number }>,
   scale = 1,
-  textLayout?: Pick<TextFitLayout, "shape" | "frameEnabled" | "matPurpose">,
+  textLayout?: Pick<TextFitLayout, "shape" | "frameEnabled" | "matPurpose" | "shapeMaskFootprint">,
 ) {
   if (bounds) bounds.clear();
 
@@ -1417,6 +1446,7 @@ function drawText(
       shape: textLayout?.shape,
       frameEnabled: textLayout?.frameEnabled ?? true,
       matPurpose: textLayout?.matPurpose,
+      shapeMaskFootprint: textLayout?.shapeMaskFootprint,
       centerYNorm: provisional.y,
       lineHeightPx: baseFontSize * 1.2,
       width,
@@ -1646,7 +1676,12 @@ function drawWatermark(
   paintWatermark(ctx, args);
 }
 
-export function buildShapeClip(shape: string, width: number, height: number): Path2D | null {
+export function buildShapeClip(
+  shape: string,
+  width: number,
+  height: number,
+  shapeLayoutVersion?: unknown,
+): Path2D | null {
   if (shape === "rectangle") {
     const path = new Path2D();
     path.rect(0, 0, width, height);
@@ -1663,10 +1698,19 @@ export function buildShapeClip(shape: string, width: number, height: number): Pa
   const entry = SHAPE_PATHS[shape];
   if (!entry?.d) return null;
   const path = new Path2D(entry.d);
-  const [minX, minY, vbWidth, vbHeight] = entry.viewBox;
+  // #406 (SQ-02 Option A): layout v2 scales the path uniformly
+  // (contain, centred, mat around it); v1/absent keeps the historical
+  // independent X/Y stretch that saved designs were rendered with.
+  // The transform math lives in shapeLayout.ts (pure, unit-tested).
+  const transform = resolveShapeClipTransform(
+    entry.viewBox,
+    width,
+    height,
+    shapeLayoutVersion,
+  );
   const matrix = new DOMMatrix();
-  matrix.translateSelf(-minX, -minY);
-  matrix.scaleSelf(width / vbWidth, height / vbHeight);
+  matrix.translateSelf(transform.translateX, transform.translateY);
+  matrix.scaleSelf(transform.scaleX, transform.scaleY);
   const scaled = new Path2D();
   scaled.addPath(path, matrix);
   return scaled;

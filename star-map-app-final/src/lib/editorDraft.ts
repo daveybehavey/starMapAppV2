@@ -484,6 +484,17 @@ function normalizeRenderOptions(value: unknown): ValidationResult<Partial<Render
     normalized.constellationLineScale = clamp(scale, 0.5, 2);
   }
 
+  // #406: the shape-layout version is a closed set — an unknown value
+  // must not silently normalize away (the draft would restore with a
+  // different mask geometry than it was saved with).
+  if (hasOwn(value, "shapeLayoutVersion") && typeof value.shapeLayoutVersion !== "undefined") {
+    const version = value.shapeLayoutVersion;
+    if (typeof version !== "number" || (version !== 1 && version !== 2)) {
+      return { ok: false, reason: "invalid_render_options" };
+    }
+    normalized.shapeLayoutVersion = version;
+  }
+
   return { ok: true, value: normalized };
 }
 
