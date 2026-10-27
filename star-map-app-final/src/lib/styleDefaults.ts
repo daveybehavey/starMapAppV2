@@ -1,4 +1,5 @@
 import type { RenderOptions, StyleId, TextBox } from "@/lib/store";
+import { normalizeTextStyleBinding } from "@/lib/textStyleBinding";
 
 type StyleDefaults = {
   renderOptions?: Partial<RenderOptions>;
@@ -94,18 +95,39 @@ const STYLE_DEFAULTS: Partial<Record<StyleId, StyleDefaults>> = {
   },
 };
 
+/**
+ * The template's designed text defaults as a fresh object. Falls back to
+ * the legacy playfair/#0c1021 pair when a style carries no text defaults.
+ */
+export function getStyleTextDefaults(
+  styleId: StyleId,
+): { fontFamily: TextBox["fontFamily"]; color: string } {
+  const text = STYLE_DEFAULTS[styleId]?.text;
+  return text ? { ...text } : { fontFamily: "playfair", color: "#0c1021" };
+}
+
 export function applyStyleDefaults(styleId: StyleId, textBoxes: TextBox[]) {
   const defaults = STYLE_DEFAULTS[styleId];
   if (!defaults) {
     return { renderOptions: {}, textBoxes };
   }
 
+  // Ownership-aware (#408): only automatic properties follow the template.
+  // Explicit (user-/preset-authored) colour/font survive a style change,
+  // and boxes with no binding resolve explicit — legacy designs are never
+  // silently recoloured.
   const nextTextBoxes = defaults.text
-    ? textBoxes.map((box) => ({
-        ...box,
-        fontFamily: defaults.text?.fontFamily ?? box.fontFamily,
-        color: defaults.text?.color ?? box.color,
-      }))
+    ? textBoxes.map((box) => {
+        const binding = normalizeTextStyleBinding(box.textStyleBinding);
+        return {
+          ...box,
+          fontFamily:
+            binding.fontFamily === "automatic"
+              ? (defaults.text?.fontFamily ?? box.fontFamily)
+              : box.fontFamily,
+          color: binding.color === "automatic" ? (defaults.text?.color ?? box.color) : box.color,
+        };
+      })
     : textBoxes;
 
   return { renderOptions: defaults.renderOptions ?? {}, textBoxes: nextTextBoxes };

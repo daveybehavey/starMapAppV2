@@ -170,6 +170,7 @@ export function SimplifiedEditor() {
     setAspectRatio,
     setShape,
     setTextBoxes,
+    updateTextBox,
     setRenderOptions,
     setRevealed,
     revealed,
@@ -189,6 +190,7 @@ export function SimplifiedEditor() {
       setAspectRatio: state.setAspectRatio,
       setShape: state.setShape,
       setTextBoxes: state.setTextBoxes,
+      updateTextBox: state.updateTextBox,
       setRenderOptions: state.setRenderOptions,
       setRevealed: state.setRevealed,
       revealed: state.revealed,
@@ -1108,7 +1110,7 @@ export function SimplifiedEditor() {
                 renderOptions={renderOptions}
                 setRenderOptions={setRenderOptions}
                 textBoxes={textBoxes}
-                setTextBoxes={setTextBoxes}
+                updateTextBox={updateTextBox}
                 paid={paid}
               />
             )}
