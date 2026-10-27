@@ -470,6 +470,7 @@ export function renderStarMap({
     showFrame && !transparentMat,
     recipe.renderOptions?.backgroundColor,
     recipe.renderOptions,
+    matPurpose,
   );
   if (recipe.selectedStyle === "parchmentScroll") {
     drawPaperTexture(ctx, width, targetHeight, quality);
@@ -520,6 +521,7 @@ export function renderStarMap({
     drawText(ctx, width, targetHeight, recipe.textBoxes, textBounds, scale, {
       shape: shapeName,
       frameEnabled: resolveTextFitFrameEnabled(matPurpose, recipe.renderOptions),
+      matPurpose,
     });
     ctx.restore();
   } else if (textBounds) {
@@ -547,6 +549,7 @@ export function renderStarMapTextLayer({
   textBounds,
   shape,
   frameEnabled,
+  matPurpose = "preview",
 }: {
   canvas: CanvasLike;
   width: number;
@@ -558,6 +561,11 @@ export function renderStarMapTextLayer({
    * (and the drag bounds derived from it) matches the export render. */
   shape?: string;
   frameEnabled?: boolean;
+  /** The overlay only ever renders the live editor preview, so its fit
+   * uses the "preview" purpose (#409): at backing sizes above 1200px
+   * its frame-aware bound must scale exactly like the base canvas
+   * renderStarMap draws underneath it. */
+  matPurpose?: ExportMatPurpose;
 }) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
@@ -579,7 +587,7 @@ export function renderStarMapTextLayer({
   ctx.save();
   ctx.scale(pixelRatio, pixelRatio);
   const scale = width / BASE_CANVAS_WIDTH;
-  drawText(ctx, width, height, textBoxes, textBounds, scale, { shape, frameEnabled });
+  drawText(ctx, width, height, textBoxes, textBounds, scale, { shape, frameEnabled, matPurpose });
   ctx.restore();
 }
 
@@ -691,6 +699,7 @@ function drawBackground(
   showFrame = true,
   backgroundOverride?: string,
   renderOptions?: MapRecipe["renderOptions"],
+  matPurpose: ExportMatPurpose = "print",
 ) {
   const theme = STYLE_THEME[styleId];
   const resolvedBackground =
@@ -758,9 +767,12 @@ function drawBackground(
 
   // Rectangle border using theme accent color. The inset comes from
   // textFit.ts so the text fit-to-width bound (drawText) is derived from
-  // the same constant this stroke uses — one source of truth (fleet U06).
+  // the same purpose-aware calculation this stroke uses — one source of
+  // truth (fleet U06; purpose threading #409: for a given width, height
+  // and purpose, the stroked frame and the frame-aware fit bound use
+  // the same inset).
   if (showFrame && (!shape || shape === "rectangle")) {
-    const inset = resolveFrameInsetPx(width, height);
+    const inset = resolveFrameInsetPx(width, height, matPurpose);
     ctx.strokeStyle = palette.accent;
     ctx.lineWidth = 3 * scale;
     ctx.globalAlpha = 0.8;
@@ -1324,7 +1336,7 @@ function drawText(
   textBoxes: TextBox[],
   bounds?: Map<string, { x: number; y: number; width: number; height: number }>,
   scale = 1,
-  textLayout?: Pick<TextFitLayout, "shape" | "frameEnabled">,
+  textLayout?: Pick<TextFitLayout, "shape" | "frameEnabled" | "matPurpose">,
 ) {
   if (bounds) bounds.clear();
 
@@ -1357,6 +1369,7 @@ function drawText(
     const availableWidth = resolveShapeTextAvailableWidth({
       shape: textLayout?.shape,
       frameEnabled: textLayout?.frameEnabled ?? true,
+      matPurpose: textLayout?.matPurpose,
       centerYNorm: provisional.y,
       lineHeightPx: baseFontSize * 1.2,
       width,

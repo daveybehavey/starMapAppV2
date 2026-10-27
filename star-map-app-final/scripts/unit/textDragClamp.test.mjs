@@ -358,7 +358,7 @@ test("geometry: the clamp reuses the fit's own diamond/frame sources, not a seco
   const fit = read("src/lib/textFit.ts");
   assert.match(fit, /resolveDiamondHalfWidthAt\(y - halfHeightNorm\)/);
   assert.match(fit, /resolveDiamondHalfWidthAt\(y \+ halfHeightNorm\)/);
-  assert.match(fit, /resolveFrameInsetPx\(width, height\) \+ resolveFrameTextFitPaddingPx\(width\)/);
+  assert.match(fit, /resolveFrameInsetPx\(width, height, "preview"\) \+ resolveFrameTextFitPaddingPx\(width\)/);
 });
 
 /* ------------------------------------------------------------------ */

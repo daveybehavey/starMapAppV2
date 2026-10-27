@@ -58,7 +58,7 @@ test("U06: the frame inset helper is the formula the frame stroke uses", () => {
   assert.equal(resolveFrameInsetPx(400, 400), 12);
   assert.equal(resolveFrameInsetPx(200, 900), 8);
   const sky = read("src/lib/renderSky.ts");
-  assert.match(sky, /const inset = resolveFrameInsetPx\(width, height\);/);
+  assert.match(sky, /const inset = resolveFrameInsetPx\(width, height, matPurpose\);/);
 });
 
 test("U06: a framed rectangle fits text inside the frame's inner bounds", () => {

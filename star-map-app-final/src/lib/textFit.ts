@@ -14,6 +14,8 @@
 // still drawn at the floored size rather than silently clipped, wrapped, or
 // truncated — it can still spill, but bounded, centred, and legible.
 
+import type { ExportMatPurpose } from "./mapLookTiers";
+
 /** Smallest fraction of the configured size that fit-to-width may shrink to. */
 export const MIN_TEXT_FIT_SCALE = 0.5;
 
@@ -40,15 +42,34 @@ export function resolveFittedFontSize(
 }
 
 /**
- * The rectangle frame's inset from the canvas edge, in pixels — the exact
- * formula drawBackground in renderSky.ts strokes the frame with. Text
- * fitted against the canvas edge crosses that gold frame line (fleet
- * U06), so the frame's inner bounds are the text-fit bound whenever the
- * frame is drawn. Exported so the render path and the fit share one
- * source of truth.
+ * The rectangle frame's inset from the canvas edge, in pixels — one
+ * purpose-aware calculation, shared by the frame stroke (drawBackground
+ * in renderSky.ts) and by the text-fit bound derived from it.
+ * Text fitted against the canvas edge crosses that gold frame line
+ * (fleet U06), so the frame's inner bounds are the text-fit bound
+ * whenever the frame is drawn. Exported so the render path and the fit
+ * share one source of truth.
+ *
+ * The legacy inset — max(8, min(16, floor(minDim * 0.03))) — is exact
+ * for print renders and for any caller that omits the purpose: the
+ * default is "print" so an unthreaded lower-level caller fails safe
+ * toward the shipping physical product. Only an explicit "preview"
+ * purpose scales the inset with canvas size (#409):
+ * max(legacy, minDim * 16/1200) keeps the frame at the 1200px
+ * reference proportion (16/1200) at every larger render size, while
+ * staying bit-for-bit legacy at minDim <= 1200. Purpose is never
+ * inferred from canvas size or export quality (print assets and
+ * digital exports both render at quality "export").
  */
-export function resolveFrameInsetPx(width: number, height: number): number {
-  return Math.max(8, Math.min(16, Math.floor(Math.min(width, height) * 0.03)));
+export function resolveFrameInsetPx(
+  width: number,
+  height: number,
+  matPurpose: ExportMatPurpose = "print",
+): number {
+  const minDim = Math.min(width, height);
+  const legacyInset = Math.max(8, Math.min(16, Math.floor(minDim * 0.03)));
+  if (matPurpose !== "preview") return legacyInset;
+  return Math.max(legacyInset, minDim * (16 / 1200));
 }
 
 /**
@@ -90,6 +111,10 @@ export type TextFitLayout = {
   shape?: string;
   /** Whether the gold frame/outline is drawn for this render. */
   frameEnabled?: boolean;
+  /** Render purpose (#409): "preview" scales the frame inset with
+   * canvas size; "print" — and omission, via the helper's default —
+   * keeps the legacy inset the shipped product uses. */
+  matPurpose?: ExportMatPurpose;
   /** The line's resolved centre row, normalized 0..1 of canvas height. */
   centerYNorm: number;
   /** The line's unfitted height in pixels (font size x line height). */
@@ -142,10 +167,10 @@ export function resolveShapeTextAvailableWidth(layout: TextFitLayout): number {
     return Math.max(1, Math.min(topHalf, bottomHalf) * 2 * width);
   }
   if ((shape === undefined || shape === "rectangle") && frameEnabled) {
-    return Math.max(
-      1,
-      width - (resolveFrameInsetPx(width, height) + resolveFrameTextFitPaddingPx(width)) * 2,
-    );
+    const frameInset =
+      resolveFrameInsetPx(width, height, layout.matPurpose) +
+      resolveFrameTextFitPaddingPx(width);
+    return Math.max(1, width - frameInset * 2);
   }
   return width;
 }
@@ -278,8 +303,12 @@ export function clampTextCenterToShape(
   }
 
   if ((shape === undefined || shape === "rectangle") && frameEnabled) {
+    // The clamp's sole caller is the editor preview, so the purpose is
+    // pinned explicitly to "preview" (#409): at editor CSS sizes
+    // (minDim <= 1200) that is exactly the legacy inset, and the
+    // contract stays correct if the editor ever works larger.
     const insetPx =
-      resolveFrameInsetPx(width, height) + resolveFrameTextFitPaddingPx(width);
+      resolveFrameInsetPx(width, height, "preview") + resolveFrameTextFitPaddingPx(width);
     const clampAxis = (value: number, rectPx: number, sizePx: number) => {
       const min = (insetPx + rectPx / 2) / sizePx;
       const max = 1 - min;
