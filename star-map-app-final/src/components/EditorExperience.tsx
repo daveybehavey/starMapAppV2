@@ -2771,15 +2771,6 @@ export function EditorExperience({
                                                       value={box.fontFamily}
                                                       onChange={(e) => {
                                                         const next = e.target.value as TextBox["fontFamily"];
-                                                        const fontMeta = fontOptions.find(
-                                                          (opt) => opt.id === next
-                                                        );
-                                                        if (fontMeta?.premium && !paid) {
-                                                          setPaywallIntent("digital");
-                                                          setPaywallOpen(true);
-                                                          trackPaywallOpenedEvent("digital", "premium_font");
-                                                          return;
-                                                        }
                                                         updateTextBox(box.id, { fontFamily: next });
                                                       }}
                                                       className="w-full rounded-md border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"
@@ -2791,7 +2782,7 @@ export function EditorExperience({
                                                           value={opt.id}
                                                           style={{ color: "#111827" }}
                                                         >
-                                                          {opt.premium ? `🔒 ${opt.label}` : opt.label}
+                                                          {opt.label}
                                                         </option>
                                                       ))}
                                                     </select>
