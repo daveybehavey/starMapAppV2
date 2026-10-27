@@ -328,7 +328,9 @@ test("clamp: a contained centre is returned exactly", () => {
 test("clamp: drags into the cleft, the point, and the notch are pulled inside", () => {
   const cleft = clampHeart({ x: 0.5, y: 0.12 }, 400, 60);
   assert.ok(contained(heartProfile, cleft, 400, 60), JSON.stringify(cleft));
-  assert.ok(cleft.y > 0.2, "out of the cleft zone");
+  // (No row assertion: since the Codex P2 fix the nearest feasible
+  // row may legitimately be a lobe row above the cleft's bottom —
+  // containment is the invariant.)
 
   const point = clampStar({ x: 0.5, y: 0.1 }, 300, 50);
   assert.ok(contained(starProfile, point, 300, 50), JSON.stringify(point));
@@ -340,6 +342,17 @@ test("clamp: drags into the cleft, the point, and the notch are pulled inside", 
   const side = clampHeart({ x: 0.85, y: 0.42 }, 400, 60);
   assert.ok(contained(heartProfile, side, 400, 60), JSON.stringify(side));
   assert.ok(side.x < 0.85);
+});
+
+test("clamp: a rect that only fits off-centre keeps its row (Codex P2, PR #432)", () => {
+  // 100x20px rect dragged to (0.45, 0.15) — inside the heart's left
+  // lobe band, above the cleft. The centred half-width at that row
+  // is 0, but the rect fits off-centre at ~(0.415, 0.15); the clamp
+  // must stop at the lobe, not jump below the cleft.
+  const result = clampHeart({ x: 0.45, y: 0.15 }, 100, 20);
+  assert.equal(result.y, 0.15);
+  assert.ok(Math.abs(result.x - 0.415) < 0.01, `expected x near 0.415, got ${result.x}`);
+  assert.ok(contained(heartProfile, result, 100, 20));
 });
 
 test("clamp: an impossible rect falls back deterministically to the widest band", () => {

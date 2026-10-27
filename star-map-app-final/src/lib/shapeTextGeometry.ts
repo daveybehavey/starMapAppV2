@@ -48,6 +48,14 @@ export interface ShapeTextProfile {
    * only change at these rows.
    */
   criticalRows: readonly number[];
+  /**
+   * Sorted, unique mask-normalized rows of the path's STRUCTURAL
+   * vertices only (move/line endpoints and curve endpoints — the
+   * Bézier subdivision points are excluded). A much smaller set than
+   * criticalRows; the drag clamp uses these as candidate rows, where
+   * feasibility changes most.
+   */
+  vertexRows: readonly number[];
   /** Interior intervals at mask row `v` (0..1), sorted by left edge. */
   intervalsAt(v: number): ShapeInteriorInterval[];
   /**
@@ -106,9 +114,10 @@ function tokenizePath(d: string): Array<string | number> {
  * the current command, and pairs after an M are implicit L — the SVG
  * rules the authored paths rely on.
  */
-function flattenPath(d: string): Point[] {
+function flattenPath(d: string): { points: Point[]; vertices: Point[] } {
   const tokens = tokenizePath(d);
   const points: Point[] = [];
+  const vertices: Point[] = [];
   let i = 0;
   let command: string | null = null;
   let current: Point = [0, 0];
@@ -132,10 +141,12 @@ function flattenPath(d: string): Point[] {
       current = [readNumber(), readNumber()];
       subpathStart = current;
       points.push(current);
+      vertices.push(current);
       command = "L";
     } else if (command === "L") {
       current = [readNumber(), readNumber()];
       points.push(current);
+      vertices.push(current);
     } else if (command === "C") {
       const [x1, y1, x2, y2, x, y] = [
         readNumber(),
@@ -155,11 +166,12 @@ function flattenPath(d: string): Point[] {
         ]);
       }
       current = [x, y];
+      vertices.push(current);
     } else {
       throw new Error(`shape path: unexpected token at ${i}`);
     }
   }
-  return points;
+  return { points, vertices };
 }
 
 /**
@@ -174,18 +186,44 @@ export function buildShapeTextProfile(
   viewBox: readonly [number, number, number, number],
 ): ShapeTextProfile {
   const [minX, minY, vbWidth, vbHeight] = viewBox;
-  const polygon = flattenPath(d);
+  const { points: polygon, vertices } = flattenPath(d);
   const criticalRows = Array.from(
     new Set(polygon.map(([, y]) => (y - minY) / vbHeight)),
   ).sort((a, b) => a - b);
+  const vertexRows = Array.from(
+    new Set(vertices.map(([, y]) => (y - minY) / vbHeight)),
+  ).sort((a, b) => a - b);
+
+  // Edge index for scanline queries (Codex P1 on PR #432: a naive
+  // intervalsAt rescans the whole flattened polygon — several
+  // hundred edges — and the drag clamp issues thousands of span
+  // queries per pointer move, ~500ms per invalid drag position).
+  // Non-horizontal edges are bucketed into horizontal bands; a
+  // scanline only tests the edges in its own band. Horizontal edges
+  // never satisfy the half-open crossing rule and are excluded.
+  const BAND_COUNT = 256;
+  const edges: Array<readonly [number, number, number, number]> = [];
+  const bands: number[][] = Array.from({ length: BAND_COUNT }, () => []);
+  for (let k = 0; k + 1 < polygon.length; k++) {
+    const [x1, y1] = polygon[k];
+    const [x2, y2] = polygon[k + 1];
+    if (y1 === y2) continue;
+    const edgeIndex = edges.length;
+    edges.push([x1, y1, x2, y2]);
+    const lo = Math.min(y1, y2);
+    const hi = Math.max(y1, y2);
+    const bandLo = Math.max(0, Math.min(BAND_COUNT - 1, Math.floor(((lo - minY) / vbHeight) * BAND_COUNT)));
+    const bandHi = Math.max(0, Math.min(BAND_COUNT - 1, Math.floor(((hi - minY) / vbHeight) * BAND_COUNT)));
+    for (let band = bandLo; band <= bandHi; band++) bands[band].push(edgeIndex);
+  }
 
   function intervalsAt(v: number): ShapeInteriorInterval[] {
     if (!Number.isFinite(v)) return [];
     const y = minY + v * vbHeight;
+    const band = Math.max(0, Math.min(BAND_COUNT - 1, Math.floor(v * BAND_COUNT)));
     const crossings: number[] = [];
-    for (let k = 0; k + 1 < polygon.length; k++) {
-      const [x1, y1] = polygon[k];
-      const [x2, y2] = polygon[k + 1];
+    for (const edgeIndex of bands[band]) {
+      const [x1, y1, x2, y2] = edges[edgeIndex];
       // Half-open edge rule: an edge counts when the scanline is in
       // [min(y1,y2), max(y1,y2)) — a vertex shared by two edges is
       // counted exactly once, so crossings pair up deterministically.
@@ -217,6 +255,7 @@ export function buildShapeTextProfile(
   const profile: ShapeTextProfile = {
     shape,
     criticalRows,
+    vertexRows,
     intervalsAt,
     centeredHalfWidthAt,
     segmentContainedAt,
@@ -279,11 +318,23 @@ export function shapeSpanSampleRows(
 ): number[] {
   const lo = Math.max(0, Math.min(vTop, vBottom));
   const hi = Math.min(1, Math.max(vTop, vBottom));
-  const rows = [lo, hi];
-  for (const row of profile.criticalRows) {
-    if (row > lo && row < hi) rows.push(row);
+  // criticalRows is sorted: binary-search the slice inside the span
+  // instead of scanning every vertex row per query (the drag clamp
+  // issues hundreds of span queries per pointer move).
+  const critical = profile.criticalRows;
+  let start = 0;
+  let end = critical.length;
+  while (start < end) {
+    const mid = (start + end) >> 1;
+    if (critical[mid] <= lo) start = mid + 1;
+    else end = mid;
   }
-  return rows.sort((a, b) => a - b);
+  const rows = [lo];
+  for (let i = start; i < critical.length && critical[i] < hi; i++) {
+    rows.push(critical[i]);
+  }
+  rows.push(hi);
+  return rows;
 }
 
 /**

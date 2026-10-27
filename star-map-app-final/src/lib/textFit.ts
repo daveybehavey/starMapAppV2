@@ -351,6 +351,46 @@ export type TextDragClampLayout = {
  * region is returned with its exact input values, so designed
  * default positions and interior drags are unaffected.
  */
+/**
+ * #407 drag-clamp candidate rows per (profile, rect half-height):
+ * the 1/256 grid plus every structural-vertex row offset by the half-height.
+ * A drag keeps one glyph rect for its whole duration, so this set is
+ * built once and reused across pointer moves (Codex P1 on PR #432).
+ */
+const clampCandidateRowCache = {
+  byProfile: new WeakMap<
+    ShapeTextProfile,
+    Map<number, { grid: number[]; critical: number[] }>
+  >(),
+  get(profile: ShapeTextProfile, halfHeightMask: number) {
+    let byHeight = this.byProfile.get(profile);
+    if (!byHeight) {
+      byHeight = new Map();
+      this.byProfile.set(profile, byHeight);
+    }
+    let entry = byHeight.get(halfHeightMask);
+    if (!entry) {
+      const grid: number[] = [];
+      for (let step = 0; step <= 256; step++) grid.push(step / 256);
+      // Structural-vertex rows only (profile.vertexRows): the
+      // flattened criticalRows number in the hundreds (Bézier
+      // subdivision points) and swamped the candidate set.
+      const vertexSet = new Set<number>();
+      for (const row of profile.vertexRows) {
+        vertexSet.add(row - halfHeightMask);
+        vertexSet.add(row + halfHeightMask);
+      }
+      const critical = Array.from(vertexSet).filter(
+        (row) => Number.isFinite(row) && row >= 0 && row <= 1,
+      );
+      entry = { grid, critical };
+      if (byHeight.size > 64) byHeight.clear();
+      byHeight.set(halfHeightMask, entry);
+    }
+    return entry;
+  },
+};
+
 export function clampTextCenterToShape(
   center: { x: number; y: number },
   layout: TextDragClampLayout,
@@ -460,57 +500,81 @@ export function clampTextCenterToShape(
       return center;
     }
 
-    // Row: the closest centre row whose span offers the rect's
-    // half-width at the mask centre. Candidates are a fine grid plus
-    // every critical row offset by the rect's half-height (the rows
-    // where feasibility can change). If no row is feasible, fall back
-    // to the row offering the most centred width (ties: closest to
-    // the input, then the lower row) — the spill-minimising position
-    // SQ-03 requires, deterministic in all cases.
-    const candidateRows = new Set<number>();
-    for (let step = 0; step <= 1024; step++) candidateRows.add(step / 1024);
-    for (const row of textProfile.criticalRows) {
-      candidateRows.add(row - halfHeightMask);
-      candidateRows.add(row + halfHeightMask);
-    }
-    let clampedY: number | null = null;
-    let bestFallbackY = 0.5;
-    let bestFallbackWidth = -1;
+    // Row: the closest centre row whose whole vertical span can
+    // contain the rect at SOME centre — feasibility comes from the
+    // valid-centre intervals across the span, so a row where the
+    // rect only fits OFF-CENTRE (a heart lobe above the cleft)
+    // counts (Codex P2 on PR #432: gating on the centred half-width
+    // made text jump below the cleft instead of stopping at the
+    // lobe). The candidate set is bounded (the input row, every
+    // structural-vertex row offset by the rect's half-height, and a 1/256
+    // grid) and each span query is band-indexed in the profile
+    // (Codex P1: the previous 1/1024 scan over the raw polygon cost
+    // ~500ms per invalid drag position). Containment at the chosen
+    // row is still exact — its intervals are computed exactly; the
+    // grid only bounds which rows are considered (≤1/512 of the mask
+    // from the true closest, imperceptible in a drag). If no row is
+    // feasible, fall back to the row offering the most centred width
+    // (ties: closest to the input, then the lower row) — the
+    // spill-minimising position SQ-03 requires, deterministic in
+    // all cases.
+    const candidateEntry = clampCandidateRowCache.get(textProfile, halfHeightMask);
+    const byDistance = (a: number, b: number) =>
+      Math.abs(a - maskY) - Math.abs(b - maskY) || a - b;
+    const candidateRows = [maskY, ...candidateEntry.grid, ...candidateEntry.critical].sort(byDistance);
+    let resolvedY: number | null = null;
+    let resolvedCenters: Array<readonly [number, number]> = [];
     for (const candidate of candidateRows) {
-      if (!Number.isFinite(candidate) || candidate < 0 || candidate > 1) continue;
-      const offered = textProfile.centeredHalfWidthAcrossSpan(
+      const centers = textProfile.validCenterIntervalsAcrossSpan(
         candidate - halfHeightMask,
         candidate + halfHeightMask,
+        halfWidthMask,
       );
-      if (
-        offered > bestFallbackWidth ||
-        (offered === bestFallbackWidth &&
-          Math.abs(candidate - maskY) < Math.abs(bestFallbackY - maskY))
-      ) {
-        bestFallbackWidth = offered;
-        bestFallbackY = candidate;
+      if (centers.length > 0) {
+        resolvedY = candidate;
+        resolvedCenters = centers;
+        break;
       }
-      if (offered >= halfWidthMask) {
+    }
+    if (resolvedY === null) {
+      // Fallback (the rect fits nowhere): the widest-band row over a
+      // coarser set — every 4th grid row plus the critical offsets.
+      // Precision is low-value here (the position only minimizes
+      // spill) and this keeps the worst case inside a frame budget.
+      let bestFallbackWidth = -1;
+      resolvedY = 0.5;
+      const fallbackRows = [
+        ...candidateEntry.grid.filter((_, i) => i % 4 === 0),
+        ...candidateEntry.critical,
+      ].sort(byDistance);
+      for (const candidate of fallbackRows) {
+        const offered = textProfile.centeredHalfWidthAcrossSpan(
+          candidate - halfHeightMask,
+          candidate + halfHeightMask,
+        );
         if (
-          clampedY === null ||
-          Math.abs(candidate - maskY) < Math.abs(clampedY - maskY) ||
-          (Math.abs(candidate - maskY) === Math.abs(clampedY - maskY) && candidate < clampedY)
+          offered > bestFallbackWidth ||
+          (offered === bestFallbackWidth &&
+            Math.abs(candidate - maskY) < Math.abs(resolvedY - maskY))
         ) {
-          clampedY = candidate;
+          bestFallbackWidth = offered;
+          resolvedY = candidate;
         }
       }
     }
-    const resolvedY = clampedY ?? bestFallbackY;
 
     // Column: clamp into the valid-centre set across the resolved
     // span (nearest point of the set; the mask centre when the set
     // is empty — the rect fits nowhere at this row, and the centred
     // spill matches the fit floor's behaviour).
-    const validCenters = textProfile.validCenterIntervalsAcrossSpan(
-      resolvedY - halfHeightMask,
-      resolvedY + halfHeightMask,
-      halfWidthMask,
-    );
+    const validCenters =
+      resolvedCenters.length > 0
+        ? resolvedCenters
+        : textProfile.validCenterIntervalsAcrossSpan(
+            resolvedY - halfHeightMask,
+            resolvedY + halfHeightMask,
+            halfWidthMask,
+          );
     let resolvedX = 0.5;
     if (validCenters.length > 0) {
       resolvedX = validCenters[0][0];
