@@ -115,7 +115,11 @@ export const PRINT_CATALOG = [
     id: "card_4x6",
     printfulVariantId: 14457,
     printfulVariantEnv: "PRINTFUL_VARIANT_ID_CARD_4X6",
-    shippingProfile: "poster_unframed",
+    // L4 (2026-10-26): dedicated card_4x6 profile — verified variant-14457
+    // rates in data/printful-shipping.json. Previously reused the
+    // poster_unframed profile, over-recovering $0.43 US / $0.47 CA on
+    // every standalone card order.
+    shippingProfile: "card_4x6",
     includesFrame: false,
     labelFallback: "Keepsake card (4×6)",
     priceFallbackCents: 1900,
@@ -239,7 +243,7 @@ export function resolvePaywallOfferRows(
   return [{ variant: preferredVariant, includeDigitalAddOn: false }, ...PAYWALL_PRINT_CHECKOUT_ROWS];
 }
 
-export type PrintShippingProfile = "poster_unframed" | "poster_framed" | "canvas_wrap" | "mug_11oz";
+export type PrintShippingProfile = "poster_unframed" | "poster_framed" | "canvas_wrap" | "mug_11oz" | "card_4x6";
 
 export function getPrintShippingProfile(variant: PrintVariant): PrintShippingProfile {
   return getPrintCatalogRow(variant).shippingProfile;

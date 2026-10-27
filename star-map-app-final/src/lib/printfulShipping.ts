@@ -24,6 +24,7 @@ type ShippingMap = {
   poster_framed: Record<string, PrintfulShippingRate>;
   canvas_wrap: Record<string, PrintfulShippingRate>;
   mug_11oz: Record<string, PrintfulShippingRate>;
+  card_4x6: Record<string, PrintfulShippingRate>;
 };
 
 const map = shippingMap as ShippingMap;
