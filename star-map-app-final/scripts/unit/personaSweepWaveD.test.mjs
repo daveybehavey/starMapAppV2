@@ -172,7 +172,9 @@ test("U14: the store's shapeMask follows setShape and starts in sync", () => {
   assert.match(source, /shape: "rectangle",[\s\S]*?shapeMask: "rectangle",/);
   assert.match(
     source,
-    /setShape: \(shape\) =>\s*\n?\s*set\(\(state\) => \(\{\s*\n?\s*shape,\s*\n?\s*renderOptions: \{ \.\.\.state\.renderOptions, shapeMask: shape \},[\s\S]*?textBoxes: applyDefaultTextRowsForShape\(state\.textBoxes, shape\),\s*\n?\s*\}\)\),/,
+    // #407: setShape's updater became a block body so it can resolve
+    // the design's layout footprint for the row relocation.
+    /setShape: \(shape\) =>\s*\n?\s*set\(\(state\) => \{[\s\S]*?renderOptions: \{ \.\.\.state\.renderOptions, shapeMask: shape \},[\s\S]*?textBoxes: applyDefaultTextRowsForShape\(\s*state\.textBoxes,\s*shape,\s*resolveShapeMaskFootprint\(/,
   );
   // The textBoxes term is the U14-fix default-row relocation (fleet
   // PR #16); its behaviour is pinned in personaSweepU14DiamondFix.test.mjs.

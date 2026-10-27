@@ -16,6 +16,7 @@
 
 import type { ExportMatPurpose } from "./mapLookTiers";
 import type { ShapeMaskFootprint } from "./shapeLayout";
+import type { ShapeTextProfile } from "./shapeTextGeometry";
 
 /** Smallest fraction of the configured size that fit-to-width may shrink to. */
 export const MIN_TEXT_FIT_SCALE = 0.5;
@@ -130,6 +131,15 @@ export type TextFitLayout = {
    * this module stays free of runtime imports (the plain-Node unit
    * runner imports it directly). */
   shapeMaskFootprint?: ShapeMaskFootprint | null;
+  /** Shape-interior profile for the concave shapes (heart/star),
+   * resolved by the caller from the renderer's own SHAPE_PATHS
+   * (shapeTextGeometry.ts): the heart/star fit bound is the mask's
+   * centred width across the line's span in MASK space — converted
+   * with the footprint above under the uniform layout, or the full
+   * canvas under legacy. Null/absent keeps the historical
+   * full-canvas bound for those shapes. Passed in as data, like the
+   * footprint, so this module stays free of runtime imports. */
+  shapeTextProfile?: ShapeTextProfile | null;
   /** The line's resolved centre row, normalized 0..1 of canvas height. */
   centerYNorm: number;
   /** The line's unfitted height in pixels (font size x line height). */
@@ -158,6 +168,17 @@ export type TextFitLayout = {
  *   zero mask width; that real-geometry zero is clamped to a 1px bound
  *   (see the branch) so the fit resolves to the shrink floor rather
  *   than the fit helper's unmeasurable-input full size.
+ * - Heart/star (#407, SQ-03): the mask's CENTRED width across the
+ *   line's own vertical span, from the shape-interior profile — the
+ *   largest interval symmetric about the mask centre that stays
+ *   inside the mask at every row of the span. Above the heart's
+ *   cleft (and below the star's bottom notch) the centre is outside
+ *   the mask, so a line there gets the same 1px-bound → shrink-floor
+ *   treatment as a diamond apex crossing; the designed default rows
+ *   (HEART/STAR_TEXT_BOX_ROWS below) keep designed text out of those
+ *   zones entirely. Evaluated in mask space: under the uniform
+ *   layout the span is converted into the footprint, under legacy
+ *   the mask space is the canvas itself.
  * - Every other shape (and a frameless rectangle): the full canvas
  *   width, i.e. the pre-existing P01 behaviour, unchanged.
  */
@@ -199,6 +220,33 @@ export function resolveShapeTextAvailableWidth(layout: TextFitLayout): number {
     // inside the apex.
     return Math.max(1, Math.min(topHalf, bottomHalf) * 2 * width);
   }
+  const textProfile = layout.shapeTextProfile ?? null;
+  if ((shape === "heart" || shape === "star") && textProfile) {
+    if (!Number.isFinite(height) || height <= 0) return width;
+    const footprint = layout.shapeMaskFootprint ?? null;
+    const halfSpanPx = Math.max(0, lineHeightPx) / 2;
+    const centerYPx = centerYNorm * height;
+    // Convert the line's vertical span into mask space (see the
+    // header): footprint space under the uniform layout, canvas
+    // fractions under legacy. The bound is the centred half-width
+    // the mask offers across that whole span, back in canvas pixels
+    // (mask x maps onto the footprint's edge, or the canvas width).
+    const vTop = footprint
+      ? (centerYPx - halfSpanPx - footprint.offsetY) / footprint.size
+      : centerYNorm - halfSpanPx / height;
+    const vBottom = footprint
+      ? (centerYPx + halfSpanPx - footprint.offsetY) / footprint.size
+      : centerYNorm + halfSpanPx / height;
+    const xScalePx = footprint ? footprint.size : width;
+    // A span whose centre rows sit in the cleft/notch measures a
+    // real zero; clamp to 1px exactly as the diamond branch does, so
+    // the fit lands on the shrink floor instead of answering the
+    // helper's unmeasurable-input full size.
+    return Math.max(
+      1,
+      textProfile.centeredHalfWidthAcrossSpan(vTop, vBottom) * 2 * xScalePx,
+    );
+  }
   if ((shape === undefined || shape === "rectangle") && frameEnabled) {
     const frameInset =
       resolveFrameInsetPx(width, height, layout.matPurpose) +
@@ -230,6 +278,13 @@ export type TextDragClampLayout = {
    * runs in that centred square footprint. Null/absent keeps the
    * historical canvas-space clamp. */
   shapeMaskFootprint?: ShapeMaskFootprint | null;
+  /** Shape-interior profile for the concave shapes (heart/star),
+   * resolved by the caller (shapeTextGeometry.ts): the heart/star
+   * clamp keeps the dragged glyph rect inside the mask, evaluated
+   * in mask space (footprint under the uniform layout, full canvas
+   * under legacy). Null/absent keeps the historical unclamped
+   * behaviour for those shapes. */
+  shapeTextProfile?: ShapeTextProfile | null;
   /** The dragged box's rendered glyph-rect width in pixels. */
   rectWidthPx: number;
   /** The dragged box's rendered glyph-rect height in pixels. */
@@ -270,10 +325,20 @@ export type TextDragClampLayout = {
  *   the rows that fit its width) is centred on the failing axis: no
  *   position contains it, and the spill that remains is the fit
  *   floor's pre-existing bounded spill, not the drag's.
+ * - Heart/star (#407, SQ-03): the feasible region of centres whose
+ *   WHOLE glyph rect fits inside the mask, evaluated in mask space
+ *   from the shape-interior profile. A centre whose rect is already
+ *   contained is returned exactly. Otherwise the centre's row moves
+ *   to the closest row whose span offers the rect's width at the
+ *   centre (a deterministic scan; if no row offers it, the row whose
+ *   span offers the MOST width — the spill-minimising fallback, not
+ *   a blind canvas middle: neither shape is vertically symmetric),
+ *   and the column clamps into the valid-centre set across the
+ *   clamped span (or the mask centre when that set is empty).
  * - Rectangle with its frame drawn: the frame's inner bounds, less
  *   the same padding the fit uses, on both axes. A rect larger than
  *   the region on an axis is centred on that axis.
- * - Every other shape (circle, heart, star, ...), and a frameless
+ * - Every other shape (circle, birthdaycake, ...), and a frameless
  *   rectangle: the centre is returned unchanged. The fit deliberately
  *   bounds those shapes by the full canvas only, and their designed
  *   layouts place text outside the sky shape's chord (the circle
@@ -286,6 +351,97 @@ export type TextDragClampLayout = {
  * region is returned with its exact input values, so designed
  * default positions and interior drags are unaffected.
  */
+/**
+ * #407 drag-clamp candidate rows per (profile, rect half-height):
+ * the 1/256 grid plus every structural-vertex row offset by the half-height.
+ * A drag keeps one glyph rect for its whole duration, so this set is
+ * built once and reused across pointer moves (Codex P1 on PR #432).
+ */
+const clampCandidateRowCache = {
+  byProfile: new WeakMap<
+    ShapeTextProfile,
+    Map<number, { grid: number[]; critical: number[] }>
+  >(),
+  get(profile: ShapeTextProfile, halfHeightMask: number) {
+    let byHeight = this.byProfile.get(profile);
+    if (!byHeight) {
+      byHeight = new Map();
+      this.byProfile.set(profile, byHeight);
+    }
+    let entry = byHeight.get(halfHeightMask);
+    if (!entry) {
+      const grid: number[] = [];
+      for (let step = 0; step <= 256; step++) grid.push(step / 256);
+      // Structural-vertex rows only (profile.vertexRows): the
+      // flattened criticalRows number in the hundreds (Bézier
+      // subdivision points) and swamped the candidate set.
+      const vertexSet = new Set<number>();
+      for (const row of profile.vertexRows) {
+        vertexSet.add(row - halfHeightMask);
+        vertexSet.add(row + halfHeightMask);
+      }
+      const critical = Array.from(vertexSet).filter(
+        (row) => Number.isFinite(row) && row >= 0 && row <= 1,
+      );
+      entry = { grid, critical };
+      if (byHeight.size > 64) byHeight.clear();
+      byHeight.set(halfHeightMask, entry);
+    }
+    return entry;
+  },
+};
+
+/**
+ * #407 (Codex P2 on PR #432): aspect changes remap untouched
+ * mask-relative rows through the footprint change. A heart/star
+ * default row is STORED as a canvas fraction converted through the
+ * footprint of the aspect in force when it was written; if the
+ * aspect changes before the next shape switch, the mask-space
+ * recognition in applyDefaultTextRowsForShape would read the stored
+ * row through the NEW footprint and strand it as a "custom"
+ * position. This remap runs at the aspect change, while the old
+ * footprint is still known: a designed box centred on the current
+ * shape's default mask row (under the FROM footprint) is rewritten
+ * to the same mask row under the TO footprint, snapped to the
+ * canonical row value. Legacy designs (null footprint on either
+ * side) store mask rows as canvas rows at every aspect — nothing
+ * to remap. Reference-stable when nothing changes.
+ */
+export function remapDefaultTextRowsForFootprintChange<
+  T extends { id: string; position?: { x: number; y: number } },
+>(
+  boxes: T[],
+  shape: string | undefined,
+  fromFootprint: ShapeMaskFootprint | null | undefined,
+  toFootprint: ShapeMaskFootprint | null | undefined,
+  fromCanvasHeight: number,
+  toCanvasHeight: number,
+): T[] {
+  if (shape !== "heart" && shape !== "star") return boxes;
+  if (!fromFootprint || !toFootprint) return boxes;
+  if (!(fromCanvasHeight > 0) || !(toCanvasHeight > 0)) return boxes;
+  const rows = resolveDefaultTextBoxRows(shape);
+  let changed: T[] | null = null;
+  boxes.forEach((box, index) => {
+    // Own-property guard: ids are data (custom boxes, drafts) and a
+    // plain index would read inherited properties — a box id of
+    // "constructor" would otherwise resolve to a function and the
+    // NaN comparisons below would rewrite its row to NaN (local
+    // Codex substitute pass, PR #432 round 3).
+    if (!Object.hasOwn(rows, box.id)) return;
+    const targetRow = rows[box.id as keyof typeof rows];
+    if (targetRow === undefined || !box.position || box.position.x !== 0.5) return;
+    const maskY =
+      (box.position.y * fromCanvasHeight - fromFootprint.offsetY) / fromFootprint.size;
+    if (Math.abs(maskY - targetRow) > MASK_ROW_RECOGNITION_EPSILON) return;
+    const y = (toFootprint.offsetY + targetRow * toFootprint.size) / toCanvasHeight;
+    if (y === box.position.y) return;
+    if (!changed) changed = [...boxes];
+    changed[index] = { ...box, position: { ...box.position, y } };
+  });
+  return changed ?? boxes;
+}
+
 export function clampTextCenterToShape(
   center: { x: number; y: number },
   layout: TextDragClampLayout,
@@ -370,6 +526,123 @@ export function clampTextCenterToShape(
         ? Math.min(0.5 + slack, Math.max(0.5 - slack, center.x))
         : 0.5;
     return { x, y };
+  }
+
+  const textProfile = layout.shapeTextProfile ?? null;
+  if ((shape === "heart" || shape === "star") && textProfile) {
+    // Work in mask space throughout: the mask's own normalized
+    // coordinates, where the interior profile is defined. Under the
+    // uniform layout the mask occupies the centred square footprint;
+    // under legacy it is the full canvas (offset 0, scale = canvas).
+    const footprint = layout.shapeMaskFootprint ?? null;
+    const xScalePx = footprint ? footprint.size : width;
+    const yScalePx = footprint ? footprint.size : height;
+    const offsetX = footprint ? footprint.offsetX : 0;
+    const offsetY = footprint ? footprint.offsetY : 0;
+    const maskX = (center.x * width - offsetX) / xScalePx;
+    const maskY = (center.y * height - offsetY) / yScalePx;
+    const halfWidthMask = rectWidthPx / (xScalePx * 2);
+    const halfHeightMask = rectHeightPx / (yScalePx * 2);
+
+    // A rect already contained at the input centre is feasible:
+    // return the input exactly (the stored position must not drift
+    // by a float round-trip through mask space).
+    if (textProfile.rectContainedAt(maskX, maskY, halfWidthMask, halfHeightMask)) {
+      return center;
+    }
+
+    // Row: the closest centre row whose whole vertical span can
+    // contain the rect at SOME centre — feasibility comes from the
+    // valid-centre intervals across the span, so a row where the
+    // rect only fits OFF-CENTRE (a heart lobe above the cleft)
+    // counts (Codex P2 on PR #432: gating on the centred half-width
+    // made text jump below the cleft instead of stopping at the
+    // lobe). The candidate set is bounded (the input row, every
+    // structural-vertex row offset by the rect's half-height, and a 1/256
+    // grid) and each span query is band-indexed in the profile
+    // (Codex P1: the previous 1/1024 scan over the raw polygon cost
+    // ~500ms per invalid drag position). Containment at the chosen
+    // row is still exact — its intervals are computed exactly; the
+    // grid only bounds which rows are considered (≤1/512 of the mask
+    // from the true closest, imperceptible in a drag). If no row is
+    // feasible, fall back to the row offering the most centred width
+    // (ties: closest to the input, then the lower row) — the
+    // spill-minimising position SQ-03 requires, deterministic in
+    // all cases.
+    const candidateEntry = clampCandidateRowCache.get(textProfile, halfHeightMask);
+    const byDistance = (a: number, b: number) =>
+      Math.abs(a - maskY) - Math.abs(b - maskY) || a - b;
+    const candidateRows = [maskY, ...candidateEntry.grid, ...candidateEntry.critical].sort(byDistance);
+    let resolvedY: number | null = null;
+    let resolvedCenters: Array<readonly [number, number]> = [];
+    for (const candidate of candidateRows) {
+      const centers = textProfile.validCenterIntervalsAcrossSpan(
+        candidate - halfHeightMask,
+        candidate + halfHeightMask,
+        halfWidthMask,
+      );
+      if (centers.length > 0) {
+        resolvedY = candidate;
+        resolvedCenters = centers;
+        break;
+      }
+    }
+    if (resolvedY === null) {
+      // Fallback (the rect fits nowhere): the widest-band row over a
+      // coarser set — every 4th grid row plus the critical offsets.
+      // Precision is low-value here (the position only minimizes
+      // spill) and this keeps the worst case inside a frame budget.
+      let bestFallbackWidth = -1;
+      resolvedY = 0.5;
+      const fallbackRows = [
+        ...candidateEntry.grid.filter((_, i) => i % 4 === 0),
+        ...candidateEntry.critical,
+      ].sort(byDistance);
+      for (const candidate of fallbackRows) {
+        const offered = textProfile.centeredHalfWidthAcrossSpan(
+          candidate - halfHeightMask,
+          candidate + halfHeightMask,
+        );
+        if (
+          offered > bestFallbackWidth ||
+          (offered === bestFallbackWidth &&
+            Math.abs(candidate - maskY) < Math.abs(resolvedY - maskY))
+        ) {
+          bestFallbackWidth = offered;
+          resolvedY = candidate;
+        }
+      }
+    }
+
+    // Column: clamp into the valid-centre set across the resolved
+    // span (nearest point of the set; the mask centre when the set
+    // is empty — the rect fits nowhere at this row, and the centred
+    // spill matches the fit floor's behaviour).
+    const validCenters =
+      resolvedCenters.length > 0
+        ? resolvedCenters
+        : textProfile.validCenterIntervalsAcrossSpan(
+            resolvedY - halfHeightMask,
+            resolvedY + halfHeightMask,
+            halfWidthMask,
+          );
+    let resolvedX = 0.5;
+    if (validCenters.length > 0) {
+      resolvedX = validCenters[0][0];
+      let bestDistance = Number.POSITIVE_INFINITY;
+      for (const [lo, hi] of validCenters) {
+        const nearest = Math.min(hi, Math.max(lo, maskX));
+        const distance = Math.abs(nearest - maskX);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          resolvedX = nearest;
+        }
+      }
+    }
+    return {
+      x: (offsetX + resolvedX * xScalePx) / width,
+      y: (offsetY + resolvedY * yScalePx) / height,
+    };
   }
 
   if ((shape === undefined || shape === "rectangle") && frameEnabled) {
@@ -465,14 +738,17 @@ function textAnchorCenterOffsetX(
  * use. Every default path (store initial state, occasion-preset base
  * text, the sample recipes) lays the title out near the top, the
  * subtitle under it, and the dedication near the bottom. Those rows
- * sit inside the design for rectangle/circle/heart/star, but on the
- * diamond they land in the apex zones, where the mask is only ~6–20%
- * of the canvas wide: the fleet's live re-check (PR #16) measured the
+ * sit inside the design for rectangle/circle, but on the diamond
+ * they land in the apex zones, where the mask is only ~6–20% of the
+ * canvas wide: the fleet's live re-check (PR #16) measured the
  * DEFAULT sample title at ~538px across a ~120px mask row, with the
  * 0.5x fit floor already binding — fitting alone cannot fix rows that
  * start in the apex. The diamond therefore gets its own default rows
  * in the mask's wide middle band; the fit above stays as the backstop
- * for user text at any row.
+ * for user text at any row. Heart and star turned out to have the
+ * same disease in concave form (their standard rows land in the
+ * cleft, on the top point, and in the bottom notch) and got the same
+ * treatment in #407 — see HEART/STAR_TEXT_BOX_ROWS below.
  */
 export type DefaultTextBoxId = "title" | "subtitle" | "dedication";
 
@@ -506,10 +782,106 @@ export const DIAMOND_TEXT_BOX_ROWS: Record<DefaultTextBoxId, number> = {
   dedication: 0.64,
 };
 
+/**
+ * Heart/star default rows (#407, SQ-03) — expressed in MASK space
+ * (fractions of the mask's own height), because under the #406
+ * uniform layout the mask sits in a centred footprint and a fixed
+ * canvas fraction would land on different mask rows at every aspect.
+ * resolveDefaultTextBoxRows converts them to canvas rows for the
+ * caller's layout; under the legacy layout (and at any square
+ * canvas) mask space IS the canvas and the values apply verbatim.
+ *
+ * SQ-03's geometry, against the shipped SHAPE_PATHS: the standard
+ * rows are unusable on both shapes — the heart's title/subtitle rows
+ * (0.12/0.18) sit above the cleft's bottom (0.20), where the centre
+ * is OUTSIDE the mask, and its dedication row (0.90) sits below the
+ * bottom tip (0.88); the star's title row crosses the top point
+ * (~73px of mask width on a 1200px canvas) and its dedication row
+ * falls in the bottom notch (centre outside below 0.745). The rows
+ * below sit in each mask's wide band: on a 1200px canvas the heart
+ * title gets ~991px of mask width across its span, the subtitle
+ * ~935px, the dedication ~620px; the star title ~867px, subtitle
+ * ~689px, dedication ~479px — both default text sets fit at scale 1
+ * with the fit as backstop (pinned in
+ * scripts/unit/shapeTextRows407.test.mjs). A #404 heart-path redraw
+ * invalidates the heart numbers and requires a re-tune.
+ */
+export const HEART_TEXT_BOX_ROWS: Record<DefaultTextBoxId, number> = {
+  title: 0.38,
+  subtitle: 0.46,
+  dedication: 0.65,
+};
+
+/** Star default rows — see HEART_TEXT_BOX_ROWS for the derivation. */
+export const STAR_TEXT_BOX_ROWS: Record<DefaultTextBoxId, number> = {
+  title: 0.43,
+  subtitle: 0.5,
+  dedication: 0.65,
+};
+
+const MASK_ROW_SETS: ReadonlyArray<Record<DefaultTextBoxId, number>> = [
+  HEART_TEXT_BOX_ROWS,
+  STAR_TEXT_BOX_ROWS,
+];
+
+/**
+ * Tolerance for recognising a stored row as a heart/star default.
+ * Mask rows reach storage through a footprint conversion and come
+ * back through its inverse; the round trip is exact in real
+ * arithmetic but can differ by a few ulps in floating point. 1e-9 of
+ * canvas height is far below any renderable distance, and a
+ * user-dragged row landing within it of a default is
+ * indistinguishable from the default anyway. (The canvas-space sets
+ * keep exact equality: their stored values are the literal
+ * constants, with no conversion in between.)
+ */
+const MASK_ROW_RECOGNITION_EPSILON = 1e-9;
+
+function maskRowToCanvasRow(
+  row: number,
+  footprint: ShapeMaskFootprint | null | undefined,
+  canvasHeight: number | undefined,
+): number {
+  if (!footprint || !canvasHeight || canvasHeight <= 0) return row;
+  return (footprint.offsetY + row * footprint.size) / canvasHeight;
+}
+
+function canvasRowToMaskRow(
+  y: number,
+  footprint: ShapeMaskFootprint | null | undefined,
+  canvasHeight: number | undefined,
+): number {
+  if (!footprint || !canvasHeight || canvasHeight <= 0 || footprint.size <= 0) return y;
+  return (y * canvasHeight - footprint.offsetY) / footprint.size;
+}
+
+/**
+ * The default rows for a shape, as CANVAS fractions for the caller's
+ * layout. Standard and diamond rows are canvas-authored and returned
+ * as shipped (the diamond's rows were tuned as canvas fractions and
+ * #406 deliberately left them so). Heart/star rows are mask-authored
+ * (above) and converted through the caller's footprint: pass a
+ * footprint resolved for the design's aspect (any canvas of that
+ * aspect — the fractions are scale-free) plus that canvas's height;
+ * without one, the mask rows are returned verbatim, which is exact
+ * under the legacy layout and at square canvases.
+ */
 export function resolveDefaultTextBoxRows(
   shape?: string,
+  shapeMaskFootprint?: ShapeMaskFootprint | null,
+  canvasHeight?: number,
 ): Record<DefaultTextBoxId, number> {
-  return shape === "diamond" ? DIAMOND_TEXT_BOX_ROWS : STANDARD_TEXT_BOX_ROWS;
+  if (shape === "diamond") return DIAMOND_TEXT_BOX_ROWS;
+  if (shape === "heart" || shape === "star") {
+    const maskRows = shape === "heart" ? HEART_TEXT_BOX_ROWS : STAR_TEXT_BOX_ROWS;
+    if (!shapeMaskFootprint) return maskRows;
+    return {
+      title: maskRowToCanvasRow(maskRows.title, shapeMaskFootprint, canvasHeight),
+      subtitle: maskRowToCanvasRow(maskRows.subtitle, shapeMaskFootprint, canvasHeight),
+      dedication: maskRowToCanvasRow(maskRows.dedication, shapeMaskFootprint, canvasHeight),
+    };
+  }
+  return STANDARD_TEXT_BOX_ROWS;
 }
 
 const DEFAULT_TEXT_BOX_IDS: readonly DefaultTextBoxId[] = [
@@ -519,31 +891,49 @@ const DEFAULT_TEXT_BOX_IDS: readonly DefaultTextBoxId[] = [
 ];
 
 /**
- * Move the designed text boxes between the two default row sets for
- * the given shape. A box follows the shape ONLY while it still sits
- * exactly on the OTHER set's default row (centred, x = 0.5): that is
- * the "untouched default" provenance the editor already uses for
- * sample text sync (a box whose text still equals the sample constant
- * is not user content). A box the user dragged or nudged, a custom
+ * Move the designed text boxes between the default row sets for the
+ * given shape — four sets since #407 (SQ-03 §4): standard S,
+ * diamond D, heart H, star T; rectangle/circle/birthdaycake resolve
+ * to S. A box follows the shape ONLY while it still sits exactly on
+ * ANOTHER set's default row (centred, x = 0.5): that is the
+ * "untouched default" provenance the editor already uses for sample
+ * text sync (a box whose text still equals the sample constant is
+ * not user content). Canvas-space sets (S/D) are recognised by exact
+ * row equality, as shipped; mask-space sets (H/T) are recognised by
+ * converting the stored row back into mask space for the caller's
+ * layout (epsilon above). A box the user dragged or nudged, a custom
  * box, and a preset box with its own authored rows are user data and
- * are never moved. Boxes already on the target set's rows are
- * untouched, so the function is idempotent, and it returns the
- * original array (same reference) when nothing moved.
+ * are never moved — with SQ-03's documented caveat that a preset row
+ * coinciding exactly with any recognised row WILL migrate; that is a
+ * limit of inferred provenance, unchanged from the two-set era.
+ * Boxes already on the target set's rows are untouched (the target
+ * is checked first), so the function is idempotent — including
+ * heart↔star, whose shared dedication row (0.65) needs no move — and
+ * it returns the original array (same reference) when nothing moved.
+ *
+ * The footprint/canvasHeight arguments carry the design's layout for
+ * the mask-space conversions (see resolveDefaultTextBoxRows); omit
+ * them for legacy/square layouts, where mask rows are canvas rows.
  */
 export function applyDefaultTextRowsForShape<
   T extends { id: string; position?: { x: number; y: number } },
->(boxes: T[], shape?: string): T[] {
-  const target = resolveDefaultTextBoxRows(shape);
-  const other =
-    shape === "diamond" ? STANDARD_TEXT_BOX_ROWS : DIAMOND_TEXT_BOX_ROWS;
+>(boxes: T[], shape?: string, shapeMaskFootprint?: ShapeMaskFootprint | null, canvasHeight?: number): T[] {
+  const target = resolveDefaultTextBoxRows(shape, shapeMaskFootprint, canvasHeight);
   let changed = false;
   const next = boxes.map((box) => {
     if (!DEFAULT_TEXT_BOX_IDS.includes(box.id as DefaultTextBoxId)) return box;
     const id = box.id as DefaultTextBoxId;
     const position = box.position;
-    if (!position || position.x !== DEFAULT_TEXT_BOX_X || position.y !== other[id]) {
-      return box;
-    }
+    if (!position || position.x !== DEFAULT_TEXT_BOX_X) return box;
+    if (position.y === target[id]) return box;
+    const maskY = canvasRowToMaskRow(position.y, shapeMaskFootprint, canvasHeight);
+    const recognised =
+      position.y === STANDARD_TEXT_BOX_ROWS[id] ||
+      position.y === DIAMOND_TEXT_BOX_ROWS[id] ||
+      MASK_ROW_SETS.some(
+        (set) => Math.abs(maskY - set[id]) <= MASK_ROW_RECOGNITION_EPSILON,
+      );
+    if (!recognised) return box;
     changed = true;
     return { ...box, position: { x: position.x, y: target[id] } };
   });

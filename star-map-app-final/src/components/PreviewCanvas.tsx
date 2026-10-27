@@ -11,6 +11,7 @@ import {
 } from "@/lib/renderSky";
 import { resolveTextFitFrameEnabled } from "@/lib/mapLookTiers";
 import { resolveShapeMaskFootprint } from "@/lib/shapeLayout";
+import { resolveShapeTextProfile } from "@/lib/shapeTextProfile";
 import {
   clampTextCenterToShape,
   resolveTextAnchorToCenterX,
@@ -277,6 +278,9 @@ export default function PreviewCanvas({
         Math.max(bounds.height, 1),
         dragShapeLayoutRef.current.shapeLayoutVersion,
       ),
+      // #407: the heart/star clamp keeps the glyph rect inside the
+      // mask, from the same interior profile the fit uses.
+      shapeTextProfile: resolveShapeTextProfile(dragShapeLayoutRef.current.shape),
       rectWidthPx: rect.width,
       rectHeightPx: rect.height,
       width: Math.max(bounds.width, 1),
