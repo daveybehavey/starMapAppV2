@@ -305,6 +305,18 @@ test("aspect-change remap: untouched v2 heart defaults survive an aspect change 
   assert.deepEqual(rowsOf(backToRectangle), rowsOf(boxesAt(STANDARD_TEXT_BOX_ROWS)));
 });
 
+test("aspect-change remap: inherited-property box ids are never remapped (local Codex round 3)", () => {
+  const from23 = resolveShapeMaskFootprint(2, 3, 2);
+  const square = resolveShapeMaskFootprint(1, 1, 2);
+  const tricky = [
+    { id: "constructor", position: { x: 0.5, y: (0.5 + 0.46 * 2) / 3 } },
+    { id: "toString", position: { x: 0.5, y: (0.5 + 0.46 * 2) / 3 } },
+  ];
+  const result = remapDefaultTextRowsForFootprintChange(tricky, "heart", from23, square, 3, 1);
+  assert.equal(result, tricky);
+  assert.ok(Number.isFinite(result[0].position.y));
+});
+
 test("aspect-change remap: reference-stable, custom rows untouched, legacy is a no-op", () => {
   const from23 = resolveShapeMaskFootprint(2, 3, 2);
   const square = resolveShapeMaskFootprint(1, 1, 2);

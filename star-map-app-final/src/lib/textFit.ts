@@ -423,6 +423,12 @@ export function remapDefaultTextRowsForFootprintChange<
   const rows = resolveDefaultTextBoxRows(shape);
   let changed: T[] | null = null;
   boxes.forEach((box, index) => {
+    // Own-property guard: ids are data (custom boxes, drafts) and a
+    // plain index would read inherited properties — a box id of
+    // "constructor" would otherwise resolve to a function and the
+    // NaN comparisons below would rewrite its row to NaN (local
+    // Codex substitute pass, PR #432 round 3).
+    if (!Object.hasOwn(rows, box.id)) return;
     const targetRow = rows[box.id as keyof typeof rows];
     if (targetRow === undefined || !box.position || box.position.x !== 0.5) return;
     const maskY =
