@@ -389,8 +389,8 @@ export const seoOccasions: SeoOccasion[] = [
     storyParagraphs: [
       "Most Valentine’s gifts could be given to anyone. A star map can only belong to one person: it shows the actual night sky over the place where your story started, on the date it happened — the night you met, the night of the first date, or a February 14 that still matters. It is rendered from real astronomy data for that date and place, so it can be checked, not just admired.",
       "Choosing the date is the whole gift, and it is worth taking a minute over: the city, the date, and the time if you remember it. The time is optional — date plus city still produces an accurate sky — but adding it places the Moon and planets exactly where they stood. Then add both names and a line of your own. A few words from that night beat a long inscription.",
-      "For a wall-ready gift, framed print + HD digital is the recommended route: the print arrives ready to hang and the HD file is yours to keep. Unframed posters are $39–$49, canvas and mugs carry the same design, and the keepsake card is a $19 card-sized version of your exact sky. If you want one for each of you, a second copy of the same design is 10% off on posters, canvas and framed prints.",
-      "Distance does not have to decide the gift. If you are apart this February, the HD digital file is available to download right after checkout, so the same sky can be on their screen the day you send it — and a print can follow to either address. Many long-distance couples use the place and date of the night that matters most to them both.",
+      "For a wall-ready gift, framed print + HD digital is the recommended route: the print arrives ready to hang and the HD file is yours to keep. Unframed posters are $39–$49, canvas and mugs carry the same design, and the keepsake card is a $19 card-sized version of the same design. If you want one for each of you, a second copy of the same design is 10% off on posters, canvas and framed prints.",
+      "Distance does not have to decide the gift. If you are apart this February, the HD digital file is available to download right after checkout, so the same sky can be on their screen the day you send it — and a print can follow to either address. Use the place and date of the night that matters most to you both.",
       "There is no need to decide before you see it. The preview is free and needs no account, so you can try the night you met and the first date side by side, check the spelling of every name, and order only when it looks right. Couples often come back for the same design in a new style on an anniversary — the sky does not change, even as the years add up.",
     ],
     storyCtaHref:
@@ -415,7 +415,7 @@ export const seoOccasions: SeoOccasion[] = [
       {
         question: "Which date should I use?",
         answer:
-          "Common choices are the night you met, the first date, and the first Valentine’s Day you spent together. Any date that matters works — the map shows the sky exactly as it was on that date, over the place you choose.",
+          "Common choices are the night you met, the first date, and the first Valentine’s Day you spent together. Any date that matters works — the map is rendered from the astronomy data for that date, over the place you choose.",
       },
       {
         question: "Do I need the exact time of night?",
