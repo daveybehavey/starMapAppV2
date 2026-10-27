@@ -32,21 +32,10 @@ export const shapes: { id: Shape; label: string }[] = [
   { id: "diamond", label: "Diamond" },
 ];
 
-export const shapeSymbols: Record<Shape, string> = {
-  rectangle: "■",
-  heart: "♥",
-  circle: "●",
-  star: "★",
-  diamond: "◆",
-};
-
-export const shapeSymbolScale: Record<Shape, string> = {
-  rectangle: "scale(1.05)",
-  heart: "scale(1.3)",
-  circle: "scale(1.15)",
-  star: "scale(1.05)",
-  diamond: "scale(1.1)",
-};
+// Picker icons are inline SVGs of the mask geometry (ShapeIcon /
+// getShapeGeometry, #415) — the old unicode `shapeSymbols` glyphs and
+// their per-glyph `shapeSymbolScale` adjustments were removed with
+// their last consumer.
 
 export const constellationPresets: { id: RenderOptions["constellationLines"]; label: string; note: string }[] = [
   { id: "off", label: "Off", note: "No lines visible" },

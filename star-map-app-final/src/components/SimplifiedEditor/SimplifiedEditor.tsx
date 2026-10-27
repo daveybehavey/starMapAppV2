@@ -11,6 +11,7 @@ import {
   type MapRecipe,
 } from "@/lib/renderSky";
 import { getExportDimensions } from "@/lib/aspectRatio";
+import { ShapeIcon } from "@/components/ShapeIcon";
 import { buildStarMapDownloadFilename } from "@/lib/downloadFilename";
 import type { StyleId } from "@/lib/store";
 import type { Shape } from "@/lib/types";
@@ -784,12 +785,12 @@ export function SimplifiedEditor() {
     { id: "midnightMinimal", name: "Minimal", swatchClass: "bg-[#050505] border-white" },
   ];
 
-  const shapes: { id: Shape; name: string; icon: string }[] = [
-    { id: "rectangle", name: "Square", icon: "□" },
-    { id: "circle", name: "Circle", icon: "○" },
-    { id: "heart", name: "Heart", icon: "♥" },
-    { id: "star", name: "Star", icon: "★" },
-    { id: "diamond", name: "Diamond", icon: "◆" },
+  const shapes: { id: Shape; name: string }[] = [
+    { id: "rectangle", name: "Square" },
+    { id: "circle", name: "Circle" },
+    { id: "heart", name: "Heart" },
+    { id: "star", name: "Star" },
+    { id: "diamond", name: "Diamond" },
   ];
 
   const { dateInputValue, exactTimeValue } = useMemo(
@@ -1083,7 +1084,7 @@ export function SimplifiedEditor() {
                       : "border-white/10 bg-white/5 hover:border-white/30"
                   } disabled:cursor-not-allowed disabled:opacity-50`}
                 >
-                  <span className="text-xl text-white/80" aria-hidden="true">{shapeOption.icon}</span>
+                  <ShapeIcon shape={shapeOption.id} className="text-white/80" />
                   <span className="text-[10px] text-white/70">{shapeOption.name}</span>
                 </button>
               ))}

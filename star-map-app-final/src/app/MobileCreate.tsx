@@ -10,6 +10,7 @@ import EditorFontShell from "@/components/EditorFontShell";
 import { occasionPresets } from "@/lib/occasionPresets";
 import type { RenderModeId } from "@/lib/renderModes";
 import { aspectRatioToNumber } from "@/lib/renderSky";
+import { ASPECT_OPTIONS } from "@/lib/aspectOptions";
 import { styles, fontOptions, visualModes, shapes, constellationPresets, mapLookTiers } from "@/lib/config";
 import { applyMapLookTier, applyTierTypographyProtected, resolveMapLookTier, type MapLookTier } from "@/lib/mapLookTiers";
 import { proPresets } from "@/lib/proPresets";
@@ -1394,12 +1395,8 @@ export function MobileCreate({
             {/* Frame */}
             <section className="rounded-xl border border-white/10 bg-white/5 p-3">
               <h3 className="text-xs font-semibold text-white mb-2">Frame</h3>
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { id: "square" as const, label: "Square" },
-                  { id: "4:5" as const, label: "Poster" },
-                  { id: "2:3" as const, label: "Wide" },
-                ].map((ratio) => (
+              <div className="grid grid-cols-2 gap-2">
+                {ASPECT_OPTIONS.map((ratio) => (
                   <button
                     key={ratio.id}
                     type="button"
@@ -1414,6 +1411,7 @@ export function MobileCreate({
                   </button>
                 ))}
               </div>
+              <PrintAspectMismatchNotice aspectRatio={aspectRatio} className="mt-2" />
               <button
                 type="button"
                 onClick={() => setRenderOptions({ frameEnabled: !renderOptions.frameEnabled })}
