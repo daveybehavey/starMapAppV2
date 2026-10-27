@@ -83,8 +83,9 @@ test("app mode hides every digital offer surface", () => {
   // paid users keep their HD download control: only the unpaid "Unlock HD" state is an offer
   assert.match(mobile, /data-testid="mobile-unlock-hd"\s+data-digital-offer=\{paid \? undefined : true\}/);
   assert.match(mobile, /data-testid="mobile-sticky-unlock-hd"\s+data-digital-offer=\{paid \? undefined : true\}/);
-  // render-mode, intensity and font "Unlock HD" upsell chips
-  assert.equal((mobile.match(/data-digital-offer\s+className="rounded-full border border-white\/25/g) || []).length, 3);
+  // render-mode and intensity "Unlock HD" upsell chips (the font upsell chip
+  // was removed with the font payment locks, #411 — fonts need no upsell)
+  assert.equal((mobile.match(/data-digital-offer\s+className="rounded-full border border-white\/25/g) || []).length, 2);
   assert.match(mobile, /appMode \? rows\.filter\(\(row\) => !row\.includeDigitalAddOn\) : rows/);
   assert.match(mobile, /appMode \? "Framed print recommended" : "Framed \+ HD recommended"/);
   const desktop = read("src/components/EditorExperience.tsx");
