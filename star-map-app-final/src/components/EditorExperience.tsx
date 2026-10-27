@@ -813,7 +813,14 @@ export function EditorExperience({
         selectedStyle: draft.selectedStyle,
         aspectRatio: draft.aspectRatio,
         shape: draft.shape,
-        renderOptions: { ...currentState.renderOptions, ...draft.renderOptions },
+        renderOptions: {
+          ...currentState.renderOptions,
+          ...draft.renderOptions,
+          // #406: the layout version is set explicitly, never inherited
+          // from the fresh-session stamp by the merge — a pre-#406
+          // draft has no version and must restore as legacy.
+          shapeLayoutVersion: draft.renderOptions.shapeLayoutVersion,
+        },
         sampleDesignLastAutoSynced: draft.sampleDesignLastAutoSynced,
         // Same confirmed-location predicate as Generate / auto-reveal — a named
         // (0,0)/UTC draft must remount locked, not as a revealed wrong sky.
@@ -1001,7 +1008,15 @@ export function EditorExperience({
       if (aspect) setAspectRatio(aspect);
       const shapeValue = resolveRecipeShape(recipe);
       if (shapeValue) setShape(shapeValue);
-      if (recipe.renderOptions) setRenderOptions(recipe.renderOptions);
+      if (recipe.renderOptions) {
+        setRenderOptions({
+          ...recipe.renderOptions,
+          // #406: explicit, as in the draft restore — a saved design
+          // without a version hydrates as legacy, never converted by
+          // the merge against the fresh-session stamp.
+          shapeLayoutVersion: recipe.renderOptions.shapeLayoutVersion,
+        });
+      }
       if (recipe.selectedOccasion) {
         setSelectedOccasion(recipe.selectedOccasion);
         setCustomOccasion(false);

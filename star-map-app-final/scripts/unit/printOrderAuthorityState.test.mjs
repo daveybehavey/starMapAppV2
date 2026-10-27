@@ -232,7 +232,7 @@ test("source wiring: DO + wrangler migration + custom worker present", () => {
   assert.match(wranglerSource, /PRINT_ORDER_AUTHORITY/);
   assert.match(wranglerSource, /new_sqlite_classes = \["PrintOrderAuthorityDO"\]/);
   assert.match(wranglerSource, /main = "cloudflare-worker.ts"/);
-  assert.match(workerSource, /export \{ PrintOrderAuthorityDO \}/);
+  assert.match(workerSource, /export const PrintOrderAuthorityDO = Sentry\.instrumentDurableObjectWithSentry\(/);
 });
 
 

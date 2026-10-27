@@ -2,6 +2,11 @@ import { Horizon, Observer } from "astronomy-engine";
 import { computeVisibleStars, toUTCDateFromLocal, type VisibleSky } from "@/lib/astronomy";
 import type { LocationState, RenderOptions, StyleId, TextBox } from "@/lib/store";
 import { SHAPE_PATHS, SHAPE_CIRCLE_INSET_RATIO } from "@/lib/shapes";
+import {
+  resolveShapeClipTransform,
+  resolveShapeLayoutVersion,
+  resolveShapeMaskFootprint,
+} from "@/lib/shapeLayout";
 import type { AspectRatio, Shape } from "@/lib/types";
 import { FONT_STACKS } from "@/lib/fonts";
 import { adjustColor, parseHexColor, parseRgbColor, toRgba } from "@/lib/colorUtils";
@@ -11,6 +16,25 @@ import {
   resolveTextFitScale,
   type TextFitLayout,
 } from "./textFit";
+import { resolveShapeTextProfile } from "./shapeTextProfile";
+import {
+  resolveWatermarkPlacement,
+  WATERMARK_OPACITY,
+  WATERMARK_TEXT,
+  type WatermarkMaskSampler,
+  type WatermarkPlacement,
+  type WatermarkTextMetrics,
+} from "./watermarkPlacement";
+export {
+  resolveWatermarkPlacement,
+  WATERMARK_OPACITY,
+  WATERMARK_TEXT,
+} from "./watermarkPlacement";
+export type {
+  WatermarkMaskSampler,
+  WatermarkPlacement,
+  WatermarkTextMetrics,
+} from "./watermarkPlacement";
 import {
   getStarDensityTuning,
   resolveMapLookTier,
@@ -448,7 +472,12 @@ export function renderStarMap({
   const mapLookTier = resolveMapLookTier(recipe.renderOptions, recipe.selectedStyle);
   const transparentMat = resolveTransparentMat(matPurpose, recipe.renderOptions);
   const printSafeInset = resolvePrintSafeInset(matPurpose, width, targetHeight);
-  const clipPath = buildShapeClip(shapeName, width, targetHeight);
+  // #406: the design's persisted shape-layout version (absent = the
+  // legacy stretch every saved design was rendered with).
+  const shapeLayoutVersion = resolveShapeLayoutVersion(
+    recipe.renderOptions?.shapeLayoutVersion,
+  );
+  const clipPath = buildShapeClip(shapeName, width, targetHeight, shapeLayoutVersion);
 
   ctx.save();
   ctx.scale(pixelRatio, pixelRatio);
@@ -529,12 +558,28 @@ export function renderStarMap({
       shape: shapeName,
       frameEnabled: resolveTextFitFrameEnabled(matPurpose, recipe.renderOptions),
       matPurpose,
+      // #406: the diamond fit evaluates against the same footprint
+      // the clip was built from (null under the legacy layout).
+      shapeMaskFootprint: resolveShapeMaskFootprint(width, targetHeight, shapeLayoutVersion),
+      // #407: the heart/star fit evaluates against the shape's
+      // interior profile (the renderer's own SHAPE_PATHS geometry).
+      shapeTextProfile: resolveShapeTextProfile(shapeName),
     });
     ctx.restore();
   } else if (textBounds) {
     textBounds.clear();
   }
-  drawWatermark(ctx, width, targetHeight, watermark, recipe.selectedStyle, scale);
+  drawWatermark(ctx, {
+    width,
+    height: targetHeight,
+    show: watermark,
+    clipPath,
+    // #406: the mask sampler cache keys on maskKey + dimensions, so
+    // the layout version rides the key — a legacy and a v2 design of
+    // the same shape at the same size must never share a cached mask.
+    maskKey: `${shapeName}|layout-${shapeLayoutVersion}`,
+    pixelRatio,
+  });
   const allowGrain =
     premium &&
     polishFinish &&
@@ -556,7 +601,9 @@ export function renderStarMapTextLayer({
   textBounds,
   shape,
   frameEnabled,
+  watermark = false,
   matPurpose = "preview",
+  shapeLayoutVersion,
 }: {
   canvas: CanvasLike;
   width: number;
@@ -573,6 +620,17 @@ export function renderStarMapTextLayer({
    * its frame-aware bound must scale exactly like the base canvas
    * renderStarMap draws underneath it. */
   matPurpose?: ExportMatPurpose;
+  /** #406: the design's shape-layout version, so the overlay's text
+   * fit and watermark mask match the base canvas render underneath
+   * (absent = legacy, as for every pre-#406 design). */
+  shapeLayoutVersion?: unknown;
+  /** #413: the overlay canvas stacks ABOVE the base canvas in the
+   * editor, so the watermark is painted here — after the text — to keep
+   * it on top of the final preview composition (SQ-55 composition
+   * order). PreviewCanvas wires this to the same `!paid` fence the base
+   * render used before; single-canvas renders (exports, share) keep
+   * drawing the mark inside renderStarMap. */
+  watermark?: boolean;
 }) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
@@ -594,7 +652,30 @@ export function renderStarMapTextLayer({
   ctx.save();
   ctx.scale(pixelRatio, pixelRatio);
   const scale = width / BASE_CANVAS_WIDTH;
-  drawText(ctx, width, height, textBoxes, textBounds, scale, { shape, frameEnabled, matPurpose });
+  const resolvedShapeLayoutVersion = resolveShapeLayoutVersion(shapeLayoutVersion);
+  drawText(ctx, width, height, textBoxes, textBounds, scale, {
+    shape,
+    frameEnabled,
+    matPurpose,
+    shapeMaskFootprint: resolveShapeMaskFootprint(width, height, resolvedShapeLayoutVersion),
+    // #407: same interior profile the base render fits against.
+    shapeTextProfile: resolveShapeTextProfile(shape),
+  });
+  if (watermark) {
+    const shapeName: Shape =
+      typeof shape === "string" && VALID_SHAPES.has(shape as Shape)
+        ? (shape as Shape)
+        : "rectangle";
+    drawWatermark(ctx, {
+      width,
+      height,
+      show: true,
+      clipPath: buildShapeClip(shapeName, width, height, resolvedShapeLayoutVersion),
+      // Same cache-key rule as the base render: version in the key.
+      maskKey: `${shapeName}|layout-${resolvedShapeLayoutVersion}`,
+      pixelRatio,
+    });
+  }
   ctx.restore();
 }
 
@@ -685,6 +766,11 @@ export function buildRecipeFromState(input: {
       // the mask stayed "circle" for every selected shape).
       shapeMask:
         input.shape || (input.renderOptions?.shapeMask as Shape) || "rectangle",
+      // #406: the design's shape-layout version rides through verbatim
+      // — including undefined. Defaulting it here would silently
+      // convert every legacy design that passes through a rebuild
+      // (download normalize, checkout, hydration fingerprints).
+      shapeLayoutVersion: input.renderOptions?.shapeLayoutVersion,
       frameEnabled: input.renderOptions?.frameEnabled ?? true,
       backgroundColor: input.renderOptions?.backgroundColor ?? "",
       constellationColor: input.renderOptions?.constellationColor ?? "",
@@ -1545,7 +1631,7 @@ function drawText(
   textBoxes: TextBox[],
   bounds?: Map<string, { x: number; y: number; width: number; height: number }>,
   scale = 1,
-  textLayout?: Pick<TextFitLayout, "shape" | "frameEnabled" | "matPurpose">,
+  textLayout?: Pick<TextFitLayout, "shape" | "frameEnabled" | "matPurpose" | "shapeMaskFootprint" | "shapeTextProfile">,
 ) {
   if (bounds) bounds.clear();
 
@@ -1579,6 +1665,8 @@ function drawText(
       shape: textLayout?.shape,
       frameEnabled: textLayout?.frameEnabled ?? true,
       matPurpose: textLayout?.matPurpose,
+      shapeMaskFootprint: textLayout?.shapeMaskFootprint,
+      shapeTextProfile: textLayout?.shapeTextProfile,
       centerYNorm: provisional.y,
       lineHeightPx: baseFontSize * 1.2,
       width,
@@ -1632,29 +1720,188 @@ function drawText(
   ctx.shadowBlur = 0;
 }
 
-function drawWatermark(
-  ctx: CanvasRenderingContext2D,
+// ─────────────────────────────────────────────────────────────────────────────
+// Watermark painting (#413, design SQ-55)
+//
+// The placement solver, treatment constants, and types live in
+// ./watermarkPlacement (dependency-free, unit-testable). This section
+// owns the canvas side: rasterizing the renderer's actual clip path
+// into the solver's mask sampler, painting the two-tone wordmark into
+// an isolated layer, and compositing it at WATERMARK_OPACITY once.
+// ─────────────────────────────────────────────────────────────────────────────
+
+
+/** Mask rasters are capped at this longest side; containment decisions
+ * are made against the raster the renderer itself built, so renderer
+ * and acceptance checks can never disagree about the mask. */
+const WATERMARK_MASK_MAX_RASTER_DIM = 1024;
+
+/**
+ * Rasterize the renderer's actual clip path into a mask sampler. The
+ * sampler is cached per shape + logical size: it depends only on the
+ * mask geometry, never on the font or the pixel ratio, so editor
+ * re-renders (drag frames, keystrokes) reuse it.
+ */
+const watermarkMaskCache = new LRUCache<string, WatermarkMaskSampler>(8);
+
+export function resolveWatermarkMaskSampler(
+  clipPath: Path2D,
   width: number,
   height: number,
-  show: boolean,
-  styleId: StyleId,
-  scale: number,
-) {
-  if (!show) return;
-  const theme = STYLE_THEME[styleId];
-  ctx.save();
-  ctx.fillStyle = theme.star;
-  ctx.globalAlpha = 0.18;
-  ctx.textAlign = "left";
-  ctx.textBaseline = "bottom";
-  const fontSize = Math.max(12, Math.min(width, height) * 0.035 * scale);
-  ctx.font = `700 ${fontSize}px "Cinzel", serif`;
-  const margin = 50 * scale;
-  ctx.fillText("StarMapCo", margin, height - margin);
-  ctx.restore();
+  maskKey: string,
+): WatermarkMaskSampler | null {
+  const cacheKey = `${maskKey}|${width}x${height}`;
+  const cached = watermarkMaskCache.get(cacheKey);
+  if (cached) return cached;
+  if (typeof document === "undefined") return null;
+  const rasterScale = Math.min(1, WATERMARK_MASK_MAX_RASTER_DIM / Math.max(width, height));
+  const rasterWidth = Math.max(1, Math.round(width * rasterScale));
+  const rasterHeight = Math.max(1, Math.round(height * rasterScale));
+  const raster = document.createElement("canvas");
+  raster.width = rasterWidth;
+  raster.height = rasterHeight;
+  const rasterCtx = raster.getContext("2d");
+  if (!rasterCtx) return null;
+  rasterCtx.scale(rasterScale, rasterScale);
+  rasterCtx.fillStyle = "#ffffff";
+  rasterCtx.fill(clipPath, "nonzero");
+  let data: Uint8ClampedArray;
+  try {
+    data = rasterCtx.getImageData(0, 0, rasterWidth, rasterHeight).data;
+  } catch {
+    return null;
+  }
+  let minPx = rasterWidth;
+  let minPy = rasterHeight;
+  let maxPx = -1;
+  let maxPy = -1;
+  for (let y = 0; y < rasterHeight; y++) {
+    for (let x = 0; x < rasterWidth; x++) {
+      if (data[(y * rasterWidth + x) * 4 + 3] > 0) {
+        if (x < minPx) minPx = x;
+        if (x > maxPx) maxPx = x;
+        if (y < minPy) minPy = y;
+        if (y > maxPy) maxPy = y;
+      }
+    }
+  }
+  if (maxPx < 0) return null;
+  const sampler: WatermarkMaskSampler = {
+    bbox: {
+      x: minPx / rasterScale,
+      y: minPy / rasterScale,
+      width: (maxPx - minPx + 1) / rasterScale,
+      height: (maxPy - minPy + 1) / rasterScale,
+    },
+    contains: (x: number, y: number) => {
+      const rx = Math.floor(x * rasterScale);
+      const ry = Math.floor(y * rasterScale);
+      if (rx < 0 || ry < 0 || rx >= rasterWidth || ry >= rasterHeight) return false;
+      return data[(ry * rasterWidth + rx) * 4 + 3] > 0;
+    },
+  };
+  watermarkMaskCache.set(cacheKey, sampler);
+  return sampler;
 }
 
-function buildShapeClip(shape: string, width: number, height: number): Path2D | null {
+/**
+ * Paint the SQ-55 wordmark onto `ctx` (which must already be in final
+ * canvas coordinates — renderStarMap / renderStarMapTextLayer apply
+ * the device-pixel scaling to the context once, and this function
+ * follows the same rule). The fill and outline are painted at full
+ * opacity into an isolated layer, then composited at WATERMARK_OPACITY
+ * exactly once. The layer is clipped to the mask as a final safeguard
+ * (containment is proven before clipping; clipped lettering would be a
+ * solver failure, not a rendering strategy). Returns the placement, or
+ * null when no valid placement exists — in which case nothing is
+ * painted.
+ */
+export function paintWatermark(
+  ctx: CanvasRenderingContext2D,
+  args: {
+    width: number;
+    height: number;
+    clipPath: Path2D | null;
+    maskKey: string;
+    pixelRatio?: number;
+  },
+): WatermarkPlacement | null {
+  const { width, height, clipPath, maskKey } = args;
+  const pixelRatio = args.pixelRatio ?? 1;
+  if (!clipPath || width <= 0 || height <= 0) return null;
+  if (typeof document === "undefined") return null;
+  const sampler = resolveWatermarkMaskSampler(clipPath, width, height, maskKey);
+  if (!sampler) return null;
+
+  const layer = document.createElement("canvas");
+  layer.width = Math.max(1, Math.round(width * pixelRatio));
+  layer.height = Math.max(1, Math.round(height * pixelRatio));
+  const layerCtx = layer.getContext("2d");
+  if (!layerCtx) return null;
+  layerCtx.scale(pixelRatio, pixelRatio);
+  layerCtx.textAlign = "center";
+  layerCtx.textBaseline = "middle";
+
+  const measure = (fontSize: number): WatermarkTextMetrics => {
+    layerCtx.font = `700 ${fontSize}px "Cinzel", serif`;
+    const m = layerCtx.measureText(WATERMARK_TEXT);
+    return {
+      left: m.actualBoundingBoxLeft ?? m.width / 2,
+      right: m.actualBoundingBoxRight ?? m.width / 2,
+      ascent: m.actualBoundingBoxAscent ?? fontSize * 0.72,
+      descent: m.actualBoundingBoxDescent ?? fontSize * 0.08,
+    };
+  };
+
+  const placement = resolveWatermarkPlacement({ width, height, mask: sampler, measure });
+  if (!placement) return null;
+
+  layerCtx.save();
+  layerCtx.clip(clipPath, "nonzero");
+  layerCtx.font = `700 ${placement.fontSize}px "Cinzel", serif`;
+  layerCtx.lineWidth = placement.lineWidth;
+  layerCtx.lineJoin = "round";
+  layerCtx.strokeStyle = "#000000";
+  layerCtx.fillStyle = "#ffffff";
+  layerCtx.strokeText(WATERMARK_TEXT, placement.centerX, placement.centerY);
+  layerCtx.fillText(WATERMARK_TEXT, placement.centerX, placement.centerY);
+  layerCtx.restore();
+
+  ctx.save();
+  ctx.clip(clipPath, "nonzero");
+  ctx.globalAlpha = WATERMARK_OPACITY;
+  ctx.drawImage(layer, 0, 0, width, height);
+  ctx.restore();
+  return placement;
+}
+
+function drawWatermark(
+  ctx: CanvasRenderingContext2D,
+  args: {
+    width: number;
+    height: number;
+    show: boolean;
+    clipPath: Path2D | null;
+    maskKey: string;
+    pixelRatio: number;
+  },
+) {
+  // Paid-state fence (SQ-55): this guard stays FIRST — before any text
+  // measurement, mask rasterization, layer allocation, or painting —
+  // so a paid render is byte-identical to a render with the watermark
+  // stage bypassed entirely. Callers keep wiring visibility to the
+  // existing watermark flag (`watermark: !paid` in PreviewCanvas), never
+  // to premium status, resolution, or a locally cached paid assumption.
+  if (!args.show) return;
+  paintWatermark(ctx, args);
+}
+
+export function buildShapeClip(
+  shape: string,
+  width: number,
+  height: number,
+  shapeLayoutVersion?: unknown,
+): Path2D | null {
   if (shape === "rectangle") {
     const path = new Path2D();
     path.rect(0, 0, width, height);
@@ -1671,10 +1918,19 @@ function buildShapeClip(shape: string, width: number, height: number): Path2D | 
   const entry = SHAPE_PATHS[shape];
   if (!entry?.d) return null;
   const path = new Path2D(entry.d);
-  const [minX, minY, vbWidth, vbHeight] = entry.viewBox;
+  // #406 (SQ-02 Option A): layout v2 scales the path uniformly
+  // (contain, centred, mat around it); v1/absent keeps the historical
+  // independent X/Y stretch that saved designs were rendered with.
+  // The transform math lives in shapeLayout.ts (pure, unit-tested).
+  const transform = resolveShapeClipTransform(
+    entry.viewBox,
+    width,
+    height,
+    shapeLayoutVersion,
+  );
   const matrix = new DOMMatrix();
-  matrix.translateSelf(-minX, -minY);
-  matrix.scaleSelf(width / vbWidth, height / vbHeight);
+  matrix.translateSelf(transform.translateX, transform.translateY);
+  matrix.scaleSelf(transform.scaleX, transform.scaleY);
   const scaled = new Path2D();
   scaled.addPath(path, matrix);
   return scaled;

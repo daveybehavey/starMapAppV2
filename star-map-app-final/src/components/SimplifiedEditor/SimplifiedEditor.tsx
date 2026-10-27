@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import { applyDefaultTextRowsForShape } from "@/lib/textFit";
+import { resolveShapeMaskFootprint } from "@/lib/shapeLayout";
 import { useShallow } from "zustand/react/shallow";
 import {
   buildRecipeFromState,
@@ -110,6 +111,8 @@ const SAMPLE_RECIPE: MapRecipe = {
     showMoon: true,
     moonSize: "normal",
     shapeMask: "rectangle",
+    // #406: the sample is a NEW design — uniform shape layout.
+    shapeLayoutVersion: 2,
     frameEnabled: true,
   },
 };
@@ -250,7 +253,13 @@ export function SimplifiedEditor() {
         setShape(parsed.shape);
       }
       if (parsed.renderOptions) {
-        setRenderOptions(parsed.renderOptions);
+        setRenderOptions({
+          ...parsed.renderOptions,
+          // #406: explicit — a pre-#406 draft has no version and must
+          // restore as legacy, not inherit the fresh-session stamp
+          // through the merge.
+          shapeLayoutVersion: parsed.renderOptions.shapeLayoutVersion,
+        });
       }
       const synced = parsed.sampleDesignLastAutoSynced;
       useStore.getState().setSampleDesignLastAutoSynced({
@@ -821,11 +830,20 @@ export function SimplifiedEditor() {
   const dynamicRecipe: MapRecipe = useMemo(() => {
     // The sample fallback carries the standard rows; when the store's
     // shape is diamond, the designed boxes get the diamond rows (same
-    // relocation the store applies on setShape — fleet PR #16).
+    // relocation the store applies on setShape — fleet PR #16). #407:
+    // heart/star rows are mask-authored, converted through the
+    // layout footprint — the sample recipe is square, so the
+    // conversion is the identity here, but it goes through the same
+    // path the store uses.
     const effectiveTextBoxes =
       textBoxes.length > 0
         ? textBoxes
-        : applyDefaultTextRowsForShape(SAMPLE_RECIPE.textBoxes, shape);
+        : applyDefaultTextRowsForShape(
+            SAMPLE_RECIPE.textBoxes,
+            shape,
+            resolveShapeMaskFootprint(1, 1, renderOptions.shapeLayoutVersion),
+            1,
+          );
     return {
       ...SAMPLE_RECIPE,
       selectedStyle,

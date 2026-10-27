@@ -337,10 +337,11 @@ test("wiring: PreviewCanvas applies the shape clamp after the canvas clamp — d
   // Commit re-clamps against the rect rendered at the preview position.
   assert.match(canvas, /const committed = clampDragCenter\(preview, commitRect, commitBounds\);/);
   // The clamp's shape/frame inputs sync from the same derivation the
-  // text layer renders with.
+  // text layer renders with (since #406 including the design's
+  // shape-layout version, which the clamp resolves to a footprint).
   assert.match(
     canvas,
-    /dragShapeLayoutRef\.current = \{\s*shape: effectiveShape,\s*frameEnabled: resolveTextFitFrameEnabled\("preview", baseRecipe\?\.renderOptions\),\s*\};/,
+    /dragShapeLayoutRef\.current = \{\s*shape: effectiveShape,\s*frameEnabled: resolveTextFitFrameEnabled\("preview", baseRecipe\?\.renderOptions\),[\s\S]*?shapeLayoutVersion: baseRecipe\?\.renderOptions\?\.shapeLayoutVersion,\s*\};/,
   );
   // The position PreviewCanvas commits still comes only from the
   // clamped pipeline (no second position writer appeared) — since

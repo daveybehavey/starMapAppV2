@@ -42,8 +42,28 @@ const cityPageRedirects = [
   { source: "/star-map-in/sydney-au", destination: "/star-map-poster" },
 ].map((redirect) => ({ ...redirect, permanent: true }));
 
+/**
+ * Father's Day blog merge (B4 Fix A, 2026-10-27): the two overlapping
+ * Father's Day posts permanently redirect, one hop, to the surviving
+ * canonical article /blog/fathers-day-star-map-gift-ideas (survivor decided
+ * by SQ-07 ruling, 2026-10-26 — its slug is NOT a source here). The retired
+ * posts are removed from blogPosts, so they leave the blog index and the
+ * sitemap in the same change. Pinned by
+ * scripts/unit/fathersDayBlogMerge.test.mjs.
+ */
+const blogMergeRedirects = [
+  { source: "/blog/fathers-day-star-map-gift-2", destination: "/blog/fathers-day-star-map-gift-ideas" },
+  { source: "/blog/fathers-day-star-map-format-choose", destination: "/blog/fathers-day-star-map-gift-ideas" },
+].map((redirect) => ({ ...redirect, permanent: true }));
+
 const nextConfig = {
   distDir: process.env.NEXT_DIST_DIR || ".next",
+  // Sentry source maps (SQ-58 / #429): browser bundles emit source maps only
+  // for builds that will upload them to Sentry in the same job (CI sets
+  // SENTRY_SOURCEMAPS=1 when SENTRY_ORG/SENTRY_PROJECT repo variables exist).
+  // Maps are never emitted for ordinary production builds, so they are never
+  // part of the publicly served assets.
+  productionBrowserSourceMaps: process.env.SENTRY_SOURCEMAPS === "1",
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -61,6 +81,7 @@ const nextConfig = {
         permanent: true,
       })),
       ...cityPageRedirects,
+      ...blogMergeRedirects,
     ];
   },
 };
