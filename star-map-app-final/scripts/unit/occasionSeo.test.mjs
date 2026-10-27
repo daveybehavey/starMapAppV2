@@ -51,6 +51,12 @@ const TUNED_OCCASIONS = [
     seoH1: "First Date Star Map Gift",
     mustMatchTitle: /First Date/i,
   },
+  {
+    slug: "night-we-met",
+    seoTitle: "Night We Met Star Map — Custom Star Map of Where You Met | StarMapCo",
+    seoH1: "Night We Met Star Map",
+    mustMatchTitle: /Night We Met/i,
+  },
 ];
 
 for (const occasion of TUNED_OCCASIONS) {
