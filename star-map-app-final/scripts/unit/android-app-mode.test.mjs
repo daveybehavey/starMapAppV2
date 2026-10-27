@@ -122,7 +122,7 @@ test("success page HD upsell is hidden in app mode when there is no entitlement"
 
 test("priced HD add-on cards are marked as digital offers", () => {
   assert.match(read("src/components/WhatYouReceiveModule.tsx"), /<div data-digital-offer className="brand-light-card rounded-2xl px-4 py-3">\s*<p[^>]*>Optional backup/);
-  assert.match(read("src/components/FramedProofSection.tsx"), /<div data-digital-offer className="brand-light-card rounded-2xl px-4 py-4">\s*<p[^>]*>\s*Instant backup/);
+  assert.match(read("src/components/FramedProofSection.tsx"), /<div data-digital-offer className="brand-light-card rounded-2xl px-4 py-4">\s*<p[^>]*>\s*HD backup file/);
 });
 
 test("whole digital product cards (shop, delivery formats, gift formats) are marked", () => {
@@ -238,7 +238,7 @@ test("shared price/receive/preview fragments are marked and app mode is read syn
   const glance = read("src/components/MoneyPagePriceAtGlance.tsx");
   assert.match(glance, /<span data-digital-offer>\s*HD from/);
   assert.match(glance, /<span data-digital-offer>\s*\{" · "\}\s*HD only/);
-  assert.match(glance, /<span data-digital-offer>HD unlocks instantly after checkout\. <\/span>/);
+  assert.match(glance, /<span data-digital-offer>HD unlocks right after checkout\. <\/span>/);
   assert.match(read("src/components/WhatYouReceiveModule.tsx"), /data-digital-offer=\{isDigitalClaim\(`\$\{item\.title\} \$\{item\.detail\}`\) \? true : undefined\}/);
   assert.match(read("src/components/PreviewStartForm.tsx"), /Framed print<span data-digital-offer> \+ HD digital<\/span>/);
   const hook = read("src/hooks/useAndroidAppMode.ts");

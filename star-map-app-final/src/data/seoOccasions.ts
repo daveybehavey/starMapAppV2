@@ -29,7 +29,7 @@ export const seoOccasions: SeoOccasion[] = [
     seoTitle: "Engagement Star Map Gift — Proposal Night Sky | StarMapCo",
     seoH1: "Engagement Star Map Gift",
     seoDescription:
-      "Create a personalized engagement star map from the proposal date and place. Free preview, then framed + HD digital (free shipping $89+), unframed poster, or instant HD for same-night gifts.",
+      "Create a personalized engagement star map from the proposal date and place. Free preview, then framed + HD digital (free shipping $89+), unframed poster, or HD digital for same-night gifts.",
     intro:
       "Celebrate the engagement with a star map that captures the exact sky from the proposal night. Personal, romantic, and ready to print.",
     detail:
@@ -54,7 +54,7 @@ export const seoOccasions: SeoOccasion[] = [
       {
         question: "Which gift format fits an engagement best?",
         answer:
-          "Recommended presentation is framed print + HD digital for a wall-ready gift plus an instant file. Instant HD alone works when you need a same-night or long-distance gift.",
+          "Recommended presentation is framed print + HD digital for a wall-ready gift plus an HD file. HD digital alone works when you need a same-night or long-distance gift.",
       },
     ],
   },
@@ -64,7 +64,7 @@ export const seoOccasions: SeoOccasion[] = [
     seoTitle: "Proposal Star Map Gift — Custom Night Sky | StarMapCo",
     seoH1: "Proposal Star Map Gift",
     seoDescription:
-      "Turn the proposal night into a custom star map gift — exact sky from your date and location. Free preview, then framed + HD, poster, or instant HD download.",
+      "Turn the proposal night into a custom star map gift — exact sky from your date and location. Free preview, then framed + HD, poster, or HD digital download.",
     intro:
       "Turn the proposal moment into a timeless keepsake with a custom star map that matches the exact sky.",
     detail:
@@ -149,7 +149,7 @@ export const seoOccasions: SeoOccasion[] = [
       {
         question: "Which gift format fits a new-parent keepsake best?",
         answer:
-          "The premium gift route is framed print + HD digital so the wall art ships ready to hang and parents get an instant file for sharing. Unframed poster lowers the total if they already picked a frame.",
+          "The premium gift route is framed print + HD digital so the wall art ships ready to hang and parents get an HD file for sharing. Unframed poster lowers the total if they already picked a frame.",
       },
       {
         question: "Is it appropriate as a baby shower gift?",
@@ -252,7 +252,7 @@ export const seoOccasions: SeoOccasion[] = [
       "Graduation gifts tend to fall into two camps: practical things for the next stage, or an envelope of money. Both are useful and both are forgotten quickly. A graduation star map is different. It records the sky over the campus or ceremony venue on the day the degree, diploma or certificate was earned, and it becomes something the graduate keeps long after the gown is returned.",
       "It suits high school, college, university, trade school and postgraduate milestones alike. Enter the ceremony date and location, add a title such as Class of 2026 along with the graduate's name and school town, and choose a design. A deep navy aurora style feels celebratory; a clean minimalist style fits a first apartment or dorm wall.",
       "Parents often pair the map with a practical gift so there is something meaningful to unwrap alongside it. Grandparents like it because it is personal without needing to know what the graduate wants. Friends sometimes choose the digital version so it can be printed wherever the graduate ends up living next.",
-      "You can see the result before you pay. StarMapCo's preview is free and does not ask you to create an account. Try different titles, check that the school and year read correctly, and choose a format when it feels finished: an instant digital download, an unframed print, or a framed print.",
+      "You can see the result before you pay. StarMapCo's preview is free and does not ask you to create an account. Try different titles, check that the school and year read correctly, and choose a format when it feels finished: an HD digital download, an unframed print, or a framed print.",
       "A small detail makes it land: write a line on the back of the frame or in the card about what you saw the graduate work through to get there. The map marks the night; your words explain why it mattered. Years later, that combination is what turns a print into an heirloom rather than decor.",
       "For graduates who are moving away, the map is a reminder of the place where they grew up or studied, and of the night they crossed the stage, no matter where they hang it.",
     ],
@@ -288,7 +288,7 @@ export const seoOccasions: SeoOccasion[] = [
       {
         question: "Do graduation gifts ship in time for the party?",
         answer:
-          "Instant HD unlocks immediately after checkout for same-day gifting. Framed and poster prints ship from our print partner — preview first, then allow production and transit time.",
+          "HD digital unlocks right after checkout for same-day gifting. Framed and poster prints ship from our print partner — preview first, then allow production and transit time.",
       },
       {
         question: "What location should I enter?",
@@ -333,7 +333,7 @@ export const seoOccasions: SeoOccasion[] = [
     seoTitle: "Long Distance Star Map Gift — Shared Night Sky | StarMapCo",
     seoH1: "Long Distance Star Map Gift",
     seoDescription:
-      "Celebrate long-distance love with a custom star map from your shared date and place. Free preview, then instant HD for fast delivery or framed print shipped to them.",
+      "Celebrate long-distance love with a custom star map from your shared date and place. Free preview, then HD digital (download right after checkout) or framed print shipped to them.",
     intro: "Celebrate long‑distance love with a star map that marks a shared date and sky.",
     detail:
       "Choose the date you became long‑distance, the last time you were together, or a reunion. Add both city names in the dedication line.",
@@ -359,7 +359,7 @@ export const seoOccasions: SeoOccasion[] = [
     seoTitle: "Retirement Star Map Gift — Milestone Night Sky | StarMapCo",
     seoH1: "Retirement Star Map Gift",
     seoDescription:
-      "Mark retirement with a personalized star map from the final day or celebration night. Free preview, then framed + HD, poster, or instant HD download.",
+      "Mark retirement with a personalized star map from the final day or celebration night. Free preview, then framed + HD, poster, or HD digital download.",
     intro: "Mark a retirement with a star map from the final day or a celebratory date.",
     exampleLine: "Cheers to Retirement · Phoenix, AZ · June 30, 2024",
     faqs: [
@@ -450,7 +450,7 @@ export const seoOccasions: SeoOccasion[] = [
     seoTitle: "Mother's Day Star Map Gift — Personalized Night Sky | StarMapCo",
     seoH1: "Mother's Day Star Map Gift",
     seoDescription:
-      "Give mom a personalized star map from a meaningful date — birth date, anniversary, or Mother's Day itself. Free preview, framed + HD, poster, or instant HD.",
+      "Give mom a personalized star map from a meaningful date — birth date, anniversary, or Mother's Day itself. Free preview, framed + HD, poster, or HD digital.",
     intro: "Honor mom with a star map from a meaningful date—birthdays, anniversaries, or family milestones.",
     detail:
       "Common date ideas include a child’s birth date or a family milestone. Add multiple names and a short dedication to personalize the print.",
@@ -505,7 +505,7 @@ export const seoOccasions: SeoOccasion[] = [
       {
         question: "Is a wedding star map a good gift?",
         answer:
-          "Yes. It captures the exact sky from the ceremony date and place, then ships as framed print, unframed poster, or instant HD.",
+          "Yes. It captures the exact sky from the ceremony date and place, then ships as framed print, unframed poster, or HD digital.",
       },
       {
         question: "Can I add names and venue?",
@@ -837,7 +837,7 @@ export const seoOccasions: SeoOccasion[] = [
     seoTitle: "Christmas Star Map Gift | Personalized | StarMapCo",
     seoH1: "Christmas Star Map Gift",
     seoDescription:
-      "A personalized star map for Christmas: the sky from a wedding, a birth or a first Christmas together. Free preview. Instant HD from $9.",
+      "A personalized star map for Christmas: the sky from a wedding, a birth or a first Christmas together. Free preview. HD digital from $9.",
     intro:
       "A gift that is only theirs: the sky from the night you met, a wedding, a birth, or your first Christmas together. Preview free, no account.",
     exampleLine: "Christmas Night · New York, NY · December 25, 2023",
@@ -1017,7 +1017,7 @@ export const seoOccasions: SeoOccasion[] = [
     seoTitle: "Father's Day Star Map Gift — Personalized Night Sky | StarMapCo",
     seoH1: "Father's Day Star Map Gift",
     seoDescription:
-      "Celebrate Dad with a personalized star map from a meaningful family date and place. Free preview, framed + HD, poster, or instant HD download.",
+      "Celebrate Dad with a personalized star map from a meaningful family date and place. Free preview, framed + HD, poster, or HD digital download.",
     intro: "Celebrate Dad with a star map that captures a meaningful family date and location.",
     exampleLine: "For Dad · Portland, OR · June 16, 2019",
     faqs: [

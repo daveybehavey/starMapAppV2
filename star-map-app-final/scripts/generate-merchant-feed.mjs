@@ -231,7 +231,7 @@ const items = [
           id: "digital_single_hd",
           title: "Custom Star Map HD Download",
           description:
-            "Create a custom star map from any date and location, preview the design, and unlock an instant high-resolution digital download.",
+            "Create a custom star map from any date and location, preview the design, and unlock a high-resolution digital download — yours right after checkout.",
           link: `${SITE_URL}/personalized-star-map`,
           imageLink: `${SITE_URL}/custom-star-map-anniversary.png`,
           additionalImageLinks: [`${SITE_URL}/examples/example-anniversary-heirloom.webp`],
@@ -312,7 +312,7 @@ const items = [
         {
           id: "print_poster_framed_hd_bundle",
           title: "Custom Star Map Framed Print + HD Digital Download",
-          description: `${printBaseDescription} Framed print with instant HD digital add-on. Free standard shipping on this bundle.`,
+          description: `${printBaseDescription} Framed print with HD digital add-on. Free standard shipping on this bundle.`,
           // Bundle-specific crawlable landing (editor remains robots-disallowed).
           link: `${SITE_URL}/star-map-poster/framed-hd-bundle`,
           imageLink: framedImageLink,

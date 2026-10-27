@@ -185,7 +185,7 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
           artwork={occasion.artwork}
           bullets={[
             "Accurate star positions for any date and location",
-            "Instant preview before you download",
+            "Free preview before you download",
             "Multiple styles, shapes, and text options",
             "Print‑ready HD file after unlock",
           ]}
@@ -204,7 +204,7 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
           ) : null}
           <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
             <li>Accurate star positions for any date and location</li>
-            <li>Instant preview before you download</li>
+            <li>Free preview before you download</li>
             <li>Multiple styles, shapes, and text options</li>
             <li>Print‑ready HD file after unlock</li>
           </ul>
@@ -217,7 +217,7 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
         </h2>
         <ol className="list-decimal space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li>Enter the date, time, and location</li>
-          <li>Preview the sky instantly</li>
+          <li>Preview the sky free</li>
           <li>Customize text and styles</li>
           <li>Choose framed print, unframed print, or HD digital delivery once the preview feels right</li>
         </ol>
@@ -233,7 +233,7 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
 
       <DeliveryFormatModule
         heading={`Choose the ${occasion.label.toLowerCase()} delivery format`}
-        intro={`Build the ${occasion.label.toLowerCase()} map once, then choose framed + HD (${bundlePriceLine}) for the full gift, unframed for a lower total, or HD-only for instant delivery.`}
+        intro={`Build the ${occasion.label.toLowerCase()} map once, then choose framed + HD (${bundlePriceLine}) for the full gift, unframed for a lower total, or HD-only — download right after checkout.`}
         sourcePrefix={`${sourcePrefix}-format`}
       />
 
@@ -295,7 +295,7 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
         leftTitle="Checkout and access"
         leftPoints={[
           "Secure Stripe checkout",
-          "Instant HD unlock after payment",
+          "HD unlock right after payment",
           "No watermark on paid exports",
         ]}
         rightTitle="Print and support"

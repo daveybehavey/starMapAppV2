@@ -65,7 +65,7 @@ test("Love-It Guarantee copy is damage/misprint only", async () => {
   assert.match(LOVE_IT_GUARANTEE_LINE, /Love-It Guarantee/i);
   assert.match(LOVE_IT_GUARANTEE_LINE, /damaged|misprinted/i);
   assert.match(LOVE_IT_GUARANTEE_LINE, /No change-of-mind/i);
-  assert.match(DIGITAL_CHECKOUT_SUPPORT_LINE, /Instant HD download/i);
+  assert.match(DIGITAL_CHECKOUT_SUPPORT_LINE, /HD download right after checkout/i);
   assert.match(DIGITAL_CHECKOUT_SUPPORT_LINE, /support@starmapco\.com/i);
   const faq = getLoveItGuaranteeFaq();
   assert.match(faq.answer, /reprint/i);

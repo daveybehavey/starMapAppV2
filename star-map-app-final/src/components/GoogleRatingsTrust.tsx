@@ -1,20 +1,25 @@
-import {
-  GOOGLE_RATINGS,
-  formatGoogleRatingValue,
-  getGoogleFullStarCount,
-  getGoogleReviewCountLabel,
-} from "@/lib/googleRatings";
+import { GOOGLE_RATINGS } from "@/lib/googleRatings";
 
 /**
- * Truthful Google-ratings trust display. Every number comes from
- * src/lib/googleRatings.ts (Google Business Profile, verified 2026-10-18:
- * 5.0 stars, 2 reviews) — nothing is hard-coded here, and quote cards render
- * only when verbatim review text has been added to that module.
+ * Google-reviews trust display — QUALITATIVE ONLY.
+ *
+ * Owner ruling (2026-10-27): the site may say "Google Reviews" and link to
+ * the listing, but it must not display the rating value or the review
+ * count until the count is impressive. The numbers stay on file in
+ * src/lib/googleRatings.ts (single source of truth) and are deliberately
+ * NOT rendered here — do not re-add that module's aggregate display
+ * helpers (rating formatter, count label, star counter) to this
+ * component without a new owner ruling (pinned by
+ * scripts/unit/reviewCountsHidden.test.mjs).
+ *
+ * Quote cards render only when verbatim review text has been added to
+ * googleRatings.ts; a quote card's stars are that individual review's own
+ * rating, which is review content, not an aggregate.
  *
  * Variants:
- * - "full"  — cream card for the homepage proof area (heading, aggregate,
- *   optional quote cards, read/review links).
- * - "strip" — one-line rating summary for the /shop header card.
+ * - "full"  — cream card for the homepage proof area (heading, optional
+ *   quote cards, read/review links).
+ * - "strip" — one-line summary for the /shop header card.
  */
 
 const STAR_PATH = "M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z";
@@ -42,28 +47,20 @@ type GoogleRatingsTrustProps = {
 };
 
 export default function GoogleRatingsTrust({ variant = "full", className = "" }: GoogleRatingsTrustProps) {
-  const rating = formatGoogleRatingValue();
-  const countLabel = getGoogleReviewCountLabel();
-  const fullStars = getGoogleFullStarCount();
   const { reviewUrl, reviews } = GOOGLE_RATINGS;
 
   if (variant === "strip") {
     return (
       <div className={`flex flex-wrap items-center gap-x-2.5 gap-y-1.5 ${className}`}>
-        <StarRow filled={fullStars} starClassName="h-4 w-4" />
-        <span className="text-midnight text-sm font-semibold">Rated {rating} on Google</span>
-        <span className="text-sm text-neutral-600">· {countLabel}</span>
+        <span className="text-midnight text-sm font-semibold">Reviewed on Google</span>
         <a
           href={reviewUrl}
           target="_blank"
           rel="noreferrer"
           className="text-sm font-semibold text-amber-700 underline decoration-amber-300 underline-offset-2 transition hover:text-amber-800"
         >
-          Read reviews
+          Read our Google reviews
         </a>
-        <span className="sr-only">
-          StarMapCo is rated {rating} out of 5 stars from {countLabel} on Google.
-        </span>
       </div>
     );
   }
@@ -72,17 +69,11 @@ export default function GoogleRatingsTrust({ variant = "full", className = "" }:
     <div
       className={`text-midnight rounded-3xl border border-amber-200/60 bg-white/85 px-5 py-8 text-center shadow-md sm:px-8 ${className}`}
     >
-      <p className="text-xs font-semibold tracking-[0.25em] text-amber-800 uppercase">Customer ratings</p>
-      <h2 className="mt-3 text-3xl font-semibold sm:text-4xl">Rated {rating} on Google</h2>
-      <div className="mt-4 flex justify-center">
-        <StarRow filled={fullStars} starClassName="h-6 w-6" />
-      </div>
-      <p className="sr-only">
-        Rated {rating} out of 5 stars from {countLabel} on Google.
-      </p>
+      <p className="text-xs font-semibold tracking-[0.25em] text-amber-800 uppercase">Google reviews</p>
+      <h2 className="mt-3 text-3xl font-semibold sm:text-4xl">Find us on Google Reviews</h2>
       <p className="mx-auto mt-3 max-w-xl text-sm text-neutral-700 sm:text-base">
-        We&apos;re a young shop, and our first customers have rated us {rating} out of 5 across {countLabel}{" "}
-        on our Google listing. Read them there — and if you&apos;ve ordered from us, we&apos;d love yours too.
+        We&apos;re a young shop, and our first customers have shared their experiences on our Google
+        listing. Read them there — and if you&apos;ve ordered from us, we&apos;d love yours too.
       </p>
 
       {reviews.length > 0 ? (

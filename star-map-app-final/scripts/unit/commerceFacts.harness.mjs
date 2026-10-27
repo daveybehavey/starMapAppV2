@@ -44,7 +44,7 @@ export function getPaywallDigitalBullets() {
     "6,000 px high resolution — poster-quality print",
     "No watermark on your downloaded file",
     "Secure checkout — card, Apple Pay, Google Pay",
-    "Instant download after payment",
+    "Download right after payment",
   ];
 }
 

@@ -1267,7 +1267,7 @@ async function createCheckoutSession(input: {
       const addOnCadPriceCents = isCadCheckout ? getPrintDigitalAddOnCadPriceCents() : null;
       const addOnProductData = {
         name: "HD Digital Download Add-on",
-        description: "6000px-wide digital file (up to 6000×9000 by format) delivered instantly after payment",
+        description: "6000px-wide digital file (up to 6000×9000 by format) delivered right after payment",
         images: [`${siteUrl}/custom-star-map-anniversary.webp`],
       };
       lineItems.push({
@@ -1382,7 +1382,7 @@ async function createCheckoutSession(input: {
                   recurring: { interval: "month" },
                   product_data: {
                     name: "Unlimited HD Star Maps (Monthly)",
-                    description: "Unlimited HD exports • No watermark • Instant download",
+                    description: "Unlimited HD exports • No watermark • Download right after checkout",
                     images: [`${siteUrl}/custom-star-map-anniversary.webp`],
                   },
                 }
@@ -1394,8 +1394,8 @@ async function createCheckoutSession(input: {
                       effectivePlan === "pack3" ? "HD Star Map Export Credits (3)" : "HD Star Map Download",
                     description:
                       effectivePlan === "pack3"
-                        ? "3 HD export credits for your map versions • No watermark • Instant unlock"
-                        : "Print-ready 6000px-wide star map (up to 6000×9000 by format) • No watermark • Instant download • Perfect for framing",
+                        ? "3 HD export credits for your map versions • No watermark • Unlocks right after checkout"
+                        : "Print-ready 6000px-wide star map (up to 6000×9000 by format) • No watermark • Download right after checkout • Perfect for framing",
                     images: [`${siteUrl}/custom-star-map-anniversary.webp`],
                   },
                 },
@@ -1410,7 +1410,7 @@ async function createCheckoutSession(input: {
               product_data: {
                 name: "HD Star Map Download",
                 description:
-                  "Print-ready 6000px-wide star map (up to 6000×9000 by format) • No watermark • Instant download • Perfect for framing",
+                  "Print-ready 6000px-wide star map (up to 6000×9000 by format) • No watermark • Download right after checkout • Perfect for framing",
                 images: [`${siteUrl}/custom-star-map-anniversary.webp`],
               },
             },
@@ -1424,7 +1424,7 @@ async function createCheckoutSession(input: {
                     recurring: { interval: "month" },
                     product_data: {
                       name: "Unlimited HD Star Maps (Monthly)",
-                      description: "Unlimited HD exports • No watermark • Instant download",
+                      description: "Unlimited HD exports • No watermark • Download right after checkout",
                       images: [`${siteUrl}/custom-star-map-anniversary.webp`],
                     },
                   }
@@ -1436,8 +1436,8 @@ async function createCheckoutSession(input: {
                         effectivePlan === "pack3" ? "HD Star Map Export Credits (3)" : "HD Star Map Download",
                       description:
                         effectivePlan === "pack3"
-                          ? "3 HD export credits for your map versions • No watermark • Instant unlock"
-                          : "Print-ready 6000px-wide star map (up to 6000×9000 by format) • No watermark • Instant download • Perfect for framing",
+                          ? "3 HD export credits for your map versions • No watermark • Unlocks right after checkout"
+                          : "Print-ready 6000px-wide star map (up to 6000×9000 by format) • No watermark • Download right after checkout • Perfect for framing",
                       images: [`${siteUrl}/custom-star-map-anniversary.webp`],
                     },
                   },
@@ -1584,8 +1584,8 @@ async function createCheckoutSession(input: {
         message: isPrintOrder
           ? `By completing your purchase you agree to our [Terms of Service](${siteUrl}/terms) and [Privacy Policy](${siteUrl}/privacy). Secure payment • Print order created after checkout`
           : effectivePlan === "subscription"
-            ? `By completing your purchase you agree to our [Terms of Service](${siteUrl}/terms) and [Privacy Policy](${siteUrl}/privacy). Secure payment • Cancel anytime • Instant access`
-            : `By completing your purchase you agree to our [Terms of Service](${siteUrl}/terms) and [Privacy Policy](${siteUrl}/privacy). Secure payment • Instant access • No subscription`,
+            ? `By completing your purchase you agree to our [Terms of Service](${siteUrl}/terms) and [Privacy Policy](${siteUrl}/privacy). Secure payment • Cancel anytime • Access right after checkout`
+            : `By completing your purchase you agree to our [Terms of Service](${siteUrl}/terms) and [Privacy Policy](${siteUrl}/privacy). Secure payment • Access right after checkout • No subscription`,
       },
     },
     ...(stripePaymentMethodConfigurationId

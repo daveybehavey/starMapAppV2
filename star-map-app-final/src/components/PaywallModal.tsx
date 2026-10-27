@@ -70,7 +70,7 @@ function paywallPrintSkuButtonClasses(
 type Props = {
   checkoutInFlight: boolean;
   checkoutError: string | null;
-  /** Optional recovery CTA label (e.g. "Try instant HD instead") after a failed checkout. */
+  /** Optional recovery CTA label (e.g. "Try HD digital instead") after a failed checkout. */
   checkoutFallbackLabel?: string | null;
   priceLabels: PriceLabels;
   printShippingCountry?: string | null;
@@ -189,8 +189,8 @@ export function PaywallModal({
         }Shipping total is shown before you pay.`
       : isWeddingGift && activeIntent === "print" && hasPrintOptions
       ? freeShippingOfferLine
-        ? `Recommended presentation: framed + HD — wall-ready print plus instant digital from the same design. ${freeShippingOfferLine} Shipping total is shown before you pay.`
-        : "Recommended presentation: framed + HD — a wall-ready print plus instant digital from the same approved design. Shipping is shown before you pay."
+        ? `Recommended presentation: framed + HD — wall-ready print plus HD digital from the same design. ${freeShippingOfferLine} Shipping total is shown before you pay.`
+        : "Recommended presentation: framed + HD — a wall-ready print plus HD digital from the same approved design. Shipping is shown before you pay."
       : activeIntent === "print" && hasPrintOptions
         ? "Choose your gift format. Framed is the gift-ready path; unframed is the lower-cost option."
         : copy.subtitle;
@@ -747,7 +747,7 @@ export function PaywallModal({
             </button>
             <CheckoutLegalNotice className="mt-2" />
             <p className="mt-2 text-[11px] text-neutral-600">
-              Instant HD download after payment — no shipping wait.
+              HD download right after payment — no shipping wait.
             </p>
             <p className="mt-1 text-[10px] text-neutral-600">{DIGITAL_CHECKOUT_SUPPORT_LINE}</p>
             <p className="mt-1 text-[11px] text-neutral-600">
@@ -774,7 +774,7 @@ export function PaywallModal({
               {copy.packCta}
             </button>
             <p className="mt-2 text-[11px] text-neutral-600">
-              Each HD export uses one credit from this pack — unlocks instantly after payment.
+              Each HD export uses one credit from this pack — unlocks right after payment.
             </p>
             <p className="mt-1 text-[10px] text-neutral-600">{DIGITAL_CHECKOUT_SUPPORT_LINE}</p>
           </div>
@@ -806,7 +806,7 @@ export function PaywallModal({
               {checkoutInFlight ? "Starting checkout..." : copy.subscriptionCta}
             </button>
             <p className="mt-2 text-[11px] text-amber-950/80">
-              Instant HD exports while active — cancel anytime.
+              HD exports while active — cancel anytime.
             </p>
             <p className="mt-1 text-[10px] text-amber-950/70">{DIGITAL_CHECKOUT_SUPPORT_LINE}</p>
           </div>

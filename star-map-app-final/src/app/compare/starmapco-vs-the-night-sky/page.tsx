@@ -156,7 +156,7 @@ const featureRows: Array<{ label: string; starmapco: string; nightSky: string }>
   },
   {
     label: "Reviews",
-    starmapco: "5.0 from 2 Google reviews (shown on our homepage)",
+    starmapco: "Google reviews on our listing (linked from our homepage)",
     nightSky: "Trustpilot 4.6 from over 10,000 reviews, per their own comparison page",
   },
 ];

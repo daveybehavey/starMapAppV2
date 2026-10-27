@@ -10,6 +10,14 @@
  *
  * When a new Google review lands, update `ratingValue` / `reviewCount` here
  * (one place) and every surface stays consistent.
+ *
+ * DISPLAY RULE (owner ruling, 2026-10-27): the numbers stay on file here
+ * but are NOT displayed anywhere public — no rating value, no review
+ * count, no aggregate stars — until the count is impressive. Surfaces say
+ * "Google Reviews" and link to the listing instead. The display helpers
+ * below are kept for the day the numbers come back; the only permitted
+ * consumer of the aggregate values in the meantime is this module.
+ * Pinned by scripts/unit/reviewCountsHidden.test.mjs.
  */
 
 export type GoogleReviewQuote = {

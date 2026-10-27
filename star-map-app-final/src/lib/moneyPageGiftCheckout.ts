@@ -41,7 +41,7 @@ export function buildUnframedCheckoutHref(source: string) {
 /** Short factual framing for the premium gift route (no popularity claim). */
 export function getFramedHdPremiumPositioningLine(bundlePriceLine?: string) {
   const price = bundlePriceLine ?? getFramedHdBundlePriceLine();
-  return `Premium framed gift route (${price}) — ready-to-hang print plus instant HD from the same design.`;
+  return `Premium framed gift route (${price}) — ready-to-hang print plus HD digital from the same design.`;
 }
 
 /** Editor-open copy that positions framed + HD without claiming buyer share. */
@@ -67,7 +67,7 @@ export function buildStandardGiftPreviewIntents(_source: string): MoneyPagePrevi
       includeDigitalAddOn: true,
       plan: "print_framed_hd",
       tone: "recommended",
-      detail: `${bundlePriceLine} — premium gift route with instant HD.`,
+      detail: `${bundlePriceLine} — premium gift route with HD digital.`,
     },
     {
       label: "Preview unframed print",

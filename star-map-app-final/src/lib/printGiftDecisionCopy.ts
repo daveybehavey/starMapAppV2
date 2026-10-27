@@ -61,7 +61,7 @@ export const PRINT_GIFT_TIER_STEPS = [
   {
     id: "digital",
     label: "HD digital",
-    detail: "Instant download — built for same-night gifting or DIY printing.",
+    detail: "Download right after checkout — built for same-night gifting or DIY printing.",
   },
   {
     id: "poster",
@@ -76,7 +76,7 @@ export const PRINT_GIFT_TIER_STEPS = [
   {
     id: "framed_hd",
     label: "Framed + HD",
-    detail: `Premium gift route — ready-to-hang wall art plus instant HD file. ${getPrintFramedHdBundleTimingLine()}`,
+    detail: `Premium gift route — ready-to-hang wall art plus HD digital file. ${getPrintFramedHdBundleTimingLine()}`,
   },
   {
     id: "framed_card",

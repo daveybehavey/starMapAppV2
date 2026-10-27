@@ -28,7 +28,7 @@ export default function DeliveryFormatModule({
   const freeShippingShortTag = getPrintFreeShippingShortTag();
   const resolvedIntro =
     intro ??
-    `You only build the map once. After preview, the recommended presentation is framed + HD for a ready-to-hang gift plus instant digital${
+    `You only build the map once. After preview, the recommended presentation is framed + HD for a ready-to-hang gift plus HD digital${
       freeShippingShortTag ? ` — ${freeShippingShortTag}` : ""
     }.`;
   const printCheckoutEnabled = /^(1|true|yes)$/i.test(
@@ -131,12 +131,12 @@ export default function DeliveryFormatModule({
               </span>
             </div>
             <p className="mt-1 text-xs text-neutral-700">
-              Ready-to-display framed print plus instant HD from the same approved design.{" "}
+              Ready-to-display framed print plus HD digital from the same approved design.{" "}
               {getPrintFramedHdBundleTimingLine()}
             </p>
             <ul className="mt-3 list-disc space-y-1.5 pl-5 text-xs text-neutral-700 sm:text-sm">
               <li>Gift-ready framed presentation</li>
-              <li>Instant HD download after payment</li>
+              <li>HD download right after payment</li>
               <li>{getFramedHdBundlePriceLine()}</li>
               {baselineDeliveryDisclosure ? <li>{baselineDeliveryDisclosure}</li> : null}
             </ul>

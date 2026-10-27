@@ -11,7 +11,7 @@ type GiftFormatLadderProps = {
   intro?: string;
   /** Show canvas tier (shop / anniversary — not wedding ad hero). */
   includeCanvas?: boolean;
-  /** Mark instant HD as the recommended tier (digital funnel pages). */
+  /** Mark the HD digital tier as the recommended tier (digital funnel pages). */
   digitalRecommended?: boolean;
   className?: string;
 };
@@ -61,7 +61,7 @@ export default function GiftFormatLadder({
               <h3 className="text-sm font-semibold text-midnight">{tier.label}</h3>
               {tier.recommended ? (
                 <span className="shrink-0 rounded-full border border-amber-400/60 bg-amber-200/40 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-950">
-                  {digitalRecommended && tier.id === "digital" ? "Instant HD" : FRAMED_HD_RECOMMENDED_BADGE}
+                  {digitalRecommended && tier.id === "digital" ? "HD digital" : FRAMED_HD_RECOMMENDED_BADGE}
                 </span>
               ) : null}
             </div>

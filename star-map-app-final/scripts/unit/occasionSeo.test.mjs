@@ -69,6 +69,6 @@ for (const occasion of TUNED_OCCASIONS) {
 
 test("default occasion description mentions framed + HD path", () => {
   const suffix =
-    "Start with a free preview, then choose framed + HD digital (free shipping at $89+ USD), unframed poster, or instant HD delivery.";
+    "Start with a free preview, then choose framed + HD digital (free shipping at $89+ USD), unframed poster, or HD digital delivery.";
   assert.match(suffix, /framed \+ HD digital/);
 });
