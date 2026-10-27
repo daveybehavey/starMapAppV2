@@ -52,33 +52,48 @@ function merchShopTeaser(id: MerchFamilyId): string {
  * with an example star map design (a genuine StarMapCo example render) so
  * shoppers see a map on the product — the customer's own map replaces the
  * example design in the editor flow.
+ *
+ * Pins and stickers use the "-starmap" renders instead of the raw
+ * "-printful" ones: in the raw renders the square design overflows each
+ * round product's face (the design title is clipped by the circular edge)
+ * and the product sits small in the frame, so at card size the pins read
+ * as a thin strip of dark blobs and the sticker floats in whitespace.
+ * The "-starmap" renders show the same products large, with the design
+ * fitted inside the product's face. The sticker render is square with
+ * the disc spanning nearly the full height, so it renders "contain" —
+ * cover in the 4:3 slot would clip the kiss-cut border top and bottom.
  */
-function merchShopImage(id: MerchFamilyId): { src: string; alt: string } | null {
+function merchShopImage(id: MerchFamilyId): { src: string; alt: string; fit: "cover" | "contain" } | null {
   switch (id) {
     case "sticker_kisscut":
       return {
-        src: "/printproof/gift-raw/sticker/sticker-printful.jpg",
+        src: "/printproof/gift-raw/sticker/sticker-starmap.jpg",
         alt: "Kiss-cut vinyl sticker with an example star map design — your own map is printed to order",
+        fit: "contain",
       };
     case "magnet_diecut":
       return {
         src: "/printproof/gift-raw/magnet/magnet-printful.jpg",
         alt: "Die-cut magnet with an example star map design — your own map is printed to order",
+        fit: "cover",
       };
     case "pins_set":
       return {
-        src: "/printproof/gift-raw/pins/pins-printful.jpg",
-        alt: "Set of pin buttons with an example star map design — your own map is printed to order",
+        src: "/printproof/gift-raw/pins/pins-starmap.jpg",
+        alt: "Pin-back button with an example star map design, shown from the front beside the metallic pin back — your own map is printed to order",
+        fit: "cover",
       };
     case "tee_unisex_bc3001":
       return {
         src: "/printproof/gift-raw/tshirt/tee-printful.jpg",
         alt: "Unisex staple tee with an example star map design on the front — your own map is printed to order",
+        fit: "cover",
       };
     case "hoodie_unisex_g18500":
       return {
         src: "/printproof/gift-raw/hoodie/hoodie-printful.jpg",
         alt: "Unisex hoodie with an example star map design on the front — your own map is printed to order",
+        fit: "cover",
       };
     default:
       return null;
@@ -153,6 +168,7 @@ export default function ShopPage() {
     {
       key: "framed",
       imageSrc: HOME_MOCKUPS.framedBedroom,
+      imageFit: "cover",
       alt: "Framed StarMapCo print in a styled bedroom",
       title: printTiers.poster_framed.label,
       detail: "Premium presentation — gift-ready framing that arrives ready to hang.",
@@ -167,6 +183,7 @@ export default function ShopPage() {
     {
       key: "unframed",
       imageSrc: HOME_MOCKUPS.unframedPoster,
+      imageFit: "cover",
       alt: "Unframed StarMapCo square poster print on a white background",
       title: printTiers.poster_unframed.label,
       detail: "Large-format poster print — ideal when you want to frame it locally or keep total cost lower.",
@@ -181,6 +198,7 @@ export default function ShopPage() {
     {
       key: "unframed_16x16",
       imageSrc: HOME_MOCKUPS.unframedPoster,
+      imageFit: "cover",
       alt: "Unframed StarMapCo 16×16 square poster print on a white background",
       title: printTiers.poster_unframed_16x16.label,
       detail: "Smaller square poster print — the entry poster size, ideal when you want to frame it locally or keep total cost lower.",
@@ -195,6 +213,7 @@ export default function ShopPage() {
     {
       key: "canvas",
       imageSrc: "/printproof/canvas-printful.jpg",
+      imageFit: "cover",
       alt: "Canvas gallery wrap with an example star map design — your own map printed on canvas stretched over a wooden frame",
       title: printTiers.canvas_wrap.label,
       detail: "Gallery-wrap canvas — premium wall art between poster and framed print.",
@@ -209,6 +228,7 @@ export default function ShopPage() {
     {
       key: "mug",
       imageSrc: "/printproof/gift-raw/mug/mug-printful.jpg",
+      imageFit: "cover",
       alt: "Black glossy mug (11 oz) with an example star map design — your own map is printed to order",
       title: printTiers.mug_11oz.label,
       detail: "Your star map on a black glossy 11 oz mug — an everyday gift for birthdays, anniversaries, and desk-side coffee.",
@@ -223,6 +243,10 @@ export default function ShopPage() {
     {
       key: "card",
       imageSrc: "/printproof/gift-raw/card/card-mockup.jpg",
+      // The card render is 1120×690 (≈8:5) in the grid's 4:3 slot: cover
+      // cropped ~18% of its width and sliced the tent card's side edges.
+      // Contain keeps the whole card — its edges are product content.
+      imageFit: "contain",
       alt: "Folded keepsake card with an example star map design — your own map is printed to order",
       title: printTiers.card_4x6.label,
       detail:
@@ -238,6 +262,7 @@ export default function ShopPage() {
     {
       key: "digital",
       imageSrc: HOME_MOCKUPS.digitalHd,
+      imageFit: "cover",
       alt: "StarMapCo HD download on laptop and phone",
       title: "HD digital export",
       detail:
@@ -370,7 +395,7 @@ export default function ShopPage() {
                     alt={card.alt}
                     fill
                     sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                    className="object-cover"
+                    className={card.imageFit === "contain" ? "object-contain" : "object-cover"}
                   />
                 </div>
                 <div className="flex flex-1 flex-col gap-2 p-4">
@@ -441,7 +466,7 @@ export default function ShopPage() {
                           alt={image.alt}
                           fill
                           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                          className="object-cover"
+                          className={image.fit === "contain" ? "object-contain" : "object-cover"}
                         />
                       </div>
                     ) : null}
