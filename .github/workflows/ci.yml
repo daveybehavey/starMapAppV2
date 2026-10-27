@@ -49,7 +49,33 @@ jobs:
         run: npm run qa:links
 
       - name: Production build
+        env:
+          NEXT_PUBLIC_SENTRY_RELEASE: starmapco@${{ github.sha }}
+          SENTRY_SOURCEMAPS: ${{ vars.SENTRY_ORG != '' && vars.SENTRY_PROJECT != '' && '1' || '' }}
         run: npm run build
+
+      - name: Check Sentry credentials
+        id: sentry-creds
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: |
+          if [ -n "$SENTRY_AUTH_TOKEN" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload Sentry release and source maps
+        if: ${{ vars.SENTRY_ORG != '' && vars.SENTRY_PROJECT != '' && steps.sentry-creds.outputs.available == 'true' }}
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+          SENTRY_RELEASE: starmapco@${{ github.sha }}
+        run: |
+          npx --yes @sentry/cli@2 releases new "$SENTRY_RELEASE" || echo "Sentry release already exists"
+          npx --yes @sentry/cli@2 sourcemaps upload --release "$SENTRY_RELEASE" --url-prefix "~/_next/static" .next/static
+          npx --yes @sentry/cli@2 releases finalize "$SENTRY_RELEASE"
 
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
