@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
+import { reportBrowserError } from "@/lib/sentryBrowser";
 
 type EditorErrorProps = {
   error: Error & { digest?: string };
@@ -8,6 +10,10 @@ type EditorErrorProps = {
 };
 
 export default function EditorError({ error, reset }: EditorErrorProps) {
+  useEffect(() => {
+    reportBrowserError(error, "browser_react_boundary");
+  }, [error]);
+
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-16 text-center text-white">
       <div className="rounded-2xl border border-white/15 bg-white/5 p-6 shadow-lg shadow-black/30 backdrop-blur">

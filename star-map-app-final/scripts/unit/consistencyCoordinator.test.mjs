@@ -2041,7 +2041,7 @@ test("wiring: coordinator binding, migration, and worker export exist", () => {
   assert.match(wrangler, /tag = "v5-consistency-coordinator"/);
   assert.match(wrangler, /new_sqlite_classes = \["ConsistencyCoordinatorDO"\]/);
   const worker = readFileSync(path.join(APP_ROOT, "cloudflare-worker.ts"), "utf8");
-  assert.match(worker, /export \{ ConsistencyCoordinatorDO \}/);
+  assert.match(worker, /export const ConsistencyCoordinatorDO = Sentry\.instrumentDurableObjectWithSentry\(/);
 });
 
 test("wiring: legacy KV write paths are gone from the three call sites", () => {

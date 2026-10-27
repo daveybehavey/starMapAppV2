@@ -44,6 +44,12 @@ const cityPageRedirects = [
 
 const nextConfig = {
   distDir: process.env.NEXT_DIST_DIR || ".next",
+  // Sentry source maps (SQ-58 / #429): browser bundles emit source maps only
+  // for builds that will upload them to Sentry in the same job (CI sets
+  // SENTRY_SOURCEMAPS=1 when SENTRY_ORG/SENTRY_PROJECT repo variables exist).
+  // Maps are never emitted for ordinary production builds, so they are never
+  // part of the publicly served assets.
+  productionBrowserSourceMaps: process.env.SENTRY_SOURCEMAPS === "1",
   typescript: {
     ignoreBuildErrors: true,
   },
