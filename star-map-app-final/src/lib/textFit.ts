@@ -15,6 +15,7 @@
 // truncated — it can still spill, but bounded, centred, and legible.
 
 import type { ExportMatPurpose } from "./mapLookTiers";
+import type { ShapeMaskFootprint } from "./shapeLayout";
 
 /** Smallest fraction of the configured size that fit-to-width may shrink to. */
 export const MIN_TEXT_FIT_SCALE = 0.5;
@@ -93,6 +94,10 @@ export function resolveFrameTextFitPaddingPx(width: number): number {
  * ("M50 6 L94 50 L50 94 L6 50 Z" on a 100x100 viewBox, scaled to the full
  * canvas): apexes at y = 0.06 / 0.94, widest (half-width 0.44) at y = 0.5.
  * The half-width at a row is linear between the apexes and the middle.
+ * These are MASK-space fractions: under the legacy layout the mask
+ * space is the full canvas; under the #406 uniform layout it is the
+ * mask's centred square footprint (resolveShapeMaskFootprint), and
+ * callers convert canvas rows into that space before evaluating.
  */
 export const DIAMOND_APEX_TOP = 0.06;
 export const DIAMOND_APEX_BOTTOM = 0.94;
@@ -115,6 +120,16 @@ export type TextFitLayout = {
    * canvas size; "print" — and omission, via the helper's default —
    * keeps the legacy inset the shipped product uses. */
   matPurpose?: ExportMatPurpose;
+  /** Shape-mask footprint under the #406 uniform layout (layout
+   * version 2), resolved by the caller from the design's persisted
+   * version (shapeLayout.ts): the diamond's tent geometry is then
+   * evaluated in that centred square footprint instead of the
+   * stretched full canvas. Null/absent (the legacy layout — every
+   * saved design) keeps the historical canvas-space geometry. A
+   * resolved value is passed in, rather than the version itself, so
+   * this module stays free of runtime imports (the plain-Node unit
+   * runner imports it directly). */
+  shapeMaskFootprint?: ShapeMaskFootprint | null;
   /** The line's resolved centre row, normalized 0..1 of canvas height. */
   centerYNorm: number;
   /** The line's unfitted height in pixels (font size x line height). */
@@ -152,6 +167,24 @@ export function resolveShapeTextAvailableWidth(layout: TextFitLayout): number {
   if (!Number.isFinite(width) || width <= 0) return width;
   if (shape === "diamond") {
     if (!Number.isFinite(height) || height <= 0) return width;
+    // #406 uniform layout: the diamond sits in a centred square
+    // footprint, so the tent is evaluated in footprint space — the
+    // row is measured from the footprint's top and the half-width is
+    // a fraction of the footprint's edge, not of the canvas. (At a
+    // square canvas the footprint IS the canvas and this reduces to
+    // the legacy computation below.)
+    const footprint = layout.shapeMaskFootprint ?? null;
+    if (footprint) {
+      const halfSpanPx = Math.max(0, lineHeightPx) / 2;
+      const centerYPx = centerYNorm * height;
+      const topHalf = resolveDiamondHalfWidthAt(
+        (centerYPx - halfSpanPx - footprint.offsetY) / footprint.size,
+      );
+      const bottomHalf = resolveDiamondHalfWidthAt(
+        (centerYPx + halfSpanPx - footprint.offsetY) / footprint.size,
+      );
+      return Math.max(1, Math.min(topHalf, bottomHalf) * 2 * footprint.size);
+    }
     const halfSpanNorm = Math.max(0, lineHeightPx) / 2 / height;
     const topHalf = resolveDiamondHalfWidthAt(centerYNorm - halfSpanNorm);
     const bottomHalf = resolveDiamondHalfWidthAt(centerYNorm + halfSpanNorm);
@@ -192,6 +225,11 @@ export type TextDragClampLayout = {
   shape?: string;
   /** Whether the gold frame/outline is drawn for this render. */
   frameEnabled?: boolean;
+  /** Shape-mask footprint under the #406 uniform layout (2),
+   * resolved by the caller (shapeLayout.ts): the diamond clamp then
+   * runs in that centred square footprint. Null/absent keeps the
+   * historical canvas-space clamp. */
+  shapeMaskFootprint?: ShapeMaskFootprint | null;
   /** The dragged box's rendered glyph-rect width in pixels. */
   rectWidthPx: number;
   /** The dragged box's rendered glyph-rect height in pixels. */
@@ -278,6 +316,38 @@ export function clampTextCenterToShape(
   const halfHeightNorm = rectHeightPx / (height * 2);
 
   if (shape === "diamond") {
+    // #406 uniform layout: run the same tent clamp in mask space —
+    // the diamond's centred square footprint — then convert back to
+    // canvas-normalized centre coordinates. The footprint is centred
+    // on both axes, so mask-space centre is (0.5, 0.5) exactly as in
+    // the canvas-space algorithm below.
+    const footprint = layout.shapeMaskFootprint ?? null;
+    if (footprint) {
+      const halfWidthMask = rectWidthPx / (footprint.size * 2);
+      const halfHeightMask = rectHeightPx / (footprint.size * 2);
+      const rowSpan = DIAMOND_APEX_BOTTOM - 0.5;
+      const maxRowOffset = rowSpan * (1 - halfWidthMask / DIAMOND_MAX_HALF_WIDTH);
+      let maskY = (center.y * height - footprint.offsetY) / footprint.size;
+      if (maxRowOffset < 0 || halfHeightMask > maxRowOffset) {
+        maskY = 0.5;
+      } else {
+        const minY = 0.5 - maxRowOffset + halfHeightMask;
+        const maxY = 0.5 + maxRowOffset - halfHeightMask;
+        maskY = Math.min(maxY, Math.max(minY, maskY));
+      }
+      const bandHalfWidth = Math.min(
+        resolveDiamondHalfWidthAt(maskY - halfHeightMask),
+        resolveDiamondHalfWidthAt(maskY + halfHeightMask),
+      );
+      const slack = bandHalfWidth - halfWidthMask;
+      const maskX = (center.x * width - footprint.offsetX) / footprint.size;
+      const clampedMaskX =
+        slack >= 0 ? Math.min(0.5 + slack, Math.max(0.5 - slack, maskX)) : 0.5;
+      return {
+        x: (footprint.offsetX + clampedMaskX * footprint.size) / width,
+        y: (footprint.offsetY + maskY * footprint.size) / height,
+      };
+    }
     const rowSpan = DIAMOND_APEX_BOTTOM - 0.5;
     // How far from the middle an end row may sit while the mask
     // there is still at least as wide as the rect.

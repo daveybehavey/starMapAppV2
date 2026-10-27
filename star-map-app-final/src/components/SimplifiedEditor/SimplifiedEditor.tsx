@@ -110,6 +110,8 @@ const SAMPLE_RECIPE: MapRecipe = {
     showMoon: true,
     moonSize: "normal",
     shapeMask: "rectangle",
+    // #406: the sample is a NEW design — uniform shape layout.
+    shapeLayoutVersion: 2,
     frameEnabled: true,
   },
 };
@@ -250,7 +252,13 @@ export function SimplifiedEditor() {
         setShape(parsed.shape);
       }
       if (parsed.renderOptions) {
-        setRenderOptions(parsed.renderOptions);
+        setRenderOptions({
+          ...parsed.renderOptions,
+          // #406: explicit — a pre-#406 draft has no version and must
+          // restore as legacy, not inherit the fresh-session stamp
+          // through the merge.
+          shapeLayoutVersion: parsed.renderOptions.shapeLayoutVersion,
+        });
       }
       const synced = parsed.sampleDesignLastAutoSynced;
       useStore.getState().setSampleDesignLastAutoSynced({

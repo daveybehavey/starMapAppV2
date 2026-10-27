@@ -20,12 +20,14 @@ export function aspectRatioToNumber(aspect: AspectRatio): number {
  * the shape mask's SVG viewBox: every shipped shape viewBox is square
  * ("0 0 100 100"), so viewBox-derived heights silently squared every
  * heart/circle/star/diamond export (E-2) while the preview and rectangle
- * exports used the selected aspect. The renderer scales the shape path to
- * whatever canvas it is given (buildShapeClip in renderSky.ts), so the
- * canvas aspect is the design's aspect, full stop. Every export surface
- * (downloads, checkout print asset, share image, simplified editor,
- * download page) must size through here so the paths cannot drift apart
- * again.
+ * exports used the selected aspect. How the renderer fits the shape path
+ * INTO that canvas is the design's shape-layout version (#406): v2 scales
+ * uniformly (contain, centred — the silhouette keeps its proportions and
+ * the rest is mat); legacy designs keep the historical stretch to the
+ * canvas. Either way the canvas aspect is the design's aspect, full stop.
+ * Every export surface (downloads, checkout print asset, share image,
+ * simplified editor, download page) must size through here so the paths
+ * cannot drift apart again.
  */
 export function getExportDimensions(
   width: number,
