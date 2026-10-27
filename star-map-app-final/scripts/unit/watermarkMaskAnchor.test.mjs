@@ -410,7 +410,7 @@ test("composition: renderStarMap draws the watermark AFTER the text layer conten
 test("composition: the renderer consumes the SAME clip path for the sky and the watermark", () => {
   const source = read("src/lib/renderSky.ts");
   const main = source.slice(source.indexOf("export function renderStarMap({"), source.indexOf("export function renderStarMapTextLayer"));
-  assert.match(main, /const clipPath = buildShapeClip\(shapeName, width, targetHeight\);/);
+  assert.match(main, /const clipPath = buildShapeClip\(shapeName, width, targetHeight, shapeLayoutVersion\);/);
   assert.match(main, /drawWatermark\(ctx, \{\n\s+width,\n\s+height: targetHeight,\n\s+show: watermark,\n\s+clipPath,/);
   // The harness-facing surface the acceptance run drives.
   assert.match(source, /export function paintWatermark\(/);
