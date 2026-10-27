@@ -195,10 +195,10 @@ export const blogPosts: BlogPost[] = [
   },
   {
     slug: "fathers-day-star-map-gift-ideas",
-    title: "Father’s Day Star Map Gift Ideas: A Personal Keepsake Dad Will Actually Use",
+    title: "Father’s Day Star Map Gift Ideas: Honor the Night He Became Dad",
     seoTitle: "Father’s Day Star Map Gift Ideas",
     description:
-      "Personalized Father’s Day star map gift ideas for dad: how to pick the right date/night and choose framed vs unframed vs HD/digital.",
+      "Personalized Father’s Day star map gift ideas for dad: honor the night he became a dad — how to pick the right date and choose framed vs unframed vs HD/digital.",
     date: "2026-06-12",
     keywords: [
       "Father’s Day star map gift ideas",
@@ -209,7 +209,14 @@ export const blogPosts: BlogPost[] = [
       "HD digital star map",
       "last minute personalized gift",
       "gift for husband",
+      "father's day star map",
+      "custom star map for dad",
+      "personalized father's day gift",
+      "unique father's day gift",
+      "star map gift ideas",
+      "gift for dad",
     ],
+    ogImage: "/og-fathers-day.svg",
     content: () => (
       <article className="prose prose-neutral prose-headings:text-midnight prose-strong:text-midnight prose-a:text-amber-700 prose-li:text-neutral-800 max-w-none text-neutral-800">
         <p>
@@ -218,7 +225,8 @@ export const blogPosts: BlogPost[] = [
         </p>
         <p>
           If you want the gift to feel personal instead of generic, this is the easiest path: the date gives the story an
-          anchor, and the customization gives you something dad will recognize and keep.
+          anchor, and the customization gives you something dad will recognize and keep. For many families, the night that
+          matters most is the night he became a dad — but any night that changed your family works the same way.
         </p>
 
         <h2>Why star maps work so well for Father’s Day</h2>
@@ -230,11 +238,26 @@ export const blogPosts: BlogPost[] = [
             <strong>It looks premium:</strong> framed prints feel like “real wall art,” not a novelty.
           </li>
           <li>
+            <strong>It earns its wall space:</strong> made to live in a home office, study, or living room.
+          </li>
+          <li>
             <strong>It fits your timing:</strong> choose framed/unframed for shipping, or HD/digital for speed.
           </li>
           <li>
             <strong>It’s easy to personalize:</strong> you only need date + location + a short note.
           </li>
+        </ul>
+
+        <h2>Good date ideas for Father’s Day</h2>
+        <p>
+          The strongest Father’s Day maps usually start with the night he became a dad. If you want a different anchor,
+          these all work:
+        </p>
+        <ul>
+          <li>The birth of a child</li>
+          <li>A family trip or camping night</li>
+          <li>A graduation or another big milestone</li>
+          <li>The night you moved into a new home</li>
         </ul>
 
         <h2>Quick Father’s Day personalization checklist</h2>
@@ -243,6 +266,27 @@ export const blogPosts: BlogPost[] = [
           <li>Add the city/location you associate with the memory.</li>
           <li>Write 1–2 lines that dad will actually want to read.</li>
         </ol>
+
+        <h2>Personalization ideas</h2>
+        <p>Keep it short and meaningful:</p>
+        <ul>
+          <li>Title: &quot;The Night We Became Family&quot;</li>
+          <li>Subtitle: &quot;Austin • June 21, 2017&quot;</li>
+          <li>Dedication: &quot;Thanks for everything, Dad&quot;</li>
+        </ul>
+
+        <h2>How to make your Father’s Day star map</h2>
+        <ol>
+          <li>Choose your date and location.</li>
+          <li>Preview the sky in the editor.</li>
+          <li>Customize the text and style.</li>
+          <li>Unlock the HD download for printing.</li>
+        </ol>
+        <p>
+          Start on the{" "}
+          <Link href="/star-map-for/fathers-day">Father’s Day star map page</Link> or go straight to the{" "}
+          <Link href="/editor?mode=quick">free preview</Link>.
+        </p>
 
         <h2>Best format for dad (quick picks)</h2>
         <p>
@@ -256,84 +300,11 @@ export const blogPosts: BlogPost[] = [
             <strong>Most “wow” gift:</strong> framed (cleanest presentation for a Father’s Day surprise).
           </li>
           <li>
-            <strong>Best value:</strong> unframed (still a great keepsake—just a different presentation).
+            <strong>Best value:</strong> unframed (still a great keepsake—just a different presentation; ideal for
+            collectors, minimalists, or anyone who already has a preferred frame).
           </li>
         </ul>
-        <p>
-          Compare formats on the <a href="/star-map-gift-formats">gift formats page</a>, or start from the editor with a framed
-          print preview:
-          {" "}
-          <Link href="/editor?mode=quick&source=blog-template-framed&checkout=print&print_variant=poster_framed">
-            framed print preview
-          </Link>
-          .
-        </p>
-
-        <h2>Father’s Day FAQ</h2>
-        <h3>What if we don’t know the exact time?</h3>
-        <p>
-          Use the closest memorable time. The emotional anchor matters more than perfect precision for a keepsake gift.
-        </p>
-        <h3>Is this a “shipping gift” or a “digital gift”?</h3>
-        <p>
-          Both. The same personalized story can become framed/unframed for physical wall art, or an HD/digital file for faster gifting.
-        </p>
-
-        <h2>Bottom line</h2>
-        <p>
-          A Father’s Day star map is a premium, personal way to turn one night into something dad can enjoy for years.
-          Start with a date and location, then choose the format that matches your timeline.
-        </p>
-        <p>
-          For more ideas, browse our{" "}
-          <Link href="/star-map-gift">star map gift</Link> hub, explore{" "}
-          <Link href="/star-map-gift-ideas">star map gift ideas</Link>, and compare
-          <Link href="/star-map-gift-formats"> gift formats</Link>.
-        </p>
-      </article>
-    ),
-  },
-  {
-    slug: "fathers-day-star-map-format-choose",
-    title: "Father’s Day: Which Star Map Format Should You Choose? (Framed vs Unframed vs Digital)",
-    seoTitle: "Father’s Day Star Map Format Choice",
-    description:
-      "Quick decision guide for Father’s Day star map gifts: framed vs unframed vs HD/digital—based on budget, timeline, and presentation.",
-    date: "2026-06-14",
-    keywords: [
-      "framed vs unframed star map",
-      "digital HD star map",
-      "which star map format should I choose",
-      "gift format guide",
-      "Father’s Day framed gift",
-      "Father’s Day digital gift",
-    ],
-    content: () => (
-      <article className="prose prose-neutral prose-headings:text-midnight prose-strong:text-midnight prose-a:text-amber-700 prose-li:text-neutral-800 max-w-none text-neutral-800">
-        <p>
-          If you’re buying a Father’s Day star map for dad, the easiest “make it feel right” decision is choosing the right format.
-          Here’s a practical guide based on your timeline and how you want it to look.
-        </p>
-
-        <h2>Choose framed when you want the most premium presentation</h2>
-        <p>
-          Framed is the gift that feels ready the moment dad opens it. It’s the cleanest option for “wow” factor, shelf-ready style,
-          and long-term wall display.
-        </p>
-
-        <h2>Choose unframed when you want best value (and you’ll handle framing)</h2>
-        <p>
-          Unframed is a great Father’s Day option when you want a lower total and still plan to display the map.
-          It’s ideal for collectors, minimalists, or anyone who already has a preferred frame.
-        </p>
-
-        <h2>Choose HD/digital when speed matters most</h2>
-        <p>
-          If you need the gift to happen fast, HD/digital is the practical path. You can deliver instantly (or quickly) without waiting on shipping.
-          Dad still gets the same personal story—just on a faster schedule.
-        </p>
-
-        <h2>Fast decision table</h2>
+        <h3>Fast decision table</h3>
         <table>
           <thead>
             <tr>
@@ -356,33 +327,43 @@ export const blogPosts: BlogPost[] = [
             </tr>
           </tbody>
         </table>
-
-        <h2>Start right away from the editor</h2>
         <p>
-          If you want to commit to the framed path now, start with a framed print preview:
+          Compare formats on the <a href="/star-map-gift-formats">gift formats page</a>, or start from the editor with a framed
+          print preview:
           {" "}
           <Link href="/editor?mode=quick&source=blog-template-framed&checkout=print&print_variant=poster_framed">
             framed print preview
           </Link>
           .
-          If you’re still deciding, use <Link href="/star-map-gift-formats">gift formats</Link> to compare the options.
         </p>
 
-        <h2>FAQ</h2>
+        <h2>Print tips for a clean finish</h2>
+        <p>
+          Matte paper keeps glare low and stars crisp. Use our{" "}
+          <Link href="/how-to-print-star-map">printing guide</Link> for recommended sizes and frames.
+        </p>
+
+        <h2>Father’s Day FAQ</h2>
         <h3>What if we don’t know the exact time?</h3>
         <p>
-          Use the closest memorable time. Your dad will care about the moment—not perfect astronomical precision.
+          Use the closest memorable time. The emotional anchor matters more than perfect precision for a keepsake gift.
         </p>
-        <h3>Can I give the same design as both physical and digital?</h3>
+        <h3>Is this a “shipping gift” or a “digital gift”?</h3>
         <p>
-          Yes. The point of star map gifts is format flexibility—choose the path that matches your timing.
+          Both. The same personalized story can become framed/unframed for physical wall art, or an HD/digital file for faster gifting.
         </p>
 
         <h2>Bottom line</h2>
         <p>
-          Framed is the “premium gift” choice, unframed is the value display choice, and HD/digital is the “fast gift” choice.
-          Pick based on how you want the experience to feel for Father’s Day. When you are ready to order, start from the{" "}
-          <Link href="/star-map-gift">custom star map gift</Link> page for format guidance.
+          A Father’s Day star map is a premium, personal way to turn one night into something dad can enjoy for years.
+          Start with a date and location, then choose the format that matches your timeline.
+        </p>
+        <p>
+          For more ideas, browse our{" "}
+          <Link href="/star-map-gift">star map gift</Link> hub, explore{" "}
+          <Link href="/star-map-gift-ideas">star map gift ideas</Link>, compare
+          <Link href="/star-map-gift-formats"> gift formats</Link>, or browse the{" "}
+          <Link href="/star-map-gallery">gallery</Link> for real examples.
         </p>
       </article>
     ),
@@ -1631,84 +1612,6 @@ export const blogPosts: BlogPost[] = [
           Browse the <Link href="/star-map-gallery">star map gallery</Link> for real examples, start from our{" "}
           <Link href="/star-map-gift">star map gift</Link> hub, or explore more{" "}
           <Link href="/star-map-gift-ideas">star map gift ideas</Link> for other occasions.
-        </p>
-      </article>
-    ),
-  },
-  {
-    slug: "fathers-day-star-map-gift-2",
-    title: "Father's Day Star Map Gift Ideas: Honor the Night He Became Dad",
-    seoTitle: "Father's Day Star Map: Honor the Night He Became Dad",
-    description:
-      "Looking for a Father's Day gift with meaning? A custom star map celebrates the night he became a dad or another milestone worth honoring.",
-    date: "2026-02-12",
-    keywords: [
-      "father's day star map",
-      "custom star map for dad",
-      "personalized father's day gift",
-      "unique father's day gift",
-      "star map gift ideas",
-      "gift for dad",
-    ],
-    ogImage: "/og-fathers-day.svg",
-    content: () => (
-      <article className="prose prose-neutral prose-headings:text-midnight prose-strong:text-midnight prose-a:text-amber-700 prose-li:text-neutral-800 max-w-none text-neutral-800">
-        <p>
-          The best Father&apos;s Day gifts are personal. A custom star map turns a meaningful night into a gift he can
-          see every day—whether it&apos;s the night he became a dad or a memory you share.
-        </p>
-
-        <h2>Why a star map feels different from other Father&apos;s Day gifts</h2>
-        <p>
-          Many gifts are useful for a week. A star map is about memory and meaning. It shows the exact sky from a moment
-          that changed your family.
-        </p>
-        <ul>
-          <li>Personalized to a real date and location</li>
-          <li>Perfect for home office, study, or living room</li>
-          <li>Instant preview and print-ready file</li>
-        </ul>
-
-        <h2>Good date ideas for Father&apos;s Day</h2>
-        <ul>
-          <li>The birth of a child</li>
-          <li>A family trip or camping night</li>
-          <li>A graduation or big milestone</li>
-          <li>The night you moved into a new home</li>
-        </ul>
-
-        <h2>Personalization ideas</h2>
-        <p>Keep it short and meaningful:</p>
-        <ul>
-          <li>Title: &quot;The Night We Became Family&quot;</li>
-          <li>Subtitle: &quot;Austin • June 21, 2017&quot;</li>
-          <li>Dedication: &quot;Thanks for everything, Dad&quot;</li>
-        </ul>
-
-        <h2>How to make your Father&apos;s Day star map</h2>
-        <ol>
-          <li>Choose your date and location.</li>
-          <li>Preview the sky instantly.</li>
-          <li>Customize the text and style.</li>
-          <li>Unlock the HD download for printing.</li>
-        </ol>
-        <p>
-          Start on the{" "}
-          <Link href="/star-map-for/fathers-day">Father&apos;s Day star map page</Link> or go straight to the{" "}
-          <Link href="/editor?mode=quick">free preview</Link>.
-        </p>
-
-        <h2>Print tips for a clean finish</h2>
-        <p>
-          Matte paper keeps glare low and stars crisp. Use our{" "}
-          <Link href="/how-to-print-star-map">printing guide</Link> for recommended sizes and frames.
-        </p>
-
-        <h2>More gift inspiration</h2>
-        <p>
-          Need ideas for other occasions? Browse the <Link href="/star-map-gallery">gallery</Link>, start from
-          our <Link href="/star-map-gift">custom star map gift</Link> page, or explore{" "}
-          <Link href="/star-map-gift-ideas">gift ideas</Link>.
         </p>
       </article>
     ),
