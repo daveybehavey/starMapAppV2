@@ -1,5 +1,11 @@
 import type { MapRecipe } from "./renderSky";
-import type { RenderOptions, SampleDesignLastAutoSyncedState, StyleId, TextBox } from "./store";
+import type {
+  RenderOptions,
+  SampleDesignLastAutoSyncedState,
+  StyleId,
+  TextBox,
+  TextStyleBinding,
+} from "./store";
 import type { AspectRatio, Shape } from "./types";
 
 export const EDITOR_DRAFT_STORAGE_KEY = "star-map-draft";
@@ -271,6 +277,25 @@ function textBoxFallback(index: number): TextBox {
   );
 }
 
+/**
+ * Local copy of the binding rule from textStyleBinding.ts (#408): only the
+ * literal "automatic" grants automatic ownership, per property; everything
+ * else resolves explicit. This module is imported directly by plain-Node
+ * unit tests (no alias/extension loader), so it must stay free of runtime
+ * imports — the #408 regression tests pin this local rule and the shared
+ * normalizeTextStyleBinding to identical behaviour.
+ */
+function normalizeDraftTextStyleBinding(value: unknown): TextStyleBinding {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { color: "explicit", fontFamily: "explicit" };
+  }
+  const record = value as Record<string, unknown>;
+  return {
+    color: record.color === "automatic" ? "automatic" : "explicit",
+    fontFamily: record.fontFamily === "automatic" ? "automatic" : "explicit",
+  };
+}
+
 function normalizeTextBoxes(value: unknown): ValidationResult<TextBox[]> {
   if (!Array.isArray(value)) {
     return { ok: false, reason: "invalid_text_boxes" };
@@ -322,6 +347,11 @@ function normalizeTextBoxes(value: unknown): ValidationResult<TextBox[]> {
       text: raw.text,
       fontFamily,
       color,
+      // Carry the typography-ownership binding through drafts (#408):
+      // without this the normalizer would strip it on both write and read.
+      // Missing/malformed provenance normalizes to explicit/explicit, so
+      // legacy drafts keep their authored colours and fonts exactly.
+      textStyleBinding: normalizeDraftTextStyleBinding(raw.textStyleBinding),
       size,
       align,
       textShadow: typeof raw.textShadow === "boolean" ? raw.textShadow : false,

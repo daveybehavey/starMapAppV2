@@ -10,6 +10,7 @@ type DraftTestState = {
     text: string;
     fontFamily: string;
     color: string;
+    textStyleBinding?: { color: string; fontFamily: string };
     size: number;
     align: string;
     textShadow: boolean;
@@ -39,6 +40,9 @@ const persistedState = {
     longitude: 2.3522,
     timezone: "Europe/Paris",
   },
+  // #408: these boxes are applied through setTextBoxes with no binding in
+  // the seed, so the store normalizes ownership to explicit/explicit —
+  // the expected persisted/restored shape carries that binding.
   textBoxes: [
     {
       id: "title",
@@ -46,6 +50,7 @@ const persistedState = {
       text: "Our persisted night",
       fontFamily: "cinzel",
       color: "#d7b56c",
+      textStyleBinding: { color: "explicit", fontFamily: "explicit" },
       size: 52,
       align: "center",
       textShadow: false,
@@ -58,6 +63,7 @@ const persistedState = {
       text: "Paris, June 2024",
       fontFamily: "raleway",
       color: "#c8a662",
+      textStyleBinding: { color: "explicit", fontFamily: "explicit" },
       size: 30,
       align: "right",
       textShadow: false,

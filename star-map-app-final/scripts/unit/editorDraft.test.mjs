@@ -82,7 +82,16 @@ test("valid current draft writes a versioned envelope and round-trips", () => {
   assert.equal(read.source, "versioned");
   assert.equal(read.needsMigration, false);
   assert.equal(read.savedAt, now.toISOString());
-  assert.deepEqual(read.data, makeDraft());
+  // #408: the fixture carries no textStyleBinding, so normalization adds
+  // explicit/explicit ownership to every box (legacy provenance is never
+  // guessed automatic); all other fields round-trip exactly.
+  assert.deepEqual(read.data, {
+    ...makeDraft(),
+    textBoxes: makeDraft().textBoxes.map((box) => ({
+      ...box,
+      textStyleBinding: { color: "explicit", fontFamily: "explicit" },
+    })),
+  });
 });
 
 test("date provenance (dateTimeIsUntouchedDefault) round-trips both ways", () => {

@@ -7,6 +7,12 @@ import {
 } from "./dateTime";
 import type { MapLookTier } from "./mapLookTiers";
 import { applyDefaultTextRowsForShape } from "./textFit";
+import { getStyleTextDefaults } from "./styleDefaults";
+import {
+  AUTOMATIC_TEXT_STYLE_BINDING,
+  cloneTextBoxWithNormalizedBinding,
+  normalizeTextStyleBinding,
+} from "./textStyleBinding";
 import type { AspectRatio, Shape } from "./types";
 
 export type StyleId =
@@ -16,6 +22,17 @@ export type StyleId =
   | "midnightMinimal";
 
 export type TextAlign = "left" | "center" | "right";
+
+/**
+ * Per-property ownership of a text box's typography (issue #408).
+ * "automatic" follows style defaults / tier typography; "explicit" is
+ * user- or preset-authored and automatic layers must not overwrite it.
+ * A missing binding resolves to explicit/explicit (see textStyleBinding.ts).
+ */
+export interface TextStyleBinding {
+  color: "automatic" | "explicit";
+  fontFamily: "automatic" | "explicit";
+}
 
 export interface TextBox {
   id: string;
@@ -38,6 +55,7 @@ export interface TextBox {
     | "bebasNeue"
     | "abrilFatface";
   color: string;
+  textStyleBinding?: TextStyleBinding;
   size: number;
   fontWeight?: number;
   align: TextAlign;
@@ -164,6 +182,7 @@ const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) =
       text: "Our Night Sky",
       fontFamily: "cinzel",
       color: "#d7b56c", // cinematic gold
+      textStyleBinding: { ...AUTOMATIC_TEXT_STYLE_BINDING },
       size: 48,
       align: "center",
       textShadow: false,
@@ -176,6 +195,7 @@ const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) =
       text: "Under the vintage stars",
       fontFamily: "raleway",
       color: "#c8a662", // softer gold accent for subtitle
+      textStyleBinding: { ...AUTOMATIC_TEXT_STYLE_BINDING },
       size: 28,
       align: "center",
       textShadow: false,
@@ -188,6 +208,7 @@ const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) =
       text: "Celebrating our constellation of moments.",
       fontFamily: "script",
       color: "#b98a3d", // deeper gold tone for dedication line
+      textStyleBinding: { ...AUTOMATIC_TEXT_STYLE_BINDING },
       size: 26,
       align: "center",
       textShadow: false,
@@ -236,12 +257,26 @@ const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) =
         dateTime: nextDateTime,
       };
     }),
-  setTextBoxes: (boxes) => set({ textBoxes: boxes }),
+  setTextBoxes: (boxes) =>
+    set({ textBoxes: boxes.map((box) => cloneTextBoxWithNormalizedBinding(box)) }),
   updateTextBox: (id, payload) =>
     set((state) => ({
-      textBoxes: state.textBoxes.map((box) =>
-        box.id === id ? { ...box, ...payload } : box,
-      ),
+      textBoxes: state.textBoxes.map((box) => {
+        if (box.id !== id) return box;
+        // Own-property presence marks a typography property explicit: this
+        // is the user-edit boundary. A payload can never set the binding
+        // itself, and non-typography payloads preserve ownership as-is.
+        const binding = normalizeTextStyleBinding(box.textStyleBinding);
+        if (Object.prototype.hasOwnProperty.call(payload, "color")) {
+          binding.color = "explicit";
+        }
+        if (Object.prototype.hasOwnProperty.call(payload, "fontFamily")) {
+          binding.fontFamily = "explicit";
+        }
+        const nextPayload: Partial<TextBox> = { ...payload };
+        delete nextPayload.textStyleBinding;
+        return { ...box, ...nextPayload, textStyleBinding: binding };
+      }),
     })),
   removeTextBox: (id) =>
     set((state) => ({
@@ -250,12 +285,18 @@ const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) =
   addTextBox: () =>
     set((state) => {
       const nextIndex = state.textBoxes.length + 1;
+      // New lines take the selected template's designed text colour/font
+      // (#408: the old hardcoded playfair/#0c1021 was invisible on dark
+      // templates) and stay automatic so later style switches keep them
+      // readable on the new template too.
+      const textDefaults = getStyleTextDefaults(state.selectedStyle);
       const newBox: TextBox = {
         id: `custom-${Date.now()}`,
         label: `Line ${nextIndex}`,
         text: "New text",
-        fontFamily: "playfair",
-        color: "#0c1021",
+        fontFamily: textDefaults.fontFamily,
+        color: textDefaults.color,
+        textStyleBinding: { ...AUTOMATIC_TEXT_STYLE_BINDING },
         size: 28,
         align: "center",
         position: { x: 0.5, y: Math.min(0.85, 0.7 + nextIndex * 0.06) },

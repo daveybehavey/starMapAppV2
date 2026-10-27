@@ -1,5 +1,9 @@
 import { getRenderPresetOptions, resolveRenderPreset, type RenderPresetId } from "@/lib/renderPresets";
 import type { RenderOptions, StyleId, TextBox } from "@/lib/store";
+import {
+  AUTOMATIC_TEXT_STYLE_BINDING,
+  normalizeTextStyleBinding,
+} from "@/lib/textStyleBinding";
 
 export type MapLookTier = "minimal" | "polished" | "custom";
 
@@ -307,6 +311,37 @@ export function applyTierTypography(
 }
 
 /**
+ * Ownership-aware tier typography (#408): runs the raw tier transformation,
+ * then restores any explicit colour/font from the input boxes (matched by
+ * ID). All other tier effects (size, weight, position, glow, shadow) apply
+ * to automatic and explicit boxes alike, and each box's binding is
+ * preserved. Boxes with no binding resolve explicit, so legacy designs keep
+ * their authored typography. Custom is an identity operation. All editor
+ * call sites use this wrapper; the raw transform remains for the snapshot
+ * builder's fixtures and tests.
+ */
+export function applyTierTypographyProtected(
+  tier: MapLookTier,
+  styleId: StyleId,
+  textBoxes: TextBox[],
+): TextBox[] {
+  if (tier === "custom") return textBoxes;
+  const tiered = applyTierTypography(tier, styleId, textBoxes);
+  if (tiered === textBoxes) return textBoxes;
+  const inputById = new Map(textBoxes.map((box) => [box.id, box]));
+  return tiered.map((box) => {
+    const input = inputById.get(box.id);
+    if (!input) return box;
+    const binding = normalizeTextStyleBinding(input.textStyleBinding);
+    return {
+      ...box,
+      color: binding.color === "explicit" ? input.color : box.color,
+      fontFamily: binding.fontFamily === "explicit" ? input.fontFamily : box.fontFamily,
+    };
+  });
+}
+
+/**
  * Whether the outer mat renders transparent (minimal PNG) or filled.
  * Print exports always use a filled mat so fulfillment files have no alpha holes.
  */
@@ -430,6 +465,7 @@ const SNAPSHOT_TEXT_BOXES: TextBox[] = [
     text: "The Night We Became One",
     fontFamily: "cinzel",
     color: "#d7b56c",
+    textStyleBinding: { ...AUTOMATIC_TEXT_STYLE_BINDING },
     size: 48,
     align: "center",
   },
@@ -439,6 +475,7 @@ const SNAPSHOT_TEXT_BOXES: TextBox[] = [
     text: "Santorini, Greece",
     fontFamily: "raleway",
     color: "#c8a662",
+    textStyleBinding: { ...AUTOMATIC_TEXT_STYLE_BINDING },
     size: 28,
     align: "center",
   },
@@ -448,6 +485,7 @@ const SNAPSHOT_TEXT_BOXES: TextBox[] = [
     text: "June 1, 2024",
     fontFamily: "script",
     color: "#b98a3d",
+    textStyleBinding: { ...AUTOMATIC_TEXT_STYLE_BINDING },
     size: 26,
     align: "center",
   },
@@ -462,7 +500,7 @@ export function buildMapLookSnapshotState(
     ...MAP_TIER_SNAPSHOT_FIXTURE,
     selectedStyle: styleId,
     renderOptions: tierOptions,
-    textBoxes: applyTierTypography(tier, styleId, SNAPSHOT_TEXT_BOXES),
+    textBoxes: applyTierTypographyProtected(tier, styleId, SNAPSHOT_TEXT_BOXES),
     revealed: true,
     previewFidelity: "high" as const,
   };

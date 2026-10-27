@@ -54,7 +54,7 @@ import type { RenderModeId } from "@/lib/renderModes";
 import { styles, fontOptions, shapes, mapLookTiers } from "@/lib/config";
 import {
   applyMapLookTier,
-  applyTierTypography,
+  applyTierTypographyProtected,
   resolveMapLookTier,
   type MapLookTier,
 } from "@/lib/mapLookTiers";
@@ -2918,7 +2918,7 @@ export function EditorExperience({
                                               onClick={() => {
                                                 const tier = resolveMapLookTier(renderOptions, selectedStyle);
                                                 setTextBoxes(
-                                                  applyTierTypography(tier, selectedStyle, textBoxes)
+                                                  applyTierTypographyProtected(tier, selectedStyle, textBoxes)
                                                 );
                                               }}
                                               className="rounded border border-white/15 bg-white/5 px-2 py-0.5 text-[9px] font-semibold text-amber-100/90 transition hover:border-amber-300/40 hover:bg-white/10"
@@ -2951,7 +2951,7 @@ export function EditorExperience({
                                                   );
                                                   setRenderOptions(tierOptions);
                                                   setTextBoxes(
-                                                    applyTierTypography(tier.id, selectedStyle, textBoxes)
+                                                    applyTierTypographyProtected(tier.id, selectedStyle, textBoxes)
                                                   );
                                                 }}
                                                 onKeyDown={(event) => {
@@ -2983,7 +2983,7 @@ export function EditorExperience({
                                                   );
                                                   setRenderOptions(tierOptions);
                                                   setTextBoxes(
-                                                    applyTierTypography(nextTier.id, selectedStyle, textBoxes)
+                                                    applyTierTypographyProtected(nextTier.id, selectedStyle, textBoxes)
                                                   );
                                                 }}
                                                 className={`min-h-[3.25rem] rounded-md border px-2 py-2 text-left transition ${
@@ -3037,6 +3037,7 @@ export function EditorExperience({
                                                 const mergedOptions = {
                                                   ...defaults.renderOptions,
                                                   ...tierOptions,
+                                                  mapLookTier: tier,
                                                 };
                                                 if (Object.keys(mergedOptions).length) {
                                                   setRenderOptions(mergedOptions);
@@ -3044,7 +3045,7 @@ export function EditorExperience({
                                                 const nextText =
                                                   tier === "custom"
                                                     ? defaults.textBoxes
-                                                    : applyTierTypography(tier, style.id, defaults.textBoxes);
+                                                    : applyTierTypographyProtected(tier, style.id, defaults.textBoxes);
                                                 if (nextText !== textBoxes) {
                                                   setTextBoxes(nextText);
                                                 }

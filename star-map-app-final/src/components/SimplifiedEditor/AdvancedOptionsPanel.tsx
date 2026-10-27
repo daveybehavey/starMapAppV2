@@ -11,7 +11,7 @@ interface AdvancedOptionsPanelProps {
   renderOptions: RenderOptions;
   setRenderOptions: (next: Partial<RenderOptions>) => void;
   textBoxes: TextBox[];
-  setTextBoxes: (boxes: TextBox[]) => void;
+  updateTextBox: (id: string, payload: Partial<TextBox>) => void;
   paid: boolean;
   onPremiumClick?: () => void;
 }
@@ -136,22 +136,21 @@ export function AdvancedOptionsPanel({
   renderOptions,
   setRenderOptions,
   textBoxes,
-  setTextBoxes,
+  updateTextBox,
   paid,
   onPremiumClick,
 }: AdvancedOptionsPanelProps) {
   const activePreset = resolveRenderPreset(renderOptions, selectedStyle);
+  // Font/colour edits go through the store's updateTextBox boundary (#408)
+  // so the edited property is marked explicit and later style defaults can
+  // never silently overwrite the user's pick.
   const handleFontChange = useCallback((boxId: string, fontFamily: TextBox["fontFamily"]) => {
-    setTextBoxes(
-      textBoxes.map((tb) => (tb.id === boxId ? { ...tb, fontFamily } : tb))
-    );
-  }, [setTextBoxes, textBoxes]);
+    updateTextBox(boxId, { fontFamily });
+  }, [updateTextBox]);
 
   const handleColorChange = useCallback((boxId: string, color: string) => {
-    setTextBoxes(
-      textBoxes.map((tb) => (tb.id === boxId ? { ...tb, color } : tb))
-    );
-  }, [setTextBoxes, textBoxes]);
+    updateTextBox(boxId, { color });
+  }, [updateTextBox]);
 
   const baseId = useId();
 

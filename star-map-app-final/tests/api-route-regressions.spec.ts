@@ -146,6 +146,44 @@ test.describe("API route regressions", () => {
     expect(await loadResponse.json()).toEqual(validMapRecipe);
   });
 
+  test("map save round-trips textStyleBinding, normalizing malformed values per property", async ({
+    request,
+    baseURL,
+  }, testInfo) => {
+    // #408: a present binding must survive save/load (otherwise automatic
+    // lines reopen as explicit and stop following template/tier changes);
+    // malformed entries resolve explicit per property, never automatic.
+    const recipeWithBinding = {
+      ...validMapRecipe,
+      textBoxes: [
+        {
+          ...validMapRecipe.textBoxes[0],
+          color: "#d7b56c",
+          textStyleBinding: { color: "automatic", fontFamily: "bogus" },
+        },
+      ],
+    };
+    const saveResponse = await fetchLocalApi(request, baseURL ?? TEST_ORIGIN, "/api/maps", testInfo, {
+      method: "POST",
+      data: recipeWithBinding,
+    });
+    expect(saveResponse.status()).toBe(200);
+    const saveBody = (await saveResponse.json()) as { id?: unknown };
+
+    const loadResponse = await fetchLocalApi(
+      request,
+      baseURL ?? TEST_ORIGIN,
+      `/api/maps?id=${saveBody.id}`,
+      testInfo,
+    );
+    expect(loadResponse.status()).toBe(200);
+    const loaded = (await loadResponse.json()) as typeof recipeWithBinding;
+    expect(loaded.textBoxes[0].textStyleBinding).toEqual({
+      color: "automatic",
+      fontFamily: "explicit",
+    });
+  });
+
   test("checkout rejects digital posts without browser handoff token", async ({
     request,
     baseURL,

@@ -1,7 +1,7 @@
 "use client";
 
 import { constellationPresets, visualModes } from "@/lib/config";
-import { applyTierTypography, resolveMapLookTier } from "@/lib/mapLookTiers";
+import { applyTierTypographyProtected, resolveMapLookTier } from "@/lib/mapLookTiers";
 import { getRenderPresetOptions, renderPresets, resolveRenderPreset } from "@/lib/renderPresets";
 import type { RenderOptions, StyleId, TextBox } from "@/lib/store";
 
@@ -126,7 +126,7 @@ export function AdvancedPanel({
           {activeTier !== "custom" ? (
             <button
               type="button"
-              onClick={() => setTextBoxes(applyTierTypography(activeTier, selectedStyle, textBoxes))}
+              onClick={() => setTextBoxes(applyTierTypographyProtected(activeTier, selectedStyle, textBoxes))}
               className="rounded-md border border-white/15 bg-white/10 px-2 py-1 text-[10px] font-semibold text-white transition hover:border-amber-400/40"
             >
               Reset to tier

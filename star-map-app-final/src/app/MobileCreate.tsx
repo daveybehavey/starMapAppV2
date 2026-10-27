@@ -12,7 +12,7 @@ import type { RenderModeId } from "@/lib/renderModes";
 import { aspectRatioToNumber } from "@/lib/renderSky";
 import { ASPECT_OPTIONS } from "@/lib/aspectOptions";
 import { styles, fontOptions, visualModes, shapes, constellationPresets, mapLookTiers } from "@/lib/config";
-import { applyMapLookTier, applyTierTypography, resolveMapLookTier, type MapLookTier } from "@/lib/mapLookTiers";
+import { applyMapLookTier, applyTierTypographyProtected, resolveMapLookTier, type MapLookTier } from "@/lib/mapLookTiers";
 import { proPresets } from "@/lib/proPresets";
 import { applyStyleDefaults } from "@/lib/styleDefaults";
 import { track, trackFunnelStep } from "@/lib/analytics";
@@ -650,14 +650,14 @@ export function MobileCreate({
         renderOptions.mapLookTier ?? resolveMapLookTier(renderOptions, selectedStyle);
       const tierOptions = tier === "custom" ? {} : applyMapLookTier(tier, styleId);
       const defaults = applyStyleDefaults(styleId, textBoxes);
-      const mergedOptions = { ...defaults.renderOptions, ...tierOptions };
+      const mergedOptions = { ...defaults.renderOptions, ...tierOptions, mapLookTier: tier };
       if (Object.keys(mergedOptions).length) {
         setRenderOptions(mergedOptions);
       }
       const nextText =
         tier === "custom"
           ? defaults.textBoxes
-          : applyTierTypography(tier, styleId, defaults.textBoxes);
+          : applyTierTypographyProtected(tier, styleId, defaults.textBoxes);
       if (nextText !== textBoxes) {
         setTextBoxes(nextText);
       }
@@ -1265,7 +1265,7 @@ export function MobileCreate({
                     type="button"
                     onClick={() => {
                       const tier = resolveMapLookTier(renderOptions, selectedStyle);
-                      setTextBoxes(applyTierTypography(tier, selectedStyle, textBoxes));
+                      setTextBoxes(applyTierTypographyProtected(tier, selectedStyle, textBoxes));
                     }}
                     className="rounded border border-white/15 bg-white/5 px-2 py-0.5 text-[9px] font-semibold text-amber-100/90"
                   >
@@ -1289,7 +1289,7 @@ export function MobileCreate({
                       aria-label={`${tier.label}: ${tier.description}`}
                       onClick={() => {
                         setRenderOptions(applyMapLookTier(tier.id, selectedStyle));
-                        setTextBoxes(applyTierTypography(tier.id, selectedStyle, textBoxes));
+                        setTextBoxes(applyTierTypographyProtected(tier.id, selectedStyle, textBoxes));
                       }}
                       className={`min-h-[2.75rem] rounded-md border px-2 py-2 text-left transition ${
                         activeTier === tier.id

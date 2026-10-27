@@ -11,6 +11,7 @@ import { track } from "@/lib/analytics";
 import { hasConfirmedEditorLocation } from "@/lib/editorLocationPrefill";
 import { formatDateTimeForLocation } from "@/lib/dateTime";
 import { resolvePresetTextBoxesOnApply, shouldAutofillPresetSky } from "@/lib/sampleDesignTextSync";
+import { cloneTextBoxWithExplicitBinding } from "@/lib/textStyleBinding";
 
 export interface UseEditorLogicOptions {
   /** Editor variant affects default intensity value */
@@ -250,8 +251,13 @@ export function useEditorLogic(options: UseEditorLogicOptions = {}): UseEditorLo
       // Touch flags are reset by EditorExperience / MobileCreate wrappers (PR #293).
       const preserveCustomSky = !shouldAutofill;
       const dateParts = formatDateTimeForLocation(dateTime, location.timezone || "UTC");
+      // Preset typography is authored content (#408): mark the clones
+      // explicit BEFORE sample-text resolution so the resolved boxes that
+      // get committed keep that provenance, and style defaults applied
+      // later can never recolour them.
+      const explicitPresetTextBoxes = preset.textBoxes.map(cloneTextBoxWithExplicitBinding);
       const resolvedText = resolvePresetTextBoxesOnApply({
-        presetTextBoxes: preset.textBoxes,
+        presetTextBoxes: explicitPresetTextBoxes,
         preserveCustomSky,
         locationDisplayName: location.name,
         dateValue: dateParts?.date || undefined,
@@ -262,7 +268,7 @@ export function useEditorLogic(options: UseEditorLogicOptions = {}): UseEditorLo
         useStore.getState().setSampleDesignLastAutoSynced(resolvedText.lastAutoSynced);
       }
       setStyle(preset.style);
-      const styleDefaults = applyStyleDefaults(preset.style, preset.textBoxes);
+      const styleDefaults = applyStyleDefaults(preset.style, explicitPresetTextBoxes);
       if (Object.keys(styleDefaults.renderOptions).length) {
         setRenderOptions(styleDefaults.renderOptions);
       }
@@ -326,13 +332,16 @@ export function useEditorLogic(options: UseEditorLogicOptions = {}): UseEditorLo
       setSelectedOccasion(id);
       setCustomOccasion(false);
       setStyle(preset.style);
-      const styleDefaults = applyStyleDefaults(preset.style, preset.textBoxes);
+      // Pro preset typography is authored content (#408): commit explicit
+      // clones so later style/tier actions cannot recolour them.
+      const explicitPresetTextBoxes = preset.textBoxes.map(cloneTextBoxWithExplicitBinding);
+      const styleDefaults = applyStyleDefaults(preset.style, explicitPresetTextBoxes);
       if (Object.keys(styleDefaults.renderOptions).length) {
         setRenderOptions(styleDefaults.renderOptions);
       }
       setShape(preset.shape);
       setAspectRatio(preset.aspectRatio);
-      setTextBoxes(preset.textBoxes);
+      setTextBoxes(explicitPresetTextBoxes);
       useStore.getState().clearSampleDesignLastAutoSynced();
       setRenderMode(preset.renderMode);
       setIntensity(preset.intensity);
