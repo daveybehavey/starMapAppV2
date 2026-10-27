@@ -654,6 +654,81 @@ export const seoOccasions: SeoOccasion[] = [
     ],
   },
   {
+    slug: "night-we-met",
+    label: "Night We Met",
+    seoTitle: "Night We Met Star Map — Custom Star Map of Where You Met | StarMapCo",
+    seoH1: "Night We Met Star Map",
+    seoDescription:
+      "A custom star map of the sky over where you met, on the night it happened — by date and location. Free preview, no account. Framed print, poster, canvas or HD file; HD from $9.",
+    intro:
+      "The real stars over where you met, on the night it happened — rendered from astronomy data for that date and place. Preview free, no account.",
+    detail:
+      "Start with the place where you met and the date, as close as you can get it — a photo’s date stamp, the first message in a thread, a ticket stub. The exact time is optional: date plus city still produces an accurate sky, and adding the time sharpens Moon and planet placement. If you met during the day, use the evening of the same date — the first night sky after you met.",
+    exampleLine: "The Night We Met · Vancouver, BC · August 16, 2025",
+    storyHeading: "It began on an ordinary night",
+    storyParagraphs: [
+      "Nobody plans the night they meet the person. It is usually an ordinary evening — a friend’s party, a delayed train, the wrong coffee order — and only later does it become the night everything started. A night we met star map takes that one night seriously: the real sky over where you met, on that date, rendered from astronomy data and printed as a framed keepsake for the wall.",
+      "Most people remember where they met more clearly than when, so start there: the city, and the place itself if it fits the line under the stars. For the date, work backwards from the anchors you already have — the date stamp on an early photo, the first message in your chat thread, a concert or match ticket, the receipt you kept for no reason. If the exact time is gone, it is not a problem: choose the evening hour closest to how you remember it. Date and city carry the sky; the time mainly sharpens where the Moon and planets sit.",
+      "If you met in daylight — a morning class, a lunchtime shift, a Saturday game — use the evening of that same date. The map then shows the first night sky that arrived after you met, which is the one couples usually mean when they picture that day. And if the meeting and the first date blur together in your memory, they are different nights and different maps: this page is the meeting. A first date has its own page, and an anniversary marks the milestone you celebrate every year.",
+      "The words matter as much as the sky. A clear title (The Night We Met), both names, and the place where you met carry most of it; the dedication line is better short — a few words from that night, an inside joke, the first thing one of you said. You can check every spelling in the free preview before anything is made, and try the meeting night and the first date side by side if you are deciding between them.",
+      "As a gift, the framed print + HD digital route ($106) is the wall-ready one: it arrives ready to hang, and the HD file is yours to keep. Unframed posters are $39–$49, canvas is $79, and if you want one for each of you, a second copy of the same design is 10% off on posters, canvas and framed prints. The keepsake card is a $19 card-sized version of the same design, and the HD file on its own is $9 — available to download right after checkout if the occasion cannot wait for a print.",
+    ],
+    storyCtaHref:
+      "/editor?mode=quick&source=occasion-night-we-met-story-preview&utm_source=site&utm_medium=landing&utm_campaign=night-we-met_story",
+    storyCtaLabel: "Start free preview",
+    artwork: [
+      {
+        src: "/examples/example-night-we-met-vancouver-2025.webp",
+        alt: "Star map example — the real night sky over Vancouver, British Columbia, on the night of August 16, 2025",
+      },
+      {
+        src: "/examples/example-night-we-met-millennium-new-york.webp",
+        alt: "Star map example — the night sky over New York on December 31, 1999, the last night of the millennium",
+      },
+      {
+        src: "/examples/example-night-we-met-apollo-houston.webp",
+        alt: "Star map example — the night sky over Houston, Texas, on July 20, 1969, the night of the first Moon landing",
+      },
+    ],
+    faqs: [
+      {
+        question: "What is a night we met star map?",
+        answer:
+          "It is a custom star map showing the real night sky over where you met, on the date you met, rendered from astronomy data for that date and place. You build the design and wording in a free preview, then order it as a framed print, unframed poster, canvas, mug, keepsake card, or HD digital file.",
+      },
+      {
+        question: "We don’t remember the exact time we met. Does that matter?",
+        answer:
+          "No. Date plus city still produces an accurate sky — the date and the place where you met are enough. If you remember roughly when it was, choose the closest evening hour: adding the exact time makes Moon and planet placement precise to that hour.",
+      },
+      {
+        question: "We met during the day. Which sky does the map show?",
+        answer:
+          "Use the date you met, with an evening time. The map then shows the first night sky over that place after you met — the night that followed the day everything started. The same approach works for morning or afternoon meetings.",
+      },
+      {
+        question: "How do I work out the date we met?",
+        answer:
+          "Work backwards from things that carry dates: the timestamp on an early photo, the first message in a chat or text thread, a ticket, booking or bank record from that day, or a friend who was there. The preview is free, so you can try the most likely date and adjust it as often as you like before ordering.",
+      },
+      {
+        question: "Is this the same as a first date star map?",
+        answer:
+          "No — they are two different nights. This page is the night you first met, planned or not. If the night you want to keep was your first actual date, the First Date page (/star-map-for/first-date) is the better fit. For the milestone you celebrate each year, the Anniversary page (/anniversary) covers wedding and relationship anniversaries.",
+      },
+      {
+        question: "What can I write on the map?",
+        answer:
+          "Add a title, both names, the place where you met, the date line, and a short dedication in the editor. Short lines work best — a few words from that night beat a paragraph — and you can check every word in the free preview before you order.",
+      },
+      {
+        question: "Which format works best as a gift?",
+        answer:
+          "Framed print + HD digital ($106) is the wall-ready route: ready to hang, with the HD file included, and print orders of $89 or more ship free. Unframed posters are $39–$49 and canvas is $79; a second copy of the same design is 10% off on posters, canvas and framed prints. The keepsake card is $19, and the HD file on its own is $9.",
+      },
+    ],
+  },
+  {
     slug: "first-date",
     label: "First Date",
     seoTitle: "First Date Star Map Gift — Custom Night Sky | StarMapCo",

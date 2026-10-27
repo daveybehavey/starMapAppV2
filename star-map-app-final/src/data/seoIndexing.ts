@@ -11,6 +11,7 @@ export const INDEXABLE_OCCASION_SLUGS = [
   "memorial",
   "graduation",
   "valentines-day",
+  "night-we-met",
   "mothers-day",
   "fathers-day",
   "christmas",
