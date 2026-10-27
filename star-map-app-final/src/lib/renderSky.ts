@@ -505,7 +505,6 @@ export function renderStarMap({
     showFrame && !transparentMat,
     recipe.renderOptions?.backgroundColor,
     recipe.renderOptions,
-    matPurpose,
   );
   // #412 (SQ-60): the parchment paper texture is removed, not replaced —
   // its deterministic square cells darkened the whole paper before the
@@ -557,7 +556,6 @@ export function renderStarMap({
     drawText(ctx, width, targetHeight, recipe.textBoxes, textBounds, scale, {
       shape: shapeName,
       frameEnabled: resolveTextFitFrameEnabled(matPurpose, recipe.renderOptions),
-      matPurpose,
       // #406: the diamond fit evaluates against the same footprint
       // the clip was built from (null under the legacy layout).
       shapeMaskFootprint: resolveShapeMaskFootprint(width, targetHeight, shapeLayoutVersion),
@@ -602,7 +600,6 @@ export function renderStarMapTextLayer({
   shape,
   frameEnabled,
   watermark = false,
-  matPurpose = "preview",
   shapeLayoutVersion,
 }: {
   canvas: CanvasLike;
@@ -615,11 +612,6 @@ export function renderStarMapTextLayer({
    * (and the drag bounds derived from it) matches the export render. */
   shape?: string;
   frameEnabled?: boolean;
-  /** The overlay only ever renders the live editor preview, so its fit
-   * uses the "preview" purpose (#409): at backing sizes above 1200px
-   * its frame-aware bound must scale exactly like the base canvas
-   * renderStarMap draws underneath it. */
-  matPurpose?: ExportMatPurpose;
   /** #406: the design's shape-layout version, so the overlay's text
    * fit and watermark mask match the base canvas render underneath
    * (absent = legacy, as for every pre-#406 design). */
@@ -656,7 +648,6 @@ export function renderStarMapTextLayer({
   drawText(ctx, width, height, textBoxes, textBounds, scale, {
     shape,
     frameEnabled,
-    matPurpose,
     shapeMaskFootprint: resolveShapeMaskFootprint(width, height, resolvedShapeLayoutVersion),
     // #407: same interior profile the base render fits against.
     shapeTextProfile: resolveShapeTextProfile(shape),
@@ -939,7 +930,6 @@ function drawBackground(
   showFrame = true,
   backgroundOverride?: string,
   renderOptions?: MapRecipe["renderOptions"],
-  matPurpose: ExportMatPurpose = "print",
 ) {
   const theme = STYLE_THEME[styleId];
   const resolvedBackground =
@@ -1007,12 +997,11 @@ function drawBackground(
 
   // Rectangle border using theme accent color. The inset comes from
   // textFit.ts so the text fit-to-width bound (drawText) is derived from
-  // the same purpose-aware calculation this stroke uses — one source of
-  // truth (fleet U06; purpose threading #409: for a given width, height
-  // and purpose, the stroked frame and the frame-aware fit bound use
-  // the same inset).
+  // the same calculation this stroke uses — one source of
+  // truth (fleet U06; #409: for a given width and height, the stroked
+  // frame and the frame-aware fit bound use the same inset).
   if (showFrame && (!shape || shape === "rectangle")) {
-    const inset = resolveFrameInsetPx(width, height, matPurpose);
+    const inset = resolveFrameInsetPx(width, height);
     ctx.strokeStyle = palette.accent;
     ctx.lineWidth = 3 * scale;
     ctx.globalAlpha = 0.8;
@@ -1631,7 +1620,7 @@ function drawText(
   textBoxes: TextBox[],
   bounds?: Map<string, { x: number; y: number; width: number; height: number }>,
   scale = 1,
-  textLayout?: Pick<TextFitLayout, "shape" | "frameEnabled" | "matPurpose" | "shapeMaskFootprint" | "shapeTextProfile">,
+  textLayout?: Pick<TextFitLayout, "shape" | "frameEnabled" | "shapeMaskFootprint" | "shapeTextProfile">,
 ) {
   if (bounds) bounds.clear();
 
@@ -1664,7 +1653,6 @@ function drawText(
     const availableWidth = resolveShapeTextAvailableWidth({
       shape: textLayout?.shape,
       frameEnabled: textLayout?.frameEnabled ?? true,
-      matPurpose: textLayout?.matPurpose,
       shapeMaskFootprint: textLayout?.shapeMaskFootprint,
       shapeTextProfile: textLayout?.shapeTextProfile,
       centerYNorm: provisional.y,

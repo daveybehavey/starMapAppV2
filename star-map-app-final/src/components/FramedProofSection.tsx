@@ -143,12 +143,12 @@ export default function FramedProofSection({
             </div>
             <div data-digital-offer className="brand-light-card rounded-2xl px-4 py-4">
               <p className="text-[11px] font-semibold tracking-[0.18em] text-amber-700 uppercase">
-                Instant backup
+                HD backup file
               </p>
               <h3 className="text-midnight mt-2 text-sm font-semibold">HD digital add-on</h3>
               <p className="mt-1 text-sm text-neutral-700">{digitalAddOnPrice}</p>
               <p className="mt-2 text-xs text-neutral-700">
-                Delivered immediately after checkout, even when you order print.{" "}
+                Delivered right after checkout, even when you order print.{" "}
                 {getPrintFramedHdBundleShortLine()}
               </p>
             </div>

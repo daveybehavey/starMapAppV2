@@ -21,7 +21,7 @@ export const MERCH_POLICY_LINE =
 
 /** Shown under digital paywall options (not Love-It reprint copy — that is print-only). */
 export const DIGITAL_CHECKOUT_SUPPORT_LINE =
-  "Instant HD download. Questions? support@starmapco.com" as const;
+  "HD download right after checkout. Questions? support@starmapco.com" as const;
 
 export function getLoveItGuaranteeFaq(): { question: string; answer: string } {
   return {

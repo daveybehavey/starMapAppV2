@@ -67,7 +67,7 @@ export function buildHomeFaqItems(input: { single: string; framed: string; unfra
     {
       id: "customize",
       q: "Can I customize text, styles, and shapes?",
-      a: "Yes—add titles, subtitles, or dedications; choose from four styles (Navy & Gold, Vintage Engraving, Parchment Scroll, Midnight Minimal) and five shapes (Rectangle free; Heart, Circle, Star, and Diamond premium), plus visual modes, constellation lines and labels, an optional celestial grid, and a technical ring carrying your date and location. You can also place the Moon — drawn with the phase it showed that night — and the five visible planets, and set your words in 15 fonts, including 10 premium typefaces.",
+      a: "Yes—add titles, subtitles, or dedications; choose from four styles (Navy & Gold, Vintage Engraving, Parchment Scroll, Midnight Minimal) and five shapes (Rectangle free; Heart, Circle, Star, and Diamond premium), plus visual modes, constellation lines and labels, an optional celestial grid, and a technical ring carrying your date and location. You can also place the Moon — drawn with the phase it showed that night — and the five visible planets, and set your words in 15 fonts, all included with every design.",
     },
     {
       id: "premium-unlock",

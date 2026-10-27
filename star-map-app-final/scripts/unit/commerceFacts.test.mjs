@@ -32,7 +32,7 @@ test("standard shipping disclosure states express is unavailable", () => {
   assert.match(line, /express is not available/i);
 });
 
-test("urgent HD upsell mentions instant unlock without shipping wait", () => {
+test("urgent HD upsell states unlock right after payment, without shipping wait", () => {
   const withPrice = getPrintUrgentHdUpsellLine("$6.99");
   assert.match(withPrice, /Need it sooner\?/i);
   assert.match(withPrice, /\$6\.99/);

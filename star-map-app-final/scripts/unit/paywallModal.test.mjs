@@ -27,9 +27,10 @@ describe("getBullets", () => {
     assert.ok(bullets.some((b) => b.toLowerCase().includes("watermark")));
   });
 
-  it("digital bullets mention instant download", () => {
+  it("digital bullets mention download right after payment (no 'instant' claim, #414)", () => {
     const bullets = getBullets("digital");
-    assert.ok(bullets.some((b) => b.toLowerCase().includes("instant download")));
+    assert.ok(bullets.some((b) => b.toLowerCase().includes("download right after payment")));
+    assert.ok(!bullets.some((b) => /instant/i.test(b)), "paywall bullets must not claim 'instant' (#414)");
   });
 
   it("returns 4 print bullets when activeIntent is 'print'", () => {

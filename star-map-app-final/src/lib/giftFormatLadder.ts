@@ -46,10 +46,10 @@ export function buildGiftFormatTiers(
       id: "digital",
       label: "HD digital",
       priceLine: digitalPrice,
-      detail: "Instant download — same-night gift or DIY printing.",
+      detail: "Download right after checkout — same-night gift or DIY printing.",
       recommended: digitalRecommended,
       href: buildDigitalEditorCheckoutHref(`${sourcePrefix}-digital`),
-      cta: "Preview instant HD",
+      cta: "Preview HD digital",
     },
     {
       id: "poster",
@@ -77,7 +77,7 @@ export function buildGiftFormatTiers(
       id: "framed_hd",
       label: "Framed + HD",
       priceLine: getFramedHdBundlePriceLine(),
-      detail: "Gift-ready wall art plus instant HD from the same design.",
+      detail: "Gift-ready wall art plus HD digital from the same design.",
       recommended: !digitalRecommended,
       href: buildPrintEditorCheckoutHref({
         source: `${sourcePrefix}-framed-hd`,
