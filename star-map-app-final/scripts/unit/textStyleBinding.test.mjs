@@ -620,6 +620,12 @@ test("source pins: SimplifiedEditor font/colour controls go through updateTextBo
   assert.ok(editor.includes("updateTextBox={updateTextBox}"), "editor must pass updateTextBox down");
 });
 
+test("source pins: saved-map API round-trips the binding through its sanitizer", () => {
+  const route = read("src/app/api/maps/route.ts");
+  assert.ok(route.includes("normalizeTextStyleBinding"), "maps route must normalize the binding");
+  assert.ok(route.includes("textStyleBinding"), "maps route stored type must carry the binding");
+});
+
 test("source pins: preset paths mark clones explicit before resolution/commit", () => {
   const hook = read("src/hooks/useEditorLogic.ts");
   const occurrences = hook.split("cloneTextBoxWithExplicitBinding").length - 1;

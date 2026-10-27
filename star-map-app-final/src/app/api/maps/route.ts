@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@/lib/kv";
 import crypto from "node:crypto";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
+import { normalizeTextStyleBinding } from "@/lib/textStyleBinding";
 
 const MAX_BODY_BYTES = 50_000;
 const MAX_TEXTBOXES = 12;
@@ -47,6 +48,7 @@ type StoredTextBox = {
   text?: string;
   fontFamily?: string;
   color?: string;
+  textStyleBinding?: { color?: string; fontFamily?: string };
   size?: number;
   align?: string;
   textShadow?: boolean;
@@ -184,12 +186,20 @@ function sanitizeTextBox(box: StoredTextBox): StoredTextBox {
     }
   }
 
+  // Typography ownership (#408): round-trip a present binding, normalized
+  // per property by the shared rule. Absent bindings stay absent — legacy
+  // stored maps keep their exact shape and resolve explicit at hydration.
+  const textStyleBinding = box.textStyleBinding
+    ? normalizeTextStyleBinding(box.textStyleBinding)
+    : undefined;
+
   return {
     id: typeof box.id === "string" ? box.id.slice(0, MAX_ID_LENGTH) : undefined,
     label: typeof box.label === "string" ? box.label.slice(0, MAX_LABEL_LENGTH) : undefined,
     text,
     fontFamily,
     color: typeof box.color === "string" ? box.color.slice(0, 24) : undefined,
+    textStyleBinding,
     size,
     align,
     textShadow: typeof box.textShadow === "boolean" ? box.textShadow : undefined,
