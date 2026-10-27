@@ -631,3 +631,16 @@ test("source pins: preset paths mark clones explicit before resolution/commit", 
   const occurrences = hook.split("cloneTextBoxWithExplicitBinding").length - 1;
   assert.ok(occurrences >= 2, "both applyPreset and applyProPreset must mark preset clones explicit");
 });
+
+test("source pins: SimplifiedEditor re-added subtitle is automatic with template defaults (Codex P2)", () => {
+  const editor = read("src/components/SimplifiedEditor/SimplifiedEditor.tsx");
+  const addBranch = editor.slice(editor.indexOf("const toggleSubtitle"), editor.indexOf("const toggleSubtitle") + 1200);
+  assert.ok(
+    addBranch.includes("getStyleTextDefaults(selectedStyle)"),
+    "re-added subtitle must take the selected template's text defaults",
+  );
+  assert.ok(
+    addBranch.includes("AUTOMATIC_TEXT_STYLE_BINDING"),
+    "re-added subtitle must be created automatic so style switches keep updating it",
+  );
+});

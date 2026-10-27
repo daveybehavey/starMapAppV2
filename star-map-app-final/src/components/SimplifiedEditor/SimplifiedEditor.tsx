@@ -15,7 +15,8 @@ import { ShapeIcon } from "@/components/ShapeIcon";
 import { buildStarMapDownloadFilename } from "@/lib/downloadFilename";
 import type { StyleId } from "@/lib/store";
 import type { Shape } from "@/lib/types";
-import { applyStyleDefaults } from "@/lib/styleDefaults";
+import { applyStyleDefaults, getStyleTextDefaults } from "@/lib/styleDefaults";
+import { AUTOMATIC_TEXT_STYLE_BINDING } from "@/lib/textStyleBinding";
 import dynamic from "next/dynamic";
 import { LocationInput } from "./LocationInput";
 import { AdvancedOptionsPanel } from "./AdvancedOptionsPanel";
@@ -447,22 +448,26 @@ export function SimplifiedEditor() {
       // Remove subtitle
       setTextBoxes(textBoxes.filter((tb) => tb.id !== "subtitle"));
     } else {
-      // Add subtitle
+      // Add subtitle: a freshly created line follows the selected template
+      // (#408) — automatic ownership with the template's text defaults, so
+      // later style switches keep updating it until the user edits it.
+      const defaults = getStyleTextDefaults(selectedStyle);
       setTextBoxes([
         ...textBoxes,
         {
           id: "subtitle",
           label: "Subtitle",
           text: "",
-          fontFamily: "cormorant",
-          color: "#d7b56c",
+          fontFamily: defaults.fontFamily,
+          color: defaults.color,
           size: 14,
           align: "center",
           position: { x: 0.5, y: 0.88 },
+          textStyleBinding: { ...AUTOMATIC_TEXT_STYLE_BINDING },
         },
       ]);
     }
-  }, [showSubtitle, textBoxes, setTextBoxes]);
+  }, [showSubtitle, textBoxes, setTextBoxes, selectedStyle]);
 
   // Export image function - renders star map and triggers download
   const exportImage = useCallback(
