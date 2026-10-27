@@ -13,6 +13,11 @@
  *   angle (title, date ideas, sample personalization fields, workflow,
  *   matte-paper print tips, ogImage) and C's situation-to-format decision
  *   table.
+ * - B4 Fix C: the previously underlinked bundle page
+ *   (/star-map-poster/framed-hd-bundle) gains internal links from two more
+ *   surfaces — this merged article and the /star-map-gift hub — with anchor
+ *   text naming the bundle. /star-map-poster itself stays bundle-free
+ *   (pinned by merchantFeedLandingLinks.test.mjs).
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -68,5 +73,22 @@ test("survivor carries the merged B and C material", () => {
     "ready-to-display", // C table: framed row
   ]) {
     assert.ok(blogSource.includes(needle), `merged survivor is missing carried material: ${needle}`);
+  }
+});
+
+test("bundle page is linked from the survivor article and the gift hub (B4 Fix C)", () => {
+  const giftPage = fs.readFileSync(path.join(APP_ROOT, "src/app/star-map-gift/page.tsx"), "utf8");
+  for (const [label, source] of [
+    ["survivor article", blogSource],
+    ["gift hub", giftPage],
+  ]) {
+    assert.ok(
+      source.includes('href="/star-map-poster/framed-hd-bundle"'),
+      `${label} must link the framed+HD bundle page`,
+    );
+    assert.ok(
+      source.includes("framed print + HD digital download bundle"),
+      `${label} anchor text must name the bundle specifically`,
+    );
   }
 });

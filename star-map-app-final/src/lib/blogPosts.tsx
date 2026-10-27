@@ -336,6 +336,11 @@ export const blogPosts: BlogPost[] = [
           </Link>
           .
         </p>
+        <p>
+          If you want the wall piece and the file together, the{" "}
+          <Link href="/star-map-poster/framed-hd-bundle">framed print + HD digital download bundle</Link> pairs the
+          ready-to-hang framed print with the HD file from the same approved design.
+        </p>
 
         <h2>Print tips for a clean finish</h2>
         <p>
