@@ -13,7 +13,7 @@ import {
   buildHdArchiveDownloadUrl,
   hdArchiveObjectExists,
 } from "@/lib/downloadArchiveStorage";
-import { ENTITLEMENT_KV } from "@/lib/entitlementsStore";
+import { ENTITLEMENT_KV, withSettlementMetadata } from "@/lib/entitlementsStore";
 import { kv } from "@/lib/kv";
 
 const ACCESS_EMAIL_TTL_SECONDS = 45 * 24 * 60 * 60;
@@ -135,7 +135,12 @@ export async function trySendHdArchiveReadyEmail(input: {
     return { delivered: false, provider: "none", skipped: true, reason: "not_eligible" };
   }
 
-  const email = typeof record.customerEmail === "string" ? record.customerEmail.trim() : "";
+  // The customer email may have been completed into the settlement-
+  // metadata sidecar (fix round 4, PR #447); this read uses the merged
+  // view. The bookkeeping writes below keep spreading the RAW record —
+  // that writer class is the named HD follow-up, deliberately unchanged.
+  const mergedRecord = await withSettlementMetadata(input.sessionId, record);
+  const email = typeof mergedRecord.customerEmail === "string" ? mergedRecord.customerEmail.trim() : "";
   if (!email) {
     return { delivered: false, provider: "none", skipped: true, reason: "missing_customer_email" };
   }

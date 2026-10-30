@@ -9,6 +9,7 @@ import {
   type AccountRecoveryLinkItem,
 } from "@/lib/accountRecoveryAlerts";
 import { getOfferLabel, getOrCreateClaimToken, hasRecoverableAccess, type AccountAccessSessionRecord } from "@/lib/accountAccessLinks";
+import { withSettlementMetadata } from "@/lib/entitlementsStore";
 
 export const runtime = "nodejs";
 
@@ -83,8 +84,11 @@ export async function POST(req: NextRequest) {
   for (const indexed of lookup.sessions.slice(0, MAX_SCANNED_SESSIONS)) {
     if (links.length >= MAX_LINKS_PER_EMAIL) break;
     if (!indexed?.sessionId) continue;
-    const current = await kv.get<AccountAccessSessionRecord>(sessionKey(indexed.sessionId));
-    if (!current || !hasRecoverableAccess(current)) continue;
+    const rawCurrent = await kv.get<AccountAccessSessionRecord>(sessionKey(indexed.sessionId));
+    if (!rawCurrent || !hasRecoverableAccess(rawCurrent)) continue;
+    // Merged consumer view: completed settlement metadata (email) may
+    // live in the sidecar since fix round 4 (PR #447).
+    const current = await withSettlementMetadata(indexed.sessionId, rawCurrent);
     const currentEmail = normalizeAccountLiteEmail(current.customerEmail);
     if (currentEmail && currentEmail !== email) continue;
 

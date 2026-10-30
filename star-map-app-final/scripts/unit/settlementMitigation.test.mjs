@@ -40,6 +40,16 @@
  * refused carry, and every premium-cookie write — paid fast path,
  * already_settled, fresh settlement — is guarded by it. Both fail on
  * the bfdddd78 sources.
+ *
+ * Fix round 4 (G-dot gate rejection of the residual acceptance at
+ * adbc60fa): metadata completion no longer writes the session record at
+ * all — completed values live in the settlement-metadata sidecar and
+ * reach consumers through applySettlementMetadata. The earlier
+ * completion tests asserted the whole-record merged write; they now
+ * assert the stronger invariant (session record byte-identical,
+ * completion visible only in the sidecar and the merged view). The new
+ * stale-present / write-applied-response-lost tests below fail on
+ * adbc60fa, where the completion put republishes its read snapshot.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -58,6 +68,7 @@ const {
   settleSessionPurchase,
   recordTransferRefusal,
   sessionHoldsLiveEntitlement,
+  applySettlementMetadata,
 } = await import("../../src/lib/entitlementsStore.ts");
 const { classifyDigitalEntitlement, REVIEW_DIGITAL_DELAY_MS } = await import(
   "../../src/lib/reviewRequests.ts",
@@ -105,7 +116,16 @@ test.beforeEach(() => installFakeKv());
 test.afterEach(() => restoreKv());
 
 const sessionKey = (id) => ENTITLEMENT_KV.stripeSession(id);
+const sidecarKey = (id) => ENTITLEMENT_KV.settlementMetadata(id);
 const sessionPuts = (id) => putLog.filter((entry) => entry.key === sessionKey(id));
+const sidecarPuts = (id) => putLog.filter((entry) => entry.key === sidecarKey(id));
+
+/** The consumer view of a session: record merged with its metadata sidecar. */
+function mergedView(id) {
+  const record = data.get(sessionKey(id));
+  if (!record) return null;
+  return applySettlementMetadata(record, data.get(sidecarKey(id)) ?? null);
+}
 
 function pack3Terms(overrides = {}) {
   return {
@@ -499,19 +519,27 @@ test("PASS completion: verify-first record is completed by the webhook call (Cod
     [...SETTLEMENT_METADATA_COMPLETION_FIELDS].sort(),
     "all six allowlisted fields completed",
   );
-  assert.equal(sessionPuts(id).length, 1, "exactly one completion write");
+  // Fix round 4: completion writes ONLY the sidecar — the session record
+  // is byte-identical, so the consumption that landed before completion
+  // cannot be restored by it, even from a stale read.
+  assert.equal(sessionPuts(id).length, 0, "completion performs no session-record write");
+  assert.equal(sidecarPuts(id).length, 1, "exactly one sidecar write");
 
   const after = data.get(sessionKey(id));
-  for (const field of SETTLEMENT_METADATA_COMPLETION_FIELDS) {
-    assert.deepEqual(after[field], ORDER_METADATA[field], `${field} completed`);
-  }
-  assert.deepEqual(
-    withoutCompletionFields(after),
-    withoutCompletionFields(before),
-    "balances, terms, receipt, and every non-allowlisted field byte-identical",
-  );
+  assert.deepEqual(after, before, "session record byte-identical across completion");
   assert.equal(after.creditsRemaining, 1, "spent balance is not reconstructed");
   assert.deepEqual(after.settlementReceipt, before.settlementReceipt);
+
+  const merged = mergedView(id);
+  for (const field of SETTLEMENT_METADATA_COMPLETION_FIELDS) {
+    assert.deepEqual(merged[field], ORDER_METADATA[field], `${field} visible via the merged view`);
+    assert.equal(after[field], undefined, `${field} is NOT stamped onto the session record`);
+  }
+  assert.deepEqual(
+    withoutCompletionFields(merged),
+    withoutCompletionFields(before),
+    "merged view differs from the record only in the completed fields",
+  );
 });
 
 test("PASS completion: webhook-first ordering — verify changes nothing afterwards", async () => {
@@ -526,6 +554,7 @@ test("PASS completion: webhook-first ordering — verify changes nothing afterwa
   assert.equal(second.kind, "already_settled");
   assert.deepEqual(second.completedMetadataFields, []);
   assert.equal(sessionPuts(id).length, 0, "verify replay on a complete record writes nothing");
+  assert.equal(sidecarPuts(id).length, 0, "no sidecar write when nothing is missing anywhere");
   assert.deepEqual(data.get(sessionKey(id)), snapshot);
 });
 
@@ -542,6 +571,7 @@ test("PASS completion never overwrites a value that is already present", async (
     customerEmail: "other@example.com",
     isGift: false,
   });
+  putLog = [];
   const outcome = await settleWith(id, terms, candidate);
   assert.equal(outcome.kind, "already_settled");
   assert.deepEqual(
@@ -552,7 +582,11 @@ test("PASS completion never overwrites a value that is already present", async (
   const after = data.get(sessionKey(id));
   assert.equal(after.customerEmail, "kept@example.com", "present email is never overwritten");
   assert.equal(after.isGift, true, "present gift provenance is never overwritten");
-  assert.equal(after.printAssetId, ORDER_METADATA.printAssetId);
+  assert.equal(sessionPuts(id).length, 0, "completion wrote no session record");
+  const merged = mergedView(id);
+  assert.equal(merged.customerEmail, "kept@example.com", "record-present value wins over the sidecar");
+  assert.equal(merged.isGift, true);
+  assert.equal(merged.printAssetId, ORDER_METADATA.printAssetId, "absent field completed via the sidecar");
 });
 
 test("PASS completion performs no write when nothing is missing", async () => {
@@ -590,11 +624,17 @@ test("PASS completion reads only the allowlist: candidate accounting values are 
   const outcome = await settleWith(id, terms, hostile);
   assert.equal(outcome.kind, "already_settled");
   const after = data.get(sessionKey(id));
-  assert.deepEqual(withoutCompletionFields(after), withoutCompletionFields(before));
+  assert.deepEqual(after, before, "hostile candidate moves nothing on the session record");
   assert.equal(after.creditsTotal, 3);
   assert.equal(after.subscriptionActive, undefined);
   assert.equal(after.created, before.created, "created is not completable — the birth stamp stands");
-  assert.equal(after.customerEmail, ORDER_METADATA.customerEmail);
+  assert.equal(mergedView(id).customerEmail, ORDER_METADATA.customerEmail);
+  // The sidecar itself holds ONLY allowlisted fields, even when the
+  // candidate offered accounting values alongside them.
+  const sidecar = data.get(sidecarKey(id));
+  assert.equal(sidecar.creditsRemaining, undefined);
+  assert.equal(sidecar.settlementReceipt, undefined);
+  assert.equal(sidecar.subscriptionActive, undefined);
 });
 
 test("PASS completion stamps explicit isGift=false provenance (absence is not a value)", async () => {
@@ -608,7 +648,9 @@ test("PASS completion stamps explicit isGift=false provenance (absence is not a 
   );
   assert.equal(outcome.kind, "already_settled");
   assert.ok(outcome.completedMetadataFields.includes("isGift"));
-  assert.equal(data.get(sessionKey(id)).isGift, false, "explicit false is recorded, not skipped");
+  assert.equal(data.get(sidecarKey(id)).isGift, false, "explicit false is recorded in the sidecar, not skipped");
+  assert.equal(mergedView(id).isGift, false, "explicit false reaches consumers via the merged view");
+  assert.equal(data.get(sessionKey(id)).isGift, undefined, "not stamped onto the session record");
 });
 
 test("PASS completion write failure is persistence_ambiguous and a retry completes", async () => {
@@ -617,16 +659,183 @@ test("PASS completion write failure is persistence_ambiguous and a retry complet
   await settleWith(id, terms, verifyStyleBuilder(terms));
   const before = structuredClone(data.get(sessionKey(id)));
 
-  failDurableKeys.add(sessionKey(id));
+  // Fix round 4: the completion write targets the sidecar key now.
+  failDurableKeys.add(sidecarKey(id));
   const failed = await settleWith(id, terms, webhookStyleBuilder(terms));
   assert.equal(failed.kind, "persistence_ambiguous", "never a silent success");
   assert.deepEqual(data.get(sessionKey(id)), before, "failed completion leaves the record untouched");
+  assert.equal(data.get(sidecarKey(id)), undefined, "failed completion leaves no sidecar behind");
 
   failDurableKeys.clear();
   const retried = await settleWith(id, terms, webhookStyleBuilder(terms));
   assert.equal(retried.kind, "already_settled");
   assert.equal(retried.completedMetadataFields.length, SETTLEMENT_METADATA_COMPLETION_FIELDS.length);
-  assert.equal(data.get(sessionKey(id)).customerEmail, ORDER_METADATA.customerEmail);
+  assert.equal(mergedView(id).customerEmail, ORDER_METADATA.customerEmail);
+});
+
+// ---------------------------------------------------------------------------
+// Fix round 4 (G-dot gate rejection at adbc60fa): the three blocking
+// findings were (1) completion republishes stale accounting — the test
+// below is the gate's own SEQUENTIAL history, settlement → consumption →
+// completion-from-stale-read; (2) the residual was misdescribed as
+// concurrency-only (same history); (3) getOrCreateClaimToken still
+// replaced the whole session record — covered in claimTokenClosure tests.
+// Every test in this section fails on adbc60fa.
+// ---------------------------------------------------------------------------
+
+test("PASS round 4: completion from a STALE read cannot restore a landed consumption", async () => {
+  const id = "cs_r4_stale_present";
+  const terms = pack3Terms();
+  await settleWith(id, terms, verifyStyleBuilder(terms));
+  const staleSnapshot = structuredClone(data.get(sessionKey(id)));
+  assert.equal(staleSnapshot.creditsRemaining, 3);
+
+  // A consumption lands after settlement: the live record now holds 2.
+  data.set(sessionKey(id), { ...staleSnapshot, creditsRemaining: 2, lastConsumeToken: "tok_r4" });
+  const liveSnapshot = structuredClone(data.get(sessionKey(id)));
+
+  // The completing call reads a STALE snapshot (still showing 3 credits).
+  let staleArmed = true;
+  getHook = (key, read) => {
+    if (staleArmed && key === sessionKey(id)) {
+      staleArmed = false;
+      return structuredClone(staleSnapshot);
+    }
+    return read();
+  };
+  putLog = [];
+  const outcome = await settleWith(id, terms, webhookStyleBuilder(terms));
+  assert.equal(outcome.kind, "already_settled");
+  assert.equal(outcome.completedMetadataFields.length, SETTLEMENT_METADATA_COMPLETION_FIELDS.length);
+  assert.equal(sessionPuts(id).length, 0, "completion never writes the session record");
+  assert.deepEqual(
+    data.get(sessionKey(id)),
+    liveSnapshot,
+    "the landed consumption survives completion from a stale read — 3→2 stays 2",
+  );
+  assert.equal(mergedView(id).customerEmail, ORDER_METADATA.customerEmail);
+});
+
+test("PASS round 4: rewards added between read and completion are preserved", async () => {
+  const id = "cs_r4_rewards";
+  const terms = pack3Terms();
+  await settleWith(id, terms, verifyStyleBuilder(terms));
+  const born = data.get(sessionKey(id));
+  // Referral reward + consumption land before the completing call.
+  data.set(sessionKey(id), {
+    ...born,
+    creditsRemaining: 2,
+    creditsTotal: 4,
+    referralCreditsEarned: 1,
+  });
+  const before = structuredClone(data.get(sessionKey(id)));
+
+  const outcome = await settleWith(id, terms, webhookStyleBuilder(terms));
+  assert.equal(outcome.kind, "already_settled");
+  assert.deepEqual(data.get(sessionKey(id)), before, "reward state byte-identical after completion");
+  const merged = mergedView(id);
+  assert.equal(merged.creditsTotal, 4);
+  assert.equal(merged.referralCreditsEarned, 1);
+  assert.equal(merged.customerEmail, ORDER_METADATA.customerEmail);
+  assert.deepEqual(merged.settlementReceipt, before.settlementReceipt, "receipt integrity preserved");
+});
+
+test("PASS round 4: revocation visible before completion still wins — no write of any kind", async () => {
+  const id = "cs_r4_revoked_pre";
+  const terms = pack3Terms();
+  await settleWith(id, terms, verifyStyleBuilder(terms));
+  data.set(ENTITLEMENT_KV.sessionRevoked(id), { revoked: true, reason: "refund", revokedAt: Date.now() });
+  putLog = [];
+  const outcome = await settleWith(id, terms, webhookStyleBuilder(terms));
+  assert.equal(outcome.kind, "revoked");
+  assert.equal(outcome.sessionWasWritten, false, "no session write exists on the completion path");
+  assert.equal(sessionPuts(id).length, 0);
+  assert.equal(sidecarPuts(id).length, 0, "revoked sessions gain no metadata sidecar");
+  assert.equal(data.get(sidecarKey(id)), undefined);
+});
+
+test("PASS round 4: revocation landing during the sidecar write is reported, session untouched", async () => {
+  const id = "cs_r4_revoked_post";
+  const terms = pack3Terms();
+  await settleWith(id, terms, verifyStyleBuilder(terms));
+  const before = structuredClone(data.get(sessionKey(id)));
+  // Evidence is absent at the settlement's early read and at the
+  // pre-write check, and present at the post-write check (the third
+  // tombstone read in this flow).
+  const tombKey = ENTITLEMENT_KV.sessionRevoked(id);
+  let tombReads = 0;
+  getHook = (key, read) => {
+    if (key === tombKey) {
+      tombReads += 1;
+      if (tombReads >= 3) return { revoked: true, reason: "refund", revokedAt: Date.now() };
+      return null;
+    }
+    return read();
+  };
+  putLog = [];
+  const outcome = await settleWith(id, terms, webhookStyleBuilder(terms));
+  assert.equal(outcome.kind, "revoked");
+  assert.equal(outcome.sessionWasWritten, false, "the sidecar write is not a session write");
+  assert.equal(sessionPuts(id).length, 0);
+  assert.deepEqual(data.get(sessionKey(id)), before, "session record untouched");
+  assert.ok(data.get(sidecarKey(id)), "the sidecar write itself landed (reported, not hidden)");
+});
+
+test("PASS round 4: sidecar write applied but response lost — stale retry does not double-apply", async () => {
+  const id = "cs_r4_response_lost";
+  const terms = pack3Terms();
+  await settleWith(id, terms, verifyStyleBuilder(terms));
+  const before = structuredClone(data.get(sessionKey(id)));
+
+  const realSetDurable = kv.setDurable;
+  let lostOnce = false;
+  kv.setDurable = async (key, value) => {
+    if (key === sidecarKey(id) && !lostOnce) {
+      lostOnce = true;
+      data.set(key, structuredClone(value)); // the write APPLIES…
+      throw new Error("injected: response lost after apply"); // …the caller sees failure
+    }
+    return realSetDurable(key, value);
+  };
+  const first = await settleWith(id, terms, webhookStyleBuilder(terms));
+  kv.setDurable = realSetDurable;
+  assert.equal(first.kind, "persistence_ambiguous", "the lost response is reported honestly");
+  const landedSidecar = data.get(sidecarKey(id));
+  assert.equal(landedSidecar.customerEmail, ORDER_METADATA.customerEmail, "the write did land");
+
+  putLog = [];
+  const retry = await settleWith(id, terms, webhookStyleBuilder(terms));
+  assert.equal(retry.kind, "already_settled");
+  assert.deepEqual(retry.completedMetadataFields, [], "retry observes the landed completion — nothing to redo");
+  assert.equal(sidecarPuts(id).length, 0, "no second sidecar write");
+  assert.deepEqual(data.get(sidecarKey(id)), landedSidecar, "sidecar not rewritten or duplicated");
+  assert.deepEqual(data.get(sessionKey(id)), before, "session record byte-identical throughout");
+});
+
+test("PASS round 4: applySettlementMetadata precedence and allowlist containment", async () => {
+  const record = {
+    paid: true,
+    sessionId: "cs_r4_merge",
+    customerEmail: "record@example.com",
+    creditsRemaining: 2,
+  };
+  const sidecar = {
+    schemaVersion: 1,
+    sessionId: "cs_r4_merge",
+    customerEmail: "sidecar@example.com",
+    isGift: true,
+    creditsRemaining: 99,
+    claimToken: "forged-token",
+    recordedAt: 1,
+    updatedAt: 1,
+  };
+  const merged = applySettlementMetadata(record, sidecar);
+  assert.equal(merged.customerEmail, "record@example.com", "record-present value wins");
+  assert.equal(merged.isGift, true, "absent field filled from the sidecar");
+  assert.equal(merged.creditsRemaining, 2, "non-allowlist sidecar fields never leak");
+  assert.equal(merged.claimToken, undefined);
+  assert.equal(applySettlementMetadata(record, null), record, "no sidecar = identity");
+  assert.equal(record.isGift, undefined, "merge never mutates the record");
 });
 
 // ---------------------------------------------------------------------------
@@ -668,8 +877,10 @@ test("PASS verify-first record is review-classifiable on its birth anchor (fix r
     "the webhook builder's created was not adopted",
   );
 
+  // Fix round 4: the review engine reads the merged view (record +
+  // sidecar); classification input is that view.
   const classification = classifyDigitalEntitlement(
-    settled,
+    mergedView(id),
     settled.created + REVIEW_DIGITAL_DELAY_MS,
   );
   assert.equal(classification.outcome, "due");
@@ -703,8 +914,9 @@ test("CONTROL pre-fix verify shape (no created) classifies as invalid_anchor", a
     "completion cannot supply the anchor (not allowlisted)",
   );
   assert.deepEqual(
-    classifyDigitalEntitlement(settled, Date.now() + REVIEW_DIGITAL_DELAY_MS),
+    classifyDigitalEntitlement(mergedView(id), Date.now() + REVIEW_DIGITAL_DELAY_MS),
     { outcome: "excluded", kind: "digital", reason: "invalid_anchor" },
+    "even the merged view (all six fields completed) has no anchor",
   );
 });
 
@@ -901,4 +1113,63 @@ test("PIN verify: refused carry preserves a live incoming cookie on every succes
     verifySource.includes("only while the incoming session still holds live entitlement"),
   );
   assert.equal(verifySource.includes("never overwritten by this path"), false);
+});
+
+// ---------------------------------------------------------------------------
+// Fix round 4 pins (G-dot gate rejection at adbc60fa). Each fails on the
+// adbc60fa sources: completion wrote the whole merged record back to the
+// session key; getOrCreateClaimToken finished with a session-record
+// replacement; the link route held its own inline issuance ending in the
+// same replacement; the claim route consulted only the inline field.
+// ---------------------------------------------------------------------------
+
+const storeSource = readFileSync(
+  new URL("../../src/lib/entitlementsStore.ts", import.meta.url),
+  "utf8",
+);
+const accessLinksSource = readFileSync(
+  new URL("../../src/lib/accountAccessLinks.ts", import.meta.url),
+  "utf8",
+);
+const claimRouteSource = readFileSync(
+  new URL("../../src/app/api/entitlements/claim/route.ts", import.meta.url),
+  "utf8",
+);
+const linkRouteSource = readFileSync(
+  new URL("../../src/app/api/entitlements/link/route.ts", import.meta.url),
+  "utf8",
+);
+
+test("PIN round 4: completion writes only the metadata sidecar, never the session record", () => {
+  assert.ok(storeSource.includes("ENTITLEMENT_KV.settlementMetadata(sessionId), sidecarRecord"));
+  assert.equal(storeSource.includes("await kv.setDurable(key, merged)"), false,
+    "the whole-record completion put is gone");
+  assert.ok(storeSource.includes("applySettlementMetadata"), "consumers merge via the shared helper");
+});
+
+test("PIN round 4: claim issuance performs zero session-record writes (S60-1 closure)", () => {
+  assert.equal(accessLinksSource.includes("stripeSession"), false,
+    "the issuance helper never references the session key");
+  assert.equal(
+    accessLinksSource.includes("kv.set(sessionKey(sessionId), { ...record, claimToken: token })"),
+    false,
+    "the caller-held-record replacement write is gone (doc comments may quote it; the write may not exist)",
+  );
+  assert.ok(accessLinksSource.includes("ENTITLEMENT_KV.claimPointer"), "governing pointer is the token's home");
+});
+
+test("PIN round 4: claim route honors the governing pointer with the inline field as legacy fallback", () => {
+  assert.ok(claimRouteSource.includes("ENTITLEMENT_KV.claimPointer"));
+  assert.ok(claimRouteSource.includes("governingToken"), "superseded tokens are rejected");
+});
+
+test("PIN round 4: link route issues through the shared helper, no inline session write", () => {
+  assert.ok(linkRouteSource.includes("getOrCreateClaimToken"));
+  assert.equal(
+    linkRouteSource.includes("kv.set(ENTITLEMENT_KV.stripeSession(sessionId), { ...record, claimToken: token })"),
+    false,
+    "the inline whole-record issuance write is gone",
+  );
+  assert.equal(linkRouteSource.includes("crypto.randomUUID()"), false,
+    "no second inline issuance implementation remains");
 });

@@ -2,10 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   ENTITLEMENT_KV,
   evaluateDigitalAccess,
-  NEW_CLAIM_TOKEN_TTL_SECONDS,
-  type ClaimTokenRecord,
   type StripeSessionEntitlement,
 } from "@/lib/entitlementsStore";
+import { getOrCreateClaimToken } from "@/lib/accountAccessLinks";
 import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 import { PREMIUM_COOKIE_NAME } from "@/lib/premium";
@@ -39,24 +38,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "No active access" }, { status: 402 });
   }
 
-  let token = forceNew ? "" : record.claimToken?.trim() || "";
-  if (token) {
-    const existing = await kv.get<ClaimTokenRecord>(ENTITLEMENT_KV.claim(token));
-    if (!existing) {
-      token = "";
-    }
-  }
-
-  if (!token) {
-    token = crypto.randomUUID();
-    const payload: ClaimTokenRecord = {
-      sessionId,
-      mapId: record.mapId,
-      createdAt: Date.now(),
-    };
-    await kv.set(ENTITLEMENT_KV.claim(token), payload, { ex: NEW_CLAIM_TOKEN_TTL_SECONDS });
-    await kv.set(ENTITLEMENT_KV.stripeSession(sessionId), { ...record, claimToken: token });
-  }
+  // Fix round 4 (PR #447): issuance goes through the shared helper, which
+  // persists the token in its claim record + the governing pointer and
+  // performs ZERO writes to the session record. This route previously
+  // inlined the same logic and finished with a whole-record replacement
+  // (`{ ...record, claimToken }`) from its caller-held snapshot — the
+  // stale-republish class the gate rejected. The helper's reuse
+  // validation is also stricter: it checks the claim record's session
+  // association, which this route's inline copy omitted.
+  const token = await getOrCreateClaimToken(sessionId, record, { forceNewToken: forceNew });
 
   const origin = new URL(req.url).origin;
   return NextResponse.json({

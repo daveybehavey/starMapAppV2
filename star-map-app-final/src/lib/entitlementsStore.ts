@@ -84,6 +84,19 @@ export const ENTITLEMENT_KV = {
     `stripe:transfer:refused:v1:${encodeURIComponent(sourceSessionId)}:${encodeURIComponent(destinationSessionId)}`,
   accessEmailResult: (sessionId: string) => `stripe:access-email:result:v1:${sessionId}`,
   recoveryResult: (sessionId: string) => `stripe:recovery:result:v1:${sessionId}`,
+  /**
+   * Fix round 4 (G-dot gate, PR #447): settlement metadata completion lives
+   * in its own record, NEVER on the session record. The key is deliberately
+   * NOT under the `stripe:session:` prefix (the review engine scans that
+   * prefix as its entitlement population).
+   */
+  settlementMetadata: (sessionId: string) => `stripe:session-metadata:v1:${sessionId}`,
+  /**
+   * Fix round 4: the governing claim token for a session (the token the
+   * claim route honors). The session record's inline `claimToken` field is
+   * legacy evidence only — nothing writes it any more.
+   */
+  claimPointer: (sessionId: string) => `stripe:session:claim-pointer:v1:${sessionId}`,
 } as const;
 
 export const ENTITLEMENT_R2 = {
@@ -138,8 +151,11 @@ export async function refreshEntitledMapRecipeTtl(mapId: string | undefined | nu
  *   performs no accounting write at all. (Fix round, Codex P1 on PR #447:
  *   the sole exception is absent-only metadata completion — see
  *   SETTLEMENT_METADATA_COMPLETION_FIELDS — which fills non-accounting
- *   fields one route's builder omits and the other's carries; it never
- *   overwrites a present value and never touches accounting/access state.)
+ *   fields one route's builder omits and the other's carries. Fix round 4,
+ *   per the G-dot gate rejection: completion writes ONLY the separate
+ *   settlement-metadata sidecar, never the session record — the whole-
+ *   record completion put republished stale accounting from its read
+ *   snapshot. Consumers merge the sidecar via applySettlementMetadata.)
  * - Adopt already-paid legacy records (paid, no receipt) without touching
  *   their balances or terms; adoption writes separate observation evidence
  *   only, and an adoption-evidence failure never triggers reconstruction.
@@ -260,6 +276,34 @@ export type AccessEmailResultRecord = {
   recordedAt: number;
 };
 
+/**
+ * Settlement metadata completed onto an already-settled record (fix round
+ * 4). Holds ONLY the SETTLEMENT_METADATA_COMPLETION_FIELDS values; it is
+ * not an accounting record and no balance/terms/revocation state may ever
+ * be stored here. Readers merge it over the session record with
+ * {@link applySettlementMetadata} (record-present values win).
+ */
+export type SettlementMetadataRecord = {
+  schemaVersion: number;
+  sessionId: string;
+  customerEmail?: string | null;
+  isGift?: boolean;
+  printAssetId?: string;
+  referralCode?: string;
+  referrerSessionId?: string;
+  referralOfferVariant?: string;
+  recordedAt: number;
+  updatedAt: number;
+};
+
+/** The governing claim token for a session (fix round 4). */
+export type ClaimPointerRecord = {
+  schemaVersion: number;
+  sessionId: string;
+  token: string;
+  updatedAt: number;
+};
+
 export type RecoveryResultRecord = {
   schemaVersion: number;
   sessionId: string;
@@ -330,8 +374,10 @@ export async function sessionHoldsLiveEntitlement(sessionId: string): Promise<bo
 }
 
 /**
- * The ONLY session-record fields a settlement call may complete on an
- * already-settled record (fix round, Codex P1 on PR #447).
+ * The ONLY fields a settlement call may complete for an already-settled
+ * record (fix round, Codex P1 on PR #447; storage moved to the
+ * settlement-metadata sidecar in fix round 4 — completion never writes
+ * these onto the session record itself).
  *
  * The two settlement routes build different initial records from the same
  * Stripe session: the webhook's builder carries the checkout metadata
@@ -373,6 +419,54 @@ function isSettlementMetadataValuePresent(value: unknown): boolean {
   if (value === undefined || value === null) return false;
   if (typeof value === "string" && value.trim() === "") return false;
   return true;
+}
+
+/**
+ * Merge a settlement-metadata sidecar over a session record (fix round 4).
+ * Pure: returns the record itself when there is nothing to merge, else a
+ * NEW object. Only allowlisted fields are ever taken from the sidecar —
+ * a sidecar value for any other key is ignored by construction — and a
+ * value PRESENT on the record always wins over the sidecar. This is the
+ * single read path by which completed metadata reaches consumers; the
+ * session record itself is never rewritten with completed values.
+ */
+export function applySettlementMetadata<T extends StripeSessionEntitlement>(
+  record: T,
+  metadata: SettlementMetadataRecord | null | undefined,
+): T {
+  if (!metadata) return record;
+  const recordFields = record as unknown as Record<string, unknown>;
+  const metadataFields = metadata as unknown as Record<string, unknown>;
+  let merged: Record<string, unknown> | null = null;
+  for (const field of SETTLEMENT_METADATA_COMPLETION_FIELDS) {
+    if (isSettlementMetadataValuePresent(recordFields[field])) continue;
+    const value = metadataFields[field];
+    if (!isSettlementMetadataValuePresent(value)) continue;
+    if (!merged) merged = { ...recordFields };
+    merged[field] = value;
+  }
+  return (merged ?? recordFields) as T;
+}
+
+/** Read the settlement-metadata sidecar for a session, if one exists. */
+export async function readSettlementMetadata(
+  sessionId: string,
+): Promise<SettlementMetadataRecord | null> {
+  return kv.get<SettlementMetadataRecord>(ENTITLEMENT_KV.settlementMetadata(sessionId));
+}
+
+/**
+ * Load the merged consumer view of a session record: the record with its
+ * completed settlement metadata applied. Read-only — performs no write.
+ * Consumers that need the six completion fields (customer email, gift
+ * provenance, print asset, referral attribution) must read through this
+ * (or applySettlementMetadata) rather than the raw record.
+ */
+export async function withSettlementMetadata<T extends StripeSessionEntitlement>(
+  sessionId: string,
+  record: T,
+): Promise<T> {
+  return applySettlementMetadata(record, await readSettlementMetadata(sessionId));
 }
 
 export type SettlementOutcome<T extends StripeSessionEntitlement = StripeSessionEntitlement> =
@@ -451,14 +545,16 @@ function adoptionFingerprint(record: StripeSessionEntitlement): string {
  *
  * Outcomes:
  * - "initialized": the session record was written exactly once by this call.
- * - "already_settled": a paid record was visible; NO accounting write
+ * - "already_settled": a paid record was visible; NO session-record write
  *   happened. The only write this path may perform is metadata completion
- *   (SETTLEMENT_METADATA_COMPLETION_FIELDS): allowlisted fields absent on
- *   the visible record are filled from the caller's own proposed record;
- *   when nothing is missing, no write happens at all. A completion write
- *   is durable and carries the same advisory revocation checks as the
- *   initialization put (before and after); its failure is
- *   "persistence_ambiguous", never a silent success.
+ *   (SETTLEMENT_METADATA_COMPLETION_FIELDS) into the separate
+ *   settlement-metadata sidecar: allowlisted fields absent on both the
+ *   visible record and the sidecar are filled from the caller's own
+ *   proposed record; when nothing is missing, no write happens at all.
+ *   A completion write is durable and carries the same advisory
+ *   revocation checks as the initialization put (before and after); its
+ *   failure is "persistence_ambiguous", never a silent success. The
+ *   returned record is the merged consumer view (record + sidecar).
  * - "revoked": visible revocation evidence forbids settlement.
  *   `sessionWasWritten` is true only for the retained check-then-write race
  *   (evidence appeared after the put); the caller must suppress any success
@@ -528,13 +624,26 @@ export async function settleSessionPurchase<T extends StripeSessionEntitlement>(
       }
     }
 
-    // Metadata completion (fix round, Codex P1 on PR #447): the visible
-    // record may have been initialized by the OTHER route, whose builder
-    // omits the allowlisted checkout-metadata fields this caller's builder
-    // carries. Fill only fields that are absent, only from the allowlist;
-    // accounting/access values in the candidate are never read, so
-    // balances, terms, and the embedded receipt stay byte-identical. The
-    // builder is invoked with the visible receipt when there is one;
+    // Metadata completion (fix round, Codex P1 on PR #447; restructured in
+    // fix round 4 per the G-dot gate rejection): the visible record may
+    // have been initialized by the OTHER route, whose builder omits the
+    // allowlisted checkout-metadata fields this caller's builder carries.
+    //
+    // Round 4 structure: completion NEVER writes the session record. The
+    // completed values are stored in the settlement-metadata sidecar
+    // (stripe:session-metadata:v1:) and reach consumers through
+    // applySettlementMetadata/withSettlementMetadata. The round-1..3 shape
+    // — build a merged record from the visible snapshot and put the WHOLE
+    // record back — republished whatever accounting state that snapshot
+    // happened to hold: a consumption landing after the read was silently
+    // restored by the completion put, sequentially, no concurrency needed.
+    // A sidecar write cannot touch accounting by construction (different
+    // key, allowlist-only payload), however stale the read that produced
+    // it. Completion is also self-healing: any field a racing completion
+    // lost is simply absent on the next read and is re-completed by the
+    // next settlement touch.
+    //
+    // The builder is invoked with the visible receipt when there is one;
     // for legacy records it receives a placeholder identity — inert,
     // because completion reads only the allowlisted fields, all of which
     // the builders derive from their own Stripe session, and the
@@ -549,27 +658,36 @@ export async function settleSessionPurchase<T extends StripeSessionEntitlement>(
         initializedAt: 0,
       },
     );
+    const existingSidecar = await readSettlementMetadata(sessionId);
     const existingFields = existing as unknown as Record<string, unknown>;
+    const sidecarFields = (existingSidecar ?? {}) as Record<string, unknown>;
     const candidateFields = candidate as unknown as Record<string, unknown>;
-    const merged: T = { ...existing };
-    const mergedFields = merged as unknown as Record<string, unknown>;
     const completedMetadataFields: SettlementMetadataCompletionField[] = [];
+    const filledValues: Partial<Record<SettlementMetadataCompletionField, unknown>> = {};
     for (const field of SETTLEMENT_METADATA_COMPLETION_FIELDS) {
       if (isSettlementMetadataValuePresent(existingFields[field])) continue;
+      if (isSettlementMetadataValuePresent(sidecarFields[field])) continue;
       const value = candidateFields[field];
       if (!isSettlementMetadataValuePresent(value)) continue;
-      mergedFields[field] = value;
+      filledValues[field] = value;
       completedMetadataFields.push(field);
     }
     if (completedMetadataFields.length === 0) {
-      // Observed replay with nothing to complete performs no write.
-      return { kind: "already_settled", record: existing, completedMetadataFields };
+      // Observed replay with nothing to complete performs no write. The
+      // returned record is the merged consumer view (record + sidecar).
+      return {
+        kind: "already_settled",
+        record: applySettlementMetadata(existing, existingSidecar),
+        completedMetadataFields,
+      };
     }
 
-    // The completion put is a session write, so it carries the same
-    // advisory revocation discipline as the initialization put: re-check
-    // evidence immediately before and again after. This narrows, and
-    // does not close, the retained check-then-write residual.
+    // The completion write is ancillary, but it still carries the
+    // advisory revocation discipline: completing metadata onto a session
+    // whose revocation evidence is already visible is refused, and
+    // evidence landing during the write is reported as "revoked". No
+    // session write exists on this path any more, so sessionWasWritten
+    // is false in both cases.
     const preCompletionEvidence = await readSessionRevocationEvidence(sessionId, paymentIntentId);
     if (preCompletionEvidence.revoked) {
       return {
@@ -578,8 +696,24 @@ export async function settleSessionPurchase<T extends StripeSessionEntitlement>(
         sessionWasWritten: false,
       };
     }
+    const now = Date.now();
+    const sidecarRecord: SettlementMetadataRecord = {
+      schemaVersion: SETTLEMENT_SCHEMA_VERSION,
+      sessionId,
+      recordedAt: existingSidecar?.recordedAt ?? now,
+      updatedAt: now,
+    };
+    const nextSidecarFields = sidecarRecord as unknown as Record<string, unknown>;
+    for (const field of SETTLEMENT_METADATA_COMPLETION_FIELDS) {
+      if (isSettlementMetadataValuePresent(sidecarFields[field])) {
+        nextSidecarFields[field] = sidecarFields[field];
+      }
+    }
+    for (const field of completedMetadataFields) {
+      nextSidecarFields[field] = filledValues[field];
+    }
     try {
-      await kv.setDurable(key, merged);
+      await kv.setDurable(ENTITLEMENT_KV.settlementMetadata(sessionId), sidecarRecord);
     } catch (error) {
       console.warn("Settlement metadata completion write failed", { sessionId, error });
       return {
@@ -592,10 +726,14 @@ export async function settleSessionPurchase<T extends StripeSessionEntitlement>(
       return {
         kind: "revoked",
         reason: postCompletionEvidence.reason ?? "refund",
-        sessionWasWritten: true,
+        sessionWasWritten: false,
       };
     }
-    return { kind: "already_settled", record: merged, completedMetadataFields };
+    return {
+      kind: "already_settled",
+      record: applySettlementMetadata(existing, sidecarRecord),
+      completedMetadataFields,
+    };
   }
 
   if (existing && hasBlockingUnpaidState(existing)) {

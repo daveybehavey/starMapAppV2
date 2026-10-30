@@ -6,7 +6,7 @@ import { sendPostPurchaseAccessEmail } from "@/lib/accountAccessDelivery";
 import { buildHdArchiveDownloadUrl, hdArchiveObjectExists } from "@/lib/downloadArchiveStorage";
 import { getOrCreateClaimToken, hasRecoverableAccess, type AccountAccessSessionRecord } from "@/lib/accountAccessLinks";
 import { isAccountAccessEmailConfigured } from "@/lib/accountAccessAlerts";
-import { ENTITLEMENT_KV } from "@/lib/entitlementsStore";
+import { ENTITLEMENT_KV, withSettlementMetadata } from "@/lib/entitlementsStore";
 
 export const runtime = "nodejs";
 
@@ -57,7 +57,9 @@ export async function POST(req: NextRequest) {
     const record = await kv.get<AccountAccessSessionRecord>(sessionKey(sessionId));
     if (!record) return null;
     if (!hasRecoverableAccess(record)) return null;
-    return record;
+    // Completed settlement metadata (customer email) may live in the
+    // sidecar since fix round 4 — read the merged consumer view.
+    return withSettlementMetadata(sessionId, record);
   };
 
   let sessionId = forcedSessionId;
@@ -90,11 +92,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "unexpected_missing_record" }, { status: 500 });
   }
 
-  let workingRecord = record;
-  if (forceNewToken) {
-    workingRecord = { ...record, claimToken: "" };
-  }
-  const finalToken = await getOrCreateClaimToken(sessionId, workingRecord);
+  // Fix round 4 (PR #447; S60-1 resend semantics): force-new is an
+  // explicit issuance mode, not caller-side field blanking, and the ONE
+  // resolution is propagated to the dispatch below — its record view
+  // carries the resolved token, so the email chain reuses this token
+  // instead of resolving a second time.
+  const finalToken = await getOrCreateClaimToken(sessionId, record, { forceNewToken });
+  const workingRecord: AccountAccessSessionRecord = { ...record, claimToken: finalToken };
   const claimPageLink = `${getSiteUrl(req)}/download?token=${encodeURIComponent(finalToken)}`;
   const siteOrigin = getSiteUrl(req);
   const directDownloadLinkCandidate = buildHdArchiveDownloadUrl(siteOrigin, finalToken);

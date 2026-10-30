@@ -79,6 +79,7 @@ import {
   ENTITLEMENT_KV,
   refreshEntitledMapRecipeTtl,
   settleSessionPurchase,
+  withSettlementMetadata,
   SETTLEMENT_SCHEMA_VERSION,
   type SessionRevocationEvidence,
   type RevocationUnresolvedRecord,
@@ -461,8 +462,10 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
   // webhook call is the first bearer of the customer's email — the record
   // previously had none, so /api/account/access-email could only answer
   // 409 missing_customer_email. The access-email send below keys off that
-  // completion as well as off first settlement; the dedupe counter still
-  // guarantees at most one send per session across all orderings.
+  // completion as well as off first settlement. Wording correction (fix
+  // round 4, G-dot gate): the dedupe counter is a NON-ATOMIC increment —
+  // it is the send discipline that bounds sends to one in the ordinary
+  // case, not proof of "one send ever" under arbitrary interleavings.
   const completedSettlementMetadata =
     outcome.kind === "already_settled" && outcome.completedMetadataFields.length > 0;
 
@@ -715,7 +718,11 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
   }
 
   const sameCustomerId = Boolean(referrer.customerId && checkoutCustomerId && referrer.customerId === checkoutCustomerId);
-  const referrerEmail = normalizeEmail(referrer.customerEmail);
+  // The referrer's email may have been completed into the settlement-
+  // metadata sidecar (fix round 4, PR #447) — the self-referral check
+  // reads the merged view, as it read the completed inline field before.
+  const referrerMerged = await withSettlementMetadata(referrerSessionId, referrer);
+  const referrerEmail = normalizeEmail(referrerMerged.customerEmail);
   const sameEmail = Boolean(referrerEmail && checkoutCustomerEmail && referrerEmail === checkoutCustomerEmail);
   if (sameCustomerId || sameEmail) {
     await appendReferralEvent({

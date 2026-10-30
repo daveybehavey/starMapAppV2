@@ -5,6 +5,7 @@ import { PREMIUM_COOKIE_NAME } from "@/lib/premium";
 import { referralKey, type ReferralRecord } from "@/lib/referrals";
 import { getReferralEvents, type ReferralEvent } from "@/lib/referralLedger";
 import type { CheckoutOrderType, CheckoutPlan } from "@/lib/pricing";
+import { withSettlementMetadata } from "@/lib/entitlementsStore";
 
 export const runtime = "nodejs";
 
@@ -108,7 +109,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Digital access required" }, { status: 402 });
   }
 
-  const code = session.referralCode?.trim().toUpperCase() || "";
+  // The attribution code may have been completed into the settlement-
+  // metadata sidecar (fix round 4, PR #447) — read the merged view.
+  const mergedSession = await withSettlementMetadata(sessionId, session);
+  const code = mergedSession.referralCode?.trim().toUpperCase() || "";
   if (!code) {
     return NextResponse.json({
       ok: true,

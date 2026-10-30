@@ -34,7 +34,12 @@ import {
   normalizePromotionEmail,
   type PromotionEmailState,
 } from "@/lib/promotionSubscriptions";
-import type { StripeSessionEntitlement } from "@/lib/entitlementsStore";
+import {
+  applySettlementMetadata,
+  ENTITLEMENT_KV,
+  type SettlementMetadataRecord,
+  type StripeSessionEntitlement,
+} from "@/lib/entitlementsStore";
 import type { PrintOrderRecord } from "@/lib/printOrders";
 import {
   isReviewLedgerResolved,
@@ -716,6 +721,23 @@ export async function runReviewRequestTick(deps: ReviewEngineDeps): Promise<Revi
   const now = (deps.now ?? Date.now)();
   const { config, store } = deps;
   const summary = emptySummary("completed");
+
+  // Completed settlement metadata (customer email, gift provenance) may
+  // live in the settlement-metadata sidecar since PR #447 fix round 4 —
+  // entitlement reads merge it in, or verify-born records would classify
+  // gift_uncertain / missing-email forever. The sidecar key is outside
+  // the scanned DIGITAL_PREFIX population by construction.
+  const loadEntitlement = async (
+    key: string,
+  ): Promise<StripeSessionEntitlement | null> => {
+    const record = await store.getJson<StripeSessionEntitlement>(key);
+    if (!record) return record;
+    const sessionId = key.slice(DIGITAL_PREFIX.length);
+    const metadata = await store
+      .getJson<SettlementMetadataRecord>(ENTITLEMENT_KV.settlementMetadata(sessionId))
+      .catch(() => null);
+    return applySettlementMetadata(record, metadata);
+  };
   const log =
     deps.log ??
     ((s: ReviewTickSummary) => {
@@ -795,8 +817,7 @@ export async function runReviewRequestTick(deps: ReviewEngineDeps): Promise<Revi
   await scanPopulation(
     DIGITAL_PREFIX,
     REVIEW_SCAN_CURSOR_KEYS.digital,
-    async (key) =>
-      classifyDigitalEntitlement(await store.getJson<StripeSessionEntitlement>(key), now),
+    async (key) => classifyDigitalEntitlement(await loadEntitlement(key), now),
     "scannedDigital",
   );
   await scanPopulation(
@@ -846,10 +867,7 @@ export async function runReviewRequestTick(deps: ReviewEngineDeps): Promise<Revi
       // scan reads are stale inputs; eligibility is decided here, not there).
       const fresh =
         candidate.kind === "digital"
-          ? classifyDigitalEntitlement(
-              await store.getJson<StripeSessionEntitlement>(candidate.recordKey),
-              sendNow,
-            )
+          ? classifyDigitalEntitlement(await loadEntitlement(candidate.recordKey), sendNow)
           : classifyPrintRecord(
               await store.getJson<PrintOrderRecord>(candidate.recordKey),
               sendNow,
@@ -870,9 +888,7 @@ export async function runReviewRequestTick(deps: ReviewEngineDeps): Promise<Revi
         // gift cross-check is fail-closed too (T-T1): BOTH records must be
         // literal `isGift === false` — the print classifier has already
         // proven the print record; here the entitlement must agree.
-        const entitlement = await store.getJson<StripeSessionEntitlement>(
-          `${DIGITAL_PREFIX}${sessionId}`,
-        );
+        const entitlement = await loadEntitlement(`${DIGITAL_PREFIX}${sessionId}`);
         if (!entitlement || entitlement.revoked === true || entitlement.paid !== true) {
           summary.skips.revoked = (summary.skips.revoked ?? 0) + 1;
           continue;
