@@ -28,7 +28,11 @@
  *   boundary arithmetic, keyed opt-out markers replacing raw-address
  *   rows, a migration sweep that installs replacement protection BEFORE
  *   deleting any legacy row, and suppression-metadata minimization that
- *   can never lift suppression itself;
+ *   can never lift suppression itself; plus the REAL suppression DO over
+ *   a fake storage: a migrated legacy opt-out pulls the record's
+ *   retention anchor back to the original opt-out time (never forward),
+ *   and a past-deadline anchor minimizes on the next touch with the
+ *   suppression flag standing;
  * - due evaluation for both branches at their exact window boundaries,
  *   fail-closed gift exclusion (literal `isGift === false` required), and
  *   the max-age rule (a late-enabled engine must never mail the
@@ -55,6 +59,7 @@ import { register } from "node:module";
 // by tsconfig, TS5097). Register the alias hooks, then pull those modules in
 // dynamically so the tests exercise the REAL code, not a harness mirror.
 register("./tsAliasLoader.mjs", import.meta.url);
+register("./reviewRequests.hooks.mjs", import.meta.url);
 
 import {
   applyReviewLedgerOp,
@@ -101,6 +106,9 @@ const {
 } = await import("../../src/lib/reviewRequestSuppression.ts");
 const { createReviewLedgerClient, __resetReviewLedgerMemoryForTests } = await import(
   "../../src/lib/reviewRequestLedger.ts"
+);
+const { ReviewRequestSuppressionDO } = await import(
+  "../../src/durable-objects/ReviewRequestSuppressionDO.ts"
 );
 const {
   buildReviewOptOutUrl,
@@ -2520,6 +2528,168 @@ test("retention: a migrated opt-out PAST its 13-month deadline leaves no metadat
   // authoritative DO check both still read suppressed.
   assert.equal(await isReviewSuppressed(store, "ancient@example.com", name), true);
   assert.equal(await client.check(name), true);
+});
+
+// ---------------------------------------------------------------------------
+// The REAL suppression DO over a fake storage: the migration anchor
+// (Codex P2 on PR #446, second round)
+// ---------------------------------------------------------------------------
+//
+// The sweep above hands the DO the legacy row's ORIGINAL optedOutAt, but
+// the DO's record() used to keep its OWN timestamp whenever a record
+// already existed — so a legacy opt-out that PREDATED the DO record
+// (the recipient opted out again through the current route after the
+// legacy one) had its cleanup alarm armed from the later DO timestamp,
+// retaining the metadata past its original 13-month deadline. These
+// tests run the real DO class: the anchor is the EARLIEST known
+// opt-out, an earlier migration pulls it back, and nothing ever moves
+// it forward.
+
+/**
+ * In-memory stand-in for the SQLite DO storage API, implementing exactly
+ * the statement shapes ReviewRequestSuppressionDO issues (the row is a
+ * singleton, id = 1). The row object is shared so a "restart" (a new DO
+ * instance over the same storage) observes what the previous instance
+ * persisted.
+ */
+class FakeSuppressionSqlStorage {
+  constructor() {
+    this.row = null;
+  }
+
+  exec(sql, ...params) {
+    const head = sql.trimStart().slice(0, 6).toUpperCase();
+    if (head.startsWith("CREATE")) return { toArray: () => [] };
+    if (head.startsWith("SELECT")) {
+      return { toArray: () => (this.row ? [{ ...this.row }] : []) };
+    }
+    if (head.startsWith("INSERT")) {
+      const [suppressed, source, suppressedAt, updatedAt] = params;
+      this.row = {
+        suppressed,
+        source,
+        suppressed_at: suppressedAt,
+        updated_at: updatedAt,
+      };
+      return { toArray: () => [] };
+    }
+    if (head.startsWith("DELETE")) {
+      this.row = null;
+      return { toArray: () => [] };
+    }
+    throw new Error(`unexpected SQL in fake: ${sql.slice(0, 80)}`);
+  }
+}
+
+function fakeSuppressionCtx(sql) {
+  let alarmAt = null;
+  return {
+    storage: {
+      sql,
+      async getAlarm() {
+        return alarmAt;
+      },
+      async setAlarm(t) {
+        alarmAt = t;
+      },
+      async deleteAlarm() {
+        alarmAt = null;
+      },
+    },
+    blockConcurrencyWhile(fn) {
+      return fn();
+    },
+  };
+}
+
+function newSuppressionDO(sql) {
+  const ctx = fakeSuppressionCtx(sql);
+  return { coordinator: new ReviewRequestSuppressionDO(ctx, {}), ctx };
+}
+
+test("retention DO: a migrated legacy opt-out pulls the cleanup anchor back to the ORIGINAL opt-out time", async () => {
+  const sql = new FakeSuppressionSqlStorage();
+  const { coordinator, ctx } = newSuppressionDO(sql);
+  // The DO record is established LATER (the recipient opted out again
+  // through the current route), then the sweep migrates the legacy row
+  // carrying the EARLIER original opt-out time.
+  const doIngestAt = Date.UTC(2026, 6, 15, 12, 0, 0);
+  const legacyOptedOutAt = Date.UTC(2026, 0, 15, 12, 0, 0);
+  await coordinator.record({ source: "opt_out_page", now: doIngestAt });
+  assert.equal(sql.row.suppressed_at, doIngestAt);
+  assert.equal(await ctx.storage.getAlarm(), reviewRetentionDeadlineMs(doIngestAt));
+
+  await coordinator.record({ source: "opt_out_page", now: legacyOptedOutAt });
+  // The anchor moved BACK to the original opt-out: the stored timestamp
+  // and the armed alarm both derive from it, so the metadata deadline
+  // is the legacy one — never the later ingest time + 13 months.
+  assert.equal(sql.row.suppressed_at, legacyOptedOutAt);
+  assert.equal(await ctx.storage.getAlarm(), reviewRetentionDeadlineMs(legacyOptedOutAt));
+  // Nothing else about the record changed: same source, still suppressed.
+  assert.equal(sql.row.source, "opt_out_page");
+  assert.equal(sql.row.suppressed, 1);
+  assert.deepEqual(await coordinator.check(), { suppressed: true });
+  // The deadline is still in the future, so the read left the record
+  // (and its anchor) untouched.
+  assert.equal(sql.row.suppressed_at, legacyOptedOutAt);
+});
+
+test("retention DO: an existing earlier anchor NEVER moves forward — later records and restarts leave it standing", async () => {
+  const sql = new FakeSuppressionSqlStorage();
+  const { coordinator, ctx } = newSuppressionDO(sql);
+  const early = Date.UTC(2026, 0, 15, 12, 0, 0);
+  const late = Date.UTC(2026, 6, 15, 12, 0, 0);
+  await coordinator.record({ source: "list_unsubscribe", now: early });
+  assert.equal(sql.row.suppressed_at, early);
+
+  // A later opt-out (any route) re-arms the SAME deadline; the stored
+  // anchor and the record's source stand untouched.
+  await coordinator.record({ source: "opt_out_page", now: late });
+  assert.equal(sql.row.suppressed_at, early);
+  assert.equal(sql.row.source, "list_unsubscribe");
+  assert.equal(await ctx.storage.getAlarm(), reviewRetentionDeadlineMs(early));
+
+  // Across an object restart the standing anchor is durable: a third
+  // record, later still, changes nothing and re-arms the same deadline.
+  const restarted = newSuppressionDO(sql);
+  await restarted.coordinator.record({ source: "opt_out_page", now: late + 30 * DAY });
+  assert.equal(sql.row.suppressed_at, early);
+  assert.equal(await restarted.ctx.storage.getAlarm(), reviewRetentionDeadlineMs(early));
+  assert.deepEqual(await restarted.coordinator.check(), { suppressed: true });
+});
+
+test("retention DO: an anchor already past its deadline at migration minimizes on the next touch — suppression stands throughout", async () => {
+  const ingestAt = Date.UTC(2026, 0, 15, 12, 0, 0);
+  const ancientOptedOutAt = Date.UTC(2024, 0, 15, 12, 0, 0);
+  const ancientDeadline = reviewRetentionDeadlineMs(ancientOptedOutAt);
+  assert.ok(ancientDeadline < Date.now(), "the fixture deadline must already be past");
+
+  // Path 1 — the read repair: check() after the migration minimizes the
+  // metadata and still answers suppressed.
+  const sqlA = new FakeSuppressionSqlStorage();
+  const a = newSuppressionDO(sqlA);
+  await a.coordinator.record({ source: "opt_out_page", now: ingestAt });
+  assert.deepEqual(await a.coordinator.check(), { suppressed: true });
+  await a.coordinator.record({ source: "opt_out_page", now: ancientOptedOutAt });
+  // The alarm is armed at the (already past) deadline itself — the
+  // design's immediate scheduling: setAlarm with a past time fires on
+  // the next touch rather than being clamped forward.
+  assert.equal(sqlA.row.suppressed_at, ancientOptedOutAt);
+  assert.equal(await a.ctx.storage.getAlarm(), ancientDeadline);
+  assert.deepEqual(await a.coordinator.check(), { suppressed: true });
+  assert.deepEqual(sqlA.row, { suppressed: 1, source: null, suppressed_at: null, updated_at: null });
+  assert.equal(await a.ctx.storage.getAlarm(), null); // consumed by the repair
+
+  // Path 2 — the alarm itself: same migration, minimization lands via
+  // alarm(), and suppression reads true before and after it fires.
+  const sqlB = new FakeSuppressionSqlStorage();
+  const b = newSuppressionDO(sqlB);
+  await b.coordinator.record({ source: "opt_out_page", now: ingestAt });
+  await b.coordinator.record({ source: "opt_out_page", now: ancientOptedOutAt });
+  assert.equal(await b.ctx.storage.getAlarm(), ancientDeadline);
+  await b.coordinator.alarm();
+  assert.deepEqual(sqlB.row, { suppressed: 1, source: null, suppressed_at: null, updated_at: null });
+  assert.deepEqual(await b.coordinator.check(), { suppressed: true });
 });
 
 // ---------------------------------------------------------------------------

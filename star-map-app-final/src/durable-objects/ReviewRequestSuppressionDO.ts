@@ -139,12 +139,28 @@ export class ReviewRequestSuppressionDO extends DurableObject {
         // resurrects metadata or restarts the retention clock.
         return { suppressed: true };
       }
-      // The EARLIEST outstanding opt-out owns the metadata deadline:
-      // the original row stands untouched; just (re-)arm its cleanup
-      // alarm in case a previous arm was lost.
-      await this.ctx.storage.setAlarm(
-        reviewRetentionDeadlineMs(existing.suppressed_at ?? input.now)
-      );
+      // The EARLIEST known opt-out owns the metadata deadline. The
+      // incoming opt-out time can PREDATE this record's own timestamp:
+      // the retention sweep migrates legacy rows with their ORIGINAL
+      // optedOutAt (S54-5B), and a legacy opt-out may be older than the
+      // moment this DO record was established (the recipient opted out
+      // again through the current route after the legacy one). The
+      // anchor is therefore the earlier of the stored timestamp and the
+      // incoming one: an earlier incoming time pulls the stored anchor
+      // BACK, a later one never moves it forward — arming the cleanup
+      // alarm from the later timestamp alone would retain the metadata
+      // past its original 13-month deadline.
+      const anchor = Math.min(existing.suppressed_at ?? input.now, input.now);
+      // Arm the cleanup obligation before mutating the retained
+      // metadata (the establish path's ordering below): an alarm armed
+      // for a write that then failed is a harmless no-op when it fires,
+      // because the handler rereads current state. When the anchor is
+      // already past its deadline the alarm fires immediately and the
+      // alarm()/check() paths minimize on that touch.
+      await this.ctx.storage.setAlarm(reviewRetentionDeadlineMs(anchor));
+      if (existing.suppressed_at !== null && anchor < existing.suppressed_at) {
+        this.writeRow({ ...existing, suppressed_at: anchor });
+      }
       return { suppressed: true };
     }
     // Establish the durable cleanup obligation BEFORE committing the
