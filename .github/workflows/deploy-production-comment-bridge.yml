@@ -28,7 +28,7 @@ jobs:
       github.event.issue.number == 213 &&
       github.event.action == 'created' &&
       github.event.issue.pull_request == null
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
       sha: ${{ steps.bridge.outputs.sha }}
