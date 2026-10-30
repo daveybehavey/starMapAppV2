@@ -418,6 +418,39 @@ export async function isReviewSuppressed(
 }
 
 // ---------------------------------------------------------------------------
+// Merged entitlement reads (PR #447 fix rounds 4 + 6)
+// ---------------------------------------------------------------------------
+
+/**
+ * The one merged entitlement read, shared by the tick and by the dispatch
+ * eligibility checker: raw session record first, then the
+ * settlement-metadata sidecar merged over it (record-present values win,
+ * allowlisted fields only — see applySettlementMetadata). Completed
+ * settlement metadata (customer email, gift provenance) may live ONLY in
+ * the sidecar since PR #447 fix round 4, so any consumer that reads the
+ * raw record alone classifies verify-born purchases gift_uncertain /
+ * missing-email forever. The sidecar read is failure-tolerant (a failed
+ * sidecar read degrades to the raw record, exactly as the tick's loader
+ * always behaved); a failed RECORD read propagates, so callers can tell
+ * an unavailable authority from definitive negative evidence. Read-only:
+ * this reader never writes.
+ */
+export function createMergedEntitlementReader(
+  getJson: <T>(key: string) => Promise<T | null>,
+): (sessionId: string) => Promise<StripeSessionEntitlement | null> {
+  return async (sessionId) => {
+    const record = await getJson<StripeSessionEntitlement>(
+      ENTITLEMENT_KV.stripeSession(sessionId),
+    );
+    if (!record) return record;
+    const metadata = await getJson<SettlementMetadataRecord>(
+      ENTITLEMENT_KV.settlementMetadata(sessionId),
+    ).catch(() => null);
+    return applySettlementMetadata(record, metadata);
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Dispatch eligibility checker (S54-5 design (b), revised by S54-5B)
 // ---------------------------------------------------------------------------
 
@@ -722,22 +755,15 @@ export async function runReviewRequestTick(deps: ReviewEngineDeps): Promise<Revi
   const { config, store } = deps;
   const summary = emptySummary("completed");
 
-  // Completed settlement metadata (customer email, gift provenance) may
-  // live in the settlement-metadata sidecar since PR #447 fix round 4 —
-  // entitlement reads merge it in, or verify-born records would classify
+  // Entitlement reads go through the shared merged reader (raw record +
+  // settlement-metadata sidecar), or verify-born records would classify
   // gift_uncertain / missing-email forever. The sidecar key is outside
   // the scanned DIGITAL_PREFIX population by construction.
+  const readEntitlement = createMergedEntitlementReader((key) => store.getJson(key));
   const loadEntitlement = async (
     key: string,
-  ): Promise<StripeSessionEntitlement | null> => {
-    const record = await store.getJson<StripeSessionEntitlement>(key);
-    if (!record) return record;
-    const sessionId = key.slice(DIGITAL_PREFIX.length);
-    const metadata = await store
-      .getJson<SettlementMetadataRecord>(ENTITLEMENT_KV.settlementMetadata(sessionId))
-      .catch(() => null);
-    return applySettlementMetadata(record, metadata);
-  };
+  ): Promise<StripeSessionEntitlement | null> =>
+    readEntitlement(key.slice(DIGITAL_PREFIX.length));
   const log =
     deps.log ??
     ((s: ReviewTickSummary) => {

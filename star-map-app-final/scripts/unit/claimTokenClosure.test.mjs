@@ -17,6 +17,16 @@
  * Negative control: every test here fails on adbc60fa — the helper wrote
  * the session record on mint, had no pointer concept, and returned the
  * caller hint without validating it against a governing token.
+ *
+ * Round 6 scope correction (G-dot condition 2): the lost-response tests
+ * above retry against FRESH visible storage, and their convergence claim
+ * holds only for that scope — a retry that OBSERVES the landed pointer
+ * converges on it. The two histories at the end of this file establish
+ * the wider truth: a retry whose pointer READ is stale, and two truly
+ * concurrent issuances, can each mint a SECOND claim record and move the
+ * pointer, superseding the earlier token. That token-availability
+ * residual is accepted and recorded in the PR body; no exactly-once
+ * token architecture is claimed.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -202,6 +212,97 @@ test("PASS pointer write applied but response lost: issuance rejects; retry conv
   const claimRecords = [...data.keys()].filter((key) => key.startsWith("claim:"));
   assert.equal(claimRecords.length, 1, "exactly one claim record exists — nothing duplicated");
   assert.equal(sessionPuts(SESSION_ID).length, 0);
+  assert.deepEqual(data.get(sessionKey(SESSION_ID)), before);
+});
+
+test("RESIDUAL stale pointer READ on retry: a second claim mints and supersedes (round 6)", async () => {
+  const before = seedSession();
+  // Attempt 1: the pointer write is applied but its response is lost, so
+  // no token is returned — the fresh-storage retry above converges from
+  // exactly this state. THIS retry's pointer read is STALE instead: it
+  // observes the pre-write snapshot (null), as a lagging KV read can.
+  const realSetDurable = kv.setDurable;
+  let lostOnce = false;
+  kv.setDurable = async (key, value) => {
+    if (key === pointerKey(SESSION_ID) && !lostOnce) {
+      lostOnce = true;
+      data.set(key, structuredClone(value)); // applied…
+      throw new Error("injected: response lost after apply"); // …unseen by the caller
+    }
+    return realSetDurable(key, value);
+  };
+  await assert.rejects(
+    () => getOrCreateClaimToken(SESSION_ID, structuredClone(before)),
+    /response lost after apply/,
+  );
+  kv.setDurable = realSetDurable;
+  const landedToken = data.get(pointerKey(SESSION_ID))?.token;
+  assert.ok(landedToken, "attempt 1's pointer write did land");
+
+  const realGet = kv.get;
+  let staleArmed = true;
+  kv.get = async (key) => {
+    if (staleArmed && key === pointerKey(SESSION_ID)) {
+      staleArmed = false;
+      return null; // the stale pre-write snapshot
+    }
+    return realGet(key);
+  };
+  const retry = await getOrCreateClaimToken(SESSION_ID, structuredClone(before));
+  kv.get = realGet;
+
+  // Honest outcome: the retry cannot see a governing token, so it mints.
+  // TWO claim records now exist and the pointer has MOVED — the landed
+  // token from the lost response is superseded and no longer governs.
+  assert.notEqual(retry, landedToken);
+  const claimRecords = [...data.keys()].filter((key) => key.startsWith("claim:"));
+  assert.equal(claimRecords.length, 2, "the stale-read retry minted a second claim record");
+  assert.equal(data.get(pointerKey(SESSION_ID)).token, retry, "the pointer moved to the retry's token");
+  // Later issuances with fresh reads converge on the retry's token.
+  const after = await getOrCreateClaimToken(SESSION_ID, structuredClone(before));
+  assert.equal(after, retry);
+  assert.equal(sessionPuts(SESSION_ID).length, 0, "still zero session-record writes");
+  assert.deepEqual(data.get(sessionKey(SESSION_ID)), before);
+});
+
+test("RESIDUAL concurrent issuance: both mint, exactly one governs (round 6)", async () => {
+  const before = seedSession();
+  // Force the race open deterministically: BOTH issuances complete
+  // their initial pointer read — observing the same pre-write snapshot
+  // (null) — before either is allowed to proceed to mint.
+  const realGet = kv.get;
+  let arrived = 0;
+  let release;
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  kv.get = async (key) => {
+    if (key === pointerKey(SESSION_ID)) {
+      arrived += 1;
+      if (arrived === 2) release();
+      await gate;
+      return null;
+    }
+    return realGet(key);
+  };
+  const [tokenA, tokenB] = await Promise.all([
+    getOrCreateClaimToken(SESSION_ID, structuredClone(before)),
+    getOrCreateClaimToken(SESSION_ID, structuredClone(before)),
+  ]);
+  kv.get = realGet;
+  assert.equal(arrived, 2, "both issuances really did read the pointer before either wrote");
+
+  // Honest outcome: two distinct tokens, two claim records, and the
+  // pointer names exactly one of them (last durable write wins). The
+  // other token's claim record persists but the token does not govern.
+  assert.notEqual(tokenA, tokenB);
+  const claimRecords = [...data.keys()].filter((key) => key.startsWith("claim:"));
+  assert.equal(claimRecords.length, 2, "both issuances minted claim records");
+  const governing = data.get(pointerKey(SESSION_ID))?.token;
+  assert.ok(governing === tokenA || governing === tokenB, "the pointer names one of the two");
+  const after = await getOrCreateClaimToken(SESSION_ID, structuredClone(before));
+  assert.equal(after, governing, "later issuances converge on the governing token");
+  assert.equal(sessionPuts(SESSION_ID).length, 0, "still zero session-record writes");
   assert.deepEqual(data.get(sessionKey(SESSION_ID)), before);
 });
 

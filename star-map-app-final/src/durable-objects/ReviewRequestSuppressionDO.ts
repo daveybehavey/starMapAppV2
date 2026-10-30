@@ -19,7 +19,10 @@
  */
 import { DurableObject } from "cloudflare:workers";
 import { createReviewLedgerClient } from "../lib/reviewRequestLedger";
-import { createReviewDispatchEligibilityChecker } from "../lib/reviewRequests";
+import {
+  createMergedEntitlementReader,
+  createReviewDispatchEligibilityChecker,
+} from "../lib/reviewRequests";
 import {
   executeReviewDispatch,
   isReviewSuppressionMinimized,
@@ -30,7 +33,6 @@ import {
   type ReviewSendInput,
   type ReviewSendResult,
 } from "../lib/reviewRequestSuppression";
-import { ENTITLEMENT_KV, type StripeSessionEntitlement } from "../lib/entitlementsStore";
 import { printOrderKey, type PrintOrderRecord } from "../lib/printOrders";
 import { sendResendEmail } from "../lib/resend";
 
@@ -217,11 +219,19 @@ export class ReviewRequestSuppressionDO extends DurableObject {
   async dispatch(input: { sessionId: string; claimId: string }): Promise<ReviewDispatchOutcome> {
     const ledger = createReviewLedgerClient(this.env);
     const kv = kvFromEnv(this.env);
+    // The entitlement reader is the engine's shared MERGED view (raw
+    // record + settlement-metadata sidecar), not the raw session record:
+    // since PR #447 fix round 4 a verify-first purchase may carry its
+    // gift flag / customer email ONLY in the sidecar, and a raw read
+    // here rejected such purchases gift_uncertain at dispatch even
+    // though the tick and the proof route (merged readers both) had
+    // already accepted them (PR #447 fix round 6, G-dot condition 1).
+    const readEntitlement = createMergedEntitlementReader(async (key) => {
+      if (!kv) throw new Error("eligibility_kv_unavailable");
+      return kv.get(key, "json");
+    });
     const checkEligibility = createReviewDispatchEligibilityChecker({
-      getEntitlement: async (sessionId) => {
-        if (!kv) throw new Error("eligibility_kv_unavailable");
-        return kv.get<StripeSessionEntitlement>(ENTITLEMENT_KV.stripeSession(sessionId), "json");
-      },
+      getEntitlement: readEntitlement,
       getPrintRecord: async (sessionId) => {
         if (!kv) throw new Error("eligibility_kv_unavailable");
         return kv.get<PrintOrderRecord>(printOrderKey(sessionId), "json");
