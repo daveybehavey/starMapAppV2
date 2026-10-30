@@ -1,6 +1,7 @@
 "use client";
 
 import type { PrintVariant } from "@/lib/printCatalog";
+import { SECOND_COPY_OFFER_COPY } from "@/components/SecondCopyOfferNote";
 import {
   getPrintDeliveryEtaLine,
   getPrintProductionEtaLine,
@@ -14,6 +15,17 @@ type Props = {
   compact?: boolean;
   showGiftLadder?: boolean;
   tone?: "dark" | "light";
+  /**
+   * Lever A presentation permission (S55-7), tied to the ACTUAL
+   * selected variant. Default off, and no caller passes it yet: this
+   * panel's callers are client components (editor, paywall, mobile),
+   * which cannot resolve the server second-copy flag — the permission
+   * must arrive as a server-resolved prop through those mounts before
+   * any caller may enable it. A caller must also only pass it when
+   * `sizingVariant` is the shopper's selected variant and that variant
+   * is second-copy eligible.
+   */
+  showSecondCopyOffer?: boolean;
 };
 
 export function PrintGiftDecisionPanel({
@@ -22,6 +34,7 @@ export function PrintGiftDecisionPanel({
   compact = false,
   showGiftLadder = true,
   tone = "dark",
+  showSecondCopyOffer = false,
 }: Props) {
   const deliveryLine = getPrintDeliveryEtaLine(printShippingCountry, sizingVariant);
   const isDark = tone === "dark";
@@ -37,6 +50,11 @@ export function PrintGiftDecisionPanel({
         <p className="mt-1">{getPrintProductionEtaLine()}</p>
         {deliveryLine ? <p className="mt-1">{deliveryLine}</p> : null}
       </div>
+      {showSecondCopyOffer ? (
+        <p className={`text-[11px] leading-relaxed ${isDark ? "text-amber-100/85" : "text-neutral-600"}`}>
+          {SECOND_COPY_OFFER_COPY}
+        </p>
+      ) : null}
       {showGiftLadder ? (
         <div className={boxClass}>
           <p className="font-semibold text-inherit">Gift format ladder</p>

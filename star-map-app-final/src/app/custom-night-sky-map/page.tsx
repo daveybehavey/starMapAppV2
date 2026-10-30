@@ -7,6 +7,8 @@ import { CUSTOM_NIGHT_SKY_MAP_FAQ_ITEMS } from "@/lib/landingFaqs";
 import OccasionLinks from "@/components/OccasionLinks";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
+import SecondCopyOfferNote from "@/components/SecondCopyOfferNote";
+import { resolveSecondCopyOfferVisibility } from "@/lib/secondCopyOffer";
 import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
@@ -35,6 +37,10 @@ export const metadata: Metadata = {
 };
 
 export default function CustomNightSkyMapPage() {
+  // Lever A note (S55-7): both print paths below (framed + unframed)
+  // are second-copy eligible and land in the editor, whose purchase
+  // panel exposes the choice — so one joint note covers both.
+  const showSecondCopyOffer = resolveSecondCopyOfferVisibility();
   return (
     <main className="mx-auto max-w-4xl px-4 pt-10 pb-12 sm:pt-14">
       <header className="space-y-3 text-center">
@@ -47,6 +53,10 @@ export default function CustomNightSkyMapPage() {
           <strong className="font-semibold text-amber-100">framed print</strong>, unframed poster, or HD digital download.
         </p>
       </header>
+
+      {showSecondCopyOffer ? (
+        <SecondCopyOfferNote className="text-center text-white/75" />
+      ) : null}
 
       <PreviewStartForm
         source="custom-night-sky-map"
@@ -119,6 +129,7 @@ export default function CustomNightSkyMapPage() {
       </section>
 
       <DeliveryFormatModule
+        showSecondCopyOffer={showSecondCopyOffer}
         heading="Preview first, then decide how you want it delivered"
         intro="A custom night sky map can become a framed gift, a lower-total unframed print, or HD digital delivery once the design is approved."
         sourcePrefix="custom-night-sky-format"

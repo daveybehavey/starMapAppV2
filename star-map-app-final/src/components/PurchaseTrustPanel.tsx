@@ -1,5 +1,6 @@
 import Link from "next/link";
 import CustomerPhotoStrip from "@/components/CustomerPhotoStrip";
+import { SECOND_COPY_OFFER_COPY } from "@/components/SecondCopyOfferNote";
 import { LOVE_IT_GUARANTEE_LINE } from "@/lib/loveItGuarantee";
 import {
   getPrintFreeShippingShortTag,
@@ -13,6 +14,13 @@ export function isDigitalClaim(text: string): boolean {
 }
 
 type PurchaseTrustPanelProps = {
+  /**
+   * Server-resolved Lever A presentation permission (S55-7). Default
+   * off: only call sites whose physical paths are verified second-copy
+   * eligible (poster, shop) pass it. Adds the offer as a list item in
+   * "Physical order confidence", after the shipping item.
+   */
+  showSecondCopyOffer?: boolean;
   heading: string;
   intro: string;
   leftTitle: string;
@@ -26,6 +34,7 @@ type PurchaseTrustPanelProps = {
 };
 
 export default function PurchaseTrustPanel({
+  showSecondCopyOffer = false,
   heading,
   intro,
   leftTitle,
@@ -74,6 +83,7 @@ export default function PurchaseTrustPanel({
           <h3 className="text-sm font-semibold text-midnight sm:text-base">Physical order confidence</h3>
           <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm text-neutral-800">
             <li>{getPrintFreeShippingShortTag() ?? shippingDisclosure}</li>
+            {showSecondCopyOffer ? <li>{SECOND_COPY_OFFER_COPY}</li> : null}
             <li>
               Framed print is the premium gift route; unframed<span data-digital-offer> and HD</span> stay available if a
               different path fits better.

@@ -56,17 +56,27 @@ export function qualifiesForPrintFreeShipping(merchandiseSubtotalCents: number):
   return merchandiseSubtotalCents >= threshold;
 }
 
+/**
+ * The threshold is a USD merchandise-subtotal figure in BOTH markets:
+ * checkout judges eligibility on the USD mirror subtotal (see the
+ * checkout route's promotionEstimateLineItemsUsd), never on a converted
+ * native-currency amount. The label therefore always formats the cents
+ * explicitly as USD — relabelling the USD figure with the display
+ * currency would state a threshold checkout does not use. The currency
+ * argument is retained for call-site compatibility and ignored.
+ */
 export function formatPrintFreeShippingThresholdLabel(currency = "usd"): string {
+  void currency;
   const threshold = getPrintFreeShippingThresholdCents();
   if (!threshold) return "";
-  return formatPrice(threshold, currency);
+  return formatPrice(threshold, "usd");
 }
 
 /** Marketing copy — must match checkout behavior. */
 export function getPrintFreeShippingOfferLine(currency = "usd"): string | null {
   const thresholdLabel = formatPrintFreeShippingThresholdLabel(currency);
   if (!thresholdLabel) return null;
-  return `Free standard shipping on print orders ${thresholdLabel}+ (merchandise before shipping).`;
+  return `Free standard shipping when your print order's USD merchandise subtotal is ${thresholdLabel} or more. Eligibility uses USD item values in both markets and excludes shipping.`;
 }
 
 /**
@@ -76,13 +86,20 @@ export function getPrintFreeShippingOfferLine(currency = "usd"): string | null {
 export function getPrintFreeShippingShortTag(currency = "usd"): string | null {
   const thresholdLabel = formatPrintFreeShippingThresholdLabel(currency);
   if (!thresholdLabel) return null;
-  return `Free shipping ${thresholdLabel}+`;
+  return `Free standard shipping · ${thresholdLabel}+ USD subtotal`;
 }
 
+/**
+ * Retired: the old hint named a hardcoded bundle amount in the display
+ * currency and claimed qualification unconditionally — the same
+ * USD-figure-in-another-currency trap the label fix removes, plus a
+ * claim no surface should make without the shopper's actual cart.
+ * Returns null; the one caller (the shipping policy page) already
+ * renders the hint only when non-null.
+ */
 export function getPrintFreeShippingQualifyingHint(currency = "usd"): string | null {
-  const thresholdLabel = formatPrintFreeShippingThresholdLabel(currency);
-  if (!thresholdLabel) return null;
-  return `Framed print + HD digital (${formatPrice(10_600, currency)}) qualifies for free shipping.`;
+  void currency;
+  return null;
 }
 
 export type PrintShippingCheckoutSelection = {
