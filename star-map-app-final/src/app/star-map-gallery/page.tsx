@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import FaqSchema from "@/components/FaqSchema";
+import { STAR_MAP_GALLERY_FAQ_ITEMS } from "@/lib/landingFaqs";
 import FramedProofSection from "@/components/FramedProofSection";
 import OccasionLinks from "@/components/OccasionLinks";
 import PreviewStartForm from "@/components/PreviewStartForm";
@@ -135,44 +136,15 @@ export default function StarMapGalleryPage() {
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-lg font-semibold text-midnight">Star map gallery FAQ</h2>
         <div className="space-y-4 text-sm text-neutral-800 sm:text-base">
-          <div>
-            <h3 className="font-semibold text-midnight">Are these real star maps?</h3>
-            <p>Yes. Every example is generated from real astronomical data for a specific date and location.</p>
-          </div>
-          <div>
-            <h3 className="font-semibold text-midnight">Can I recreate one of these exact maps?</h3>
-            <p>Yes. Enter the same date and location to get a matching sky, then customize the text and layout.</p>
-          </div>
-          <div>
-            <h3 className="font-semibold text-midnight">Do I get a print-ready file?</h3>
-            <p>Yes. After unlocking, you download a high-resolution file ready for printing or gifting.</p>
-          </div>
-          <div>
-            <h3 className="font-semibold text-midnight">Can I order a physical version from one of these examples?</h3>
-            <p>Yes. After preview, checkout supports both unframed print and framed print from the same design, with shipping shown before payment.</p>
-          </div>
+          {STAR_MAP_GALLERY_FAQ_ITEMS.map((item) => (
+            <div key={item.question}>
+              <h3 className="font-semibold text-midnight">{item.question}</h3>
+              <p>{item.answer}</p>
+            </div>
+          ))}
         </div>
       </section>
-      <FaqSchema
-        items={[
-          {
-            question: "Are these real star maps?",
-            answer: "Yes. Every example is generated from real astronomical data for a specific date and location.",
-          },
-          {
-            question: "Can I recreate one of these exact maps?",
-            answer: "Yes. Enter the same date and location to get a matching sky, then customize the text and layout.",
-          },
-          {
-            question: "Do I get a print-ready file?",
-            answer: "Yes. After unlocking, you download a high-resolution file ready for printing or gifting.",
-          },
-          {
-            question: "Can I order a physical version from one of these examples?",
-            answer: "Yes. After preview, checkout supports both unframed print and framed print from the same design, with shipping shown before payment.",
-          },
-        ]}
-      />
+      <FaqSchema items={STAR_MAP_GALLERY_FAQ_ITEMS} />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>
   );

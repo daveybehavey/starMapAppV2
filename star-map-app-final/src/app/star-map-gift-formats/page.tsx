@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import FaqSchema from "@/components/FaqSchema";
+import { STAR_MAP_GIFT_FORMATS_FAQ_ITEMS } from "@/lib/landingFaqs";
 import GiftFormatCtaLink from "@/components/GiftFormatCtaLink";
 import GiftFormatsTelemetry from "@/components/GiftFormatsTelemetry";
 import PhysicalProductGallerySection from "@/components/PhysicalProductGallerySection";
@@ -285,27 +286,12 @@ export default function StarMapGiftFormatsPage() {
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-midnight text-lg font-semibold">Gift formats FAQ</h2>
         <div className="space-y-4 text-sm text-neutral-800 sm:text-base">
-          <div>
-            <h3 className="text-midnight font-semibold">Can I choose format before designing?</h3>
-            <p>
-              Yes, but the recommended flow is preview first, then choose digital, framed, or unframed
-              checkout.
-            </p>
-          </div>
-          <div>
-            <h3 className="text-midnight font-semibold">Will you add more products?</h3>
-            <p>Yes. We add new products gradually, once they pass our quality checks.</p>
-          </div>
-          <div>
-            <h3 className="text-midnight font-semibold">Can I buy digital and print together?</h3>
-            <p>Yes. Print checkout can include the HD digital add-on so you have both immediately.</p>
-          </div>
-          <div>
-            <h3 className="text-midnight font-semibold">Where can I request a new product format?</h3>
-            <p>
-              Email support@starmapco.com with your request and country — requests help us decide what to add next.
-            </p>
-          </div>
+          {STAR_MAP_GIFT_FORMATS_FAQ_ITEMS.map((item) => (
+            <div key={item.question}>
+              <h3 className="text-midnight font-semibold">{item.question}</h3>
+              <p>{item.answer}</p>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -332,28 +318,7 @@ export default function StarMapGiftFormatsPage() {
         intro="Same approved map can stay digital, ship unframed, or arrive framed."
       />
 
-      <FaqSchema
-        items={[
-          {
-            question: "Can I choose format before designing?",
-            answer:
-              "Yes, but the recommended flow is preview first, then choose digital, framed, or unframed checkout.",
-          },
-          {
-            question: "Will you add more products?",
-            answer: "Yes. We add new products gradually, once they pass our quality checks.",
-          },
-          {
-            question: "Can I buy digital and print together?",
-            answer: "Yes. Print checkout can include the HD digital add-on so you have both immediately.",
-          },
-          {
-            question: "Where can I request a new product format?",
-            answer:
-              "Email support@starmapco.com with your request and country — requests help us decide what to add next.",
-          },
-        ]}
-      />
+      <FaqSchema items={STAR_MAP_GIFT_FORMATS_FAQ_ITEMS} />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>
   );

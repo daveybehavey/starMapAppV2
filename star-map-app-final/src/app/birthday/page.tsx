@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FaqSchema from "@/components/FaqSchema";
+import { BIRTHDAY_FAQ_ITEMS } from "@/lib/landingFaqs";
 import FramedProofSection from "@/components/FramedProofSection";
 import InstantHdHeroExtras from "@/components/InstantHdHeroExtras";
 import GiftFormatLadder from "@/components/GiftFormatLadder";
@@ -238,104 +239,15 @@ export default function BirthdayPage() {
       <section className="mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-midnight text-lg font-semibold">Birthday star map FAQ</h2>
         <div className="space-y-4 text-sm text-neutral-800 sm:text-base">
-          <div>
-            <h3 className="text-midnight font-semibold">Do I need the exact birth time?</h3>
-            <p>
-              The exact time makes the sky most precise, but you can still create a beautiful birthday star
-              map with just the date and location. If the birth time is unknown, the map defaults to midnight
-              and you can adjust.
-            </p>
-          </div>
-          <div>
-            <h3 className="text-midnight font-semibold">Is this good for milestone birthdays?</h3>
-            <p>
-              Yes. Birthday star maps fit 18th, 21st, 30th, 40th, 50th, and other milestone celebrations
-              because the sky on the day someone was born is truly one of a kind.
-            </p>
-          </div>
-          <div>
-            <h3 className="text-midnight font-semibold">
-              Can I use the hospital city as the birth location?
-            </h3>
-            <p>
-              Yes. Any city or town worldwide works. Enter the place where the person was born — or wherever
-              they were when the birthday moment happened — and the generator plots the accurate sky for that
-              location.
-            </p>
-          </div>
-          <div>
-            <h3 className="text-midnight font-semibold">Does it work for birthdays from any year?</h3>
-            <p>
-              Yes. The map generator works for any past date — whether the birthday is from last year or many
-              decades ago. You can capture the exact sky from someone's birth year just as accurately as a
-              recent date.
-            </p>
-          </div>
-          <div>
-            <h3 className="text-midnight font-semibold">Can I add a birthday message to the map?</h3>
-            <p>
-              Yes. The editor lets you add a title, the person's name, the date, and a short dedication line.
-              You can adjust fonts and styles to match the look you want.
-            </p>
-          </div>
-          <div>
-            <h3 className="text-midnight font-semibold">Is the preview free before I buy?</h3>
-            <p>
-              Yes. You can preview the birthday star map for free with no account required. The watermark is
-              removed only after you pay — so you can fine-tune the design before committing.
-            </p>
-          </div>
-          <div>
-            <h3 className="text-midnight font-semibold">
-              What gift format works best for a birthday star map?
-            </h3>
-            <p>
-              Framed print is the premium birthday gift route because it arrives ready to display. Unframed
-              lowers the total if the recipient already has a frame. HD digital is the fastest option
-              when you need the gift same-day.
-            </p>
-          </div>
+          {BIRTHDAY_FAQ_ITEMS.map((item) => (
+            <div key={item.question}>
+              <h3 className="text-midnight font-semibold">{item.question}</h3>
+              <p>{item.answer}</p>
+            </div>
+          ))}
         </div>
       </section>
-      <FaqSchema
-        items={[
-          {
-            question: "Do I need the exact birth time?",
-            answer:
-              "The exact time makes the sky most precise, but you can still create a beautiful birthday star map with just the date and location. If the birth time is unknown, the map defaults to midnight and you can adjust.",
-          },
-          {
-            question: "Is this good for milestone birthdays?",
-            answer:
-              "Yes. Birthday star maps fit 18th, 21st, 30th, 40th, 50th, and other milestone celebrations because the sky on the day someone was born is truly one of a kind.",
-          },
-          {
-            question: "Can I use the hospital city as the birth location?",
-            answer:
-              "Yes. Any city or town worldwide works. Enter the place where the person was born — or wherever they were when the birthday moment happened — and the generator plots the accurate sky for that location.",
-          },
-          {
-            question: "Does it work for birthdays from any year?",
-            answer:
-              "Yes. The map generator works for any past date — whether the birthday is from last year or many decades ago. You can capture the exact sky from someone's birth year just as accurately as a recent date.",
-          },
-          {
-            question: "Can I add a birthday message to the map?",
-            answer:
-              "Yes. The editor lets you add a title, the person's name, the date, and a short dedication line. You can adjust fonts and styles to match the look you want.",
-          },
-          {
-            question: "Is the preview free before I buy?",
-            answer:
-              "Yes. You can preview the birthday star map for free with no account required. The watermark is removed only after you pay — so you can fine-tune the design before committing.",
-          },
-          {
-            question: "What gift format works best for a birthday star map?",
-            answer:
-              "Framed print is the premium birthday gift route because it arrives ready to display. Unframed lowers the total if the recipient already has a frame. HD digital is the fastest option when you need the gift same-day.",
-          },
-        ]}
-      />
+      <FaqSchema items={BIRTHDAY_FAQ_ITEMS} />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>
   );

@@ -7,6 +7,7 @@ import InstantHdHeroExtras from "@/components/InstantHdHeroExtras";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import FramedProofSection from "@/components/FramedProofSection";
 import FaqSchema from "@/components/FaqSchema";
+import { NIGHT_SKY_MAP_GIFT_FAQ_ITEMS } from "@/lib/landingFaqs";
 import OccasionLinks from "@/components/OccasionLinks";
 import PhysicalProductGallerySection from "@/components/PhysicalProductGallerySection";
 import MoneyPagePriceAtGlance from "@/components/MoneyPagePriceAtGlance";
@@ -256,45 +257,12 @@ export default function NightSkyMapGiftPage() {
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-midnight text-lg font-semibold">Night sky map gift FAQ</h2>
         <div className="space-y-4 text-sm text-neutral-800 sm:text-base">
-          <div>
-            <h3 className="text-midnight font-semibold">What is a night sky map gift?</h3>
-            <p>
-              A night sky map gift is a custom star map showing the exact positions of stars and
-              constellations on a specific date and location — such as an anniversary, wedding, or birthday.
-              It is printed or delivered digitally and personalized with names, a date, and a message.
-            </p>
-          </div>
-          <div>
-            <h3 className="text-midnight font-semibold">How fast do I receive a night sky map gift?</h3>
-            <p>
-              The HD digital download is available right after payment — ideal for last-minute gifting.
-              Framed and unframed print routes show exact shipping timelines before you pay. All routes start
-              with a free preview.
-            </p>
-          </div>
-          <div>
-            <h3 className="text-midnight font-semibold">What makes this a personalized gift?</h3>
-            <p>
-              Every map is generated from the exact date, time, and location you provide, using real
-              astronomical data. The star positions are accurate to that specific moment — not a generic
-              illustration. You also add custom text like names, a date, and a short message.
-            </p>
-          </div>
-          <div>
-            <h3 className="text-midnight font-semibold">Is a night sky map a good anniversary gift?</h3>
-            <p>
-              Yes — an anniversary star map captures the exact sky from your shared date and place. Enter your
-              anniversary date and the location where you were together to generate that night. The framed
-              print route arrives ready to hang.
-            </p>
-          </div>
-          <div>
-            <h3 className="text-midnight font-semibold">Can I get a night sky map gift same-day?</h3>
-            <p>
-              Yes. The HD digital download is delivered right after payment and can be printed at home or
-              at a local print shop on the same day.
-            </p>
-          </div>
+          {NIGHT_SKY_MAP_GIFT_FAQ_ITEMS.map((item) => (
+            <div key={item.question}>
+              <h3 className="text-midnight font-semibold">{item.question}</h3>
+              <p>{item.answer}</p>
+            </div>
+          ))}
         </div>
       </section>
       <ProductSchema
@@ -303,35 +271,7 @@ export default function NightSkyMapGiftPage() {
         imageUrl={`${siteUrl}/custom-star-map-anniversary.webp`}
         offers={productOffers}
       />
-      <FaqSchema
-        items={[
-          {
-            question: "What is a night sky map gift?",
-            answer:
-              "A night sky map gift is a custom star map showing the exact positions of stars and constellations on a specific date and location — such as an anniversary, wedding, or birthday. It is printed or delivered digitally and personalized with names, a date, and a message.",
-          },
-          {
-            question: "How fast do I receive a night sky map gift?",
-            answer:
-              "The HD digital download is available right after payment — ideal for last-minute gifting. Framed and unframed print routes show exact shipping timelines before you pay. All routes start with a free preview.",
-          },
-          {
-            question: "What makes this a personalized gift?",
-            answer:
-              "Every map is generated from the exact date, time, and location you provide, using real astronomical data. The star positions are accurate to that specific moment — not a generic illustration. You also add custom text like names, a date, and a short message.",
-          },
-          {
-            question: "Is a night sky map a good anniversary gift?",
-            answer:
-              "Yes — an anniversary star map captures the exact sky from your shared date and place. Enter your anniversary date and the location where you were together to generate that night. The framed print route arrives ready to hang.",
-          },
-          {
-            question: "Can I get a night sky map gift same-day?",
-            answer:
-              "Yes. The HD digital download is delivered right after payment and can be printed at home or at a local print shop on the same day.",
-          },
-        ]}
-      />
+      <FaqSchema items={NIGHT_SKY_MAP_GIFT_FAQ_ITEMS} />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>
   );

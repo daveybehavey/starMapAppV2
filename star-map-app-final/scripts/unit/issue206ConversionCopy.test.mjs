@@ -1078,7 +1078,11 @@ test("seoOccasions date guidance is factual without cohort popularity wording", 
 });
 
 test("birthday and night-sky money pages no longer claim product popularity", () => {
-  const birthday = readSrc("app/birthday/page.tsx");
+  // #441: these pages' FAQ copy moved to the shared source at
+  // lib/landingFaqs.ts, so each page's guarded copy is the page source plus
+  // the shared FAQ module it renders.
+  const landingFaqs = readSrc("lib/landingFaqs.ts");
+  const birthday = readSrc("app/birthday/page.tsx") + landingFaqs;
   assert.doesNotMatch(birthday, PRODUCT_POPULARITY_PATTERN);
   assert.doesNotMatch(birthday, /Birthday star maps are popular/i);
   assert.doesNotMatch(birthday, MOST_COHORT_DECIDE_FINISH_PATTERN);
@@ -1086,7 +1090,7 @@ test("birthday and night-sky money pages no longer claim product popularity", ()
   assert.match(birthday, /Birthday star maps fit 18th/);
   assert.match(birthday, /Decisions get clearer once/);
 
-  const nightSky = readSrc("app/night-sky-map-gift/page.tsx");
+  const nightSky = readSrc("app/night-sky-map-gift/page.tsx") + landingFaqs;
   assert.doesNotMatch(nightSky, PRODUCT_POPULARITY_PATTERN);
   assert.doesNotMatch(nightSky, /most popular uses/i);
   assert.match(nightSky, /anniversary star map captures the exact sky/);
@@ -1103,7 +1107,7 @@ test("birthday and night-sky money pages no longer claim product popularity", ()
   assert.match(weddingRaw, /is a popular wedding choice/);
   assert.match(weddingRaw, /Wedding Star Map Gift \| The Sky Above Your Vows \| StarMapCo/);
 
-  const gift = readSrc("app/star-map-gift/page.tsx");
+  const gift = readSrc("app/star-map-gift/page.tsx") + landingFaqs;
   assert.doesNotMatch(gift, PRODUCT_POPULARITY_PATTERN);
   assert.doesNotMatch(gift, STRONGEST_PRODUCT_OPTION_PATTERN);
   assert.match(gift, /related gift formats/);

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FaqSchema from "@/components/FaqSchema";
+import { buildStarMapInFaqItems } from "@/lib/landingFaqs";
 import OccasionLinks from "@/components/OccasionLinks";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
@@ -105,6 +106,7 @@ export default async function StarMapLocationPage({ params }: PageProps) {
   const relatedLocations = [...sameRegion, ...sameCountry, ...otherLocations].slice(0, 4);
   const exampleLine = survivor.example.caption;
   const shippingDisclosure = getPrintShippingDisclosure();
+  const faqItems = buildStarMapInFaqItems(display, survivor.faq);
   const breadcrumbs = [
     { href: "/", label: "Home" },
     { href: "/star-map-in", label: "Star map in" },
@@ -316,37 +318,16 @@ export default async function StarMapLocationPage({ params }: PageProps) {
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-midnight text-lg font-semibold">Star map in {display} FAQ</h2>
         <div className="space-y-4 text-sm text-neutral-700 sm:text-base">
-          <div>
-            <h3 className="text-midnight font-semibold">Can I create a star map for {display}?</h3>
-            <p>Yes. Enter any date and time, and the map will render the accurate night sky for {display}.</p>
-          </div>
-          <div>
-            <h3 className="text-midnight font-semibold">Is the {display} star map print‑ready?</h3>
-            <p>The HD export is a high‑resolution PNG designed for printing and framing.</p>
-          </div>
-          <div>
-            <h3 className="text-midnight font-semibold">{survivor.faq.question}</h3>
-            <p>{survivor.faq.answer}</p>
-          </div>
+          {faqItems.map((item) => (
+            <div key={item.question}>
+              <h3 className="text-midnight font-semibold">{item.question}</h3>
+              <p>{item.answer}</p>
+            </div>
+          ))}
         </div>
       </section>
 
-      <FaqSchema
-        items={[
-          {
-            question: `Can I create a star map for ${display}?`,
-            answer: `Yes. Enter any date and time, and the map will render the accurate night sky for ${display}.`,
-          },
-          {
-            question: `Is the ${display} star map print‑ready?`,
-            answer: "The HD export is a high‑resolution PNG designed for printing and framing.",
-          },
-          {
-            question: survivor.faq.question,
-            answer: survivor.faq.answer,
-          },
-        ]}
-      />
+      <FaqSchema items={faqItems} />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>
   );
