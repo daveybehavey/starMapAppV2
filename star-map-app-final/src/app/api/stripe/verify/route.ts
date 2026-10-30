@@ -340,6 +340,7 @@ export async function GET(req: NextRequest) {
       buildInitialRecord: (receipt) => ({
         paid: true,
         settlementReceipt: receipt,
+        created: Date.now(),
         mapId,
         revoked: false,
         paymentIntentId,

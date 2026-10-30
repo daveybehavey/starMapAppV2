@@ -22,6 +22,14 @@
  * access-email completion pin fail against the pre-fix-round head
  * 642e2c70, where already_settled never invoked the caller's builder and
  * the webhook's access-email send was gated on !alreadyPaid alone.
+ *
+ * Fix round 2 (Codex P2): verify's builder also omitted `created`, the
+ * review engine's eligibility anchor (classifyDigitalEntitlement reads
+ * record.created via normalizeAnchorMs with NO fallback — a verify-born
+ * record classified permanently as invalid_anchor). The stamp is added
+ * at birth, NOT to the completion allowlist: the pin below fails on the
+ * 7bad1035 verify source, and the control test reproduces the exclusion
+ * on the exact pre-fix record shape.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -40,6 +48,9 @@ const {
   settleSessionPurchase,
   recordTransferRefusal,
 } = await import("../../src/lib/entitlementsStore.ts");
+const { classifyDigitalEntitlement, REVIEW_DIGITAL_DELAY_MS } = await import(
+  "../../src/lib/reviewRequests.ts",
+);
 
 const realKv = { get: kv.get, set: kv.set, setDurable: kv.setDurable };
 
@@ -398,11 +409,15 @@ const ORDER_METADATA = {
   referralOfferVariant: "gift",
 };
 
-/** Mirrors verify/route.ts: accounting/access fields, NO order metadata. */
+/**
+ * Mirrors verify/route.ts: accounting/access fields incl. the birth
+ * `created` anchor (fix round 2), NO order metadata.
+ */
 function verifyStyleBuilder(terms) {
   return (receipt) => ({
     paid: true,
     settlementReceipt: receipt,
+    created: Date.now(),
     mapId: "map_test",
     revoked: false,
     paymentIntentId: terms.paymentIntentId,
@@ -567,7 +582,7 @@ test("PASS completion reads only the allowlist: candidate accounting values are 
   assert.deepEqual(withoutCompletionFields(after), withoutCompletionFields(before));
   assert.equal(after.creditsTotal, 3);
   assert.equal(after.subscriptionActive, undefined);
-  assert.equal(after.created, undefined, "created is not completable");
+  assert.equal(after.created, before.created, "created is not completable — the birth stamp stands");
   assert.equal(after.customerEmail, ORDER_METADATA.customerEmail);
 });
 
@@ -601,6 +616,85 @@ test("PASS completion write failure is persistence_ambiguous and a retry complet
   assert.equal(retried.kind, "already_settled");
   assert.equal(retried.completedMetadataFields.length, SETTLEMENT_METADATA_COMPLETION_FIELDS.length);
   assert.equal(data.get(sessionKey(id)).customerEmail, ORDER_METADATA.customerEmail);
+});
+
+// ---------------------------------------------------------------------------
+// Fix round 2 (Codex P2): the review engine anchors digital eligibility on
+// record.created with no fallback. `created` is a BIRTH field: verify's
+// builder stamps it like the webhook's; completion deliberately cannot
+// supply it (not on the allowlist, candidate value never read — see the
+// hostile-candidate test above).
+// ---------------------------------------------------------------------------
+
+test("PASS verify-first record is review-classifiable on its birth anchor (fix round 2)", async () => {
+  const id = "cs_anchor_verify_first";
+  const terms = pack3Terms();
+  const before = Date.now();
+  const first = await settleWith(id, terms, verifyStyleBuilder(terms));
+  const after = Date.now();
+  assert.equal(first.kind, "initialized");
+  const born = data.get(sessionKey(id));
+  assert.equal(typeof born.created, "number", "verify-born record carries created");
+  assert.ok(
+    born.created >= before && born.created <= after,
+    "created is stamped at verify birth",
+  );
+
+  // The webhook lands second: completion fills the remaining eligibility
+  // fields (email, explicit non-gift provenance) but must not move the
+  // anchor — the webhook builder's own created stamp is never read.
+  const second = await settleWith(
+    id,
+    terms,
+    webhookStyleBuilder(terms, { ...ORDER_METADATA, isGift: false }),
+  );
+  assert.equal(second.kind, "already_settled");
+  const settled = data.get(sessionKey(id));
+  assert.equal(settled.created, born.created, "anchor survives completion untouched");
+  assert.notEqual(
+    settled.created,
+    1_700_000_000_000,
+    "the webhook builder's created was not adopted",
+  );
+
+  const classification = classifyDigitalEntitlement(
+    settled,
+    settled.created + REVIEW_DIGITAL_DELAY_MS,
+  );
+  assert.equal(classification.outcome, "due");
+  assert.equal(classification.kind, "digital");
+  assert.equal(classification.email, ORDER_METADATA.customerEmail);
+  assert.equal(classification.anchorAt, settled.created);
+});
+
+test("CONTROL pre-fix verify shape (no created) classifies as invalid_anchor", async () => {
+  const id = "cs_anchor_prefix_shape";
+  const terms = pack3Terms();
+  // The 7bad1035 verify builder: identical to today's except it never
+  // stamped `created`. Even after the webhook completes every allowlisted
+  // field, the record has no anchor and the exclusion is permanent —
+  // this is the defect fix round 2 removes at birth.
+  const preFixVerifyBuilder = (receipt) => {
+    const record = verifyStyleBuilder(terms)(receipt);
+    delete record.created;
+    return record;
+  };
+  await settleWith(id, terms, preFixVerifyBuilder);
+  await settleWith(
+    id,
+    terms,
+    webhookStyleBuilder(terms, { ...ORDER_METADATA, isGift: false }),
+  );
+  const settled = data.get(sessionKey(id));
+  assert.equal(
+    settled.created,
+    undefined,
+    "completion cannot supply the anchor (not allowlisted)",
+  );
+  assert.deepEqual(
+    classifyDigitalEntitlement(settled, Date.now() + REVIEW_DIGITAL_DELAY_MS),
+    { outcome: "excluded", kind: "digital", reason: "invalid_anchor" },
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -660,6 +754,26 @@ test("PIN webhook: settlement goes through the shared policy", () => {
   assert.ok(webhookSource.includes("settleSessionPurchase"));
   assert.ok(webhookSource.includes("settlement_reconciliation_required"));
   assert.ok(webhookSource.includes("settlement_persistence_ambiguous"));
+});
+
+test("PIN verify: birth record stamps created, the review anchor (fix round 2)", () => {
+  // classifyDigitalEntitlement anchors eligibility on record.created with
+  // no fallback; a verify-born record without it is permanently excluded
+  // as invalid_anchor. The stamp belongs at birth — `created` is NOT on
+  // the metadata-completion allowlist and completion never reads it.
+  // Fails on the 7bad1035 verify source, whose builder has no `created`.
+  const start = verifySource.indexOf("buildInitialRecord: (receipt) => ({");
+  assert.ok(start >= 0, "verify builder located");
+  const block = verifySource.slice(start, verifySource.indexOf("}),", start));
+  assert.ok(
+    block.includes("created: Date.now()"),
+    "verify builder must stamp created at birth, mirroring the webhook builder",
+  );
+  assert.equal(
+    SETTLEMENT_METADATA_COMPLETION_FIELDS.includes("created"),
+    false,
+    "created must stay off the completion allowlist (birth, not completion)",
+  );
 });
 
 test("PIN webhook: access-email send admits the metadata-completion path (Codex P1)", () => {
