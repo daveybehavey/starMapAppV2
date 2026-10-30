@@ -1,6 +1,7 @@
 /**
  * Canonical KV keys, entitlement types, and shared access evaluation.
  */
+import { createHash } from "node:crypto";
 import type { CheckoutOrderType, CheckoutPlan, PrintVariant } from "@/lib/pricing";
 import { PREMIUM_COOKIE_TTL_SECONDS } from "@/lib/premium";
 import {
@@ -13,6 +14,8 @@ import { kv } from "@/lib/kv";
 /** Stripe checkout session entitlement (source of truth for digital access). */
 export type StripeSessionEntitlement = {
   paid?: boolean;
+  /** Option B interim settlement receipt, embedded only on B-era initialization. */
+  settlementReceipt?: SettlementReceipt;
   revoked?: boolean;
   revokedAt?: number;
   reason?: string;
@@ -72,6 +75,15 @@ export const ENTITLEMENT_KV = {
   accessEmailDedupe: (sessionId: string) => `stripe:access_link:email:${sessionId}`,
   hdArchiveEmailDedupe: (sessionId: string) => `stripe:hd_archive:email:${sessionId}`,
   mapRecipe: (mapId: string) => `map:${mapId}`,
+  /** Option B settlement evidence (see the settlement section below). */
+  settlementIntent: (sessionId: string) => `stripe:settlement:intent:v1:${sessionId}`,
+  settlementAdoption: (sessionId: string) => `stripe:settlement:adoption:v1:${sessionId}`,
+  sessionRevoked: (sessionId: string) => `stripe:session:revoked:v1:${sessionId}`,
+  revocationUnresolved: (sessionId: string) => `stripe:revocation:unresolved:v1:${sessionId}`,
+  transferRefused: (sourceSessionId: string, destinationSessionId: string) =>
+    `stripe:transfer:refused:v1:${encodeURIComponent(sourceSessionId)}:${encodeURIComponent(destinationSessionId)}`,
+  accessEmailResult: (sessionId: string) => `stripe:access-email:result:v1:${sessionId}`,
+  recoveryResult: (sessionId: string) => `stripe:recovery:result:v1:${sessionId}`,
 } as const;
 
 export const ENTITLEMENT_R2 = {
@@ -110,4 +122,429 @@ export async function refreshEntitledMapRecipeTtl(mapId: string | undefined | nu
   const recipe = await kv.get<unknown>(ENTITLEMENT_KV.mapRecipe(id));
   if (!recipe) return;
   await kv.set(ENTITLEMENT_KV.mapRecipe(id), recipe, { ex: MAP_RECIPE_ENTITLED_TTL_SECONDS });
+}
+
+/**
+ * ---------------------------------------------------------------------------
+ * Option B interim settlement mitigation (M1-01 / M1-02 / M1-06).
+ *
+ * Implements the defensible KV-only scope of the S61-1 mapping of the S54-3
+ * fix designs, under G-dot's Option B ruling (KV interim mitigation; the DL-1
+ * EntitlementAuthority remains the final architecture target). This is a
+ * mitigation, NOT closure, and this module claims nothing stronger:
+ *
+ * - Stop OBSERVED settlement replay from reconstructing balances: when a paid
+ *   record (or its embedded settlement receipt) is visible, settlement
+ *   performs no session-record write at all.
+ * - Adopt already-paid legacy records (paid, no receipt) without touching
+ *   their balances or terms; adoption writes separate observation evidence
+ *   only, and an adoption-evidence failure never triggers reconstruction.
+ * - Ancillary results (access email, expired-checkout recovery) live in
+ *   separate records, never in whole-record session replacements.
+ * - Revocation gets durable side evidence and retryable incomplete work.
+ *
+ * RETAINED RESIDUALS (documented, not closed): KV offers no conditional
+ * write, transaction, or linearizable read (see lib/kv.ts). A stale absence
+ * can still admit initialization over a previously settled record, and the
+ * settlement/refund check-then-write race is retained: a refund that lands
+ * between the final evidence check and the session put can still be
+ * overwritten by that put. No aggregate cross-session exposure bound is
+ * demonstrated or claimed.
+ *
+ * Automatic cross-session carry-forward is DISABLED under B: no A->B credit
+ * copying, no debit-first/credit-first transfer, no KV-lock substitute.
+ * ---------------------------------------------------------------------------
+ */
+
+export const SETTLEMENT_SCHEMA_VERSION = 1;
+
+/** Policy version stamped on interim carry refusals. */
+export const CARRY_POLICY_VERSION = "B-interim-1";
+
+/** The single outcome for every automatic cross-session carry request under B. */
+export const CARRY_NOT_SUPPORTED_INTERIM = "carry_not_supported_interim" as const;
+
+/** Purchased terms for one checkout session, kept distinct from combined totals. */
+export type SettlementPurchaseTerms = {
+  plan?: CheckoutPlan | null;
+  /** Finite credits purchased by THIS session (0 for subscription / print-only). */
+  purchasedCredits: number;
+  orderType: CheckoutOrderType;
+  printVariant?: PrintVariant | null;
+  includesDigitalAddOn: boolean;
+  subscription: boolean;
+  amountTotal?: number | null;
+  currency?: string | null;
+  paymentIntentId?: string | null;
+  subscriptionId?: string | null;
+  customerId?: string | null;
+};
+
+export type SettlementReceipt = {
+  schemaVersion: number;
+  /** Stable purchase identity: one per checkout session, shared by both routes. */
+  operationId: string;
+  sessionId: string;
+  paymentIntentId: string | null;
+  purchaseTerms: SettlementPurchaseTerms;
+  initializedAt: number;
+};
+
+export type SettlementIntentRecord = {
+  schemaVersion: number;
+  operationId: string;
+  sessionId: string;
+  paymentIntentId: string | null;
+  purchaseTerms: SettlementPurchaseTerms;
+  recordedAt: number;
+};
+
+export type SettlementAdoptionRecord = {
+  schemaVersion: number;
+  operationId: string;
+  sessionId: string;
+  paymentIntentId: string | null;
+  observedTerms: {
+    plan?: CheckoutPlan | null;
+    orderType?: CheckoutOrderType | null;
+    includesDigitalAddOn?: boolean;
+    subscriptionActive?: boolean;
+  };
+  observedCreditsTotal?: number;
+  observedCreditsRemaining?: number;
+  /** sha256 over the observed accounting fields; observation evidence only. */
+  accountingFingerprint: string;
+  observedRevocation: boolean;
+  evidenceKind: "legacy_observation";
+  observedAt: number;
+};
+
+export type SessionRevocationEvidence = {
+  schemaVersion: number;
+  sessionId: string;
+  revoked: true;
+  reason: string;
+  paymentIntentId: string | null;
+  revokedAt: number;
+};
+
+export type RevocationUnresolvedRecord = {
+  schemaVersion: number;
+  sessionId: string;
+  reason: string;
+  associationState: "payment_intent_unresolved";
+  recordedAt: number;
+};
+
+export type TransferRefusalRecord = {
+  schemaVersion: number;
+  operationId: string;
+  sourceSessionId: string;
+  destinationSessionId: string;
+  outcome: typeof CARRY_NOT_SUPPORTED_INTERIM;
+  movedCredits: 0;
+  policyVersion: string;
+  recordedAt: number;
+};
+
+export type AccessEmailResultRecord = {
+  schemaVersion: number;
+  sessionId: string;
+  accessEmailSentAt?: number;
+  accessEmailProvider?: string;
+  accessEmailError?: string;
+  recordedAt: number;
+};
+
+export type RecoveryResultRecord = {
+  schemaVersion: number;
+  sessionId: string;
+  recoveryEmailSentAt?: number;
+  recoveryEmailProvider?: string;
+  recoveryEmailError?: string;
+  recoveryEmailErrorCode?: string;
+  recoveryEmailRetryability?: string;
+  expiredAt?: number;
+  recoveryUrl?: string | null;
+  recordedAt: number;
+};
+
+export const settlementOperationId = (sessionId: string) => `purchase:v1:${sessionId}`;
+export const transferOperationId = (sourceSessionId: string, destinationSessionId: string) =>
+  `transfer:v1:${sourceSessionId}:${destinationSessionId}`;
+
+const revokedPaymentIntentKey = (paymentIntentId: string) => `stripe:pi:revoked:${paymentIntentId}`;
+
+export type RevocationEvidenceResult = {
+  revoked: boolean;
+  reason?: string;
+};
+
+/**
+ * Read the durable revocation evidence that lives OUTSIDE the session record:
+ * the session side record and the payment-intent tombstone. Advisory only —
+ * KV reads can be stale or fall through to local fallback, so a negative
+ * result never proves no refund happened.
+ */
+export async function readSessionRevocationEvidence(
+  sessionId: string,
+  paymentIntentId?: string | null,
+): Promise<RevocationEvidenceResult> {
+  const side = await kv.get<SessionRevocationEvidence>(ENTITLEMENT_KV.sessionRevoked(sessionId));
+  if (side?.revoked) {
+    return { revoked: true, reason: side.reason ?? "refund" };
+  }
+  if (paymentIntentId) {
+    const tombstone = await kv.get<{ revoked?: boolean; reason?: string }>(
+      revokedPaymentIntentKey(paymentIntentId),
+    );
+    if (tombstone?.revoked) {
+      return { revoked: true, reason: tombstone.reason ?? "refund" };
+    }
+  }
+  return { revoked: false };
+}
+
+export type SettlementOutcome<T extends StripeSessionEntitlement = StripeSessionEntitlement> =
+  | { kind: "initialized"; record: T }
+  | { kind: "already_settled"; record: T }
+  | { kind: "revoked"; reason: string; sessionWasWritten: boolean }
+  | { kind: "reconciliation_required"; detail: string }
+  | { kind: "persistence_ambiguous"; detail: string };
+
+function purchaseTermsConflict(
+  receipt: SettlementReceipt,
+  terms: SettlementPurchaseTerms,
+  paymentIntentId: string | null,
+): boolean {
+  const prior = receipt.purchaseTerms;
+  if (
+    receipt.paymentIntentId &&
+    paymentIntentId &&
+    receipt.paymentIntentId !== paymentIntentId
+  ) {
+    return true;
+  }
+  return (
+    prior.purchasedCredits !== terms.purchasedCredits ||
+    prior.plan !== terms.plan ||
+    prior.orderType !== terms.orderType ||
+    prior.includesDigitalAddOn !== terms.includesDigitalAddOn ||
+    prior.subscription !== terms.subscription
+  );
+}
+
+/** Accounting-bearing state that must never be normalized into a fresh purchase. */
+function hasBlockingUnpaidState(record: StripeSessionEntitlement): boolean {
+  return (
+    record.settlementReceipt !== undefined ||
+    record.creditsTotal !== undefined ||
+    record.creditsRemaining !== undefined ||
+    record.lastConsumeToken !== undefined ||
+    record.lastConsumeRemaining !== undefined ||
+    record.lastCompensatedToken !== undefined ||
+    record.claimToken !== undefined ||
+    record.subscriptionActive === true ||
+    // Delivered recovery evidence on an unpaid record is anomalous next to
+    // a settlement; never erase it by normalization. (Recovery fields are
+    // carried by route-local record types, hence the structural read.)
+    (record as { recoveryEmailSentAt?: number }).recoveryEmailSentAt !== undefined
+  );
+}
+
+function adoptionFingerprint(record: StripeSessionEntitlement): string {
+  const canonical = JSON.stringify({
+    creditsTotal: record.creditsTotal ?? null,
+    creditsRemaining: record.creditsRemaining ?? null,
+    plan: record.plan ?? null,
+    subscriptionId: record.subscriptionId ?? null,
+    subscriptionActive: record.subscriptionActive ?? null,
+    lastConsumeToken: record.lastConsumeToken ?? null,
+    lastCompensatedToken: record.lastCompensatedToken ?? null,
+  });
+  return createHash("sha256").update(canonical).digest("hex");
+}
+
+/**
+ * Shared settlement policy for the webhook and verify routes (Option B).
+ *
+ * The caller supplies the purchase terms and a builder for the proposed
+ * initial record; the builder runs only when initialization is actually
+ * performed and receives the receipt to embed. Ancillary effects (mappings,
+ * analytics, email, TTL refresh) stay with the caller and must never replay
+ * the grant; this function is the only settlement balance writer.
+ *
+ * Outcomes:
+ * - "initialized": the session record was written exactly once by this call.
+ * - "already_settled": a paid record was visible; NO session write happened.
+ * - "revoked": visible revocation evidence forbids settlement.
+ *   `sessionWasWritten` is true only for the retained check-then-write race
+ *   (evidence appeared after the put); the caller must suppress any success
+ *   response/cookie and converge revocation.
+ * - "reconciliation_required": a visible record conflicts with the proposed
+ *   settlement or carries accounting state; nothing was written.
+ * - "persistence_ambiguous": a durable write failed; the grant may or may
+ *   not be visible. Never infer "not applied" — the caller must answer
+ *   pending/retryable, never definitive-unpaid and never another purchase.
+ */
+export async function settleSessionPurchase<T extends StripeSessionEntitlement>(
+  input: {
+    sessionId: string;
+    paymentIntentId: string | null;
+    purchaseTerms: SettlementPurchaseTerms;
+    buildInitialRecord: (receipt: SettlementReceipt) => T;
+  },
+): Promise<SettlementOutcome<T>> {
+  const { sessionId, paymentIntentId, purchaseTerms } = input;
+  const key = ENTITLEMENT_KV.stripeSession(sessionId);
+  const existing = await kv.get<T>(key);
+
+  if (existing?.revoked) {
+    return { kind: "revoked", reason: existing.reason ?? "revoked", sessionWasWritten: false };
+  }
+  const evidence = await readSessionRevocationEvidence(sessionId, paymentIntentId);
+  if (evidence.revoked) {
+    return { kind: "revoked", reason: evidence.reason ?? "refund", sessionWasWritten: false };
+  }
+
+  if (existing?.paid) {
+    const receipt = existing.settlementReceipt;
+    if (receipt && purchaseTermsConflict(receipt, purchaseTerms, paymentIntentId)) {
+      return {
+        kind: "reconciliation_required",
+        detail: "visible settlement receipt conflicts with proposed purchase terms",
+      };
+    }
+    if (!receipt) {
+      // Legacy adoption: observe only. A failed evidence write must never
+      // trigger session reconstruction, so failures are logged, not thrown.
+      const adoption: SettlementAdoptionRecord = {
+        schemaVersion: SETTLEMENT_SCHEMA_VERSION,
+        operationId: settlementOperationId(sessionId),
+        sessionId,
+        paymentIntentId: paymentIntentId ?? null,
+        observedTerms: {
+          plan: existing.plan ?? null,
+          orderType: existing.orderType ?? null,
+          includesDigitalAddOn: existing.includesDigitalAddOn,
+          subscriptionActive: existing.subscriptionActive,
+        },
+        observedCreditsTotal: existing.creditsTotal,
+        observedCreditsRemaining: existing.creditsRemaining,
+        accountingFingerprint: adoptionFingerprint(existing),
+        observedRevocation: false,
+        evidenceKind: "legacy_observation",
+        observedAt: Date.now(),
+      };
+      try {
+        await kv.setDurable(ENTITLEMENT_KV.settlementAdoption(sessionId), adoption);
+      } catch (error) {
+        console.warn("Settlement adoption evidence write failed (observation only)", {
+          sessionId,
+          error,
+        });
+      }
+    }
+    return { kind: "already_settled", record: existing };
+  }
+
+  if (existing && hasBlockingUnpaidState(existing)) {
+    return {
+      kind: "reconciliation_required",
+      detail: "unpaid record carries accounting state; refusing to normalize into a fresh purchase",
+    };
+  }
+
+  const receipt: SettlementReceipt = {
+    schemaVersion: SETTLEMENT_SCHEMA_VERSION,
+    operationId: settlementOperationId(sessionId),
+    sessionId,
+    paymentIntentId,
+    purchaseTerms,
+    initializedAt: Date.now(),
+  };
+
+  const intent: SettlementIntentRecord = {
+    schemaVersion: SETTLEMENT_SCHEMA_VERSION,
+    operationId: receipt.operationId,
+    sessionId,
+    paymentIntentId,
+    purchaseTerms,
+    recordedAt: Date.now(),
+  };
+  try {
+    await kv.setDurable(ENTITLEMENT_KV.settlementIntent(sessionId), intent);
+  } catch (error) {
+    console.warn("Settlement intent durable write failed", { sessionId, error });
+    return {
+      kind: "persistence_ambiguous",
+      detail: "settlement intent could not be durably recorded",
+    };
+  }
+
+  // Advisory re-check immediately before the put. This narrows the
+  // settlement/refund window; it does NOT close it (retained residual).
+  const prePutEvidence = await readSessionRevocationEvidence(sessionId, paymentIntentId);
+  if (prePutEvidence.revoked) {
+    return { kind: "revoked", reason: prePutEvidence.reason ?? "refund", sessionWasWritten: false };
+  }
+
+  const record = input.buildInitialRecord(receipt);
+  try {
+    await kv.set(key, record);
+  } catch (error) {
+    console.warn("Settlement session write failed after intent commit", { sessionId, error });
+    return {
+      kind: "persistence_ambiguous",
+      detail: "session initialization write failed after intent commit; grant visibility unknown",
+    };
+  }
+
+  // Post-write check: may suppress the caller's success response, but cannot
+  // undo any exposure already published by the put (retained residual).
+  const postWriteEvidence = await readSessionRevocationEvidence(sessionId, paymentIntentId);
+  if (postWriteEvidence.revoked) {
+    return {
+      kind: "revoked",
+      reason: postWriteEvidence.reason ?? "refund",
+      sessionWasWritten: true,
+    };
+  }
+
+  return { kind: "initialized", record };
+}
+
+/**
+ * Record an interim carry refusal. Audit evidence only: a failure to record
+ * must never cause movement, so failures are logged and swallowed. The
+ * refusal itself performs no balance read and no balance write — zero
+ * transfers in, zero transfers out.
+ */
+export async function recordTransferRefusal(input: {
+  sourceSessionId: string;
+  destinationSessionId: string;
+}): Promise<TransferRefusalRecord> {
+  const refusal: TransferRefusalRecord = {
+    schemaVersion: SETTLEMENT_SCHEMA_VERSION,
+    operationId: transferOperationId(input.sourceSessionId, input.destinationSessionId),
+    sourceSessionId: input.sourceSessionId,
+    destinationSessionId: input.destinationSessionId,
+    outcome: CARRY_NOT_SUPPORTED_INTERIM,
+    movedCredits: 0,
+    policyVersion: CARRY_POLICY_VERSION,
+    recordedAt: Date.now(),
+  };
+  try {
+    await kv.setDurable(
+      ENTITLEMENT_KV.transferRefused(input.sourceSessionId, input.destinationSessionId),
+      refusal,
+    );
+  } catch (error) {
+    console.warn("Transfer refusal evidence write failed (audit only; refusal stands)", {
+      sourceSessionId: input.sourceSessionId,
+      destinationSessionId: input.destinationSessionId,
+      error,
+    });
+  }
+  return refusal;
 }

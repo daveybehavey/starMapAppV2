@@ -78,6 +78,13 @@ import {
 import {
   ENTITLEMENT_KV,
   refreshEntitledMapRecipeTtl,
+  settleSessionPurchase,
+  SETTLEMENT_SCHEMA_VERSION,
+  type SessionRevocationEvidence,
+  type RevocationUnresolvedRecord,
+  type RecoveryResultRecord,
+  type SettlementPurchaseTerms,
+  type SettlementReceipt,
 } from "@/lib/entitlementsStore";
 import {
   evaluateCheckoutSessionDiscountFulfillment,
@@ -134,6 +141,8 @@ function createStripeCouponLookup(client: Stripe): CouponLookup {
 
 type SessionRecord = {
   paid?: boolean;
+  /** Option B interim settlement receipt (see lib/entitlementsStore.ts). */
+  settlementReceipt?: SettlementReceipt;
   created?: number;
   revoked?: boolean;
   revokedAt?: number;
@@ -352,7 +361,6 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
 
   const existing = await kv.get<SessionRecord>(sessionKey(session.id));
   if (existing?.revoked) return;
-  const alreadyPaid = existing?.paid === true;
 
   const orderType = getOrderType(session);
   const printVariant = getPrintVariant(session);
@@ -378,33 +386,76 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
     }
   }
 
-  await kv.set(sessionKey(session.id), {
-    paid: true,
-    created: Date.now(),
-    revoked: false,
-    mapId: resolveCheckoutMapIdFromStripeSession(session),
-    paymentIntentId,
+  // Option B interim settlement (S61-1 mapping of S54-3): the shared policy
+  // owns the ONLY settlement balance write. Observed replay performs no
+  // session write; legacy paid records are adopted by observation; ambiguous
+  // persistence throws so this event stays Stripe-retryable instead of
+  // finalizing on an unknown grant state.
+  const purchaseTerms: SettlementPurchaseTerms = {
+    plan: plan ?? null,
+    purchasedCredits: credits,
+    orderType,
+    printVariant: printVariant ?? null,
+    includesDigitalAddOn: hasDigitalAddOn,
+    subscription: plan === "subscription",
     amountTotal: session.amount_total ?? null,
     currency: session.currency ?? null,
-    plan,
-    creditsRemaining: credits || undefined,
-    creditsTotal: credits || undefined,
-    subscriptionId: subscriptionId ?? undefined,
-    subscriptionActive: plan === "subscription" ? true : undefined,
-    customerId: customerId ?? undefined,
-    customerEmail: customerEmail ?? undefined,
-    orderType,
-    printVariant,
-    includesDigitalAddOn: hasDigitalAddOn,
-    isGift: giftFlagForRecord(session.metadata),
-    printAssetId,
-    referralCode: normalizeReferralCode(session.metadata?.referral_code) ?? undefined,
-    referrerSessionId:
-      typeof session.metadata?.referrer_session_id === "string"
-        ? session.metadata.referrer_session_id.trim() || undefined
-        : undefined,
-    referralOfferVariant: getReferralOfferVariant(session),
+    paymentIntentId,
+    subscriptionId,
+    customerId,
+  };
+  const outcome = await settleSessionPurchase({
+    sessionId: session.id,
+    paymentIntentId,
+    purchaseTerms,
+    buildInitialRecord: (receipt) => ({
+      paid: true,
+      settlementReceipt: receipt,
+      created: Date.now(),
+      revoked: false,
+      mapId: resolveCheckoutMapIdFromStripeSession(session),
+      paymentIntentId,
+      amountTotal: session.amount_total ?? null,
+      currency: session.currency ?? null,
+      plan,
+      creditsRemaining: credits || undefined,
+      creditsTotal: credits || undefined,
+      subscriptionId: subscriptionId ?? undefined,
+      subscriptionActive: plan === "subscription" ? true : undefined,
+      customerId: customerId ?? undefined,
+      customerEmail: customerEmail ?? undefined,
+      orderType,
+      printVariant,
+      includesDigitalAddOn: hasDigitalAddOn,
+      isGift: giftFlagForRecord(session.metadata),
+      printAssetId,
+      referralCode: normalizeReferralCode(session.metadata?.referral_code) ?? undefined,
+      referrerSessionId:
+        typeof session.metadata?.referrer_session_id === "string"
+          ? session.metadata.referrer_session_id.trim() || undefined
+          : undefined,
+      referralOfferVariant: getReferralOfferVariant(session),
+    }),
   });
+  if (outcome.kind === "revoked") {
+    await markSessionRevoked(session.id, outcome.reason);
+    return;
+  }
+  if (outcome.kind === "reconciliation_required") {
+    console.error("Settlement reconciliation required; leaving event retryable", {
+      sessionId: session.id,
+      detail: outcome.detail,
+    });
+    throw new Error(`settlement_reconciliation_required: ${outcome.detail}`);
+  }
+  if (outcome.kind === "persistence_ambiguous") {
+    console.error("Settlement persistence ambiguous; leaving event retryable", {
+      sessionId: session.id,
+      detail: outcome.detail,
+    });
+    throw new Error(`settlement_persistence_ambiguous: ${outcome.detail}`);
+  }
+  const alreadyPaid = outcome.kind === "already_settled";
 
   if (customerEmail) {
     await upsertAccountLiteEmailSession({
@@ -472,11 +523,16 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
           sessionId: session.id,
           record: current,
         });
-        await kv.set(sessionKey(session.id), {
-          ...current,
+        // Option B: the email outcome lives in a separate record. The old
+        // { ...current } session replacement could overwrite a later
+        // consume, transfer, or revocation with this stale snapshot.
+        await kv.setDurable(ENTITLEMENT_KV.accessEmailResult(session.id), {
+          schemaVersion: SETTLEMENT_SCHEMA_VERSION,
+          sessionId: session.id,
           accessEmailSentAt: alertResult.delivered ? Date.now() : current.accessEmailSentAt,
           accessEmailProvider: alertResult.provider,
           accessEmailError: alertResult.delivered ? undefined : alertResult.error,
+          recordedAt: Date.now(),
         });
       }
     }
@@ -493,14 +549,48 @@ async function markSessionRevoked(sessionId: string, reason: string) {
     reason,
     subscriptionActive: false,
   });
+  // Option B: durable side evidence, separate from the mutable session
+  // snapshot, so a later stale session replacement cannot silently erase
+  // the only record of revocation. A failure here propagates: the caller's
+  // event stays retryable with incomplete revocation work rather than
+  // finalizing on partial evidence. (Reader enforcement of this evidence is
+  // partial — verify checks it; see the retained residuals in the PR body.)
+  const evidence: SessionRevocationEvidence = {
+    schemaVersion: SETTLEMENT_SCHEMA_VERSION,
+    sessionId,
+    revoked: true,
+    reason,
+    paymentIntentId: existing?.paymentIntentId ?? null,
+    revokedAt: Date.now(),
+  };
+  await kv.setDurable(ENTITLEMENT_KV.sessionRevoked(sessionId), evidence);
 }
 
 async function markPaymentIntentRevoked(paymentIntentId: string, reason: string) {
-  await kv.set(revokedPaymentIntentKey(paymentIntentId), {
+  // Option B: the tombstone is terminal revocation evidence — persist it
+  // durably so a failed write surfaces instead of degrading to local-only.
+  await kv.setDurable(revokedPaymentIntentKey(paymentIntentId), {
     revoked: true,
     revokedAt: Date.now(),
     reason,
   });
+}
+
+/**
+ * Option B: the session is revoked but its payment intent could not be
+ * resolved, so no tombstone could be written. Name the unresolved
+ * association work in a separate record instead of silently treating the
+ * revocation as complete; the record stays retryable/reconcilable.
+ */
+async function recordRevocationUnresolved(sessionId: string, reason: string) {
+  const record: RevocationUnresolvedRecord = {
+    schemaVersion: SETTLEMENT_SCHEMA_VERSION,
+    sessionId,
+    reason,
+    associationState: "payment_intent_unresolved",
+    recordedAt: Date.now(),
+  };
+  await kv.setDurable(ENTITLEMENT_KV.revocationUnresolved(sessionId), record);
 }
 
 async function resolveSessionIdFromPaymentIntent(paymentIntentId?: string | null) {
@@ -1433,37 +1523,25 @@ async function handleExpiredCheckoutSession(
   const plan = getPlan(hydrated, orderType, hasDigitalAddOn);
   const recoveryUrl = getRecoveryUrl(hydrated);
   const customerEmail = normalizeEmail(hydrated.customer_details?.email ?? hydrated.customer_email);
-  const customerId = typeof hydrated.customer === "string" ? hydrated.customer : null;
   const expiresAtMs =
     typeof hydrated.expires_at === "number" && Number.isFinite(hydrated.expires_at)
       ? hydrated.expires_at * 1000
       : eventCreated * 1000;
   const existing = await kv.get<SessionRecord>(sessionKey(hydrated.id));
-
-  // Used only for confirmed-delivery success writes. Non-delivered / already-delivered /
-  // observed-winner paths must not rewrite sessionKey (stale repairs erased provider).
-  const expiredBase: SessionRecord = {
-    paid: false,
-    created:
-      existing?.created ??
-      (typeof hydrated.created === "number" && Number.isFinite(hydrated.created) ? hydrated.created * 1000 : Date.now()),
-    mapId: resolveCheckoutMapIdFromStripeSession(hydrated),
-    paymentIntentId: typeof hydrated.payment_intent === "string" ? hydrated.payment_intent : existing?.paymentIntentId,
-    amountTotal: hydrated.amount_total ?? existing?.amountTotal ?? null,
-    currency: hydrated.currency ?? existing?.currency ?? null,
-    plan,
-    customerId: customerId ?? existing?.customerId ?? undefined,
-    customerEmail: customerEmail ?? existing?.customerEmail ?? undefined,
-    orderType,
-    printVariant,
-    includesDigitalAddOn: hasDigitalAddOn,
-    printAssetId: getPrintAssetId(hydrated) ?? existing?.printAssetId,
-    expiredAt: expiresAtMs,
-    recoveryUrl,
-  };
+  // Option B: confirmed recovery delivery is recorded in a separate record,
+  // never as a session-record replacement. The pre-B write spread a stale
+  // expired-session base (paid:false, with stale balances/revocation riding
+  // in the re-read record) over the entitlement record; the sidecar removes
+  // that writer entirely. Legacy session-carried recovery fields remain
+  // readable as a fallback.
+  const existingRecoveryResult = await kv.get<RecoveryResultRecord>(
+    ENTITLEMENT_KV.recoveryResult(hydrated.id),
+  );
+  const priorRecoverySentAt =
+    existing?.recoveryEmailSentAt ?? existingRecoveryResult?.recoveryEmailSentAt;
 
   let recoveryOutcome: CheckoutRecoveryRetryability | "skipped" | "already_delivered" = "skipped";
-  let wroteSuccessSession = false;
+  let wroteRecoveryResult = false;
 
   // Aggregate-only expired-session observability (no email/PII in logs).
   console.info("checkout_session_expired", {
@@ -1478,20 +1556,20 @@ async function handleExpiredCheckoutSession(
 
   if (recoveryUrl && customerEmail) {
     const deliveredMarker = await kv.get(checkoutRecoveryEmailDeliveredKey(hydrated.id));
-    const sessionAlreadySucceeded = Boolean(existing?.recoveryEmailSentAt);
+    const sessionAlreadySucceeded = priorRecoverySentAt != null;
     const markerPresent = isCheckoutRecoveryDeliveredMarker(deliveredMarker);
 
     if (sessionAlreadySucceeded || markerPresent) {
       recoveryOutcome = "already_delivered";
-      // Session success without marker: backfill marker only — never rewrite sessionKey.
+      // Success without marker: backfill marker only — never rewrite sessionKey.
       if (sessionAlreadySucceeded && !markerPresent) {
         await kv.set(
           checkoutRecoveryEmailDeliveredKey(hydrated.id),
-          { delivered: true as const, at: existing!.recoveryEmailSentAt as number },
+          { delivered: true as const, at: priorRecoverySentAt as number },
           { ex: CHECKOUT_RECOVERY_EMAIL_DELIVERED_TTL_SECONDS },
         );
       }
-      // Marker-only (session not yet visible): acknowledge without touching sessionKey.
+      // Marker-only (success not yet visible): acknowledge without touching sessionKey.
     } else {
       const attemptId = createCheckoutRecoveryAttemptId();
       // Bound Resend dispatch to event.created + safe window inside Resend's 24h
@@ -1530,14 +1608,19 @@ async function handleExpiredCheckoutSession(
         const deliveredFields = applyCheckoutRecoveryDeliveredSessionFields(alertResult);
         // Persist canonical success before the separate delivered marker, using a durable
         // write path that surfaces Cloudflare put failures (never local-only success).
-        const latest = (await kv.get<SessionRecord>(sessionKey(hydrated.id))) ?? existing ?? {};
+        // Option B: the success lands in the recovery sidecar record; the
+        // entitlement session record is not written by this handler at all.
+        const recoveryRecord: RecoveryResultRecord = {
+          schemaVersion: SETTLEMENT_SCHEMA_VERSION,
+          sessionId: hydrated.id,
+          ...deliveredFields,
+          expiredAt: expiresAtMs,
+          recoveryUrl,
+          recordedAt: Date.now(),
+        };
         try {
-          await kv.setDurable(sessionKey(hydrated.id), {
-            ...latest,
-            ...expiredBase,
-            ...deliveredFields,
-          });
-          wroteSuccessSession = true;
+          await kv.setDurable(ENTITLEMENT_KV.recoveryResult(hydrated.id), recoveryRecord);
+          wroteRecoveryResult = true;
           recoveryOutcome = alertResult.retryability;
           await kv.set(
             checkoutRecoveryEmailDeliveredKey(hydrated.id),
@@ -1545,8 +1628,8 @@ async function handleExpiredCheckoutSession(
             { ex: CHECKOUT_RECOVERY_EMAIL_DELIVERED_TTL_SECONDS },
           );
         } catch (error) {
-          console.warn("Checkout recovery durable session persistence failed; deferring marker", error);
-          // Attempt record already written. Do not write delivered marker or claim durable session.
+          console.warn("Checkout recovery durable result persistence failed; deferring marker", error);
+          // Attempt record already written. Do not write delivered marker or claim durable success.
           // Still inside safe window: leave retryable — Idempotency-Key prevents duplicate send.
           // A later Stripe redelivery past the deadline will suppress Resend (fail closed).
           recoveryOutcome = "retryable";
@@ -1555,14 +1638,19 @@ async function handleExpiredCheckoutSession(
         // Non-delivered: attempt record only. Acknowledge visible winner without session rewrite.
         const latestMarker = await kv.get(checkoutRecoveryEmailDeliveredKey(hydrated.id));
         const latestSession = await kv.get<SessionRecord>(sessionKey(hydrated.id));
-        const observedSessionSuccess = Boolean(latestSession?.recoveryEmailSentAt);
+        const latestRecoveryResult = await kv.get<RecoveryResultRecord>(
+          ENTITLEMENT_KV.recoveryResult(hydrated.id),
+        );
+        const observedSuccessAt =
+          latestSession?.recoveryEmailSentAt ?? latestRecoveryResult?.recoveryEmailSentAt;
+        const observedSessionSuccess = observedSuccessAt != null;
         const observedMarker = isCheckoutRecoveryDeliveredMarker(latestMarker);
         if (observedSessionSuccess || observedMarker) {
           recoveryOutcome = "already_delivered";
           if (observedSessionSuccess && !observedMarker) {
             await kv.set(
               checkoutRecoveryEmailDeliveredKey(hydrated.id),
-              { delivered: true as const, at: latestSession!.recoveryEmailSentAt as number },
+              { delivered: true as const, at: observedSuccessAt as number },
               { ex: CHECKOUT_RECOVERY_EMAIL_DELIVERED_TTL_SECONDS },
             );
           }
@@ -1583,9 +1671,13 @@ async function handleExpiredCheckoutSession(
   // Final visibility check for HTTP status (Workers KV is not a CAS).
   const finalMarker = await kv.get(checkoutRecoveryEmailDeliveredKey(hydrated.id));
   const finalSession = await kv.get<SessionRecord>(sessionKey(hydrated.id));
+  const finalRecoveryResult = await kv.get<RecoveryResultRecord>(
+    ENTITLEMENT_KV.recoveryResult(hydrated.id),
+  );
   const deliveryVisible =
-    wroteSuccessSession ||
+    wroteRecoveryResult ||
     Boolean(finalSession?.recoveryEmailSentAt) ||
+    Boolean(finalRecoveryResult?.recoveryEmailSentAt) ||
     isCheckoutRecoveryDeliveredMarker(finalMarker);
 
   const retryable =
@@ -1885,6 +1977,17 @@ export async function POST(req: Request) {
         (await resolveSessionIdFromCharge(charge.id));
       if (sessionId) {
         await markSessionRevoked(sessionId, "refund");
+        // M1-06 (Option B): resolve the payment intent even when a session
+        // mapping already exists — the tombstone must not be omitted on
+        // this branch, or a later settlement for the same PI can re-grant.
+        if (!paymentIntentId) {
+          paymentIntentId = await resolvePaymentIntentIdFromCharge(charge.id);
+        }
+        if (paymentIntentId) {
+          await markPaymentIntentRevoked(paymentIntentId, "refund");
+        } else {
+          await recordRevocationUnresolved(sessionId, "refund");
+        }
         const reversal = await reverseReferralReward(sessionId, "refund");
         if (reversal.deferred) referralReversalRetryable = true;
       } else {
@@ -1908,6 +2011,16 @@ export async function POST(req: Request) {
         (await resolveSessionIdFromCharge(chargeId));
       if (sessionId) {
         await markSessionRevoked(sessionId, "dispute");
+        // M1-06 (Option B): same tombstone completeness as the refund
+        // branch — resolve the PI even with a known session mapping.
+        if (!paymentIntentId && chargeId) {
+          paymentIntentId = await resolvePaymentIntentIdFromCharge(chargeId);
+        }
+        if (paymentIntentId) {
+          await markPaymentIntentRevoked(paymentIntentId, "dispute");
+        } else {
+          await recordRevocationUnresolved(sessionId, "dispute");
+        }
         const reversal = await reverseReferralReward(sessionId, "dispute");
         if (reversal.deferred) referralReversalRetryable = true;
       } else {
