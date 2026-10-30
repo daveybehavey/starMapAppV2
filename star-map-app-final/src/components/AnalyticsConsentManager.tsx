@@ -4,7 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import PosthogProvider from "@/components/PosthogProvider";
-import { ANALYTICS_STORAGE_KEY, flushPendingGa4Purchase, trackPageView } from "@/lib/analytics";
+import {
+  ANALYTICS_STORAGE_KEY,
+  applyGaConsentDefault,
+  applyGaConsentUpdate,
+  flushPendingGa4Purchase,
+  sendGaPageView,
+  trackProviderPageView,
+} from "@/lib/analytics";
 import { ensureGoogleTagManagerLoaded, getGtmContainerId } from "@/lib/googleTagManager";
 import { ensurePinterestTagLoaded, getPinterestTagId } from "@/lib/pinterestTag";
 
@@ -30,16 +37,29 @@ function readConsentState(): ConsentState {
   return "unset";
 }
 
+let gaBootstrapped = false;
+let gaConsentUpdateAppliedFor: ConsentState | null = null;
+
 function ensureGaBootstrap(gaId: string) {
   if (typeof window === "undefined") return;
-  const disableKey = `ga-disable-${gaId}` as const;
-  (window as unknown as Record<string, unknown>)[disableKey] = false;
+  if (gaBootstrapped) return;
+  gaBootstrapped = true;
 
   window.dataLayer = window.dataLayer || [];
   if (typeof window.gtag !== "function") {
     window.gtag = function gtag(...args: unknown[]) {
       window.dataLayer?.push(args as unknown as Record<string, unknown>);
     };
+  }
+
+  // Consent Mode v2: the denied default is queued before the tag configures
+  // so denied-state visits still send cookieless pings. A returning granted
+  // visitor's update is queued before config too, so their hits carry
+  // storage from the first event.
+  applyGaConsentDefault();
+  if (readConsentState() === "granted") {
+    applyGaConsentUpdate(true);
+    gaConsentUpdateAppliedFor = "granted";
   }
 
   const existingExternal = document.getElementById(GA_EXTERNAL_SCRIPT_ID);
@@ -59,10 +79,12 @@ function ensureGaBootstrap(gaId: string) {
   });
 }
 
-function disableGa(gaId: string) {
-  if (typeof window === "undefined") return;
-  const disableKey = `ga-disable-${gaId}` as const;
-  (window as unknown as Record<string, unknown>)[disableKey] = true;
+/** Push the consent update for a settled banner choice, once per state. */
+function syncGaConsentUpdate(state: ConsentState) {
+  if (state === "unset") return;
+  if (gaConsentUpdateAppliedFor === state) return;
+  applyGaConsentUpdate(state === "granted");
+  gaConsentUpdateAppliedFor = state;
 }
 
 export default function AnalyticsConsentManager() {
@@ -87,21 +109,41 @@ export default function AnalyticsConsentManager() {
 
   useEffect(() => {
     if (!gaId) return;
+    // gtag.js loads for every visitor; consent state rides on the Consent
+    // Mode default/update calls instead of gating the tag itself.
+    ensureGaBootstrap(gaId);
+    syncGaConsentUpdate(consent);
     if (consent === "granted") {
-      ensureGaBootstrap(gaId);
       flushPendingGa4Purchase();
-      return;
     }
-    disableGa(gaId);
   }, [consent, gaId]);
 
+  // Granted-only provider page views: the GTM dataLayer push and the
+  // Pinterest page view that the pre-Consent-Mode page-view helper used to
+  // emit on navigation. GTM and Pinterest stay granted-only, so this runs
+  // only for granted visitors — once per navigation, and once when a
+  // visitor grants mid-page (the landing page's provider view they would
+  // have had before). It emits NO GA event: the GA page_view comes solely
+  // from the all-states dispatcher below, so it can never double-fire.
   useEffect(() => {
     if (consent !== "granted") return;
-    if (!gaId && !gtmId && !pinterestTagId) return;
-    trackPageView({
+    if (!gtmId && !pinterestTagId) return;
+    trackProviderPageView({
       path: pathname || "/",
     });
-  }, [consent, gaId, gtmId, pinterestTagId, pathname]);
+  }, [consent, gtmId, pinterestTagId, pathname]);
+
+  // Single GA page-view dispatcher, for EVERY consent state. Under Consent
+  // Mode v2 the consent default/update queued by the bootstrap effect above
+  // (which runs first) governs storage; the page_view ping itself is what
+  // gives denied/unset visits aggregate visibility, so it must not be
+  // consent-gated. Deps exclude `consent` on purpose: a banner decision is
+  // not a navigation and must not re-fire a page view, and granted visitors
+  // get exactly one page_view per navigation from here alone.
+  useEffect(() => {
+    if (!gaId) return;
+    sendGaPageView(pathname || "/");
+  }, [gaId, pathname]);
 
   const updateConsent = (next: Exclude<ConsentState, "unset">) => {
     setConsent(next);
