@@ -3,6 +3,7 @@ import AccuracyAuthorityCard from "@/components/AccuracyAuthorityCard";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FaqSchema from "@/components/FaqSchema";
+import { buildStarMapGiftFaqItems } from "@/lib/landingFaqs";
 import FramedProofSection from "@/components/FramedProofSection";
 import GiftFormatRoadmapModule from "@/components/GiftFormatRoadmapModule";
 import OccasionLinks from "@/components/OccasionLinks";
@@ -54,6 +55,7 @@ export default function StarMapGiftPage() {
   const freeShippingShortTag = getPrintFreeShippingShortTag();
   // Secondary mentions use the short tag; the full disclosure is carried once by PurchaseTrustPanel.
   const shippingTagSentence = freeShippingShortTag ? `${freeShippingShortTag}.` : shippingDisclosure;
+  const faqItems = buildStarMapGiftFaqItems(shippingTagSentence);
 
   return (
     <main className="mx-auto max-w-4xl px-4 pt-10 pb-12 sm:pt-14">
@@ -268,73 +270,15 @@ export default function StarMapGiftPage() {
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-midnight text-lg font-semibold">Star map gift FAQ</h2>
         <div className="space-y-4 text-sm text-neutral-800 sm:text-base">
-          <div>
-            <h3 className="text-midnight font-semibold">Is a star map a good couples gift?</h3>
-            <p>
-              Yes. A custom star map gift is one of the most meaningful couples gifts because it captures the
-              exact sky from a shared moment.
-            </p>
-          </div>
-          <div>
-            <h3 className="text-midnight font-semibold">Can I add names and a date?</h3>
-            <p>
-              You can personalize the star map with names, a title, a date line, and a dedication before
-              approving the same design for framed print, unframed print, or HD digital delivery.
-            </p>
-          </div>
-          <div>
-            <h3 className="text-midnight font-semibold">Can I create it now and buy later?</h3>
-            <p>
-              Yes. You can design and preview first, then come back when you are ready to take the framed
-              route, the unframed route, or HD digital delivery.
-            </p>
-          </div>
-          <div>
-            <h3 className="text-midnight font-semibold">What if I need a quick gift turnaround?</h3>
-            <p>
-              For same-day gifting, HD digital delivery is the fastest route. If you want a shipped keepsake,
-              start with the framed preview and check shipping timing before payment.
-            </p>
-          </div>
-          <div>
-            <h3 className="text-midnight font-semibold">
-              Can I send a physical print instead of digital only?
-            </h3>
-            <p>
-              Yes. You can choose framed print or unframed print in checkout after previewing your design.{" "}
-              {shippingTagSentence}
-            </p>
-          </div>
+          {faqItems.map((item) => (
+            <div key={item.question}>
+              <h3 className="text-midnight font-semibold">{item.question}</h3>
+              <p>{item.answer}</p>
+            </div>
+          ))}
         </div>
       </section>
-      <FaqSchema
-        items={[
-          {
-            question: "Is a star map a good couples gift?",
-            answer:
-              "Yes. A custom star map gift is one of the most meaningful couples gifts because it captures the exact sky from a shared moment.",
-          },
-          {
-            question: "Can I add names and a date?",
-            answer:
-              "You can personalize the star map with names, a title, a date line, and a dedication before approving the same design for framed print, unframed print, or HD digital delivery.",
-          },
-          {
-            question: "Can I create it now and buy later?",
-            answer:
-              "Yes. You can design and preview first, then come back when you are ready to take the framed route, the unframed route, or HD digital delivery.",
-          },
-          {
-            question: "What if I need a quick gift turnaround?",
-            answer:
-              "For same-day gifting, HD digital delivery is the fastest route. If you want a shipped keepsake, start with the framed preview and check shipping timing before payment.",
-          },
-          {
-            question: "Can I send a physical print instead of digital only?",
-            answer: `Yes. You can choose framed print or unframed print in checkout after previewing your design. ${shippingTagSentence}`,
-          },
-        ]}
-      />
+      <FaqSchema items={faqItems} />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>
   );

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import FaqSchema from "@/components/FaqSchema";
+import { HOW_TO_PRINT_STAR_MAP_FAQ_ITEMS } from "@/lib/landingFaqs";
 import InstantHdHeroExtras from "@/components/InstantHdHeroExtras";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
@@ -182,28 +183,15 @@ export default function HowToPrintStarMapPage() {
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-lg font-semibold text-midnight">Star map printing FAQ</h2>
         <div className="space-y-4 text-sm text-neutral-800 sm:text-base">
-          <div>
-            <h3 className="font-semibold text-midnight">What file format do I get?</h3>
-            <p>Downloads are high‑resolution PNG files, ideal for local or online printing.</p>
-          </div>
-          <div>
-            <h3 className="font-semibold text-midnight">What size should I print?</h3>
-            <p>Common sizes include 11x14, 16x20, and 24x36. Choose the size that fits your frame and space.</p>
-          </div>
+          {HOW_TO_PRINT_STAR_MAP_FAQ_ITEMS.map((item) => (
+            <div key={item.question}>
+              <h3 className="font-semibold text-midnight">{item.question}</h3>
+              <p>{item.answer}</p>
+            </div>
+          ))}
         </div>
       </section>
-      <FaqSchema
-        items={[
-          {
-            question: "What file format do I get?",
-            answer: "Downloads are high‑resolution PNG files, ideal for local or online printing.",
-          },
-          {
-            question: "What size should I print?",
-            answer: "Common sizes include 11x14, 16x20, and 24x36. Choose the size that fits your frame and space.",
-          },
-        ]}
-      />
+      <FaqSchema items={HOW_TO_PRINT_STAR_MAP_FAQ_ITEMS} />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>
   );

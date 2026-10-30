@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import FaqSchema from "@/components/FaqSchema";
+import { CONSTELLATION_MAP_FAQ_ITEMS } from "@/lib/landingFaqs";
 import OccasionLinks from "@/components/OccasionLinks";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import StickyCtaBar from "@/components/StickyCtaBar";
@@ -130,36 +131,15 @@ export default function ConstellationMapPage() {
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-midnight text-lg font-semibold">Constellation map FAQ</h2>
         <div className="space-y-4 text-sm text-neutral-800 sm:text-base">
-          <div>
-            <h3 className="text-midnight font-semibold">What is a constellation map?</h3>
-            <p>
-              A constellation map is a star map that highlights the constellation layout for a specific date
-              and location, showing how the sky looked at that moment.
-            </p>
-          </div>
-          <div>
-            <h3 className="text-midnight font-semibold">Can I personalize a constellation map?</h3>
-            <p>
-              Yes. Add names, a date line, and a dedication, then choose styles and labels before deciding on
-              framed print, unframed print, or HD digital delivery.
-            </p>
-          </div>
+          {CONSTELLATION_MAP_FAQ_ITEMS.map((item) => (
+            <div key={item.question}>
+              <h3 className="text-midnight font-semibold">{item.question}</h3>
+              <p>{item.answer}</p>
+            </div>
+          ))}
         </div>
       </section>
-      <FaqSchema
-        items={[
-          {
-            question: "What is a constellation map?",
-            answer:
-              "A constellation map is a star map that highlights the constellation layout for a specific date and location, showing how the sky looked at that moment.",
-          },
-          {
-            question: "Can I personalize a constellation map?",
-            answer:
-              "Yes. Add names, a date line, and a dedication, then choose styles and labels before deciding on framed print, unframed print, or HD digital delivery.",
-          },
-        ]}
-      />
+      <FaqSchema items={CONSTELLATION_MAP_FAQ_ITEMS} />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>
   );

@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import FaqSchema from "@/components/FaqSchema";
+import { STAR_MAP_GIFT_IDEAS_FAQ_ITEMS } from "@/lib/landingFaqs";
 import FramedProofSection from "@/components/FramedProofSection";
 import MoneyPagePriceAtGlance from "@/components/MoneyPagePriceAtGlance";
 import OccasionLinks from "@/components/OccasionLinks";
@@ -290,35 +291,15 @@ export default function StarMapGiftIdeasPage() {
       <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-midnight text-lg font-semibold">Star map gift ideas FAQ</h2>
         <div className="space-y-4 text-sm text-neutral-800 sm:text-base">
-          <div>
-            <h3 className="text-midnight font-semibold">What date should I choose for a gift?</h3>
-            <p>
-              Pick the moment that means the most — the day you met, the proposal, a birth, or a shared trip.
-            </p>
-          </div>
-          <div>
-            <h3 className="text-midnight font-semibold">Can I preview the map before purchasing?</h3>
-            <p>
-              Yes. You can preview the exact sky for free, then choose framed print, unframed print, or HD
-              digital delivery.
-            </p>
-          </div>
+          {STAR_MAP_GIFT_IDEAS_FAQ_ITEMS.map((item) => (
+            <div key={item.question}>
+              <h3 className="text-midnight font-semibold">{item.question}</h3>
+              <p>{item.answer}</p>
+            </div>
+          ))}
         </div>
       </section>
-      <FaqSchema
-        items={[
-          {
-            question: "What date should I choose for a gift?",
-            answer:
-              "Pick the moment that means the most — the day you met, the proposal, a birth, or a shared trip.",
-          },
-          {
-            question: "Can I preview the map before purchasing?",
-            answer:
-              "Yes. You can preview the exact sky for free, then choose framed print, unframed print, or HD digital delivery.",
-          },
-        ]}
-      />
+      <FaqSchema items={STAR_MAP_GIFT_IDEAS_FAQ_ITEMS} />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>
   );
