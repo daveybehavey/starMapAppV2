@@ -456,6 +456,15 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
     throw new Error(`settlement_persistence_ambiguous: ${outcome.detail}`);
   }
   const alreadyPaid = outcome.kind === "already_settled";
+  // Fix round (Codex P1, PR #447): when this call completed settlement
+  // metadata onto a record another route initialized (verify-first), this
+  // webhook call is the first bearer of the customer's email — the record
+  // previously had none, so /api/account/access-email could only answer
+  // 409 missing_customer_email. The access-email send below keys off that
+  // completion as well as off first settlement; the dedupe counter still
+  // guarantees at most one send per session across all orderings.
+  const completedSettlementMetadata =
+    outcome.kind === "already_settled" && outcome.completedMetadataFields.length > 0;
 
   if (customerEmail) {
     await upsertAccountLiteEmailSession({
@@ -512,7 +521,12 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
     await refreshEntitledMapRecipeTtl(mapId);
   }
 
-  if (!alreadyPaid && customerEmail && hasDigitalEntitlementCandidate && isAccountAccessEmailConfigured()) {
+  if (
+    (!alreadyPaid || completedSettlementMetadata) &&
+    customerEmail &&
+    hasDigitalEntitlementCandidate &&
+    isAccountAccessEmailConfigured()
+  ) {
     const shouldSend = await kv.incr(accessEmailKey(session.id), 1, { ex: ACCESS_EMAIL_TTL_SECONDS });
     if (shouldSend === 1) {
       const current = await kv.get<SessionRecord>(sessionKey(session.id));

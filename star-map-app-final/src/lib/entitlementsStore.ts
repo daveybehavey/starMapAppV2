@@ -135,7 +135,11 @@ export async function refreshEntitledMapRecipeTtl(mapId: string | undefined | nu
  *
  * - Stop OBSERVED settlement replay from reconstructing balances: when a paid
  *   record (or its embedded settlement receipt) is visible, settlement
- *   performs no session-record write at all.
+ *   performs no accounting write at all. (Fix round, Codex P1 on PR #447:
+ *   the sole exception is absent-only metadata completion — see
+ *   SETTLEMENT_METADATA_COMPLETION_FIELDS — which fills non-accounting
+ *   fields one route's builder omits and the other's carries; it never
+ *   overwrites a present value and never touches accounting/access state.)
  * - Adopt already-paid legacy records (paid, no receipt) without touching
  *   their balances or terms; adoption writes separate observation evidence
  *   only, and an adoption-evidence failure never triggers reconstruction.
@@ -305,9 +309,60 @@ export async function readSessionRevocationEvidence(
   return { revoked: false };
 }
 
+/**
+ * The ONLY session-record fields a settlement call may complete on an
+ * already-settled record (fix round, Codex P1 on PR #447).
+ *
+ * The two settlement routes build different initial records from the same
+ * Stripe session: the webhook's builder carries the checkout metadata
+ * below; verify's builder omits it. When verify settles first, the record
+ * is born without these fields, and the webhook's later settlement —
+ * already_settled, its builder never invoked — could never backfill them:
+ * /api/account/access-email then answers 409 missing_customer_email
+ * forever, the review engine reads no gift provenance, and referral
+ * status/link readers see no attribution.
+ *
+ * Completion is deliberately narrow:
+ * - ONLY these fields, and only when ABSENT on the existing record
+ *   (undefined, null, or an empty string — an explicit `isGift: false`
+ *   IS a present value: gift provenance the review engine fails closed
+ *   without). A present value is never overwritten.
+ * - Accounting/access fields are structurally out of reach: paid,
+ *   settlementReceipt, creditsTotal/creditsRemaining, subscription
+ *   state, revocation fields, purchase terms, and `created` are not on
+ *   this list, and the candidate's values for them are never read.
+ * - Every allowlisted field is derived from the caller's own Stripe
+ *   session (record-external), never from the settlement receipt the
+ *   builder is handed, so the placeholder receipt used for legacy
+ *   records on this path cannot inject values.
+ */
+export const SETTLEMENT_METADATA_COMPLETION_FIELDS = [
+  "customerEmail",
+  "isGift",
+  "printAssetId",
+  "referralCode",
+  "referrerSessionId",
+  "referralOfferVariant",
+] as const;
+
+export type SettlementMetadataCompletionField =
+  (typeof SETTLEMENT_METADATA_COMPLETION_FIELDS)[number];
+
+/** Absence for completion purposes: no usable value is recorded. */
+function isSettlementMetadataValuePresent(value: unknown): boolean {
+  if (value === undefined || value === null) return false;
+  if (typeof value === "string" && value.trim() === "") return false;
+  return true;
+}
+
 export type SettlementOutcome<T extends StripeSessionEntitlement = StripeSessionEntitlement> =
   | { kind: "initialized"; record: T }
-  | { kind: "already_settled"; record: T }
+  | {
+      kind: "already_settled";
+      record: T;
+      /** Allowlisted metadata fields this call filled in (usually empty). */
+      completedMetadataFields: readonly SettlementMetadataCompletionField[];
+    }
   | { kind: "revoked"; reason: string; sessionWasWritten: boolean }
   | { kind: "reconciliation_required"; detail: string }
   | { kind: "persistence_ambiguous"; detail: string };
@@ -376,7 +431,14 @@ function adoptionFingerprint(record: StripeSessionEntitlement): string {
  *
  * Outcomes:
  * - "initialized": the session record was written exactly once by this call.
- * - "already_settled": a paid record was visible; NO session write happened.
+ * - "already_settled": a paid record was visible; NO accounting write
+ *   happened. The only write this path may perform is metadata completion
+ *   (SETTLEMENT_METADATA_COMPLETION_FIELDS): allowlisted fields absent on
+ *   the visible record are filled from the caller's own proposed record;
+ *   when nothing is missing, no write happens at all. A completion write
+ *   is durable and carries the same advisory revocation checks as the
+ *   initialization put (before and after); its failure is
+ *   "persistence_ambiguous", never a silent success.
  * - "revoked": visible revocation evidence forbids settlement.
  *   `sessionWasWritten` is true only for the retained check-then-write race
  *   (evidence appeared after the put); the caller must suppress any success
@@ -445,7 +507,75 @@ export async function settleSessionPurchase<T extends StripeSessionEntitlement>(
         });
       }
     }
-    return { kind: "already_settled", record: existing };
+
+    // Metadata completion (fix round, Codex P1 on PR #447): the visible
+    // record may have been initialized by the OTHER route, whose builder
+    // omits the allowlisted checkout-metadata fields this caller's builder
+    // carries. Fill only fields that are absent, only from the allowlist;
+    // accounting/access values in the candidate are never read, so
+    // balances, terms, and the embedded receipt stay byte-identical. The
+    // builder is invoked with the visible receipt when there is one;
+    // for legacy records it receives a placeholder identity — inert,
+    // because completion reads only the allowlisted fields, all of which
+    // the builders derive from their own Stripe session, and the
+    // candidate's settlementReceipt is never copied.
+    const candidate = input.buildInitialRecord(
+      receipt ?? {
+        schemaVersion: SETTLEMENT_SCHEMA_VERSION,
+        operationId: settlementOperationId(sessionId),
+        sessionId,
+        paymentIntentId,
+        purchaseTerms,
+        initializedAt: 0,
+      },
+    );
+    const existingFields = existing as unknown as Record<string, unknown>;
+    const candidateFields = candidate as unknown as Record<string, unknown>;
+    const merged: T = { ...existing };
+    const mergedFields = merged as unknown as Record<string, unknown>;
+    const completedMetadataFields: SettlementMetadataCompletionField[] = [];
+    for (const field of SETTLEMENT_METADATA_COMPLETION_FIELDS) {
+      if (isSettlementMetadataValuePresent(existingFields[field])) continue;
+      const value = candidateFields[field];
+      if (!isSettlementMetadataValuePresent(value)) continue;
+      mergedFields[field] = value;
+      completedMetadataFields.push(field);
+    }
+    if (completedMetadataFields.length === 0) {
+      // Observed replay with nothing to complete performs no write.
+      return { kind: "already_settled", record: existing, completedMetadataFields };
+    }
+
+    // The completion put is a session write, so it carries the same
+    // advisory revocation discipline as the initialization put: re-check
+    // evidence immediately before and again after. This narrows, and
+    // does not close, the retained check-then-write residual.
+    const preCompletionEvidence = await readSessionRevocationEvidence(sessionId, paymentIntentId);
+    if (preCompletionEvidence.revoked) {
+      return {
+        kind: "revoked",
+        reason: preCompletionEvidence.reason ?? "refund",
+        sessionWasWritten: false,
+      };
+    }
+    try {
+      await kv.setDurable(key, merged);
+    } catch (error) {
+      console.warn("Settlement metadata completion write failed", { sessionId, error });
+      return {
+        kind: "persistence_ambiguous",
+        detail: "settlement metadata completion write failed; completion visibility unknown",
+      };
+    }
+    const postCompletionEvidence = await readSessionRevocationEvidence(sessionId, paymentIntentId);
+    if (postCompletionEvidence.revoked) {
+      return {
+        kind: "revoked",
+        reason: postCompletionEvidence.reason ?? "refund",
+        sessionWasWritten: true,
+      };
+    }
+    return { kind: "already_settled", record: merged, completedMetadataFields };
   }
 
   if (existing && hasBlockingUnpaidState(existing)) {

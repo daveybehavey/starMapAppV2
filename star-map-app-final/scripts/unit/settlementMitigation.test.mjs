@@ -17,6 +17,11 @@
  * `{ ...current, accessEmailSentAt }` into the session record and spread
  * `...expiredBase` over it; markPaymentIntentRevoked used ordinary kv.set),
  * and the store tests fail against a settlement that rewrites on replay.
+ *
+ * Fix round (Codex P1): the metadata-completion tests and the
+ * access-email completion pin fail against the pre-fix-round head
+ * 642e2c70, where already_settled never invoked the caller's builder and
+ * the webhook's access-email send was gated on !alreadyPaid alone.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -31,6 +36,7 @@ const { kv } = await import("../../src/lib/kv.ts");
 const {
   ENTITLEMENT_KV,
   CARRY_NOT_SUPPORTED_INTERIM,
+  SETTLEMENT_METADATA_COMPLETION_FIELDS,
   settleSessionPurchase,
   recordTransferRefusal,
 } = await import("../../src/lib/entitlementsStore.ts");
@@ -375,6 +381,229 @@ test("PASS refusal evidence failure never causes movement", async () => {
 });
 
 // ---------------------------------------------------------------------------
+// Metadata completion (fix round, Codex P1 on PR #447): verify's builder
+// omits the webhook-only checkout metadata, so a verify-first record is
+// born without it and the webhook's already_settled return previously
+// never backfilled it. The builders below mirror the two routes' real
+// buildInitialRecord shapes. Every completion test here fails against the
+// pre-fix-round head 642e2c70 (already_settled performed no completion).
+// ---------------------------------------------------------------------------
+
+const ORDER_METADATA = {
+  customerEmail: "buyer@example.com",
+  isGift: true,
+  printAssetId: "asset_0123456789abcdef0123",
+  referralCode: "FRIEND10",
+  referrerSessionId: "cs_referrer_seed",
+  referralOfferVariant: "gift",
+};
+
+/** Mirrors verify/route.ts: accounting/access fields, NO order metadata. */
+function verifyStyleBuilder(terms) {
+  return (receipt) => ({
+    paid: true,
+    settlementReceipt: receipt,
+    mapId: "map_test",
+    revoked: false,
+    paymentIntentId: terms.paymentIntentId,
+    amountTotal: terms.amountTotal,
+    currency: terms.currency,
+    plan: terms.plan,
+    creditsRemaining: terms.purchasedCredits || undefined,
+    creditsTotal: terms.purchasedCredits || undefined,
+    subscriptionId: terms.subscriptionId ?? undefined,
+    subscriptionActive: terms.subscription ? true : undefined,
+    customerId: terms.customerId ?? undefined,
+    orderType: terms.orderType,
+    printVariant: terms.printVariant ?? undefined,
+    includesDigitalAddOn: terms.includesDigitalAddOn,
+  });
+}
+
+/** Mirrors webhook/route.ts: the verify fields plus the order metadata. */
+function webhookStyleBuilder(terms, metadata = ORDER_METADATA) {
+  const base = verifyStyleBuilder(terms);
+  return (receipt) => ({
+    ...base(receipt),
+    created: 1_700_000_000_000,
+    customerEmail: metadata.customerEmail,
+    isGift: metadata.isGift,
+    printAssetId: metadata.printAssetId,
+    referralCode: metadata.referralCode,
+    referrerSessionId: metadata.referrerSessionId,
+    referralOfferVariant: metadata.referralOfferVariant,
+  });
+}
+
+function settleWith(sessionId, terms, builder) {
+  return settleSessionPurchase({
+    sessionId,
+    paymentIntentId: terms.paymentIntentId,
+    purchaseTerms: terms,
+    buildInitialRecord: builder,
+  });
+}
+
+function withoutCompletionFields(record) {
+  const copy = { ...record };
+  for (const field of SETTLEMENT_METADATA_COMPLETION_FIELDS) delete copy[field];
+  return copy;
+}
+
+test("PASS completion: verify-first record is completed by the webhook call (Codex P1)", async () => {
+  const id = "cs_complete_ordering";
+  const terms = pack3Terms();
+
+  const first = await settleWith(id, terms, verifyStyleBuilder(terms));
+  assert.equal(first.kind, "initialized");
+  const born = data.get(sessionKey(id));
+  for (const field of SETTLEMENT_METADATA_COMPLETION_FIELDS) {
+    assert.equal(born[field], undefined, `verify-born record must lack ${field}`);
+  }
+
+  // A credit is consumed after settlement; completion must not restore it.
+  data.set(sessionKey(id), { ...born, creditsRemaining: 1 });
+  const before = structuredClone(data.get(sessionKey(id)));
+  putLog = [];
+
+  const second = await settleWith(id, terms, webhookStyleBuilder(terms));
+  assert.equal(second.kind, "already_settled");
+  assert.deepEqual(
+    [...second.completedMetadataFields].sort(),
+    [...SETTLEMENT_METADATA_COMPLETION_FIELDS].sort(),
+    "all six allowlisted fields completed",
+  );
+  assert.equal(sessionPuts(id).length, 1, "exactly one completion write");
+
+  const after = data.get(sessionKey(id));
+  for (const field of SETTLEMENT_METADATA_COMPLETION_FIELDS) {
+    assert.deepEqual(after[field], ORDER_METADATA[field], `${field} completed`);
+  }
+  assert.deepEqual(
+    withoutCompletionFields(after),
+    withoutCompletionFields(before),
+    "balances, terms, receipt, and every non-allowlisted field byte-identical",
+  );
+  assert.equal(after.creditsRemaining, 1, "spent balance is not reconstructed");
+  assert.deepEqual(after.settlementReceipt, before.settlementReceipt);
+});
+
+test("PASS completion: webhook-first ordering — verify changes nothing afterwards", async () => {
+  const id = "cs_complete_webhook_first";
+  const terms = pack3Terms();
+  const first = await settleWith(id, terms, webhookStyleBuilder(terms));
+  assert.equal(first.kind, "initialized");
+  const snapshot = structuredClone(data.get(sessionKey(id)));
+  putLog = [];
+
+  const second = await settleWith(id, terms, verifyStyleBuilder(terms));
+  assert.equal(second.kind, "already_settled");
+  assert.deepEqual(second.completedMetadataFields, []);
+  assert.equal(sessionPuts(id).length, 0, "verify replay on a complete record writes nothing");
+  assert.deepEqual(data.get(sessionKey(id)), snapshot);
+});
+
+test("PASS completion never overwrites a value that is already present", async () => {
+  const id = "cs_complete_no_overwrite";
+  const terms = pack3Terms();
+  await settleWith(id, terms, verifyStyleBuilder(terms));
+  // Another writer has since stamped email + gift provenance of its own.
+  const born = data.get(sessionKey(id));
+  data.set(sessionKey(id), { ...born, customerEmail: "kept@example.com", isGift: true });
+
+  const candidate = webhookStyleBuilder(terms, {
+    ...ORDER_METADATA,
+    customerEmail: "other@example.com",
+    isGift: false,
+  });
+  const outcome = await settleWith(id, terms, candidate);
+  assert.equal(outcome.kind, "already_settled");
+  assert.deepEqual(
+    [...outcome.completedMetadataFields].sort(),
+    ["printAssetId", "referralCode", "referralOfferVariant", "referrerSessionId"].sort(),
+    "only the still-absent fields are completed",
+  );
+  const after = data.get(sessionKey(id));
+  assert.equal(after.customerEmail, "kept@example.com", "present email is never overwritten");
+  assert.equal(after.isGift, true, "present gift provenance is never overwritten");
+  assert.equal(after.printAssetId, ORDER_METADATA.printAssetId);
+});
+
+test("PASS completion performs no write when nothing is missing", async () => {
+  const id = "cs_complete_noop";
+  const terms = pack3Terms();
+  await settleWith(id, terms, webhookStyleBuilder(terms));
+  const snapshot = structuredClone(data.get(sessionKey(id)));
+  putLog = [];
+
+  const replay = await settleWith(id, terms, webhookStyleBuilder(terms));
+  assert.equal(replay.kind, "already_settled");
+  assert.deepEqual(replay.completedMetadataFields, []);
+  assert.equal(sessionPuts(id).length, 0, "observed replay with complete metadata writes nothing");
+  assert.deepEqual(data.get(sessionKey(id)), snapshot);
+});
+
+test("PASS completion reads only the allowlist: candidate accounting values are ignored", async () => {
+  const id = "cs_complete_allowlist_only";
+  const terms = pack3Terms();
+  await settleWith(id, terms, verifyStyleBuilder(terms));
+  const before = structuredClone(data.get(sessionKey(id)));
+
+  // A candidate whose accounting fields disagree wildly with the settled
+  // record (same purchase terms, so no receipt conflict): completion must
+  // take its metadata and nothing else — not even a forged receipt.
+  const hostile = (receipt) => ({
+    paid: true,
+    settlementReceipt: { ...receipt, initializedAt: 999, operationId: "purchase:v1:forged" },
+    created: 999,
+    creditsRemaining: 99,
+    creditsTotal: 99,
+    subscriptionActive: true,
+    ...ORDER_METADATA,
+  });
+  const outcome = await settleWith(id, terms, hostile);
+  assert.equal(outcome.kind, "already_settled");
+  const after = data.get(sessionKey(id));
+  assert.deepEqual(withoutCompletionFields(after), withoutCompletionFields(before));
+  assert.equal(after.creditsTotal, 3);
+  assert.equal(after.subscriptionActive, undefined);
+  assert.equal(after.created, undefined, "created is not completable");
+  assert.equal(after.customerEmail, ORDER_METADATA.customerEmail);
+});
+
+test("PASS completion stamps explicit isGift=false provenance (absence is not a value)", async () => {
+  const id = "cs_complete_gift_false";
+  const terms = pack3Terms();
+  await settleWith(id, terms, verifyStyleBuilder(terms));
+  const outcome = await settleWith(
+    id,
+    terms,
+    webhookStyleBuilder(terms, { ...ORDER_METADATA, isGift: false }),
+  );
+  assert.equal(outcome.kind, "already_settled");
+  assert.ok(outcome.completedMetadataFields.includes("isGift"));
+  assert.equal(data.get(sessionKey(id)).isGift, false, "explicit false is recorded, not skipped");
+});
+
+test("PASS completion write failure is persistence_ambiguous and a retry completes", async () => {
+  const id = "cs_complete_write_fail";
+  const terms = pack3Terms();
+  await settleWith(id, terms, verifyStyleBuilder(terms));
+  const before = structuredClone(data.get(sessionKey(id)));
+
+  failDurableKeys.add(sessionKey(id));
+  const failed = await settleWith(id, terms, webhookStyleBuilder(terms));
+  assert.equal(failed.kind, "persistence_ambiguous", "never a silent success");
+  assert.deepEqual(data.get(sessionKey(id)), before, "failed completion leaves the record untouched");
+
+  failDurableKeys.clear();
+  const retried = await settleWith(id, terms, webhookStyleBuilder(terms));
+  assert.equal(retried.kind, "already_settled");
+  assert.equal(retried.completedMetadataFields.length, SETTLEMENT_METADATA_COMPLETION_FIELDS.length);
+  assert.equal(data.get(sessionKey(id)).customerEmail, ORDER_METADATA.customerEmail);
+});
+
+// ---------------------------------------------------------------------------
 // Structural pins for the route-level changes. Each pin fails on the pre-fix
 // source (verified against the base commit during development).
 // ---------------------------------------------------------------------------
@@ -431,4 +660,13 @@ test("PIN webhook: settlement goes through the shared policy", () => {
   assert.ok(webhookSource.includes("settleSessionPurchase"));
   assert.ok(webhookSource.includes("settlement_reconciliation_required"));
   assert.ok(webhookSource.includes("settlement_persistence_ambiguous"));
+});
+
+test("PIN webhook: access-email send admits the metadata-completion path (Codex P1)", () => {
+  // On a verify-first purchase the webhook call that completes the record's
+  // customerEmail must still run the (dedupe-guarded) access-email send;
+  // gating it on !alreadyPaid alone is what stranded those buyers on the
+  // 409 missing_customer_email path.
+  assert.ok(webhookSource.includes("completedMetadataFields"));
+  assert.ok(webhookSource.includes("!alreadyPaid || completedSettlementMetadata"));
 });
