@@ -310,6 +310,26 @@ export async function readSessionRevocationEvidence(
 }
 
 /**
+ * Read-only live-entitlement check for a settled session (fix round 3,
+ * Codex P2 on PR #447): paid, not revoked — neither the record flag nor
+ * the durable revocation evidence — with credits remaining or an active
+ * subscription. Verify uses it to decide whether the incoming session's
+ * premium cookie must be preserved when a carry into a new purchase is
+ * refused: that cookie is the browser's only handle on the entitlement.
+ * Advisory in the same sense as readSessionRevocationEvidence — a stale
+ * read can misjudge liveness, never balances; nothing is written here.
+ */
+export async function sessionHoldsLiveEntitlement(sessionId: string): Promise<boolean> {
+  const record = await kv.get<StripeSessionEntitlement & { paymentIntentId?: string | null }>(
+    ENTITLEMENT_KV.stripeSession(sessionId),
+  );
+  if (!record?.paid || record.revoked) return false;
+  const evidence = await readSessionRevocationEvidence(sessionId, record.paymentIntentId ?? null);
+  if (evidence.revoked) return false;
+  return (record.creditsRemaining ?? 0) > 0 || record.subscriptionActive === true;
+}
+
+/**
  * The ONLY session-record fields a settlement call may complete on an
  * already-settled record (fix round, Codex P1 on PR #447).
  *

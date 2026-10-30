@@ -22,6 +22,7 @@ import {
   CARRY_NOT_SUPPORTED_INTERIM,
   readSessionRevocationEvidence,
   recordTransferRefusal,
+  sessionHoldsLiveEntitlement,
   settleSessionPurchase,
   type SettlementPurchaseTerms,
   type SettlementReceipt,
@@ -185,8 +186,14 @@ export async function GET(req: NextRequest) {
 
   // Option B: automatic cross-session carry-forward is disabled. When the
   // request presents a DIFFERENT session's premium cookie, say so explicitly
-  // instead of silently implying a combined balance. The incoming cookie is
-  // preserved (never overwritten by this path) and nothing is moved.
+  // instead of silently implying a combined balance, and nothing is moved.
+  // The incoming cookie is preserved — not overwritten with the new
+  // session — only while the incoming session still holds live entitlement
+  // (paid, unrevoked, credits remaining or an active subscription): it is
+  // the browser's only handle on that entitlement, and stranding it would
+  // silently cut the buyer off from credits they already paid for. When
+  // the incoming session holds no live entitlement, a successful verify
+  // sets the new session's cookie exactly as usual.
   const incomingSessionId = req.cookies.get(PREMIUM_COOKIE_NAME)?.value;
   const carryRequested = Boolean(incomingSessionId && incomingSessionId !== sessionId);
   const carryForwardField = carryRequested
@@ -197,6 +204,9 @@ export async function GET(req: NextRequest) {
         },
       }
     : {};
+  const preserveIncomingCookie = carryRequested
+    ? await sessionHoldsLiveEntitlement(incomingSessionId as string)
+    : false;
 
   if (record?.paid && !record.revoked) {
     const mapId = typeof record.mapId === "string" ? record.mapId : undefined;
@@ -225,7 +235,7 @@ export async function GET(req: NextRequest) {
         : record.plan === "subscription"
           ? Boolean(record.subscriptionActive)
           : (record.creditsRemaining ?? 0) > 0 || Boolean(record.paid);
-    if (hasDigitalEntitlement) {
+    if (hasDigitalEntitlement && !preserveIncomingCookie) {
       response.cookies.set(PREMIUM_COOKIE_NAME, sessionId, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
@@ -295,8 +305,10 @@ export async function GET(req: NextRequest) {
     // A's remaining balance here and added it into B's settlement totals
     // (M1-02) with no source debit — A->B and A->C could both copy it. Under
     // B there is no source-balance read for movement, no debit, no credit,
-    // and no retirement: B settles only its own purchase, A's cookie is
-    // preserved, and the refusal is explicit (audit record + response field).
+    // and no retirement: B settles only its own purchase, and the refusal
+    // is explicit (audit record + response field). The one read of A's
+    // record (preserveIncomingCookie, computed before settlement) decides
+    // cookie preservation only — it never moves a balance.
     if (carryRequested) {
       await recordTransferRefusal({
         sourceSessionId: incomingSessionId as string,
@@ -406,7 +418,7 @@ export async function GET(req: NextRequest) {
           : settled.plan === "subscription"
             ? Boolean(settled.subscriptionActive)
             : (settled.creditsRemaining ?? 0) > 0 || Boolean(settled.paid);
-      if (settledHasDigitalEntitlement) {
+      if (settledHasDigitalEntitlement && !preserveIncomingCookie) {
         settledResponse.cookies.set(PREMIUM_COOKIE_NAME, sessionId, {
           httpOnly: true,
           secure: process.env.NODE_ENV === "production",
@@ -466,7 +478,7 @@ export async function GET(req: NextRequest) {
     );
     const hasDigitalEntitlement =
       orderType === "print" ? hasDigitalAddOn && credits > 0 : plan === "subscription" ? true : credits > 0;
-    if (hasDigitalEntitlement) {
+    if (hasDigitalEntitlement && !preserveIncomingCookie) {
       response.cookies.set(PREMIUM_COOKIE_NAME, sessionId, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",

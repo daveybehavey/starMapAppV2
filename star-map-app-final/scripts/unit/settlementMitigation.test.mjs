@@ -30,6 +30,16 @@
  * at birth, NOT to the completion allowlist: the pin below fails on the
  * 7bad1035 verify source, and the control test reproduces the exclusion
  * on the exact pre-fix record shape.
+ *
+ * Fix round 3 (Codex P2): the mapping prescribes "A cookie preserved" for
+ * a refused carry, and verify's comment claimed it — but every successful
+ * verify response overwrote the premium cookie with the new session,
+ * stranding the buyer's in-browser access to A's remaining credits. The
+ * live-entitlement decision (sessionHoldsLiveEntitlement) is behavioural
+ * below; the route wiring is pinned: preservation is computed only for a
+ * refused carry, and every premium-cookie write — paid fast path,
+ * already_settled, fresh settlement — is guarded by it. Both fail on
+ * the bfdddd78 sources.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -47,6 +57,7 @@ const {
   SETTLEMENT_METADATA_COMPLETION_FIELDS,
   settleSessionPurchase,
   recordTransferRefusal,
+  sessionHoldsLiveEntitlement,
 } = await import("../../src/lib/entitlementsStore.ts");
 const { classifyDigitalEntitlement, REVIEW_DIGITAL_DELAY_MS } = await import(
   "../../src/lib/reviewRequests.ts",
@@ -698,6 +709,79 @@ test("CONTROL pre-fix verify shape (no created) classifies as invalid_anchor", a
 });
 
 // ---------------------------------------------------------------------------
+// Fix round 3 (Codex P2): a refused carry must leave the buyer's premium
+// cookie on session A while A still holds live entitlement — the cookie
+// is the browser's only handle on A's credits. The decision logic is
+// behavioural here (sessionHoldsLiveEntitlement, read-only); the route
+// wiring is pinned in the structural section below. On bfdddd78 the
+// helper does not exist and every successful verify response overwrote
+// the cookie unconditionally.
+// ---------------------------------------------------------------------------
+
+test("PASS live-entitlement: paid with credits remaining is live (fix round 3)", async () => {
+  const id = "cs_cookie_a_live_credits";
+  data.set(sessionKey(id), { paid: true, plan: "pack3", creditsRemaining: 2, creditsTotal: 3 });
+  assert.equal(await sessionHoldsLiveEntitlement(id), true);
+  assert.equal(putLog.length, 0, "the liveness check is read-only");
+});
+
+test("PASS live-entitlement: paid with an active subscription is live (fix round 3)", async () => {
+  const id = "cs_cookie_a_live_sub";
+  data.set(sessionKey(id), {
+    paid: true,
+    plan: "subscription",
+    creditsRemaining: 0,
+    subscriptionActive: true,
+  });
+  assert.equal(await sessionHoldsLiveEntitlement(id), true);
+});
+
+test("PASS live-entitlement: exhausted, revoked, absent, and unpaid are not live (fix round 3)", async () => {
+  data.set(sessionKey("cs_cookie_a_spent"), {
+    paid: true,
+    plan: "pack3",
+    creditsRemaining: 0,
+    creditsTotal: 3,
+  });
+  assert.equal(await sessionHoldsLiveEntitlement("cs_cookie_a_spent"), false, "exhausted");
+
+  data.set(sessionKey("cs_cookie_a_revoked"), {
+    paid: true,
+    plan: "pack3",
+    creditsRemaining: 2,
+    revoked: true,
+  });
+  assert.equal(await sessionHoldsLiveEntitlement("cs_cookie_a_revoked"), false, "record revoked");
+
+  data.set(sessionKey("cs_cookie_a_unpaid"), { paid: false, plan: "pack3", creditsRemaining: 2 });
+  assert.equal(await sessionHoldsLiveEntitlement("cs_cookie_a_unpaid"), false, "unpaid");
+
+  assert.equal(await sessionHoldsLiveEntitlement("cs_cookie_a_absent"), false, "absent");
+  assert.equal(putLog.length, 0, "the liveness check is read-only");
+});
+
+test("PASS live-entitlement: durable revocation evidence defeats a stale paid record (fix round 3)", async () => {
+  const sideId = "cs_cookie_a_revoked_side";
+  data.set(sessionKey(sideId), { paid: true, plan: "pack3", creditsRemaining: 2 });
+  data.set(ENTITLEMENT_KV.sessionRevoked(sideId), { revoked: true, reason: "refund" });
+  assert.equal(
+    await sessionHoldsLiveEntitlement(sideId),
+    false,
+    "session side evidence revokes liveness",
+  );
+
+  const piId = "cs_cookie_a_revoked_pi";
+  data.set(sessionKey(piId), {
+    paid: true,
+    plan: "pack3",
+    creditsRemaining: 2,
+    paymentIntentId: "pi_revoked_1",
+  });
+  data.set("stripe:pi:revoked:pi_revoked_1", { revoked: true, reason: "refund" });
+  assert.equal(await sessionHoldsLiveEntitlement(piId), false, "PI tombstone revokes liveness");
+});
+
+// ---------------------------------------------------------------------------
 // Structural pins for the route-level changes. Each pin fails on the pre-fix
 // source (verified against the base commit during development).
 // ---------------------------------------------------------------------------
@@ -783,4 +867,38 @@ test("PIN webhook: access-email send admits the metadata-completion path (Codex 
   // 409 missing_customer_email path.
   assert.ok(webhookSource.includes("completedMetadataFields"));
   assert.ok(webhookSource.includes("!alreadyPaid || completedSettlementMetadata"));
+});
+
+test("PIN verify: refused carry preserves a live incoming cookie on every success path (fix round 3)", () => {
+  // The mapping prescribes "A cookie preserved" for a refused carry, but
+  // on bfdddd78 every successful verify response overwrote the premium
+  // cookie with the new session — stranding the buyer's in-browser access
+  // to A's remaining credits. Preservation is decided ONLY for a refused
+  // carry (a different session's cookie), by the read-only liveness
+  // check; no-carry requests take the exact pre-fix path (guard false).
+  assert.ok(verifySource.includes("sessionHoldsLiveEntitlement"));
+  assert.ok(
+    verifySource.includes(
+      "const preserveIncomingCookie = carryRequested\n    ? await sessionHoldsLiveEntitlement(incomingSessionId as string)\n    : false;",
+    ),
+    "preservation is computed for refused carries only",
+  );
+  // Every premium-cookie write in the route — paid fast path,
+  // already_settled, fresh settlement — sits behind the guard, and no
+  // unguarded write remains.
+  const cookieWrites = verifySource.split("cookies.set(PREMIUM_COOKIE_NAME").length - 1;
+  assert.equal(cookieWrites, 3, "verify writes the premium cookie at exactly three sites");
+  assert.equal(verifySource.includes("if (hasDigitalEntitlement) {"), false);
+  assert.equal(verifySource.includes("if (settledHasDigitalEntitlement) {"), false);
+  assert.equal(
+    verifySource.split("&& !preserveIncomingCookie) {").length - 1,
+    3,
+    "all three cookie writes are guarded by !preserveIncomingCookie",
+  );
+  // The comment must state the actual rule — preserved only while the
+  // incoming session holds live entitlement — not the old blanket claim.
+  assert.ok(
+    verifySource.includes("only while the incoming session still holds live entitlement"),
+  );
+  assert.equal(verifySource.includes("never overwritten by this path"), false);
 });
