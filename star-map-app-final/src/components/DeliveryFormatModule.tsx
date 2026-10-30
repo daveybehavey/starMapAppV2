@@ -1,4 +1,5 @@
 import Link from "next/link";
+import SecondCopyOfferNote from "@/components/SecondCopyOfferNote";
 import { formatPrintDeliveryDisclosure } from "@/lib/printfulShipping";
 import { getPrintFramedHdBundleTimingLine } from "@/lib/commerceFacts";
 import { type EditorLocationPrefill, withEditorLocation } from "@/lib/editorLocationPrefill";
@@ -15,6 +16,15 @@ type DeliveryFormatModuleProps = {
   heading?: string;
   intro?: string;
   sourcePrefix?: string;
+  /**
+   * Server-resolved Lever A presentation permission (S55-7). Default
+   * off: only the poster and custom-night-sky-map call sites pass it.
+   * Both print cards below are second-copy eligible variants
+   * (poster_unframed, poster_framed) whose editor paths expose the
+   * second-copy choice; the framed note speaks only to the physical
+   * copy — it promises no duplicated HD or card add-on.
+   */
+  showSecondCopyOffer?: boolean;
   /** When set (e.g. city landings), editor CTAs include location (+ coords when provided). */
   location?: string | EditorLocationPrefill;
 };
@@ -23,6 +33,7 @@ export default function DeliveryFormatModule({
   heading = "Choose the delivery format that fits the moment",
   intro,
   sourcePrefix = "delivery-format",
+  showSecondCopyOffer = false,
   location,
 }: DeliveryFormatModuleProps) {
   const freeShippingShortTag = getPrintFreeShippingShortTag();
@@ -110,6 +121,7 @@ export default function DeliveryFormatModule({
               {baselineDeliveryDisclosure ? <li>{baselineDeliveryDisclosure}</li> : null}
               <li>Starts at {printLabels.unframed}</li>
             </ul>
+            {showSecondCopyOffer ? <SecondCopyOfferNote className="text-neutral-600" /> : null}
             <Link
               href={unframedHref}
               className="mt-4 inline-flex rounded-full border border-amber-300/70 bg-amber-300/20 px-4 py-2 text-xs font-semibold text-amber-900 transition hover:-translate-y-[1px] hover:bg-amber-300/30"
@@ -140,6 +152,7 @@ export default function DeliveryFormatModule({
               <li>{getFramedHdBundlePriceLine()}</li>
               {baselineDeliveryDisclosure ? <li>{baselineDeliveryDisclosure}</li> : null}
             </ul>
+            {showSecondCopyOffer ? <SecondCopyOfferNote className="text-neutral-600" /> : null}
             <div className="mt-4 flex flex-wrap gap-2">
               <Link
                 href={framedHdHref}

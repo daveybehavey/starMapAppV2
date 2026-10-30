@@ -20,6 +20,8 @@ import {
 import { FRAMED_HD_RECOMMENDED_BADGE } from "@/lib/moneyPageGiftCheckout";
 import { getBusinessProfile } from "@/lib/businessProfile";
 import { getPrintPricingTiers } from "@/lib/pricing";
+import { resolveSecondCopyOfferVisibility } from "@/lib/secondCopyOffer";
+import SecondCopyOfferNote from "@/components/SecondCopyOfferNote";
 import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
@@ -56,6 +58,10 @@ export default function StarMapPosterPage() {
   const productionReviewTrustPoint = getPrintProductionReviewTrustPoint();
   const profile = getBusinessProfile();
   const printTiers = getPrintPricingTiers();
+  // Lever A note (S55-7): both hero paths (framed + unframed poster)
+  // are second-copy eligible and land in the editor, whose purchase
+  // panel exposes the choice — so one joint note covers both.
+  const showSecondCopyOffer = resolveSecondCopyOfferVisibility();
   const framedPrice = formatPrintPriceWithShipping(
     printTiers.poster_framed.amountCents,
     printTiers.poster_framed.currency
@@ -177,6 +183,7 @@ export default function StarMapPosterPage() {
                 </div>
               ))}
             </div>
+            {showSecondCopyOffer ? <SecondCopyOfferNote className="text-white/75" /> : null}
             <div className="flex flex-wrap gap-3">
               <Link
                 href="/editor?mode=quick&source=star-map-poster-hero-framed&checkout=print&print_variant=poster_framed"
@@ -386,6 +393,7 @@ export default function StarMapPosterPage() {
       </section>
 
       <PurchaseTrustPanel
+        showSecondCopyOffer={showSecondCopyOffer}
         heading="Before you buy"
         intro="This is a custom physical product, so the important things should be clear before payment: what you are ordering, when shipping appears, how support works, and what happens after you approve the preview."
         leftTitle="What you are ordering"
@@ -403,6 +411,7 @@ export default function StarMapPosterPage() {
       />
 
       <DeliveryFormatModule
+        showSecondCopyOffer={showSecondCopyOffer}
         heading="Choose the physical format after preview"
         intro={`Preview the artwork first, then decide whether this moment should arrive as an unframed poster or a ready-to-hang framed print. ${shippingTagSentence}`}
         sourcePrefix="poster-format"

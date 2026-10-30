@@ -20,6 +20,9 @@ import {
 } from "@/lib/printCheckoutConfig";
 import { formatPrintDeliveryDisclosure, PRINT_NEUTRAL_SHIPPING_CARD_NOTE } from "@/lib/printfulShipping";
 import { formatPrice, getPricingTiers, getPrintPricingTiers } from "@/lib/pricing";
+import { isSecondCopyEligibleVariant, type PrintVariant } from "@/lib/printCatalog";
+import { resolveSecondCopyOfferVisibility } from "@/lib/secondCopyOffer";
+import SecondCopyOfferNote from "@/components/SecondCopyOfferNote";
 import { parseShopExternalOffers } from "@/lib/shopExternalOffers";
 import {
   getMerchPublicDisplayLabel,
@@ -150,6 +153,9 @@ export default function ShopPage() {
 
   const partnerOffers = parseShopExternalOffers(process.env.NEXT_PUBLIC_SHOP_EXTERNAL_OFFERS_JSON);
   const merchFamilies = listMerchFamiliesEnabledForPublicUi();
+  // Lever A notes (S55-7): server-resolved offer visibility; per-card
+  // eligibility is checked against each card's own print variant below.
+  const showSecondCopyOffer = resolveSecondCopyOfferVisibility();
 
   const canvasPrice = formatPrintPriceWithShipping(
     printTiers.canvas_wrap.amountCents,
@@ -167,6 +173,7 @@ export default function ShopPage() {
   const productCards = [
     {
       key: "framed",
+      variant: "poster_framed" as PrintVariant | null,
       imageSrc: HOME_MOCKUPS.framedBedroom,
       imageFit: "cover",
       alt: "Framed StarMapCo print in a styled bedroom",
@@ -182,6 +189,7 @@ export default function ShopPage() {
     },
     {
       key: "unframed",
+      variant: "poster_unframed" as PrintVariant | null,
       imageSrc: HOME_MOCKUPS.unframedPoster,
       imageFit: "cover",
       alt: "Unframed StarMapCo square poster print on a white background",
@@ -197,6 +205,7 @@ export default function ShopPage() {
     },
     {
       key: "unframed_16x16",
+      variant: "poster_unframed_16x16" as PrintVariant | null,
       imageSrc: HOME_MOCKUPS.unframedPoster,
       imageFit: "cover",
       alt: "Unframed StarMapCo 16×16 square poster print on a white background",
@@ -212,6 +221,7 @@ export default function ShopPage() {
     },
     {
       key: "canvas",
+      variant: "canvas_wrap" as PrintVariant | null,
       imageSrc: "/printproof/canvas-printful.jpg",
       imageFit: "cover",
       alt: "Canvas gallery wrap with an example star map design — your own map printed on canvas stretched over a wooden frame",
@@ -227,6 +237,7 @@ export default function ShopPage() {
     },
     {
       key: "mug",
+      variant: "mug_11oz" as PrintVariant | null,
       imageSrc: "/printproof/gift-raw/mug/mug-printful.jpg",
       imageFit: "cover",
       alt: "Black glossy mug (11 oz) with an example star map design — your own map is printed to order",
@@ -242,6 +253,7 @@ export default function ShopPage() {
     },
     {
       key: "card",
+      variant: "card_4x6" as PrintVariant | null,
       imageSrc: "/printproof/gift-raw/card/card-mockup.jpg",
       // The card render is 1120×690 (≈8:5) in the grid's 4:3 slot: cover
       // cropped ~18% of its width and sliced the tent card's side edges.
@@ -261,6 +273,7 @@ export default function ShopPage() {
     },
     {
       key: "digital",
+      variant: null as PrintVariant | null,
       imageSrc: HOME_MOCKUPS.digitalHd,
       imageFit: "cover",
       alt: "StarMapCo HD download on laptop and phone",
@@ -314,6 +327,7 @@ export default function ShopPage() {
             </li>
           ) : null}
         </ul>
+        {showSecondCopyOffer ? <SecondCopyOfferNote className="text-neutral-600" /> : null}
         <div className="mt-4 flex flex-wrap gap-3">
           <Link
             href="/editor?mode=quick&source=shop-hero-framed&checkout=print&print_variant=poster_framed"
@@ -407,6 +421,11 @@ export default function ShopPage() {
                   <p className={`text-xs ${card.darkCard ? "text-indigo-200/80" : "text-neutral-600"}`}>
                     {card.shippingNote}
                   </p>
+                  {showSecondCopyOffer &&
+                  card.variant &&
+                  isSecondCopyEligibleVariant(card.variant) ? (
+                    <SecondCopyOfferNote className="text-neutral-600" />
+                  ) : null}
                   <Link href={card.href} prefetch={false} className={card.ctaClass}>
                     {card.cta}
                   </Link>
@@ -543,6 +562,7 @@ export default function ShopPage() {
       />
 
       <PurchaseTrustPanel
+        showSecondCopyOffer={showSecondCopyOffer}
         heading="Before you buy"
         intro="Preview for free first. Upgrade only once the wording, date, and layout feel right."
         leftTitle="Checkout and files"

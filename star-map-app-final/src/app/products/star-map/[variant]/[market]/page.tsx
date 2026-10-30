@@ -9,6 +9,9 @@ import {
   getPrintShippingDisclosure,
 } from "@/lib/printCheckoutConfig";
 import { getPrintFreeShippingThresholdCents } from "@/lib/printFreeShipping";
+import { isSecondCopyEligibleVariant } from "@/lib/printCatalog";
+import { resolveSecondCopyOfferVisibility } from "@/lib/secondCopyOffer";
+import SecondCopyOfferNote from "@/components/SecondCopyOfferNote";
 import {
   VARIANT_PAGE_MANIFEST,
   buildVariantPageMetadata,
@@ -63,6 +66,12 @@ export default async function VariantLandingPage({ params }: PageProps) {
   // The single threshold statement lives inside shippingDisclosure,
   // whose offer line is USD-denominated; the pill below claims no amount.
   const freeShippingActive = getPrintFreeShippingThresholdCents() !== null;
+  // Lever A note (S55-7): only when this page's exact checkout variant
+  // is second-copy eligible and the server-resolved offer visibility is
+  // on. The editor handoff preselects this variant, and the editor's
+  // purchase panel exposes the second-copy choice for it.
+  const showSecondCopyOffer =
+    resolveSecondCopyOfferVisibility() && isSecondCopyEligibleVariant(offer.variant);
   const productionReviewDisclosure = getPrintProductionReviewDisclosure();
   const schema = buildVariantProductSchema(offer);
 
@@ -117,6 +126,9 @@ export default async function VariantLandingPage({ params }: PageProps) {
               <p className="mt-2 text-xs leading-relaxed text-white/78">
                 {shippingDisclosure}
               </p>
+              {showSecondCopyOffer ? (
+                <SecondCopyOfferNote className="text-amber-100/85" />
+              ) : null}
             </div>
             <div className="flex flex-wrap gap-3">
               <Link

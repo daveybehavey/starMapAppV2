@@ -7,6 +7,8 @@ import {
   getPrintShippingDisclosure,
 } from "@/lib/printCheckoutConfig";
 import { formatPrice, getPricingInfo, getPrintPricingTiers } from "@/lib/pricing";
+import { isSecondCopyEligibleVariant, type PrintVariant } from "@/lib/printCatalog";
+import SecondCopyOfferNote from "@/components/SecondCopyOfferNote";
 
 type MoneyPagePriceAtGlanceProps = {
   className?: string;
@@ -14,13 +16,28 @@ type MoneyPagePriceAtGlanceProps = {
   weddingTone?: boolean;
   /** Hide fulfillment/shipping fine print (hero uses trust panel below). */
   compact?: boolean;
+  /**
+   * Lever A presentation (S55-7): the eligible physical paths this
+   * summary advertises, resolved server-side together with
+   * `resolveSecondCopyOfferVisibility`. Default off — no consumer is
+   * enabled until its own purchase path has been reviewed; enabling a
+   * consumer means passing the advertised paths (here: the unframed
+   * and framed variants in the price line) plus the visibility. When
+   * enabled, the offer note follows the price-summary paragraph and
+   * shows even in compact mode.
+   */
+  secondCopyOfferPaths?: readonly PrintVariant[];
 };
 
 export default function MoneyPagePriceAtGlance({
   className = "",
   weddingTone = false,
   compact = false,
+  secondCopyOfferPaths,
 }: MoneyPagePriceAtGlanceProps) {
+  const showSecondCopyOffer = (secondCopyOfferPaths ?? []).some((variant) =>
+    isSecondCopyEligibleVariant(variant),
+  );
   const printTiers = getPrintPricingTiers();
   const pricing = getPricingInfo();
   const digitalPrice = formatPrice(pricing.activeAmountCents, pricing.currency);
@@ -68,6 +85,7 @@ export default function MoneyPagePriceAtGlance({
           </>
         )}
       </p>
+      {showSecondCopyOffer ? <SecondCopyOfferNote className="text-white/75" /> : null}
       {!compact ? (
         <p className="text-[11px] leading-relaxed text-white/75 sm:text-xs">
           Free preview first. <span data-digital-offer>HD unlocks right after checkout. </span>
