@@ -13,6 +13,54 @@ export type EventProps = Record<string, string | number | boolean | undefined | 
 export const ANALYTICS_STORAGE_KEY = "analytics-consent";
 export const PENDING_GA4_PURCHASE_KEY = "ga4:pending-purchase";
 
+/**
+ * Google Consent Mode v2 (David's decision, 2026-10-30).
+ *
+ * gtag.js loads for every visitor. Before the tag configures, the consent
+ * default below denies all ad/analytics storage so GA4 receives cookieless
+ * pings in denied mode; the banner choice then upgrades (Allow) or restates
+ * (Decline) the state via a consent update. functionality/security storage
+ * are granted by default — they are not ad/analytics storage.
+ */
+export const GA_CONSENT_DEFAULT_PARAMS: Record<string, string> = {
+  ad_storage: "denied",
+  analytics_storage: "denied",
+  ad_user_data: "denied",
+  ad_personalization: "denied",
+  functionality_storage: "granted",
+  security_storage: "granted",
+};
+
+export const GA_CONSENT_GRANTED_PARAMS: Record<string, string> = {
+  ad_storage: "granted",
+  analytics_storage: "granted",
+  ad_user_data: "granted",
+  ad_personalization: "granted",
+};
+
+export const GA_CONSENT_DENIED_PARAMS: Record<string, string> = {
+  ad_storage: "denied",
+  analytics_storage: "denied",
+  ad_user_data: "denied",
+  ad_personalization: "denied",
+};
+
+/** Push the Consent Mode default. Call after the gtag stub exists, before config. */
+export function applyGaConsentDefault() {
+  if (typeof window === "undefined" || typeof window.gtag !== "function") return;
+  window.gtag("consent", "default", { ...GA_CONSENT_DEFAULT_PARAMS });
+}
+
+/** Push a Consent Mode update reflecting the visitor's banner choice. */
+export function applyGaConsentUpdate(granted: boolean) {
+  if (typeof window === "undefined" || typeof window.gtag !== "function") return;
+  window.gtag(
+    "consent",
+    "update",
+    granted ? { ...GA_CONSENT_GRANTED_PARAMS } : { ...GA_CONSENT_DENIED_PARAMS },
+  );
+}
+
 let posthogPromise: Promise<typeof import("posthog-js").default> | null = null;
 
 type CheckoutAnalyticsInput = {
