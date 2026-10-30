@@ -14,11 +14,12 @@
  *  2. The dispatch coordinator (executeReviewDispatch): the ONLY component
  *     that may call the email provider for a review request. It runs the
  *     final suppression check, commits the ledger's irreversible
- *     `dispatching` transition, re-checks the absolute deadline against a
- *     fresh clock at the point of invocation, calls the provider exactly
- *     once with the frozen payload, and records the definitive outcome.
- *     Ambiguous outcomes terminalize as `uncertain` in the ledger — never
- *     resent.
+ *     `dispatching` transition, re-checks eligibility against fresh
+ *     source records (a revocation landing after the tick's read fences
+ *     the send), re-checks the absolute deadline against a fresh clock
+ *     at the point of invocation, calls the provider exactly once with
+ *     the frozen payload, and records the definitive outcome. Ambiguous
+ *     outcomes terminalize as `uncertain` in the ledger — never resent.
  *
  * Storage modes are explicit (design: fail-closed storage). Live mode with
  * a missing/unavailable namespace reports unavailable — the in-process
@@ -28,7 +29,11 @@
  */
 import { createHmac } from "node:crypto";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import type { FrozenReviewPayload, ReviewDispatchResult } from "@/lib/reviewRequestLedgerState";
+import type {
+  FrozenReviewPayload,
+  ReviewDispatchResult,
+  ReviewLedgerState,
+} from "@/lib/reviewRequestLedgerState";
 import type { ReviewLedgerClient } from "@/lib/reviewRequests";
 
 // ---------------------------------------------------------------------------
@@ -79,6 +84,97 @@ export function deriveReviewSuppressionName(normalizedEmail: string, secret: str
 }
 
 // ---------------------------------------------------------------------------
+// Suppression sources + 13-month retention (S54-5 design (a), revised)
+// ---------------------------------------------------------------------------
+
+/**
+ * The only legitimate suppression sources (the opt-out route's two
+ * values). Arbitrary caller-supplied strings are NOT stored: optional
+ * metadata is minimized on the retention boundary, and an unrestricted
+ * free-form field would defeat that minimization.
+ */
+export const REVIEW_SUPPRESSION_SOURCES = ["list_unsubscribe", "opt_out_page"] as const;
+
+export type ReviewSuppressionSource = (typeof REVIEW_SUPPRESSION_SOURCES)[number];
+
+/** Known source → itself; anything else → null (never stored verbatim). */
+export function sanitizeReviewSuppressionSource(source: string | null | undefined): string | null {
+  return (REVIEW_SUPPRESSION_SOURCES as readonly string[]).includes(source ?? "")
+    ? (source as string)
+    : null;
+}
+
+/**
+ * Adopted retention bound for review-engine ADDRESSES and PAYLOADS: 13
+ * calendar months. Suppression itself NEVER expires — an acknowledged
+ * opt-out prevents review requests indefinitely (the suppression
+ * tombstone is retained by design); what the boundary governs is the
+ * optional METADATA around it (source, event timestamps) and raw-address
+ * representations elsewhere (see the opt-out sweep in reviewRequests.ts).
+ */
+export const REVIEW_RETENTION_MONTHS = 13;
+
+/**
+ * Add calendar months in UTC with month-end clamping (Jan 31 + 1 month
+ * → Feb 28/29, never Mar 3). Calendar arithmetic, not a fixed ms count:
+ * "13 months" in the retention policy is a calendar period.
+ */
+export function addCalendarMonthsMs(fromMs: number, months: number): number {
+  const from = new Date(fromMs);
+  const day = from.getUTCDate();
+  const target = new Date(
+    Date.UTC(from.getUTCFullYear(), from.getUTCMonth() + months, 1, 0, 0, 0, 0)
+  );
+  const lastDayOfTarget = new Date(
+    Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)
+  ).getUTCDate();
+  target.setUTCDate(Math.min(day, lastDayOfTarget));
+  target.setUTCHours(
+    from.getUTCHours(),
+    from.getUTCMinutes(),
+    from.getUTCSeconds(),
+    from.getUTCMilliseconds()
+  );
+  return target.getTime();
+}
+
+/** The instant at which metadata recorded at `fromMs` must be minimized. */
+export function reviewRetentionDeadlineMs(fromMs: number): number {
+  return addCalendarMonthsMs(fromMs, REVIEW_RETENTION_MONTHS);
+}
+
+/** The metadata-bearing shape of a suppression record (DO row / mirror). */
+export type ReviewSuppressionRecordShape = {
+  suppressed: number;
+  source: string | null;
+  suppressed_at: number | null;
+};
+
+/**
+ * Minimized = the suppression flag stands alone: no source, no event
+ * timestamp. A minimized record must STAY minimized — a repeated opt-out
+ * never resurrects metadata or restarts its clock.
+ */
+export function isReviewSuppressionMinimized(row: ReviewSuppressionRecordShape): boolean {
+  return row.suppressed === 1 && row.source === null && row.suppressed_at === null;
+}
+
+/**
+ * True when a suppressed record's metadata has reached the retention
+ * boundary. The EARLIEST outstanding opt-out owns the deadline: repeated
+ * opt-outs never extend it. Cleared/absent records owe no cleanup.
+ */
+export function reviewSuppressionMinimizationDue(
+  row: ReviewSuppressionRecordShape | null,
+  now: number
+): boolean {
+  if (!row || row.suppressed !== 1) return false;
+  if (isReviewSuppressionMinimized(row)) return false;
+  if (row.suppressed_at === null) return false;
+  return now >= reviewRetentionDeadlineMs(row.suppressed_at);
+}
+
+// ---------------------------------------------------------------------------
 // Dispatch coordination
 // ---------------------------------------------------------------------------
 
@@ -89,8 +185,56 @@ export type ReviewDispatchOutcome =
   | { outcome: "failed" }
   | { outcome: "uncertain" }
   | { outcome: "expired" }
+  | { outcome: "ineligible" }
+  | { outcome: "eligibility_unavailable" }
   | { outcome: "not_dispatchable" }
   | { outcome: "unavailable" };
+
+// ---------------------------------------------------------------------------
+// Post-commit eligibility re-check (S54-5 design (b), revised by S54-5B)
+// ---------------------------------------------------------------------------
+
+/**
+ * Bounded vocabulary for a DEFINITIVE ineligible decision. The checker
+ * maps fresh source evidence onto exactly these codes; the ledger stores
+ * the code as a diagnostic (`ineligible:<code>`), never a record dump.
+ */
+export type ReviewDispatchIneligibleReason =
+  | "revoked"
+  | "not_paid"
+  | "gift_order"
+  | "gift_uncertain"
+  | "missing_record"
+  | "missing_email"
+  | "invalid_anchor"
+  | "window_closed"
+  | "kind_mismatch"
+  | "recipient_mismatch"
+  | "terminal_failed"
+  | "not_shipped"
+  | "branch_disabled"
+  | "malformed_evidence";
+
+export type ReviewDispatchEligibility =
+  | { status: "eligible" }
+  | { status: "ineligible"; reason: ReviewDispatchIneligibleReason }
+  | { status: "unavailable"; error: string };
+
+/**
+ * Fresh eligibility decision for a COMMITTED dispatch, derived by the
+ * checker itself from the committed ledger state (session, kind, frozen
+ * recipient) and fresh source records — never from a caller-supplied
+ * boolean. `now` is a clock PROVIDER so the checker can sample a fresh
+ * time after its source reads complete (S54-5B). A checker that throws
+ * or cannot answer is treated by the coordinator as `unavailable`:
+ * known revocation, missing/malformed evidence, or an unavailable
+ * authority all prevent the provider call.
+ */
+export type ReviewDispatchEligibilityChecker = (input: {
+  sessionId: string;
+  state: ReviewLedgerState;
+  now: () => number;
+}) => Promise<ReviewDispatchEligibility>;
 
 type TimedSend = { kind: "result"; result: ReviewSendResult } | { kind: "ambiguous"; error: string };
 
@@ -122,9 +266,10 @@ async function sendWithTimeout(
 /**
  * The single send path. Ordering is the safety property:
  *   suppression check → begin_dispatch (deadline check against the
- *   pre-commit clock sample, frozen payload read) → FINAL suppression
- *   re-check → point-of-invocation deadline re-check → ONE provider
- *   call → resolve_dispatch.
+ *   pre-commit clock sample, frozen payload read) → eligibility
+ *   re-check against fresh source records (S54-5 (b) as revised) →
+ *   FINAL suppression re-check → point-of-invocation deadline re-check
+ *   → ONE provider call → resolve_dispatch.
  * The provider is called only with the payload frozen in the ledger row —
  * never with a caller-supplied re-render. The final re-check exists
  * because the first check cannot fence the send on its own: the
@@ -143,6 +288,13 @@ export async function executeReviewDispatch(
   deps: {
     ledger: ReviewLedgerClient;
     isSuppressed: () => Promise<boolean | null>;
+    /**
+     * REQUIRED, not optional: a construction that cannot obtain a fresh
+     * eligibility decision must not be able to send. Production wires
+     * the KV-backed checker inside ReviewRequestSuppressionDO; test
+     * harnesses inject explicit fakes.
+     */
+    checkEligibility: ReviewDispatchEligibilityChecker;
     send: ReviewSendFn;
     now?: () => number;
     sendTimeoutMs?: number;
@@ -184,6 +336,35 @@ export async function executeReviewDispatch(
 
   const resolve = async (result: ReviewDispatchResult) =>
     deps.ledger.apply(sessionId, { type: "resolve_dispatch", claimId, result, now: now() }).catch(() => null);
+
+  // ELIGIBILITY RE-CHECK (S54-5 design (b) as revised by S54-5B): the
+  // tick classified this session BEFORE the claim; a refund/revocation
+  // landing between that read and this commit did not fence the send
+  // (S52-2 M2-01). Now that the dispatch has committed, obtain a FRESH
+  // affirmative eligibility decision — derived by the checker from the
+  // committed state and fresh source records — before the provider is
+  // invoked. This is deliberately placed BEFORE the final suppression
+  // check: the eligibility reads are external awaits, and no external
+  // await may follow the final LOCAL suppression check, so suppression
+  // remains the last gate before the deadline fence and the call.
+  const eligibility: ReviewDispatchEligibility =
+    (await deps
+      .checkEligibility({ sessionId, state: begun.state, now })
+      .catch((): ReviewDispatchEligibility => ({
+        status: "unavailable",
+        error: "eligibility_check_failed",
+      }))) ?? { status: "unavailable", error: "eligibility_check_failed" };
+  if (eligibility.status === "ineligible") {
+    // Definitive negative from fresh evidence; no provider call made.
+    await resolve({ type: "ineligible", reason: eligibility.reason });
+    return { outcome: "ineligible" };
+  }
+  if (eligibility.status === "unavailable") {
+    // The authority cannot answer: do NOT send. The committed dispatch
+    // settles terminally (never released into a blind retry).
+    await resolve({ type: "eligibility_unavailable", error: eligibility.error });
+    return { outcome: "eligibility_unavailable" };
+  }
 
   // FINAL suppression fence: re-check after the dispatch commit, at the
   // last moment before the provider call (see the ordering note above).
@@ -316,6 +497,13 @@ export type ReviewSuppressionMemoryDeps = {
   ledger: ReviewLedgerClient;
   send: ReviewSendFn;
   now?: () => number;
+  /**
+   * Optional ONLY here, in the test harness: when omitted, dispatches
+   * are treated as eligible. The production coordinator construction
+   * (ReviewRequestSuppressionDO) always wires the real checker, and
+   * executeReviewDispatch itself requires the dep explicitly.
+   */
+  checkEligibility?: ReviewDispatchEligibilityChecker;
 };
 
 /**
@@ -332,7 +520,7 @@ export function createInMemoryReviewSuppressionClient(
       return records.get(name)?.suppressed ?? false;
     },
     async record(name, source) {
-      records.set(name, { suppressed: true, source });
+      records.set(name, { suppressed: true, source: sanitizeReviewSuppressionSource(source) });
       return true;
     },
     async clear(name) {
@@ -349,6 +537,7 @@ export function createInMemoryReviewSuppressionClient(
         {
           ledger: deps.ledger,
           isSuppressed: async () => records.get(input.name)?.suppressed ?? false,
+          checkEligibility: deps.checkEligibility ?? (async () => ({ status: "eligible" })),
           send: deps.send,
           now: deps.now,
         }

@@ -111,12 +111,9 @@ export async function POST(req: NextRequest) {
   const now = Date.now();
   const secret = getReviewOptOutSecret();
   const normalized = normalizePromotionEmail(email);
+  const suppressionName = secret ? deriveReviewSuppressionName(normalized, secret) : "";
   const recorded = secret
-    ? await createReviewSuppressionClient().record(
-        deriveReviewSuppressionName(normalized, secret),
-        source,
-        now
-      )
+    ? await createReviewSuppressionClient().record(suppressionName, source, now)
     : false;
   if (!recorded) {
     return page(
@@ -125,7 +122,11 @@ export async function POST(req: NextRequest) {
       503
     );
   }
-  await recordReviewOptOut(createWrapperKvScanStore(), email, now, source);
+  // Secondary KV write: the keyed marker only (S54-5 design (a)) — the
+  // raw-address opt-out row is legacy and is no longer written, and the
+  // marker carries no metadata (the DO record above holds it, under the
+  // 13-month retention rule).
+  await recordReviewOptOut(createWrapperKvScanStore(), email, suppressionName);
   return page(
     "You're unsubscribed",
     `<p>You won't receive review-request emails from StarMapCo again. Order and shipping emails are unaffected.</p>`

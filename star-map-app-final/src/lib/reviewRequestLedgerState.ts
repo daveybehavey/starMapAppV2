@@ -31,6 +31,14 @@
  *    before the dispatch commits AND again after it, immediately before
  *    the provider call — an opt-out acknowledged while the commit RPC was
  *    in flight still fences the send (reviewRequestSuppression.ts).
+ *  - Eligibility used to be decided only by the tick, before the claim: a
+ *    refund/revocation landing between the tick's read and the send did
+ *    not fence the dispatch (S52-2 M2-01). The coordinator now re-checks
+ *    eligibility against fresh source records AFTER the dispatch commits
+ *    and before invoking the provider (S54-5 design (b) as revised by
+ *    S54-5B): a definitive negative settles the row as terminal
+ *    `ineligible`; an unavailable authority settles it as `failed` with
+ *    an `eligibility_unavailable:` diagnostic — never a blind retry.
  *  - Terminal rows used to keep the recipient address, provider id and claim
  *    token forever. Terminal transitions now strip payload, recipient,
  *    provider id and claim token immediately; `uncertain` rows keep the
@@ -53,6 +61,7 @@ export type ReviewLedgerStatus =
   | "expired"
   | "failed"
   | "uncertain"
+  | "ineligible"
   | "erased";
 
 /**
@@ -163,6 +172,7 @@ const TERMINAL_STATUSES: ReadonlySet<ReviewLedgerStatus> = new Set([
   "expired",
   "failed",
   "uncertain",
+  "ineligible",
   "erased",
 ]);
 
@@ -194,7 +204,27 @@ export type ReviewDispatchResult =
    * attests no provider call was made, so the committed row truthfully
    * settles as terminal `expired` instead of `uncertain`.
    */
-  | { type: "expired" };
+  | { type: "expired" }
+  /**
+   * The coordinator's post-commit eligibility re-check (S54-5 design (b),
+   * revised by S54-5B) obtained a DEFINITIVE ineligible decision from
+   * fresh source records — revoked, unpaid, gift, wrong recipient/kind,
+   * malformed evidence — AFTER the dispatch committed but BEFORE the
+   * provider was invoked. The coordinator attests no provider call was
+   * made, so the committed row truthfully settles as terminal
+   * `ineligible` with the standard PII strip. `reason` is a bounded code
+   * from the checker's vocabulary, never a record dump.
+   */
+  | { type: "ineligible"; reason: string }
+  /**
+   * The post-commit eligibility re-check could not obtain a decision
+   * (authority unavailable / indeterminate) BEFORE the provider was
+   * invoked. No provider call was made, and the committed dispatch keeps
+   * the conservative no-retry discipline: the row settles terminally as
+   * `failed`, distinguished from provider ambiguity by its
+   * `eligibility_unavailable:` diagnostic prefix.
+   */
+  | { type: "eligibility_unavailable"; error: string };
 
 export type ReviewLedgerOp =
   | {
@@ -236,6 +266,8 @@ export type ReviewLedgerOpOutcome =
   | "uncertain"
   | "suppressed"
   | "expired"
+  | "ineligible"
+  | "eligibility_unavailable"
   | "payload_diverged"
   | "already_resolved"
   | "in_flight"
@@ -594,6 +626,40 @@ function resolveDispatch(
       }),
       changed: true,
       outcome: "expired",
+    };
+  }
+
+  if (result.type === "ineligible") {
+    // The post-commit eligibility re-check returned a definitive
+    // ineligible decision and the coordinator attests no provider call
+    // was made: settle truthfully as terminal `ineligible`, with the
+    // standard terminal strip (payload, recipient, provider id, token).
+    return {
+      state: stripTerminalPii({
+        ...state,
+        status: "ineligible",
+        lastError: sanitizeReviewError(`ineligible:${result.reason}`),
+        updatedAt: op.now,
+      }),
+      changed: true,
+      outcome: "ineligible",
+    };
+  }
+
+  if (result.type === "eligibility_unavailable") {
+    // The eligibility authority could not answer after the commit; no
+    // provider call was made. A committed dispatch is never released
+    // into a blind retry, so the row settles terminally as `failed`,
+    // distinguished from a provider rejection by its diagnostic prefix.
+    return {
+      state: stripTerminalPii({
+        ...state,
+        status: "failed",
+        lastError: sanitizeReviewError(`eligibility_unavailable:${result.error}`),
+        updatedAt: op.now,
+      }),
+      changed: true,
+      outcome: "eligibility_unavailable",
     };
   }
 
