@@ -123,8 +123,10 @@ export async function POST(req: NextRequest) {
     );
   }
   // Secondary KV write: the keyed marker only (S54-5 design (a)) — the
-  // raw-address opt-out row is legacy and is no longer written.
-  await recordReviewOptOut(createWrapperKvScanStore(), email, now, source, suppressionName);
+  // raw-address opt-out row is legacy and is no longer written, and the
+  // marker carries no metadata (the DO record above holds it, under the
+  // 13-month retention rule).
+  await recordReviewOptOut(createWrapperKvScanStore(), email, suppressionName);
   return page(
     "You're unsubscribed",
     `<p>You won't receive review-request emails from StarMapCo again. Order and shipping emails are unaffected.</p>`

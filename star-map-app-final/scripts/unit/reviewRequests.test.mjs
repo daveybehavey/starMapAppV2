@@ -1568,8 +1568,6 @@ test("tick: suppression is recorded as a ledger transition — KV hint AND coord
   await recordReviewOptOut(
     store,
     "opted@example.com",
-    NOW,
-    "opt_out_page",
     deriveReviewSuppressionName("opted@example.com", SECRET),
   );
   store.data.set(`promotions:email:${encodeURIComponent("promo@example.com")}`, {
@@ -2162,7 +2160,7 @@ test("wiring: eligibility checker inside the coordinator; retention maintenance 
   );
   const optOutRoute = readFileSync(new URL("src/app/api/reviews/opt-out/route.ts", appRoot), "utf8");
   assert.ok(
-    optOutRoute.includes("recordReviewOptOut(createWrapperKvScanStore(), email, now, source, suppressionName)"),
+    optOutRoute.includes("recordReviewOptOut(createWrapperKvScanStore(), email, suppressionName)"),
     "the opt-out route must write the keyed marker, not a raw-address row",
   );
 });
@@ -2258,23 +2256,28 @@ test("retention: the 13-month boundary is calendar-exact — month-end and leap 
   assert.equal(sanitizeReviewSuppressionSource(undefined), null);
 });
 
-test("retention: recordReviewOptOut writes ONLY the keyed marker — no raw address in key or value", async () => {
+test("retention: recordReviewOptOut writes ONLY the keyed marker — no raw address, no metadata", async () => {
   const store = createFakeStore();
   const name = deriveReviewSuppressionName("marker@example.com", SECRET);
-  await recordReviewOptOut(store, "Marker@Example.com", NOW, "opt_out_page", name);
+  await recordReviewOptOut(store, "Marker@Example.com", name);
   const keys = [...store.data.keys()];
   assert.deepEqual(keys, [reviewOptOutMarkerKey(name)]);
   assert.ok(!keys[0].includes("marker@example.com"), "the raw address must not appear in the key");
-  assert.deepEqual(store.data.get(keys[0]), { optedOutAt: NOW, source: "opt_out_page" });
+  // The value is a bare presence marker: the write path accepts no
+  // opt-out time or source, so the PERMANENT marker cannot carry the
+  // metadata the 13-month rule governs (that lives only in the DO
+  // record, which the caller lands first).
+  assert.deepEqual(store.data.get(keys[0]), { suppressed: true });
   assert.ok(
     !JSON.stringify(store.data.get(keys[0])).includes("marker@example.com"),
     "the raw address must not appear in the value",
   );
   assert.equal(await isReviewSuppressed(store, "marker@example.com", name), true);
-  // An unrestricted source string is never stored verbatim.
+  // Every marker is the same bare value — there is no field in which a
+  // timestamp or a source string (sanitized or not) could be stored.
   const name2 = deriveReviewSuppressionName("second@example.com", SECRET);
-  await recordReviewOptOut(store, "second@example.com", NOW, "carrier_pigeon", name2);
-  assert.equal(store.data.get(reviewOptOutMarkerKey(name2)).source, null);
+  await recordReviewOptOut(store, "second@example.com", name2);
+  assert.deepEqual(store.data.get(reviewOptOutMarkerKey(name2)), { suppressed: true });
   // Legacy rows still suppress: read compatibility remains until the
   // migration sweep has verifiably replaced every one of them.
   await store.putJson(reviewOptOutKey("legacy@example.com"), {
@@ -2335,13 +2338,12 @@ test("sweep: legacy rows migrate — replacement protection first, raw row delet
   ]);
   assert.equal(await client.check(name1), true);
   assert.equal(await client.check(name2), true);
-  // Legacy raw rows are gone; keyed markers carry the original times.
+  // Legacy raw rows are gone; keyed markers are bare presence values —
+  // the original times/sources live ONLY in the DO records (see the
+  // recordCalls above), never in the permanent KV copy.
   assert.equal(store.data.has(reviewOptOutKey("old1@example.com")), false);
   assert.equal(store.data.has(reviewOptOutKey("old2@example.com")), false);
-  assert.deepEqual(store.data.get(reviewOptOutMarkerKey(name1)), {
-    optedOutAt: NOW - 30 * DAY,
-    source: "opt_out_page",
-  });
+  assert.deepEqual(store.data.get(reviewOptOutMarkerKey(name1)), { suppressed: true });
   assert.equal(await isReviewSuppressed(store, "old1@example.com", name1), true);
   // The promotions row is untouched.
   assert.equal(store.data.has(`promotions:email:${encodeURIComponent("promo@example.com")}`), true);
@@ -2446,6 +2448,78 @@ test("sweep: a failed replacement NEVER deletes the legacy row — suppression s
   });
   assert.deepEqual(summaryC2, { scanned: 1, migrated: 1, failed: 0, complete: true });
   assert.equal(baseC.data.has(reviewOptOutKey("keep@example.com")), false);
+});
+
+test("retention: a migrated opt-out PAST its 13-month deadline leaves no metadata anywhere — suppression stands", async () => {
+  // The Codex P2 scenario on PR #446: a legacy row whose opt-out is
+  // ALREADY older than the retention window when the sweep migrates it.
+  // The sweep used to copy optedOutAt + source into the PERMANENT KV
+  // marker; the sweep scans only the legacy prefix and the DO alarm
+  // minimizes only its own row, so that copy would have survived every
+  // minimization pass forever.
+  const optedOutAt = NOW - 400 * DAY; // > 13 calendar months before NOW
+  assert.ok(
+    reviewRetentionDeadlineMs(optedOutAt) < NOW,
+    "the fixture must start past its retention deadline",
+  );
+  const store = createFakeStore({
+    [reviewOptOutKey("ancient@example.com")]: {
+      email: "ancient@example.com",
+      optedOutAt,
+      source: "opt_out_page",
+    },
+  });
+  const client = createInMemoryReviewSuppressionClient({
+    ledger: createFakeLedger(),
+    send: createFakeSender().send,
+    now: () => NOW,
+  });
+  const recordCalls = [];
+  const suppression = {
+    ...client,
+    record: async (name, source, now) => {
+      recordCalls.push({ name, source, now });
+      return client.record(name, source, now);
+    },
+  };
+  const summary = await runReviewOptOutRetentionSweep({
+    store,
+    suppression,
+    signingSecret: SECRET,
+    now: () => NOW,
+    log: () => {},
+  });
+  assert.deepEqual(summary, { scanned: 1, migrated: 1, failed: 0, complete: true });
+  const name = deriveReviewSuppressionName("ancient@example.com", SECRET);
+  // The metadata went to its governed home — the DO record — with the
+  // ORIGINAL opt-out time, never the migration time.
+  assert.deepEqual(recordCalls, [{ name, source: "opt_out_page", now: optedOutAt }]);
+  // The DO row that record implies is already due at migration time, and
+  // minimization (alarm + lazy repair, pinned structurally in the wiring
+  // tests) reduces it to the flag alone: no source, no timestamp.
+  const doRow = { suppressed: 1, source: "opt_out_page", suppressed_at: optedOutAt };
+  assert.equal(reviewSuppressionMinimizationDue(doRow, NOW), true);
+  assert.equal(
+    isReviewSuppressionMinimized({ suppressed: 1, source: null, suppressed_at: null }),
+    true,
+  );
+  // The permanent KV marker is a bare presence value — nothing for the
+  // deadline to govern, nothing left behind when it passes.
+  const marker = store.data.get(reviewOptOutMarkerKey(name));
+  assert.deepEqual(marker, { suppressed: true });
+  assert.ok(!("optedOutAt" in marker) && !("source" in marker));
+  // Whole-store scan: with the legacy row deleted, NO KV value may still
+  // carry the opt-out timestamp or source (the sweep cursor row holds
+  // neither). Any hit here is a permanent, unminimizable leak.
+  for (const [key, value] of store.data) {
+    const text = JSON.stringify(value);
+    assert.ok(!text.includes(String(optedOutAt)), `opt-out timestamp leaked into ${key}`);
+    assert.ok(!text.includes("opt_out_page"), `opt-out source leaked into ${key}`);
+  }
+  // Suppression itself is untouched by all of this: the KV hint and the
+  // authoritative DO check both still read suppressed.
+  assert.equal(await isReviewSuppressed(store, "ancient@example.com", name), true);
+  assert.equal(await client.check(name), true);
 });
 
 // ---------------------------------------------------------------------------
@@ -2601,8 +2675,6 @@ function storeWithMidTickAck(base, { triggerKey, email, suppression }) {
         await recordReviewOptOut(
           base,
           email,
-          NOW,
-          "opt_out_route",
           deriveReviewSuppressionName(normalizePromotionEmail(email), SECRET),
         );
       }

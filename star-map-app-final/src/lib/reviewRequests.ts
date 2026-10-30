@@ -344,8 +344,19 @@ export type ReviewOptOutRecord = { email: string; optedOutAt: number; source: st
  * raw address in key or value — and the marker is PERMANENT: a KV TTL on
  * suppression is prohibited, because expiry could remove the protective
  * fallback and re-expose an opted-out address.
+ *
+ * The marker value is METADATA-FREE by design: the key's presence IS the
+ * suppression fact, and no reader consumes more than that. The optional
+ * metadata (opt-out time, source) lives ONLY in the suppression DO
+ * record, where the 13-month minimization (alarm + lazy repair) governs
+ * it. A metadata copy in this permanent KV value would outlive that
+ * minimization — the retention sweep scans only the legacy prefix, so
+ * nothing would ever strip it — and defeat the retention boundary.
  */
-export type ReviewOptOutMarker = { optedOutAt: number; source: string | null };
+export type ReviewOptOutMarker = { suppressed: true };
+
+/** The only marker value ever written: presence is the whole record. */
+const REVIEW_OPTOUT_MARKER_VALUE: ReviewOptOutMarker = { suppressed: true };
 
 export function reviewOptOutMarkerKey(suppressionName: string): string {
   return `review:optout-marker:${suppressionName}`;
@@ -353,36 +364,35 @@ export function reviewOptOutMarkerKey(suppressionName: string): string {
 
 /**
  * Record a review opt-out in the secondary KV store. Writes ONLY the
- * keyed marker — never a raw-address row. The authoritative write is the
- * suppression DO record, which the caller lands BEFORE this (the opt-out
- * route acknowledges only after the DO write); without a suppression
- * name there is nothing safe to write, so the KV write is skipped rather
- * than falling back to the legacy raw representation.
+ * keyed marker — never a raw-address row, and never any metadata: this
+ * function does not even accept the opt-out time or source, so the
+ * permanent marker cannot come to carry them. The authoritative write is
+ * the suppression DO record (which holds that metadata under the
+ * 13-month retention rule), and the caller lands it BEFORE this — the
+ * opt-out route acknowledges only after the DO write. Without a
+ * suppression name there is nothing safe to write, so the KV write is
+ * skipped rather than falling back to the legacy raw representation.
  */
 export async function recordReviewOptOut(
   store: ReviewScanStore,
   rawEmail: string,
-  now: number,
-  source: string,
   suppressionName: string,
 ): Promise<void> {
   const email = normalizePromotionEmail(rawEmail);
   if (!email || !suppressionName) return;
-  const marker: ReviewOptOutMarker = {
-    optedOutAt: now,
-    source: sanitizeReviewSuppressionSource(source),
-  };
-  await store.putJson(reviewOptOutMarkerKey(suppressionName), marker);
+  await store.putJson(reviewOptOutMarkerKey(suppressionName), REVIEW_OPTOUT_MARKER_VALUE);
 }
 
 /**
  * Suppressed = keyed marker exists OR a legacy opt-out row exists OR the
- * promotions system shows the address unsubscribed. Legacy-row reads
- * remain until the retention sweep has migrated every row and a full
- * scan verifies none remain (S54-5B: legacy read compatibility must
- * remain until replacement protection is established). Identity must
- * match the promotions system exactly (critique P2): same normalization,
- * same encodeURIComponent keying for the legacy row.
+ * promotions system shows the address unsubscribed. The marker read is
+ * presence-only — ANY value under the marker key suppresses, so markers
+ * written in any earlier shape still count. Legacy-row reads remain
+ * until the retention sweep has migrated every row and a full scan
+ * verifies none remain (S54-5B: legacy read compatibility must remain
+ * until replacement protection is established). Identity must match the
+ * promotions system exactly (critique P2): same normalization, same
+ * encodeURIComponent keying for the legacy row.
  */
 export async function isReviewSuppressed(
   store: ReviewScanStore,
@@ -611,8 +621,11 @@ export async function runReviewOptOutRetentionSweep(deps: {
           summary.failed += 1;
           continue;
         }
-        const marker: ReviewOptOutMarker = { optedOutAt, source };
-        await store.putJson(reviewOptOutMarkerKey(name), marker);
+        // The marker is a bare presence value: the original opt-out time
+        // and source went ONLY to the DO record above, whose retention
+        // minimization governs them. Copying them into this permanent KV
+        // value would leave an unminimized metadata copy behind forever.
+        await store.putJson(reviewOptOutMarkerKey(name), REVIEW_OPTOUT_MARKER_VALUE);
         await store.deleteKey(key);
         summary.migrated += 1;
       } catch {
