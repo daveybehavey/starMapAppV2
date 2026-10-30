@@ -1,5 +1,16 @@
 import assert from "node:assert/strict";
+import { register } from "node:module";
+import path from "node:path";
 import test from "node:test";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+
+register("./tsResolveHook.mjs", pathToFileURL(path.dirname(fileURLToPath(import.meta.url)) + "/"));
+
+async function loadTs(relPath) {
+  return import(pathToFileURL(path.join(ROOT, relPath)).href);
+}
 
 /** GSC-tuned occasion rows — keep in sync with seoOccasions.ts */
 const TUNED_OCCASIONS = [
@@ -54,7 +65,7 @@ const TUNED_OCCASIONS = [
   {
     slug: "night-we-met",
     seoTitle: "Night We Met Star Map — Custom Star Map of Where You Met | StarMapCo",
-    seoH1: "Night We Met Star Map",
+    seoH1: "Star Map of the Night We Met — or the Day We Met",
     mustMatchTitle: /Night We Met/i,
   },
 ];
@@ -71,4 +82,39 @@ test("default occasion description mentions framed + HD path", () => {
   const suffix =
     "Start with a free preview, then choose framed + HD digital (free shipping at $89+ USD), unframed poster, or HD digital delivery.";
   assert.match(suffix, /framed \+ HD digital/);
+});
+
+/**
+ * S60-2 row 5 (S54-7 §E as amended): application-data-backed verification of
+ * the night-we-met retarget. Unlike the TUNED_OCCASIONS fixture loop above,
+ * these assertions read the actual exported `seoOccasions` array and the
+ * actual `getOccasionPageH1` helper, so they fail if the shipped data drifts
+ * from the approved strings.
+ */
+test("night-we-met application data carries the retargeted H1 and daytime FAQ", async () => {
+  const { seoOccasions } = await loadTs("src/data/seoOccasions.ts");
+  const { getOccasionPageH1 } = await loadTs("src/lib/occasionSeo.ts");
+
+  const entry = seoOccasions.find((item) => item.slug === "night-we-met");
+  assert.ok(entry, "night-we-met occasion entry must exist in seoOccasions");
+
+  const expectedH1 = "Star Map of the Night We Met — or the Day We Met";
+  assert.equal(entry.seoH1, expectedH1);
+  assert.equal(getOccasionPageH1(entry), expectedH1);
+
+  const daytimeFaq = entry.faqs[2];
+  assert.ok(daytimeFaq, "night-we-met entry must carry a third FAQ");
+  assert.equal(
+    daytimeFaq.question,
+    "What does a star map day we met design show if we met during daylight?",
+  );
+  assert.equal(
+    daytimeFaq.answer,
+    "Use the date you met, with an evening time. The map then shows the first night sky over that place after you met — the night that followed the day everything started. The same approach works for morning or afternoon meetings.",
+  );
+
+  assert.equal(
+    entry.seoTitle,
+    "Night We Met Star Map — Custom Star Map of Where You Met | StarMapCo",
+  );
 });

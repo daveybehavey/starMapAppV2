@@ -657,7 +657,7 @@ export const seoOccasions: SeoOccasion[] = [
     slug: "night-we-met",
     label: "Night We Met",
     seoTitle: "Night We Met Star Map — Custom Star Map of Where You Met | StarMapCo",
-    seoH1: "Night We Met Star Map",
+    seoH1: "Star Map of the Night We Met — or the Day We Met",
     seoDescription:
       "A custom star map of the sky over where you met, on the night it happened — by date and location. Free preview, no account. Framed print, poster, canvas or HD file; HD from $9.",
     intro:
@@ -702,7 +702,7 @@ export const seoOccasions: SeoOccasion[] = [
           "No. Date plus city still produces an accurate sky — the date and the place where you met are enough. If you remember roughly when it was, choose the closest evening hour: adding the exact time makes Moon and planet placement precise to that hour.",
       },
       {
-        question: "We met during the day. Which sky does the map show?",
+        question: "What does a star map day we met design show if we met during daylight?",
         answer:
           "Use the date you met, with an evening time. The map then shows the first night sky over that place after you met — the night that followed the day everything started. The same approach works for morning or afternoon meetings.",
       },
