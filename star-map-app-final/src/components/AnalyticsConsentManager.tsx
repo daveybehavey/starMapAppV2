@@ -10,6 +10,7 @@ import {
   applyGaConsentUpdate,
   flushPendingGa4Purchase,
   sendGaPageView,
+  trackProviderPageView,
 } from "@/lib/analytics";
 import { ensureGoogleTagManagerLoaded, getGtmContainerId } from "@/lib/googleTagManager";
 import { ensurePinterestTagLoaded, getPinterestTagId } from "@/lib/pinterestTag";
@@ -116,6 +117,21 @@ export default function AnalyticsConsentManager() {
       flushPendingGa4Purchase();
     }
   }, [consent, gaId]);
+
+  // Granted-only provider page views: the GTM dataLayer push and the
+  // Pinterest page view that the pre-Consent-Mode page-view helper used to
+  // emit on navigation. GTM and Pinterest stay granted-only, so this runs
+  // only for granted visitors — once per navigation, and once when a
+  // visitor grants mid-page (the landing page's provider view they would
+  // have had before). It emits NO GA event: the GA page_view comes solely
+  // from the all-states dispatcher below, so it can never double-fire.
+  useEffect(() => {
+    if (consent !== "granted") return;
+    if (!gtmId && !pinterestTagId) return;
+    trackProviderPageView({
+      path: pathname || "/",
+    });
+  }, [consent, gtmId, pinterestTagId, pathname]);
 
   // Single GA page-view dispatcher, for EVERY consent state. Under Consent
   // Mode v2 the consent default/update queued by the bootstrap effect above

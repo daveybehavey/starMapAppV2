@@ -49,6 +49,7 @@ const {
   applyGaConsentUpdate,
   sendGaPageView,
   trackPageView,
+  trackProviderPageView,
 } = analytics;
 
 test("consent default denies ad/analytics storage, grants functionality/security", () => {
@@ -282,6 +283,144 @@ test("component has a single all-states page-view dispatcher (source pins)", () 
   const bootstrapIdx = component.indexOf("ensureGaBootstrap(gaId);");
   const dispatchIdx = component.indexOf("sendGaPageView(pathname");
   assert.ok(bootstrapIdx >= 0 && dispatchIdx > bootstrapIdx, "bootstrap precedes first page view");
+});
+
+// --- Fix round 2 (Codex P2s) ---
+//
+// P2-A: the round-1 restructure dropped the provider page views entirely —
+// granted visitors lost the GTM dataLayer page_view push and the Pinterest
+// page view that the old page-view helper emitted on navigation. They are
+// restored via a lib sender with NO GA event (trackProviderPageView),
+// called from a granted-only component effect, so the GA page_view still
+// comes solely from sendGaPageView and can never double-fire.
+//
+// P2-B: sendGaPageView bypassed Do Not Track. Pre-#448 (ba7c0d6a) the GA
+// page_view went through sendGaEvent, whose canTrackAnalytics gate
+// suppressed it under DNT — while tag loading carried no DNT check at
+// all. The restored scope is exactly that: DNT suppresses the GA page
+// view (and, via the untouched canTrackAnalytics, the Pinterest call),
+// and nothing else new.
+
+const pintrCalls = [];
+globalThis.window.pintr = (...args) => pintrCalls.push(args);
+
+function dataLayerPageViews() {
+  return globalThis.window.dataLayer.filter((entry) => entry && entry.event === "page_view");
+}
+
+function resetTracking() {
+  calls.length = 0;
+  pintrCalls.length = 0;
+  globalThis.window.dataLayer.length = 0;
+}
+
+test("P2-A granted navigation: GTM + Pinterest page views exactly once, GA page_view exactly once", () => {
+  storageBacking.clear();
+  storageBacking.set(analytics.ANALYTICS_STORAGE_KEY, "true");
+  resetTracking();
+  // The component's per-navigation sequence for a granted visitor: the
+  // all-states GA dispatcher plus the granted-only provider effect.
+  sendGaPageView("/");
+  trackProviderPageView({ path: "/" });
+  assert.deepEqual(pageViewCalls(), [["event", "page_view", { page_path: "/" }]]);
+  assert.equal(calls.length, 1, "the provider sender adds no GA traffic");
+  assert.deepEqual(dataLayerPageViews(), [
+    {
+      event: "page_view",
+      page_path: "/",
+      page_title: "StarMapCo test",
+      page_location: "https://starmapco.com/",
+    },
+  ]);
+  assert.deepEqual(pintrCalls, [["page"]]);
+  // A second navigation: exactly one more of each, never two.
+  sendGaPageView("/shop");
+  trackProviderPageView({ path: "/shop" });
+  assert.equal(pageViewCalls().length, 2);
+  assert.equal(dataLayerPageViews().length, 2);
+  assert.equal(pintrCalls.length, 2);
+});
+
+test("P2-A denied/unset navigation: dispatcher only — no GTM page view, no Pinterest", () => {
+  for (const stored of ["false", null]) {
+    storageBacking.clear();
+    if (stored !== null) storageBacking.set(analytics.ANALYTICS_STORAGE_KEY, stored);
+    resetTracking();
+    // For non-granted states the component runs ONLY the GA dispatcher;
+    // the provider effect returns before its sender call.
+    sendGaPageView("/pricing");
+    assert.deepEqual(pageViewCalls(), [["event", "page_view", { page_path: "/pricing" }]]);
+    assert.deepEqual(dataLayerPageViews(), []);
+    assert.deepEqual(pintrCalls, []);
+    // And the lib sender itself cannot emit Pinterest without consent:
+    // its Pinterest call stays behind canTrackAnalytics, as before.
+    trackProviderPageView({ path: "/pricing" });
+    assert.deepEqual(pintrCalls, []);
+  }
+});
+
+test("P2-A provider sender emits no GA event (source pin)", () => {
+  const lib = readSrc("src/lib/analytics.ts");
+  const start = lib.indexOf("export function trackProviderPageView");
+  assert.ok(start >= 0, "trackProviderPageView exists in analytics lib");
+  const body = lib.slice(start, lib.indexOf("\n}", start));
+  assert.ok(!body.includes("gtag"), "provider sender never touches gtag");
+  assert.ok(!body.includes("sendGaEvent"), "provider sender never routes through sendGaEvent");
+  assert.match(body, /pushDataLayer\(\{\s*\n\s*event: "page_view",/);
+  assert.match(body, /if \(canTrackAnalytics\(\)\) \{\s*\n\s*trackPinterestPageView\(\);/);
+});
+
+test("P2-A component wires the provider sender granted-only, once per navigation (source pins)", () => {
+  assert.equal(component.match(/trackProviderPageView\(/g)?.length, 1);
+  const providerEffect =
+    /useEffect\(\(\) => \{\s*\n\s*if \(consent !== "granted"\) return;\s*\n\s*if \(!gtmId && !pinterestTagId\) return;\s*\n\s*trackProviderPageView\(\{\s*\n\s*path: pathname \|\| "\/",\s*\n\s*\}\);\s*\n\s*\}, \[consent, gtmId, pinterestTagId, pathname\]\);/;
+  assert.match(component, providerEffect);
+  // Declared before the GA dispatcher, mirroring the pre-Consent-Mode
+  // effect order (provider page view followed the bootstrap effects).
+  const providerIdx = component.indexOf("trackProviderPageView(");
+  const dispatchIdx = component.indexOf("sendGaPageView(pathname");
+  assert.ok(providerIdx >= 0 && dispatchIdx > providerIdx, "provider effect precedes GA dispatcher");
+});
+
+test("P2-B Do Not Track suppresses the GA page view from the GA-only sender", () => {
+  storageBacking.clear();
+  resetTracking();
+  globalThis.window.navigator.doNotTrack = "1";
+  try {
+    sendGaPageView("/");
+    assert.deepEqual(pageViewCalls(), []);
+    assert.equal(calls.length, 0);
+  } finally {
+    delete globalThis.window.navigator.doNotTrack;
+  }
+  // DNT off again: the cookieless ping resumes.
+  sendGaPageView("/");
+  assert.deepEqual(pageViewCalls(), [["event", "page_view", { page_path: "/" }]]);
+});
+
+test("P2-B restored DNT scope matches the pre-change scope exactly", () => {
+  // Granted + DNT: Pinterest is suppressed (canTrackAnalytics, untouched
+  // by #448), while the GTM dataLayer push still fires — pre-change it
+  // was ungated inside the page-view helper too.
+  storageBacking.clear();
+  storageBacking.set(analytics.ANALYTICS_STORAGE_KEY, "true");
+  resetTracking();
+  globalThis.window.navigator.doNotTrack = "1";
+  try {
+    trackProviderPageView({ path: "/" });
+    assert.deepEqual(pintrCalls, []);
+    assert.equal(dataLayerPageViews().length, 1);
+  } finally {
+    delete globalThis.window.navigator.doNotTrack;
+  }
+  // Tag loading was never DNT-gated pre-change and is not now: the
+  // component (bootstrap + loaders) carries no DNT reference at all.
+  assert.ok(!component.includes("DoNotTrack"), "component has no DNT gate on tag loading");
+  // The one new DNT check lives in the GA-only sender.
+  const lib = readSrc("src/lib/analytics.ts");
+  const senderStart = lib.indexOf("export function sendGaPageView");
+  const senderBody = lib.slice(senderStart, lib.indexOf("\n}", senderStart));
+  assert.match(senderBody, /if \(isDoNotTrackEnabled\(\)\) return;/);
 });
 
 test("GTM and Pinterest loaders are still only called from the granted-only effect", () => {

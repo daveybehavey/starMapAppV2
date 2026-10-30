@@ -267,9 +267,16 @@ function sendGaEvent(eventName: string, params: Record<string, unknown>) {
  * sendGaEvent above, which stays consent-gated for custom events).
  * Denied/unset visitors' page views reach GA4 as cookieless pings; the
  * consent default/update queued at bootstrap decides their storage.
+ *
+ * Do Not Track IS honoured, restoring the pre-Consent-Mode scope exactly:
+ * before this sender existed, the GA page_view went through sendGaEvent,
+ * whose canTrackAnalytics gate suppressed it when DNT was enabled. DNT
+ * never gated tag loading (the bootstrap carried no DNT check), so the
+ * check lives here in the sender and nowhere new.
  */
 export function sendGaPageView(path: string) {
   if (typeof window === "undefined") return;
+  if (isDoNotTrackEnabled()) return;
   if (typeof window.gtag !== "function") return;
   window.gtag("event", "page_view", { page_path: path });
 }
@@ -473,32 +480,57 @@ export function flushPendingGa4Purchase() {
   }
 }
 
-export function trackPageView(input?: {
+type PageViewInput = {
   path?: string;
   search?: string;
   title?: string;
   location?: string;
-}) {
-  if (typeof window === "undefined") return;
+};
+
+function resolvePageViewContext(input?: PageViewInput) {
   const path = input?.path || window.location.pathname;
   const search = typeof input?.search === "string" ? input.search : window.location.search;
   const location =
     input?.location ||
     `${window.location.origin}${path}${search.startsWith("?") || search === "" ? search : `?${search}`}`;
-  sendGaEvent("page_view", {
-    page_path: path,
-    page_title: input?.title || document.title,
-    page_location: location,
-  });
+  return { path, location, title: input?.title || document.title };
+}
+
+/**
+ * The non-GA half of a page view: the GTM dataLayer push and the
+ * Pinterest page view, with NO GA event. Split out of trackPageView for
+ * Consent Mode v2, where GA's page_view is emitted solely by
+ * sendGaPageView in every consent state while GTM and Pinterest remain
+ * granted-only — the consent manager calls this from its granted branch
+ * so granted visitors keep their provider page views without the GA
+ * page_view ever double-firing. The dataLayer push keeps trackPageView's
+ * historical ungated shape (its caller is the gate); the Pinterest call
+ * stays behind canTrackAnalytics (consent + Do Not Track), exactly as
+ * trackPageView had it.
+ */
+export function trackProviderPageView(input?: PageViewInput) {
+  if (typeof window === "undefined") return;
+  const { path, location, title } = resolvePageViewContext(input);
   pushDataLayer({
     event: "page_view",
     page_path: path,
-    page_title: input?.title || document.title,
+    page_title: title,
     page_location: location,
   });
   if (canTrackAnalytics()) {
     trackPinterestPageView();
   }
+}
+
+export function trackPageView(input?: PageViewInput) {
+  if (typeof window === "undefined") return;
+  const { path, location, title } = resolvePageViewContext(input);
+  sendGaEvent("page_view", {
+    page_path: path,
+    page_title: title,
+    page_location: location,
+  });
+  trackProviderPageView({ path, location, title });
 }
 
 function postFunnelCounter(payload: {
