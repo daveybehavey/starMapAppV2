@@ -1343,6 +1343,10 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
         bindFailureReason ?? (bindBlockedByTerminal ? "terminal_blocks_bind" : "bind_rejected"),
       );
     }
+    // M1-04: destination exclusivity. Printful v1 was selected for this
+    // invocation and has accepted (or its outcome was handled above); the
+    // alternate fulfillment webhook must never also receive this order.
+    return;
   }
 
   if (!printFulfillmentWebhookUrl) return;
