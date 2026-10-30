@@ -260,6 +260,20 @@ function sendGaEvent(eventName: string, params: Record<string, unknown>) {
   window.gtag("event", eventName, removeUndefinedValues(params));
 }
 
+/**
+ * GA-only page view for Consent Mode v2. Consent Mode governs whether GA
+ * may use storage/cookies for a hit — it does not gate the ping itself —
+ * so this sender deliberately does NOT consult stored consent (unlike
+ * sendGaEvent above, which stays consent-gated for custom events).
+ * Denied/unset visitors' page views reach GA4 as cookieless pings; the
+ * consent default/update queued at bootstrap decides their storage.
+ */
+export function sendGaPageView(path: string) {
+  if (typeof window === "undefined") return;
+  if (typeof window.gtag !== "function") return;
+  window.gtag("event", "page_view", { page_path: path });
+}
+
 function buildGaItem(input: EcommerceItemInput) {
   return removeUndefinedValues({
     item_id: getCheckoutItemId(input),

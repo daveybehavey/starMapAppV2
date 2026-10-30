@@ -9,7 +9,7 @@ import {
   applyGaConsentDefault,
   applyGaConsentUpdate,
   flushPendingGa4Purchase,
-  trackPageView,
+  sendGaPageView,
 } from "@/lib/analytics";
 import { ensureGoogleTagManagerLoaded, getGtmContainerId } from "@/lib/googleTagManager";
 import { ensurePinterestTagLoaded, getPinterestTagId } from "@/lib/pinterestTag";
@@ -117,13 +117,17 @@ export default function AnalyticsConsentManager() {
     }
   }, [consent, gaId]);
 
+  // Single GA page-view dispatcher, for EVERY consent state. Under Consent
+  // Mode v2 the consent default/update queued by the bootstrap effect above
+  // (which runs first) governs storage; the page_view ping itself is what
+  // gives denied/unset visits aggregate visibility, so it must not be
+  // consent-gated. Deps exclude `consent` on purpose: a banner decision is
+  // not a navigation and must not re-fire a page view, and granted visitors
+  // get exactly one page_view per navigation from here alone.
   useEffect(() => {
-    if (consent !== "granted") return;
-    if (!gaId && !gtmId && !pinterestTagId) return;
-    trackPageView({
-      path: pathname || "/",
-    });
-  }, [consent, gaId, gtmId, pinterestTagId, pathname]);
+    if (!gaId) return;
+    sendGaPageView(pathname || "/");
+  }, [gaId, pathname]);
 
   const updateConsent = (next: Exclude<ConsentState, "unset">) => {
     setConsent(next);
