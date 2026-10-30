@@ -51,6 +51,10 @@ import {
 } from "@/lib/reviewRequestEmail";
 import {
   deriveReviewSuppressionName,
+  sanitizeReviewSuppressionSource,
+  type ReviewDispatchEligibility,
+  type ReviewDispatchEligibilityChecker,
+  type ReviewDispatchIneligibleReason,
   type ReviewSuppressionClient,
 } from "@/lib/reviewRequestSuppression";
 
@@ -115,6 +119,12 @@ export type ReviewScanStore = {
   ): Promise<{ names: string[]; cursor: string | null; complete: boolean }>;
   getJson<T>(key: string): Promise<T | null>;
   putJson(key: string, value: unknown): Promise<void>;
+  /**
+   * Narrowly scoped delete, used ONLY by the opt-out retention sweep to
+   * remove a legacy raw-address row after its replacement protection
+   * (authoritative DO record + keyed KV marker) is durably in place.
+   */
+  deleteKey(key: string): Promise<void>;
 };
 
 export type ReviewLedgerClient = {
@@ -325,36 +335,303 @@ export function classifyPrintRecord(
 // state, per T-T1 — it is no longer a silent skip.
 // ---------------------------------------------------------------------------
 
+/** LEGACY opt-out row shape: the value carries the raw normalized address. */
 export type ReviewOptOutRecord = { email: string; optedOutAt: number; source: string };
 
+/**
+ * Keyed opt-out marker (S54-5 design (a) as revised): the replacement for
+ * the legacy raw-address row. The key is the HMAC suppression name — no
+ * raw address in key or value — and the marker is PERMANENT: a KV TTL on
+ * suppression is prohibited, because expiry could remove the protective
+ * fallback and re-expose an opted-out address.
+ */
+export type ReviewOptOutMarker = { optedOutAt: number; source: string | null };
+
+export function reviewOptOutMarkerKey(suppressionName: string): string {
+  return `review:optout-marker:${suppressionName}`;
+}
+
+/**
+ * Record a review opt-out in the secondary KV store. Writes ONLY the
+ * keyed marker — never a raw-address row. The authoritative write is the
+ * suppression DO record, which the caller lands BEFORE this (the opt-out
+ * route acknowledges only after the DO write); without a suppression
+ * name there is nothing safe to write, so the KV write is skipped rather
+ * than falling back to the legacy raw representation.
+ */
 export async function recordReviewOptOut(
   store: ReviewScanStore,
   rawEmail: string,
   now: number,
   source: string,
+  suppressionName: string,
 ): Promise<void> {
   const email = normalizePromotionEmail(rawEmail);
-  if (!email) return;
-  const record: ReviewOptOutRecord = { email, optedOutAt: now, source };
-  await store.putJson(reviewOptOutKey(email), record);
+  if (!email || !suppressionName) return;
+  const marker: ReviewOptOutMarker = {
+    optedOutAt: now,
+    source: sanitizeReviewSuppressionSource(source),
+  };
+  await store.putJson(reviewOptOutMarkerKey(suppressionName), marker);
 }
 
 /**
- * Suppressed = review-specific opt-out row exists OR the promotions system
- * shows the address unsubscribed. Identity must match the promotions system
- * exactly (critique P2): same normalization, same encodeURIComponent keying.
+ * Suppressed = keyed marker exists OR a legacy opt-out row exists OR the
+ * promotions system shows the address unsubscribed. Legacy-row reads
+ * remain until the retention sweep has migrated every row and a full
+ * scan verifies none remain (S54-5B: legacy read compatibility must
+ * remain until replacement protection is established). Identity must
+ * match the promotions system exactly (critique P2): same normalization,
+ * same encodeURIComponent keying for the legacy row.
  */
 export async function isReviewSuppressed(
   store: ReviewScanStore,
   rawEmail: string,
+  suppressionName?: string,
 ): Promise<boolean> {
   const email = normalizePromotionEmail(rawEmail);
   if (!email) return true;
+  if (suppressionName) {
+    const marker = await store.getJson<ReviewOptOutMarker>(reviewOptOutMarkerKey(suppressionName));
+    if (marker) return true;
+  }
   const optOut = await store.getJson<ReviewOptOutRecord>(reviewOptOutKey(email));
   if (optOut) return true;
   const promoState = await store.getJson<PromotionEmailState>(emailStateKey(email));
   if (promoState?.unsubscribedAt) return true;
   return false;
+}
+
+// ---------------------------------------------------------------------------
+// Dispatch eligibility checker (S54-5 design (b), revised by S54-5B)
+// ---------------------------------------------------------------------------
+
+function ineligible(reason: ReviewDispatchIneligibleReason): ReviewDispatchEligibility {
+  return { status: "ineligible", reason };
+}
+
+/**
+ * Build the coordinator's post-commit eligibility checker from two fresh
+ * source readers. The checker re-derives eligibility from the COMMITTED
+ * ledger state (session, kind, frozen recipient) and the CURRENT source
+ * records, reusing the tick's own classifiers so the dispatch-time
+ * predicates can never drift from the claim-time ones — plus the binding
+ * checks the classifiers do not own: the fresh evidence must concern the
+ * FROZEN recipient and the FROZEN request kind. A changed recipient never
+ * causes payload regeneration or a send under another identity; an
+ * unverifiable binding prevents sending. Read failures are `unavailable`
+ * (the authority cannot answer); definitive negative evidence is
+ * `ineligible` with a bounded reason code.
+ */
+export function createReviewDispatchEligibilityChecker(readers: {
+  getEntitlement: (sessionId: string) => Promise<StripeSessionEntitlement | null>;
+  getPrintRecord: (sessionId: string) => Promise<PrintOrderRecord | null>;
+  physicalEnabled: boolean;
+}): ReviewDispatchEligibilityChecker {
+  return async ({ sessionId, state, now }) => {
+    const kind = state.kind;
+    const frozenEmail = state.email;
+    const payloadTo = state.payload?.to ?? null;
+    if (!kind || !frozenEmail || !payloadTo) return ineligible("malformed_evidence");
+    const recipient = normalizePromotionEmail(frozenEmail);
+    if (!recipient || normalizePromotionEmail(payloadTo) !== recipient) {
+      return ineligible("recipient_mismatch");
+    }
+
+    let entitlement: StripeSessionEntitlement | null;
+    try {
+      entitlement = await readers.getEntitlement(sessionId);
+    } catch {
+      return { status: "unavailable", error: "entitlement_read_failed" };
+    }
+    // Fresh clock sampled AFTER the source read (S54-5B): the stale
+    // pre-claim sample must not decide dispatch-time windows.
+    const checkedAt = now();
+
+    if (kind === "digital") {
+      const classification = classifyDigitalEntitlement(entitlement, checkedAt);
+      if (classification.outcome === "due") {
+        return normalizePromotionEmail(classification.email) === recipient
+          ? { status: "eligible" }
+          : ineligible("recipient_mismatch");
+      }
+      if (classification.outcome === "pending") return ineligible("malformed_evidence");
+      switch (classification.reason) {
+        case "revoked":
+          return ineligible("revoked");
+        case "not_paid":
+          return ineligible("not_paid");
+        case "gift_order":
+          return ineligible("gift_order");
+        case "gift_uncertain":
+          return ineligible("gift_uncertain");
+        case "missing_record":
+          return ineligible("missing_record");
+        case "missing_email":
+          return ineligible("missing_email");
+        case "invalid_anchor":
+          return ineligible("invalid_anchor");
+        case "past_max_age":
+          return ineligible("window_closed");
+        case "print_order_physical_branch":
+          return ineligible("kind_mismatch");
+        default:
+          return ineligible("malformed_evidence");
+      }
+    }
+
+    let printRecord: PrintOrderRecord | null;
+    try {
+      printRecord = await readers.getPrintRecord(sessionId);
+    } catch {
+      return { status: "unavailable", error: "print_record_read_failed" };
+    }
+    const classification = classifyPrintRecord(printRecord, now(), readers.physicalEnabled);
+    if (classification.outcome === "due") {
+      // Entitlement cross-check, mirroring the tick's: refund/revocation
+      // and gift state live on the entitlement, not the print record.
+      if (!entitlement) return ineligible("missing_record");
+      if (entitlement.revoked === true) return ineligible("revoked");
+      if (entitlement.paid !== true) return ineligible("not_paid");
+      if (entitlement.isGift === true) return ineligible("gift_order");
+      if (entitlement.isGift !== false) return ineligible("gift_uncertain");
+      const entitlementEmail = entitlement.customerEmail?.trim();
+      if (!entitlementEmail) return ineligible("missing_email");
+      if (normalizePromotionEmail(entitlementEmail) !== recipient) {
+        return ineligible("recipient_mismatch");
+      }
+      return normalizePromotionEmail(classification.email) === recipient
+        ? { status: "eligible" }
+        : ineligible("recipient_mismatch");
+    }
+    if (classification.outcome === "pending") {
+      return classification.reason === "not_shipped"
+        ? ineligible("not_shipped")
+        : ineligible("malformed_evidence");
+    }
+    switch (classification.reason) {
+      case "physical_disabled":
+        return ineligible("branch_disabled");
+      case "missing_record":
+        return ineligible("missing_record");
+      case "terminal_failed":
+        return ineligible("terminal_failed");
+      case "gift_order":
+        return ineligible("gift_order");
+      case "gift_uncertain":
+        return ineligible("gift_uncertain");
+      case "missing_email":
+        return ineligible("missing_email");
+      case "invalid_anchor":
+        return ineligible("invalid_anchor");
+      case "past_max_age":
+        return ineligible("window_closed");
+      default:
+        return ineligible("malformed_evidence");
+    }
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Opt-out retention sweep (S54-5 design (a), revised by S54-5B)
+// ---------------------------------------------------------------------------
+
+export const REVIEW_OPTOUT_SWEEP_CURSOR_KEY = "review:retention:optout-sweep";
+const LEGACY_OPTOUT_PREFIX = "review:optout:";
+
+export type ReviewOptOutSweepSummary = {
+  scanned: number;
+  migrated: number;
+  failed: number;
+  /** True when this run finished a full traversal of the legacy prefix. */
+  complete: boolean;
+};
+
+/**
+ * Bounded, resumable migration of legacy raw-address opt-out rows to the
+ * keyed representation. Per row, the order is the safety property:
+ *   1. the authoritative suppression DO record lands (with the ORIGINAL
+ *      opt-out time, never the overwrite time — S54-5B);
+ *   2. the keyed KV marker is written;
+ *   3. ONLY THEN is the legacy raw-address row deleted.
+ * Any failure leaves the legacy row — and therefore the suppression —
+ * fully intact, and the row is retried on a later run. The sweep runs on
+ * the scheduled path INDEPENDENTLY of the send gates: retention is owed
+ * even while the engine is disabled or unconfigured for sending.
+ */
+export async function runReviewOptOutRetentionSweep(deps: {
+  store: ReviewScanStore;
+  suppression: ReviewSuppressionClient;
+  signingSecret: string;
+  now?: () => number;
+  log?: (summary: ReviewOptOutSweepSummary) => void;
+}): Promise<ReviewOptOutSweepSummary> {
+  const { store, suppression, signingSecret } = deps;
+  const now = (deps.now ?? Date.now)();
+  const summary: ReviewOptOutSweepSummary = { scanned: 0, migrated: 0, failed: 0, complete: false };
+  const log =
+    deps.log ??
+    ((s: ReviewOptOutSweepSummary) => {
+      // Counts only — never addresses, keys, or record contents.
+      console.log(JSON.stringify({ event: "review_retention_sweep", ...s }));
+    });
+
+  const cursorRow = await store
+    .getJson<{ cursor: string | null }>(REVIEW_OPTOUT_SWEEP_CURSOR_KEY)
+    .catch(() => null);
+  let cursor: string | undefined = cursorRow?.cursor ?? undefined;
+
+  for (let page = 0; page < REVIEW_SCAN_MAX_PAGES_PER_POPULATION; page += 1) {
+    let listing: { names: string[]; cursor: string | null; complete: boolean };
+    try {
+      listing = await store.listKeys(LEGACY_OPTOUT_PREFIX, cursor);
+    } catch {
+      log(summary);
+      return summary; // keep the persisted cursor; retry next run
+    }
+    for (const key of listing.names) {
+      summary.scanned += 1;
+      try {
+        const record = await store.getJson<ReviewOptOutRecord>(key);
+        const rawEmail =
+          record?.email ?? decodeURIComponent(key.slice(LEGACY_OPTOUT_PREFIX.length));
+        const email = normalizePromotionEmail(rawEmail);
+        if (!email) {
+          summary.failed += 1;
+          continue;
+        }
+        const optedOutAt =
+          typeof record?.optedOutAt === "number" && Number.isFinite(record.optedOutAt)
+            ? record.optedOutAt
+            : now;
+        const source = sanitizeReviewSuppressionSource(record?.source);
+        const name = deriveReviewSuppressionName(email, signingSecret);
+        const recorded = await suppression.record(name, source ?? "", optedOutAt);
+        if (!recorded) {
+          summary.failed += 1;
+          continue;
+        }
+        const marker: ReviewOptOutMarker = { optedOutAt, source };
+        await store.putJson(reviewOptOutMarkerKey(name), marker);
+        await store.deleteKey(key);
+        summary.migrated += 1;
+      } catch {
+        summary.failed += 1;
+      }
+    }
+    if (listing.complete) {
+      summary.complete = true;
+      await store.putJson(REVIEW_OPTOUT_SWEEP_CURSOR_KEY, { cursor: null }).catch(() => undefined);
+      log(summary);
+      return summary;
+    }
+    cursor = listing.cursor ?? undefined;
+    await store
+      .putJson(REVIEW_OPTOUT_SWEEP_CURSOR_KEY, { cursor: cursor ?? null })
+      .catch(() => undefined);
+  }
+  log(summary);
+  return summary;
 }
 
 // ---------------------------------------------------------------------------
@@ -380,6 +657,12 @@ export type ReviewTickSummary = {
   suppressionUnavailable: number;
   /** Dispatches whose provider outcome is unknowable — terminal, never resent. */
   uncertain: number;
+  /** Committed dispatches fenced by the post-commit eligibility re-check
+   * with a definitive ineligible decision — terminal, never sent. */
+  ineligible: number;
+  /** Committed dispatches fenced because the eligibility authority could
+   * not answer — terminal, never sent, never blindly retried. */
+  eligibilityUnavailable: number;
   disputed: number;
   skips: Partial<Record<ReviewSkipReason, number>>;
 };
@@ -399,6 +682,8 @@ function emptySummary(status: ReviewTickSummary["status"]): ReviewTickSummary {
     ledgerUnavailable: 0,
     suppressionUnavailable: 0,
     uncertain: 0,
+    ineligible: 0,
+    eligibilityUnavailable: 0,
     disputed: 0,
     skips: {},
   };
@@ -597,11 +882,18 @@ export async function runReviewRequestTick(deps: ReviewEngineDeps): Promise<Revi
         continue;
       }
 
+      // Suppression identity for this recipient: derived once here and
+      // reused for the hint check and the coordinator dispatch below.
+      const suppressionName = deriveReviewSuppressionName(
+        normalizePromotionEmail(fresh.email),
+        config.signingSecret as string,
+      );
+
       // Suppression hint (KV sources), checked at send time immediately
       // before claiming. A hit becomes a ledger transition — suppression
       // is recorded state, not a skip (T-T1). The authoritative check runs
       // again inside dispatch, so a race here can only over-suppress.
-      if (await isReviewSuppressed(store, fresh.email)) {
+      if (await isReviewSuppressed(store, fresh.email, suppressionName)) {
         const marked = await deps.ledger.apply(sessionId, {
           type: "mark_suppressed",
           kind: fresh.kind,
@@ -697,10 +989,6 @@ export async function runReviewRequestTick(deps: ReviewEngineDeps): Promise<Revi
       // The claim token fences the send itself now (T-T1): the coordinator
       // re-verifies suppression authoritatively, commits `dispatching`
       // under this token, and only then calls the provider.
-      const suppressionName = deriveReviewSuppressionName(
-        normalizePromotionEmail(fresh.email),
-        config.signingSecret as string,
-      );
       const dispatch = await deps.suppression.dispatch({
         sessionId,
         claimId,
@@ -736,6 +1024,12 @@ export async function runReviewRequestTick(deps: ReviewEngineDeps): Promise<Revi
           break;
         case "uncertain":
           summary.uncertain += 1;
+          break;
+        case "ineligible":
+          summary.ineligible += 1;
+          break;
+        case "eligibility_unavailable":
+          summary.eligibilityUnavailable += 1;
           break;
         case "expired":
           summary.deferred += 1;

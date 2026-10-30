@@ -20,6 +20,7 @@ import { createReviewLedgerClient } from "@/lib/reviewRequestLedger";
 import { createReviewSuppressionClient } from "@/lib/reviewRequestSuppression";
 import {
   resolveReviewEngineConfig,
+  runReviewOptOutRetentionSweep,
   runReviewRequestTick,
   REVIEW_SCAN_PAGE_SIZE,
   type ReviewEngineDeps,
@@ -39,6 +40,7 @@ type RawKvNamespace = {
   }>;
   get<T>(key: string, type: "json"): Promise<T | null>;
   put(key: string, value: string): Promise<void>;
+  delete(key: string): Promise<void>;
 };
 
 /** Store adapter over the raw STAR_MAP_KV binding (scheduled/worker entry). */
@@ -61,6 +63,9 @@ export function createRawKvScanStore(ns: RawKvNamespace): ReviewScanStore {
     },
     async putJson(key, value) {
       await ns.put(key, JSON.stringify(value));
+    },
+    async deleteKey(key) {
+      await ns.delete(key);
     },
   };
 }
@@ -85,6 +90,12 @@ export function createWrapperKvScanStore(): ReviewScanStore {
     },
     async putJson(key, value) {
       await kv.set(key, value);
+    },
+    async deleteKey(key) {
+      // The wrapper's durable delete: propagates Cloudflare failures and
+      // clears local mirrors, so a "deleted" legacy row is really gone
+      // (and a failed delete surfaces to the sweep as a retryable row).
+      await kv.deleteDurable(key);
     },
   };
 }
@@ -139,5 +150,19 @@ export function buildScheduledReviewDeps(env: unknown): ReviewEngineDeps {
 /** Scheduled entry: total by construction; the worker still guards the call. */
 export async function runScheduledReviewRequestTick(env: unknown): Promise<ReviewTickSummary> {
   const deps = buildScheduledReviewDeps(env);
+  // Retention maintenance runs FIRST and INDEPENDENTLY of the send gates
+  // (S54-5 design (a)): legacy raw-address opt-out rows are owed migration
+  // even while the engine is disabled or blocked from sending. The sweep
+  // needs only the store, the suppression client, and the signing secret
+  // (for keyed-name derivation); without a secret it cannot derive names
+  // and is skipped — legacy rows stay, suppression stays intact. A sweep
+  // failure must never break the tick.
+  if (deps.config.signingSecret) {
+    await runReviewOptOutRetentionSweep({
+      store: deps.store,
+      suppression: deps.suppression,
+      signingSecret: deps.config.signingSecret,
+    }).catch(() => undefined);
+  }
   return runReviewRequestTick(deps);
 }

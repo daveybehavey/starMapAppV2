@@ -19,6 +19,16 @@
  *   the authoritative suppression record BEFORE acknowledging;
  * - fail-closed storage modes (live mode NEVER falls back to process
  *   memory — not even with CI/local env vars set);
+ * - the post-commit eligibility re-check (S54-5 design (b), revised by
+ *   S54-5B): a revocation landing between the tick's eligibility read
+ *   and the dispatch commit fences the send; an unavailable authority
+ *   sends nothing and settles terminally; fresh evidence must bind to
+ *   the frozen recipient and request kind;
+ * - 13-month retention (S54-5 design (a), revised): calendar-month
+ *   boundary arithmetic, keyed opt-out markers replacing raw-address
+ *   rows, a migration sweep that installs replacement protection BEFORE
+ *   deleting any legacy row, and suppression-metadata minimization that
+ *   can never lift suppression itself;
  * - due evaluation for both branches at their exact window boundaries,
  *   fail-closed gift exclusion (literal `isGift === false` required), and
  *   the max-age rule (a late-enabled engine must never mail the
@@ -63,11 +73,14 @@ const {
   classifyDigitalEntitlement,
   classifyPrintRecord,
   classifyReviewSendError,
+  createReviewDispatchEligibilityChecker,
   isReviewSuppressed,
   normalizeAnchorMs,
   recordReviewOptOut,
   reviewOptOutKey,
+  reviewOptOutMarkerKey,
   resolveReviewEngineConfig,
+  runReviewOptOutRetentionSweep,
   runReviewRequestTick,
   REVIEW_DIGITAL_DELAY_MS,
   REVIEW_DIGITAL_MAX_AGE_MS,
@@ -76,10 +89,15 @@ const {
   REVIEW_MAX_SENDS_PER_TICK,
 } = await import("../../src/lib/reviewRequests.ts");
 const {
+  addCalendarMonthsMs,
   createInMemoryReviewSuppressionClient,
   createReviewSuppressionClient,
   deriveReviewSuppressionName,
   executeReviewDispatch,
+  isReviewSuppressionMinimized,
+  reviewRetentionDeadlineMs,
+  reviewSuppressionMinimizationDue,
+  sanitizeReviewSuppressionSource,
 } = await import("../../src/lib/reviewRequestSuppression.ts");
 const { createReviewLedgerClient, __resetReviewLedgerMemoryForTests } = await import(
   "../../src/lib/reviewRequestLedger.ts"
@@ -661,13 +679,17 @@ async function claimedRow(ledger, sessionId, now = NOW) {
   });
 }
 
+/** Explicit eligible verdict for coordinator tests that are not about
+ * the eligibility fence itself (the dep is required by construction). */
+const eligibleAlways = async () => ({ status: "eligible" });
+
 test("coordinator: suppression is the final gate — checked inside dispatch, send never fires", async () => {
   const ledger = createFakeLedger();
   await claimedRow(ledger, "cs_live_csup");
   const sender = createFakeSender();
   const outcome = await executeReviewDispatch(
     { sessionId: "cs_live_csup", claimId: "claim-1" },
-    { ledger, isSuppressed: async () => true, send: sender.send, now: () => NOW },
+    { ledger, isSuppressed: async () => true, checkEligibility: eligibleAlways, send: sender.send, now: () => NOW },
   );
   assert.equal(outcome.outcome, "suppressed");
   assert.equal(sender.calls.length, 0);
@@ -692,7 +714,7 @@ test("coordinator: suppression landing DURING begin_dispatch fences the send (fi
   const sender = createFakeSender();
   const outcome = await executeReviewDispatch(
     { sessionId: "cs_live_cfence2", claimId: "claim-1" },
-    { ledger, isSuppressed: async () => suppressed, send: sender.send, now: () => NOW },
+    { ledger, isSuppressed: async () => suppressed, checkEligibility: eligibleAlways, send: sender.send, now: () => NOW },
   );
   assert.equal(outcome.outcome, "suppressed");
   assert.equal(sender.calls.length, 0); // the provider was NEVER called
@@ -712,7 +734,7 @@ test("coordinator: unavailable FINAL suppression re-check sends nothing, settles
     {
       ledger,
       isSuppressed: async () => (checks++ === 0 ? false : null),
-      send: sender.send,
+      checkEligibility: eligibleAlways, send: sender.send,
       now: () => NOW,
     },
   );
@@ -727,7 +749,7 @@ test("coordinator: unavailable suppression check dispatches nothing and consumes
   const sender = createFakeSender();
   const outcome = await executeReviewDispatch(
     { sessionId: "cs_live_cun", claimId: "claim-1" },
-    { ledger, isSuppressed: async () => null, send: sender.send, now: () => NOW },
+    { ledger, isSuppressed: async () => null, checkEligibility: eligibleAlways, send: sender.send, now: () => NOW },
   );
   assert.equal(outcome.outcome, "unavailable");
   assert.equal(sender.calls.length, 0);
@@ -742,7 +764,7 @@ test("coordinator: happy path sends the frozen payload exactly once and records 
   const sender = createFakeSender({ ok: true, id: "msg_42" });
   const outcome = await executeReviewDispatch(
     { sessionId: "cs_live_chappy", claimId: "claim-1" },
-    { ledger, isSuppressed: async () => false, send: sender.send, now: () => NOW },
+    { ledger, isSuppressed: async () => false, checkEligibility: eligibleAlways, send: sender.send, now: () => NOW },
   );
   assert.equal(outcome.outcome, "sent");
   assert.equal(outcome.providerId, "msg_42");
@@ -760,7 +782,7 @@ test("coordinator: deadline refusal happens BEFORE the provider is called", asyn
   const sender = createFakeSender();
   const outcome = await executeReviewDispatch(
     { sessionId: "cs_live_cdl", claimId: "claim-1" },
-    { ledger, isSuppressed: async () => false, send: sender.send, now: () => NOW + 14 * DAY },
+    { ledger, isSuppressed: async () => false, checkEligibility: eligibleAlways, send: sender.send, now: () => NOW + 14 * DAY },
   );
   // firstDispatch would be NOW+14d; deadline = min(eligibility, +23h) — past.
   assert.equal(outcome.outcome, "expired");
@@ -790,7 +812,7 @@ test("coordinator: deadline is fenced at the POINT OF INVOCATION — a slow comm
   const sender = createFakeSender();
   const outcome = await executeReviewDispatch(
     { sessionId: "cs_live_cinv", claimId: "claim-1" },
-    { ledger, isSuppressed: async () => false, send: sender.send, now: driftingNow },
+    { ledger, isSuppressed: async () => false, checkEligibility: eligibleAlways, send: sender.send, now: driftingNow },
   );
   assert.equal(outcome.outcome, "expired");
   assert.equal(sender.calls.length, 0); // the provider was NEVER called
@@ -818,7 +840,7 @@ test("coordinator: deadline is fenced at the POINT OF INVOCATION — a slow comm
   const sender2 = createFakeSender({ ok: true, id: "msg_in_time" });
   const outcome2 = await executeReviewDispatch(
     { sessionId: "cs_live_cinv2", claimId: "claim-1" },
-    { ledger: ledger2, isSuppressed: async () => false, send: sender2.send, now: () => 9999 },
+    { ledger: ledger2, isSuppressed: async () => false, checkEligibility: eligibleAlways, send: sender2.send, now: () => 9999 },
   );
   assert.equal(outcome2.outcome, "sent");
   assert.equal(sender2.calls.length, 1);
@@ -842,7 +864,7 @@ test("coordinator: ambiguous outcomes are terminal uncertain — timeout, throw,
     const sender = createFakeSender(behavior);
     const outcome = await executeReviewDispatch(
       { sessionId: id, claimId: "claim-1" },
-      { ledger, isSuppressed: async () => false, send: sender.send, now: () => NOW, ...extra },
+      { ledger, isSuppressed: async () => false, checkEligibility: eligibleAlways, send: sender.send, now: () => NOW, ...extra },
     );
     assert.equal(outcome.outcome, "uncertain", id);
     assert.equal(ledger.rows.get(id).status, "uncertain", id);
@@ -856,7 +878,7 @@ test("coordinator: transient rejection schedules a retry; permanent fails termin
   const transient = createFakeSender({ ok: false, error: "resend_http_500:boom" });
   const outcome = await executeReviewDispatch(
     { sessionId: "cs_live_ctr", claimId: "claim-1" },
-    { ledger, isSuppressed: async () => false, send: transient.send, now: () => NOW },
+    { ledger, isSuppressed: async () => false, checkEligibility: eligibleAlways, send: transient.send, now: () => NOW },
   );
   assert.equal(outcome.outcome, "retry_scheduled");
   const row = ledger.rows.get("cs_live_ctr");
@@ -868,7 +890,7 @@ test("coordinator: transient rejection schedules a retry; permanent fails termin
   const permanent = createFakeSender({ ok: false, error: "resend_http_422:invalid recipient" });
   const outcome2 = await executeReviewDispatch(
     { sessionId: "cs_live_cperm", claimId: "claim-1" },
-    { ledger: ledger2, isSuppressed: async () => false, send: permanent.send, now: () => NOW },
+    { ledger: ledger2, isSuppressed: async () => false, checkEligibility: eligibleAlways, send: permanent.send, now: () => NOW },
   );
   assert.equal(outcome2.outcome, "failed");
   assert.equal(ledger2.rows.get("cs_live_cperm").status, "failed");
@@ -880,11 +902,241 @@ test("coordinator: a wrong claim token cannot dispatch (the token fences the sen
   const sender = createFakeSender();
   const outcome = await executeReviewDispatch(
     { sessionId: "cs_live_cfence", claimId: "claim-STALE" },
-    { ledger, isSuppressed: async () => false, send: sender.send, now: () => NOW },
+    { ledger, isSuppressed: async () => false, checkEligibility: eligibleAlways, send: sender.send, now: () => NOW },
   );
   assert.equal(outcome.outcome, "not_dispatchable");
   assert.equal(sender.calls.length, 0);
   assert.equal(ledger.rows.get("cs_live_cfence").status, "claimed");
+});
+
+// ---------------------------------------------------------------------------
+// Post-commit eligibility re-check (S54-5 design (b), revised by S54-5B)
+// ---------------------------------------------------------------------------
+
+test("coordinator: revocation landing AFTER the dispatch commit fences the send (eligibility re-check)", async () => {
+  const base = createFakeLedger();
+  await claimedRow(base, "cs_live_celig1");
+  // The entitlement is clean when the tick read it; the revocation
+  // persists while the coordinator's begin_dispatch RPC is in flight —
+  // the exact S52-2 M2-01 sequence.
+  let entitlement = digitalEntitlement();
+  const ledger = {
+    rows: base.rows,
+    getState: base.getState,
+    async apply(id, op) {
+      const result = await base.apply(id, op);
+      if (op.type === "begin_dispatch" && result.outcome === "dispatching") {
+        entitlement = digitalEntitlement({ revoked: true });
+      }
+      return result;
+    },
+  };
+  const checker = createReviewDispatchEligibilityChecker({
+    getEntitlement: async () => entitlement,
+    getPrintRecord: async () => null,
+    physicalEnabled: false,
+  });
+  const sender = createFakeSender();
+  const outcome = await executeReviewDispatch(
+    { sessionId: "cs_live_celig1", claimId: "claim-1" },
+    { ledger, isSuppressed: async () => false, checkEligibility: checker, send: sender.send, now: () => NOW },
+  );
+  assert.equal(outcome.outcome, "ineligible");
+  assert.equal(sender.calls.length, 0); // the provider was NEVER called
+  const row = base.rows.get("cs_live_celig1");
+  assert.equal(row.status, "ineligible"); // truthful terminal — not uncertain
+  assert.equal(row.lastError, "ineligible:revoked");
+  assert.equal(row.email, null); // terminal PII strip applied
+  assert.equal(row.payload, null);
+});
+
+test("coordinator: unavailable eligibility authority sends nothing and settles terminally — never resent", async () => {
+  for (const [id, checker] of [
+    ["cs_live_celig2", async () => ({ status: "unavailable", error: "entitlement_read_failed" })],
+    [
+      "cs_live_celig3",
+      async () => {
+        throw new Error("kv down");
+      },
+    ],
+  ]) {
+    const ledger = createFakeLedger();
+    await claimedRow(ledger, id);
+    const sender = createFakeSender();
+    const outcome = await executeReviewDispatch(
+      { sessionId: id, claimId: "claim-1" },
+      { ledger, isSuppressed: async () => false, checkEligibility: checker, send: sender.send, now: () => NOW },
+    );
+    assert.equal(outcome.outcome, "eligibility_unavailable", id);
+    assert.equal(sender.calls.length, 0, id);
+    const row = ledger.rows.get(id);
+    assert.equal(row.status, "failed", id);
+    assert.ok(row.lastError.startsWith("eligibility_unavailable:"), id);
+    assert.equal(row.email, null, id);
+    assert.equal(row.payload, null, id);
+    // A later dispatch attempt cannot resurrect the settled row.
+    const again = await executeReviewDispatch(
+      { sessionId: id, claimId: "claim-1" },
+      { ledger, isSuppressed: async () => false, checkEligibility: checker, send: sender.send, now: () => NOW },
+    );
+    assert.equal(again.outcome, "not_dispatchable", id);
+    assert.equal(sender.calls.length, 0, id);
+  }
+});
+
+test("coordinator: an eligible re-check preserves the happy path — exactly one send", async () => {
+  const ledger = createFakeLedger();
+  await claimedRow(ledger, "cs_live_celig4");
+  const checker = createReviewDispatchEligibilityChecker({
+    getEntitlement: async () => digitalEntitlement(),
+    getPrintRecord: async () => null,
+    physicalEnabled: false,
+  });
+  const sender = createFakeSender({ ok: true, id: "msg_elig" });
+  const outcome = await executeReviewDispatch(
+    { sessionId: "cs_live_celig4", claimId: "claim-1" },
+    { ledger, isSuppressed: async () => false, checkEligibility: checker, send: sender.send, now: () => NOW },
+  );
+  assert.equal(outcome.outcome, "sent");
+  assert.equal(sender.calls.length, 1);
+  assert.equal(ledger.rows.get("cs_live_celig4").status, "sent");
+});
+
+test("eligibility checker: fresh evidence must bind to the frozen recipient and kind", async () => {
+  const state = {
+    sessionId: "cs_live_bind",
+    kind: "digital",
+    email: "buyer@example.com",
+    payload: frozenPayload("cs_live_bind"),
+  };
+  const readers = (entitlement) => ({
+    getEntitlement: async () => entitlement,
+    getPrintRecord: async () => null,
+    physicalEnabled: false,
+  });
+  const at = { sessionId: "cs_live_bind", state, now: () => NOW };
+  // Baseline: clean evidence for the frozen recipient is eligible.
+  assert.deepEqual(
+    await createReviewDispatchEligibilityChecker(readers(digitalEntitlement()))(at),
+    { status: "eligible" },
+  );
+  // The address on the fresh record is someone else's — never send.
+  assert.deepEqual(
+    await createReviewDispatchEligibilityChecker(
+      readers(digitalEntitlement({ customerEmail: "other@example.com" })),
+    )(at),
+    { status: "ineligible", reason: "recipient_mismatch" },
+  );
+  // The session became a print order: kind no longer matches the frozen ask.
+  assert.deepEqual(
+    await createReviewDispatchEligibilityChecker(readers(digitalEntitlement({ orderType: "print" })))(at),
+    { status: "ineligible", reason: "kind_mismatch" },
+  );
+  // Missing record is definitive negative evidence, not a pass.
+  assert.deepEqual(await createReviewDispatchEligibilityChecker(readers(null))(at), {
+    status: "ineligible",
+    reason: "missing_record",
+  });
+  // Unknown gift status fails closed, exactly like the tick's classifier.
+  assert.deepEqual(
+    await createReviewDispatchEligibilityChecker(readers(digitalEntitlement({ isGift: undefined })))(at),
+    { status: "ineligible", reason: "gift_uncertain" },
+  );
+  // The eligibility window closed between claim and dispatch.
+  assert.deepEqual(
+    await createReviewDispatchEligibilityChecker(
+      readers(digitalEntitlement({ created: Math.floor((NOW - 20 * DAY) / 1000) })),
+    )(at),
+    { status: "ineligible", reason: "window_closed" },
+  );
+  // A read failure is an unavailable authority — distinct from ineligible.
+  const down = createReviewDispatchEligibilityChecker({
+    getEntitlement: async () => {
+      throw new Error("kv down");
+    },
+    getPrintRecord: async () => null,
+    physicalEnabled: false,
+  });
+  assert.deepEqual(await down(at), { status: "unavailable", error: "entitlement_read_failed" });
+});
+
+test("eligibility checker: physical asks cross-check the entitlement at dispatch time", async () => {
+  const state = {
+    sessionId: "cs_live_pbind",
+    kind: "physical",
+    email: "buyer@example.com",
+    payload: frozenPayload("cs_live_pbind", { tags: { type: "review_request", kind: "physical" } }),
+  };
+  const at = { sessionId: "cs_live_pbind", state, now: () => NOW };
+  const make = (entitlement, print, physicalEnabled = true) =>
+    createReviewDispatchEligibilityChecker({
+      getEntitlement: async () => entitlement,
+      getPrintRecord: async () => print,
+      physicalEnabled,
+    });
+  assert.deepEqual(await make(digitalEntitlement({ orderType: "print" }), printRecord())(at), {
+    status: "eligible",
+  });
+  // Refunded after the tick's cross-check: the dispatch-time read fences it.
+  assert.deepEqual(
+    await make(digitalEntitlement({ orderType: "print", revoked: true }), printRecord())(at),
+    { status: "ineligible", reason: "revoked" },
+  );
+  // The print itself failed terminally after claiming.
+  assert.deepEqual(
+    await make(digitalEntitlement({ orderType: "print" }), printRecord({ status: "failed" }))(at),
+    { status: "ineligible", reason: "terminal_failed" },
+  );
+  // The physical branch was switched off between claim and dispatch.
+  assert.deepEqual(await make(digitalEntitlement({ orderType: "print" }), printRecord(), false)(at), {
+    status: "ineligible",
+    reason: "branch_disabled",
+  });
+});
+
+test("ledger: resolve_dispatch ineligible / eligibility_unavailable settle terminally with the strip", () => {
+  const claim = {
+    type: "begin_claim",
+    claimId: "claim-1",
+    kind: "digital",
+    email: "buyer@example.com",
+    anchorAt: NOW - 4 * DAY,
+    dueAt: NOW - DAY,
+    eligibilityEndsAt: NOW + DAY,
+    payload: frozenPayload("cs_live_lnew"),
+    now: NOW,
+  };
+  let state = applyReviewLedgerOp(createEmptyReviewLedgerState("cs_live_lnew"), claim).state;
+  state = applyReviewLedgerOp(state, { type: "begin_dispatch", claimId: "claim-1", now: NOW }).state;
+  const settled = applyReviewLedgerOp(state, {
+    type: "resolve_dispatch",
+    claimId: "claim-1",
+    result: { type: "ineligible", reason: "revoked" },
+    now: NOW,
+  });
+  assert.equal(settled.outcome, "ineligible");
+  assert.equal(settled.state.status, "ineligible");
+  assert.equal(settled.state.email, null);
+  assert.equal(settled.state.payload, null);
+  assert.equal(settled.state.lastError, "ineligible:revoked");
+  // Terminal: a fresh claim is refused (one ask only).
+  assert.equal(applyReviewLedgerOp(settled.state, claim).outcome, "already_resolved");
+
+  let state2 = applyReviewLedgerOp(createEmptyReviewLedgerState("cs_live_lnew2"), {
+    ...claim,
+    payload: frozenPayload("cs_live_lnew2"),
+  }).state;
+  state2 = applyReviewLedgerOp(state2, { type: "begin_dispatch", claimId: "claim-1", now: NOW }).state;
+  const settled2 = applyReviewLedgerOp(state2, {
+    type: "resolve_dispatch",
+    claimId: "claim-1",
+    result: { type: "eligibility_unavailable", error: "entitlement_read_failed" },
+    now: NOW,
+  });
+  assert.equal(settled2.outcome, "eligibility_unavailable");
+  assert.equal(settled2.state.status, "failed");
+  assert.equal(settled2.state.lastError, "eligibility_unavailable:entitlement_read_failed");
+  assert.equal(settled2.state.payload, null);
 });
 
 // ---------------------------------------------------------------------------
@@ -1101,7 +1353,7 @@ test("failure classification: permanent vs transient vs ambiguous vs config", ()
 
 function createFakeStore(initial = {}, { pageSize = 1000 } = {}) {
   const data = new Map(Object.entries(structuredClone(initial)));
-  const calls = { list: 0, get: 0, put: 0 };
+  const calls = { list: 0, get: 0, put: 0, del: 0 };
   return {
     data,
     calls,
@@ -1124,6 +1376,10 @@ function createFakeStore(initial = {}, { pageSize = 1000 } = {}) {
     async putJson(key, value) {
       calls.put += 1;
       data.set(key, structuredClone(value));
+    },
+    async deleteKey(key) {
+      calls.del += 1;
+      data.delete(key);
     },
   };
 }
@@ -1309,13 +1565,24 @@ test("tick: suppression is recorded as a ledger transition — KV hint AND coord
     [sessionKey("cs_live_sup3")]: digitalEntitlement({ customerEmail: "coord@example.com" }),
   });
   // KV hint sources: review opt-out (different casing) + promotions unsubscribe.
-  await recordReviewOptOut(store, "opted@example.com", NOW, "test");
+  await recordReviewOptOut(
+    store,
+    "opted@example.com",
+    NOW,
+    "opt_out_page",
+    deriveReviewSuppressionName("opted@example.com", SECRET),
+  );
   store.data.set(`promotions:email:${encodeURIComponent("promo@example.com")}`, {
     subscribedAt: NOW - 30 * DAY,
     unsubscribedAt: NOW - DAY,
     updatedAt: NOW - DAY,
   });
-  assert.equal(await isReviewSuppressed(store, "OPTED@example.com"), true);
+  // The keyed marker is addressable only by its suppression name (the
+  // tick always derives and passes it); the promotions flavour needs none.
+  assert.equal(
+    await isReviewSuppressed(store, "OPTED@example.com", deriveReviewSuppressionName("opted@example.com", SECRET)),
+    true,
+  );
   assert.equal(await isReviewSuppressed(store, "promo@example.com"), true);
   assert.equal(await isReviewSuppressed(store, "other@example.com"), false);
 
@@ -1333,6 +1600,57 @@ test("tick: suppression is recorded as a ledger transition — KV hint AND coord
   for (const id of ["cs_live_sup1", "cs_live_sup2", "cs_live_sup3"]) {
     assert.equal(ledger.rows.get(id)?.status, "suppressed", id);
   }
+});
+
+test("tick: revocation landing between scheduling and dispatch fences the send (S52-2 M2-01)", async () => {
+  const base = createFakeStore({
+    [sessionKey("cs_live_m201")]: digitalEntitlement({ customerEmail: "buyer@example.com" }),
+  });
+  const ledger = createFakeLedger();
+  const sender = createFakeSender();
+  // Failure injection: the revocation persists the moment the claim
+  // commits — after every eligibility read the tick itself makes
+  // (scan + fresh re-read), before the coordinator's dispatch re-check.
+  let revoked = false;
+  const store = {
+    data: base.data,
+    calls: base.calls,
+    listKeys: (prefix, cursor) => base.listKeys(prefix, cursor),
+    putJson: (key, value) => base.putJson(key, value),
+    deleteKey: (key) => base.deleteKey(key),
+    async getJson(key) {
+      const value = await base.getJson(key);
+      if (revoked && key === sessionKey("cs_live_m201") && value) {
+        return { ...value, revoked: true };
+      }
+      return value;
+    },
+  };
+  const baseApply = ledger.apply.bind(ledger);
+  ledger.apply = async (id, op) => {
+    const result = await baseApply(id, op);
+    if (op.type === "begin_claim" && result.outcome === "claimed") revoked = true;
+    return result;
+  };
+  const checker = createReviewDispatchEligibilityChecker({
+    getEntitlement: async (id) => store.getJson(sessionKey(id)),
+    getPrintRecord: async () => null,
+    physicalEnabled: false,
+  });
+  const suppression = createInMemoryReviewSuppressionClient({
+    ledger,
+    send: sender.send,
+    now: () => NOW,
+    checkEligibility: checker,
+  });
+  const { deps } = tickDeps(store, ledger, sender, enabledConfig(), NOW, suppression);
+  const summary = await runReviewRequestTick(deps);
+  assert.equal(summary.ineligible, 1);
+  assert.equal(summary.sent, 0);
+  assert.equal(sender.calls.length, 0); // the provider was NEVER called
+  const row = ledger.rows.get("cs_live_m201");
+  assert.equal(row.status, "ineligible");
+  assert.equal(row.lastError, "ineligible:revoked");
 });
 
 test("tick: transient failure retries with the FROZEN payload; permanent failure quarantines", async () => {
@@ -1812,6 +2130,43 @@ test("wiring: coordinator-only provider access — the tick and its runtime hold
   assert.ok(coordinator.includes("executeReviewDispatch"));
 });
 
+test("wiring: eligibility checker inside the coordinator; retention maintenance ungated by the send flag", () => {
+  const coordinator = readFileSync(
+    new URL("src/durable-objects/ReviewRequestSuppressionDO.ts", appRoot),
+    "utf8",
+  );
+  assert.ok(
+    coordinator.includes("createReviewDispatchEligibilityChecker"),
+    "the suppression DO must build the post-commit eligibility checker",
+  );
+  assert.ok(
+    coordinator.includes("checkEligibility"),
+    "the coordinator must pass the checker into the dispatch",
+  );
+  assert.ok(coordinator.includes("async alarm("), "the suppression DO must carry the retention alarm");
+  assert.ok(
+    coordinator.includes("reviewRetentionDeadlineMs"),
+    "the retention deadline must come from the shared calendar helper",
+  );
+  assert.ok(
+    coordinator.includes("reviewSuppressionMinimizationDue"),
+    "minimization must be gated on the due check",
+  );
+  const runtime = readFileSync(new URL("src/lib/reviewRequestRuntime.ts", appRoot), "utf8");
+  const sweepAt = runtime.indexOf("runReviewOptOutRetentionSweep({");
+  const tickAt = runtime.indexOf("runReviewRequestTick(deps)");
+  assert.ok(sweepAt !== -1 && tickAt !== -1 && sweepAt < tickAt, "retention maintenance must run before the tick");
+  assert.ok(
+    runtime.includes("if (deps.config.signingSecret)"),
+    "the sweep must be gated on the secret it needs — never on the send flag",
+  );
+  const optOutRoute = readFileSync(new URL("src/app/api/reviews/opt-out/route.ts", appRoot), "utf8");
+  assert.ok(
+    optOutRoute.includes("recordReviewOptOut(createWrapperKvScanStore(), email, now, source, suppressionName)"),
+    "the opt-out route must write the keyed marker, not a raw-address row",
+  );
+});
+
 test("wiring: promotions unsubscribe establishes the AUTHORITATIVE suppression record before any acknowledgement", () => {
   const page = readFileSync(new URL("src/app/unsubscribe/page.tsx", appRoot), "utf8");
   const recordCall = page.indexOf("createReviewSuppressionClient().record(");
@@ -1863,6 +2218,234 @@ test("wiring: shippedAt is persisted before the shipping email send", () => {
   assert.ok(anchorWrite !== -1, "shippedAt anchor write must exist");
   assert.ok(send !== -1);
   assert.ok(anchorWrite < send, "shipment fact must persist before the email is attempted");
+});
+
+// ---------------------------------------------------------------------------
+// 13-month retention (S54-5 design (a), revised by S54-5B)
+// ---------------------------------------------------------------------------
+
+test("retention: the 13-month boundary is calendar-exact — month-end and leap cases", () => {
+  assert.equal(reviewRetentionDeadlineMs(Date.UTC(2025, 0, 15, 12)), Date.UTC(2026, 1, 15, 12));
+  // Month-end clamping: Jan 31 + 13 months lands on Feb 28 (2026 is not
+  // a leap year), never Mar 3.
+  assert.equal(addCalendarMonthsMs(Date.UTC(2025, 0, 31), 13), Date.UTC(2026, 1, 28));
+  // Oct 31 + 13 months lands on Nov 30.
+  assert.equal(addCalendarMonthsMs(Date.UTC(2023, 9, 31), 13), Date.UTC(2024, 10, 30));
+  // Feb 29 + 13 months lands on Mar 29 of the following year.
+  assert.equal(addCalendarMonthsMs(Date.UTC(2024, 1, 29), 13), Date.UTC(2025, 2, 29));
+
+  const optedOutAt = Date.UTC(2025, 0, 15, 12, 0, 0);
+  const row = { suppressed: 1, source: "opt_out_page", suppressed_at: optedOutAt };
+  // The boundary itself: 1ms before is not due; exactly at it is.
+  assert.equal(reviewSuppressionMinimizationDue(row, reviewRetentionDeadlineMs(optedOutAt) - 1), false);
+  assert.equal(reviewSuppressionMinimizationDue(row, reviewRetentionDeadlineMs(optedOutAt)), true);
+  // Minimized, cleared, and absent records owe no cleanup.
+  assert.equal(
+    reviewSuppressionMinimizationDue({ suppressed: 1, source: null, suppressed_at: null }, Date.UTC(2030, 0, 1)),
+    false,
+  );
+  assert.equal(
+    reviewSuppressionMinimizationDue({ suppressed: 0, source: null, suppressed_at: optedOutAt }, Date.UTC(2030, 0, 1)),
+    false,
+  );
+  assert.equal(reviewSuppressionMinimizationDue(null, Date.UTC(2030, 0, 1)), false);
+  assert.equal(isReviewSuppressionMinimized({ suppressed: 1, source: null, suppressed_at: null }), true);
+  assert.equal(isReviewSuppressionMinimized(row), false);
+  // Sources: only the two route values are storable, verbatim.
+  assert.equal(sanitizeReviewSuppressionSource("opt_out_page"), "opt_out_page");
+  assert.equal(sanitizeReviewSuppressionSource("list_unsubscribe"), "list_unsubscribe");
+  assert.equal(sanitizeReviewSuppressionSource("kv_reconciliation"), null);
+  assert.equal(sanitizeReviewSuppressionSource(undefined), null);
+});
+
+test("retention: recordReviewOptOut writes ONLY the keyed marker — no raw address in key or value", async () => {
+  const store = createFakeStore();
+  const name = deriveReviewSuppressionName("marker@example.com", SECRET);
+  await recordReviewOptOut(store, "Marker@Example.com", NOW, "opt_out_page", name);
+  const keys = [...store.data.keys()];
+  assert.deepEqual(keys, [reviewOptOutMarkerKey(name)]);
+  assert.ok(!keys[0].includes("marker@example.com"), "the raw address must not appear in the key");
+  assert.deepEqual(store.data.get(keys[0]), { optedOutAt: NOW, source: "opt_out_page" });
+  assert.ok(
+    !JSON.stringify(store.data.get(keys[0])).includes("marker@example.com"),
+    "the raw address must not appear in the value",
+  );
+  assert.equal(await isReviewSuppressed(store, "marker@example.com", name), true);
+  // An unrestricted source string is never stored verbatim.
+  const name2 = deriveReviewSuppressionName("second@example.com", SECRET);
+  await recordReviewOptOut(store, "second@example.com", NOW, "carrier_pigeon", name2);
+  assert.equal(store.data.get(reviewOptOutMarkerKey(name2)).source, null);
+  // Legacy rows still suppress: read compatibility remains until the
+  // migration sweep has verifiably replaced every one of them.
+  await store.putJson(reviewOptOutKey("legacy@example.com"), {
+    email: "legacy@example.com",
+    optedOutAt: NOW - DAY,
+    source: "opt_out_page",
+  });
+  assert.equal(await isReviewSuppressed(store, "legacy@example.com"), true);
+});
+
+test("sweep: legacy rows migrate — replacement protection first, raw row deleted last", async () => {
+  const store = createFakeStore({
+    [reviewOptOutKey("old1@example.com")]: {
+      email: "old1@example.com",
+      optedOutAt: NOW - 30 * DAY,
+      source: "opt_out_page",
+    },
+    [reviewOptOutKey("old2@example.com")]: {
+      email: "old2@example.com",
+      optedOutAt: NOW - 10 * DAY,
+      source: "list_unsubscribe",
+    },
+    // A promotions state row is NOT part of the sweep's population.
+    [`promotions:email:${encodeURIComponent("promo@example.com")}`]: {
+      subscribedAt: NOW - 30 * DAY,
+      unsubscribedAt: NOW - DAY,
+      updatedAt: NOW - DAY,
+    },
+  });
+  const client = createInMemoryReviewSuppressionClient({
+    ledger: createFakeLedger(),
+    send: createFakeSender().send,
+    now: () => NOW,
+  });
+  const recordCalls = [];
+  const suppression = {
+    ...client,
+    record: async (name, source, now) => {
+      recordCalls.push({ name, source, now });
+      return client.record(name, source, now);
+    },
+  };
+  const summary = await runReviewOptOutRetentionSweep({
+    store,
+    suppression,
+    signingSecret: SECRET,
+    now: () => NOW,
+    log: () => {},
+  });
+  assert.deepEqual(summary, { scanned: 2, migrated: 2, failed: 0, complete: true });
+  const name1 = deriveReviewSuppressionName("old1@example.com", SECRET);
+  const name2 = deriveReviewSuppressionName("old2@example.com", SECRET);
+  // The authoritative record was written with the ORIGINAL opt-out time
+  // (S54-5B: never the migration time, never an overwrite time).
+  assert.deepEqual(recordCalls, [
+    { name: name1, source: "opt_out_page", now: NOW - 30 * DAY },
+    { name: name2, source: "list_unsubscribe", now: NOW - 10 * DAY },
+  ]);
+  assert.equal(await client.check(name1), true);
+  assert.equal(await client.check(name2), true);
+  // Legacy raw rows are gone; keyed markers carry the original times.
+  assert.equal(store.data.has(reviewOptOutKey("old1@example.com")), false);
+  assert.equal(store.data.has(reviewOptOutKey("old2@example.com")), false);
+  assert.deepEqual(store.data.get(reviewOptOutMarkerKey(name1)), {
+    optedOutAt: NOW - 30 * DAY,
+    source: "opt_out_page",
+  });
+  assert.equal(await isReviewSuppressed(store, "old1@example.com", name1), true);
+  // The promotions row is untouched.
+  assert.equal(store.data.has(`promotions:email:${encodeURIComponent("promo@example.com")}`), true);
+  // Idempotent: a second full sweep finds nothing left to migrate.
+  const again = await runReviewOptOutRetentionSweep({
+    store,
+    suppression,
+    signingSecret: SECRET,
+    now: () => NOW,
+    log: () => {},
+  });
+  assert.deepEqual(again, { scanned: 0, migrated: 0, failed: 0, complete: true });
+});
+
+test("sweep: a failed replacement NEVER deletes the legacy row — suppression survives every failure", async () => {
+  const legacy = {
+    email: "keep@example.com",
+    optedOutAt: NOW - 30 * DAY,
+    source: "opt_out_page",
+  };
+  const name = deriveReviewSuppressionName("keep@example.com", SECRET);
+
+  // (a) The authoritative record refuses to land.
+  const storeA = createFakeStore({ [reviewOptOutKey("keep@example.com")]: legacy });
+  const refusing = {
+    record: async () => false,
+    check: async () => false,
+    clear: async () => false,
+    erase: async () => false,
+    dispatch: async () => null,
+  };
+  const summaryA = await runReviewOptOutRetentionSweep({
+    store: storeA,
+    suppression: refusing,
+    signingSecret: SECRET,
+    now: () => NOW,
+    log: () => {},
+  });
+  assert.deepEqual(summaryA, { scanned: 1, migrated: 0, failed: 1, complete: true });
+  assert.equal(storeA.data.has(reviewOptOutKey("keep@example.com")), true);
+  assert.equal(storeA.data.has(reviewOptOutMarkerKey(name)), false);
+
+  // (b) The marker write throws after the DO record landed.
+  const baseB = createFakeStore({ [reviewOptOutKey("keep@example.com")]: legacy });
+  const storeB = {
+    ...baseB,
+    async putJson(key, value) {
+      if (key.startsWith("review:optout-marker:")) throw new Error("kv write failed");
+      return baseB.putJson(key, value);
+    },
+  };
+  const clientB = createInMemoryReviewSuppressionClient({
+    ledger: createFakeLedger(),
+    send: createFakeSender().send,
+    now: () => NOW,
+  });
+  const summaryB = await runReviewOptOutRetentionSweep({
+    store: storeB,
+    suppression: clientB,
+    signingSecret: SECRET,
+    now: () => NOW,
+    log: () => {},
+  });
+  assert.equal(summaryB.failed, 1);
+  assert.equal(summaryB.migrated, 0);
+  assert.equal(baseB.data.has(reviewOptOutKey("keep@example.com")), true);
+  assert.equal(await clientB.check(name), true); // protection duplicated, never lost
+
+  // (c) The delete throws: legacy row and marker coexist, and a retry on
+  // the next run completes the migration idempotently.
+  const baseC = createFakeStore({ [reviewOptOutKey("keep@example.com")]: legacy });
+  let deleteFails = true;
+  const storeC = {
+    ...baseC,
+    async deleteKey(key) {
+      if (deleteFails) throw new Error("kv delete failed");
+      return baseC.deleteKey(key);
+    },
+  };
+  const clientC = createInMemoryReviewSuppressionClient({
+    ledger: createFakeLedger(),
+    send: createFakeSender().send,
+    now: () => NOW,
+  });
+  const summaryC1 = await runReviewOptOutRetentionSweep({
+    store: storeC,
+    suppression: clientC,
+    signingSecret: SECRET,
+    now: () => NOW,
+    log: () => {},
+  });
+  assert.equal(summaryC1.failed, 1);
+  assert.equal(baseC.data.has(reviewOptOutKey("keep@example.com")), true);
+  assert.equal(baseC.data.has(reviewOptOutMarkerKey(name)), true);
+  deleteFails = false;
+  const summaryC2 = await runReviewOptOutRetentionSweep({
+    store: storeC,
+    suppression: clientC,
+    signingSecret: SECRET,
+    now: () => NOW,
+    log: () => {},
+  });
+  assert.deepEqual(summaryC2, { scanned: 1, migrated: 1, failed: 0, complete: true });
+  assert.equal(baseC.data.has(reviewOptOutKey("keep@example.com")), false);
 });
 
 // ---------------------------------------------------------------------------
@@ -1948,7 +2531,15 @@ test("reconciliation: KV-only opt-outs of BOTH flavours import into the suppress
     [sessionKey("cs_live_rec3")]: digitalEntitlement({ customerEmail: "clean@example.com" }),
   });
   // Flavour 1: a review-specific KV opt-out row (the tick's hint source).
-  await recordReviewOptOut(store, "kvonly@example.com", NOW - DAY, "opt_out_page");
+  // Seeded DIRECTLY in the legacy shape — raw address in key and value,
+  // as the pre-marker writer produced it; recordReviewOptOut now writes
+  // keyed markers only, and these rows are exactly what the retention
+  // sweep (and this import) exist to migrate.
+  await store.putJson(reviewOptOutKey("kvonly@example.com"), {
+    email: "kvonly@example.com",
+    optedOutAt: NOW - DAY,
+    source: "opt_out_page",
+  });
   // Flavour 2: a promotions unsubscribe — state row only, no review row.
   store.data.set(emailStateKey("promounsub@example.com"), {
     subscribedAt: NOW - 30 * DAY,
@@ -2007,7 +2598,13 @@ function storeWithMidTickAck(base, { triggerKey, email, suppression }) {
           deriveReviewSuppressionName(normalizePromotionEmail(email), SECRET),
           "opt_out_route",
         );
-        await recordReviewOptOut(base, email, NOW, "opt_out_route");
+        await recordReviewOptOut(
+          base,
+          email,
+          NOW,
+          "opt_out_route",
+          deriveReviewSuppressionName(normalizePromotionEmail(email), SECRET),
+        );
       }
       return value;
     },
@@ -2044,8 +2641,13 @@ test("race: first tick after import — a NEW opt-out acknowledged concurrently 
     [sessionKey("cs_live_imp")]: digitalEntitlement({ customerEmail: "imported@example.com" }),
     [sessionKey("cs_live_late")]: digitalEntitlement({ customerEmail: "lateoptout@example.com" }),
   });
-  // Pre-existing KV-only opt-out, reconciled before the tick (the import).
-  await recordReviewOptOut(base, "imported@example.com", NOW - DAY, "opt_out_page");
+  // Pre-existing KV-only opt-out (legacy raw-address row, seeded
+  // directly), reconciled before the tick (the import).
+  await base.putJson(reviewOptOutKey("imported@example.com"), {
+    email: "imported@example.com",
+    optedOutAt: NOW - DAY,
+    source: "opt_out_page",
+  });
   const ledger = createFakeLedger();
   const sender = createFakeSender();
   const { deps, suppression } = tickDeps(base, ledger, sender, enabledConfig());
