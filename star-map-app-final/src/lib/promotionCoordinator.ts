@@ -469,6 +469,51 @@ async function removeFromLegacyLists(email: string): Promise<void> {
   });
 }
 
+/**
+ * Commit fence for the erasure write (GM-7C): re-validate, against a
+ * register read taken AT COMMIT TIME, that the digest-key version this
+ * flow intends to stamp is still the register's current, non-retired
+ * version. The flow's opening register read is not sufficient: an
+ * operator can rotate to a new version, complete the outgoing
+ * version's re-key sweep, and retire it while this flow is still
+ * gathering its facts — and a tombstone stamped under the retired
+ * version would be affirmatively invisible to every later lookup
+ * (retirement is the one basis on which a tombstone legitimately
+ * stops answering), so the erased identity would resurrect at its
+ * next subscribe. This is the write-side dual of the creation gate's
+ * unknown-version rule: that rule covers a subscriber whose snapshot
+ * never saw the tombstone's version; here the subscriber KNOWS the
+ * version and correctly treats it as retired, so only the write can
+ * be fenced. Refusal is retryable (the coordinator-unavailable
+ * pattern): the retry re-reads the register and stamps the
+ * then-current version. The flow never stamps a different version
+ * than the commit-time register state justifies, and never stamps a
+ * retired one.
+ */
+async function assertErasureDigestKeyVersionCurrentAtCommit(
+  version: number,
+): Promise<void> {
+  let registerAtCommit;
+  try {
+    registerAtCommit = await readPromotionDigestKeyRegister(Date.now());
+  } catch (error) {
+    throw new ConsistencyCoordinatorUnavailableError(
+      "promotion erasure unavailable: digest-key register could not be re-read at commit",
+      { cause: error },
+    );
+  }
+  const record = registerAtCommit.versions[String(version)];
+  if (
+    registerAtCommit.currentVersion !== version ||
+    !record ||
+    record.status === "retired"
+  ) {
+    throw new ConsistencyCoordinatorUnavailableError(
+      `promotion erasure refused: digest key v${version} is no longer the register's current version at commit; retry to stamp the current version`,
+    );
+  }
+}
+
 export type ErasePromotionIdentityFlowResult = {
   state: PromotionCoordinatorState;
   alreadyErased: boolean;
@@ -491,6 +536,12 @@ export type ErasePromotionIdentityFlowResult = {
  * erasure refuses (fail-closed, retryable): an erasure that cannot
  * write a verifiable tombstone must not erase at all. Provisioning
  * digest keys is an operator act outside this build.
+ *
+ * The version is re-validated at commit (see
+ * {@link assertErasureDigestKeyVersionCurrentAtCommit}): a version
+ * rotated away from — or retired — between this flow's opening read
+ * and its coordinator call refuses the erasure retryably instead of
+ * stamping a tombstone no later lookup would ever answer.
  */
 export async function erasePromotionIdentityFlow(input: {
   email: string;
@@ -518,6 +569,12 @@ export async function erasePromotionIdentityFlow(input: {
   }
   const keyedDigest = computePromotionKeyedDigest(email, currentKey);
   const facts = await gatherPromotionLegacyFacts(email);
+  // Commit fence: the register may have rotated (and the version
+  // above retired) while the facts were gathered. Re-validate the
+  // version this commit would stamp against the register as it
+  // stands NOW — before the coordinator call, so a refusal leaves
+  // the identity's state and the legacy lists untouched.
+  await assertErasureDigestKeyVersionCurrentAtCommit(register.currentVersion);
   const result = await client.erasePromotionIdentity(name, {
     emailHash,
     now,

@@ -965,6 +965,166 @@ test("Erasure flows: two concurrent erasures over the shared legacy lists never 
   }
 });
 
+/* ------- §3.3 flow-level: erasure commit fence (write-side race) ------- */
+
+/** The register as it stands after the race in the commit-fence
+ *  tests: v1 rotated away from, its re-key sweep completed, and v1
+ *  retired on that basis — built with the register's own acts, so
+ *  the staged state is one an operator could actually have made. */
+function registerAfterV1Retired() {
+  const seeded = tombstoneLib.initialPromotionDigestKeyRegister(T0);
+  const rotated = tombstoneLib.applyRotatePromotionDigestKeys(seeded, {
+    now: T0 + 1000,
+    expectedRevision: seeded.revision,
+    outgoingChosenRetirementAt: null,
+  });
+  assert.equal(rotated.changed, true);
+  const retired = tombstoneLib.applyRetirePromotionDigestKeyVersion(rotated.register, {
+    now: T0 + 2000,
+    expectedRevision: rotated.register.revision,
+    version: 1,
+    basis: "rekey_sweep_complete",
+  });
+  assert.equal(retired.changed, true);
+  return retired.register;
+}
+
+/** Stage the commit-fence race deterministically: the FIRST register
+ *  read an erasure flow makes returns the seeded v1-current register,
+ *  and the rotated-and-retired register is persisted immediately
+ *  after that read — so every later read (the commit fence's, or the
+ *  retry's) observes v2 current and v1 retired, exactly as if the
+ *  operator's rotation + sweep + retirement landed in the pause
+ *  between the flow's opening read and its coordinator call. */
+function stageRegisterRetirementAfterFirstRead() {
+  const originalGetErrorPreserving = kv.getErrorPreserving;
+  let registerReads = 0;
+  kv.getErrorPreserving = async (key, ...rest) => {
+    const value = await originalGetErrorPreserving(key, ...rest);
+    if (key === tombstoneLib.PROMOTION_DIGEST_KEY_REGISTER_KEY) {
+      registerReads += 1;
+      if (registerReads === 1) {
+        await tombstoneLib.writePromotionDigestKeyRegister(registerAfterV1Retired());
+      }
+    }
+    return value;
+  };
+  return () => {
+    kv.getErrorPreserving = originalGetErrorPreserving;
+  };
+}
+
+test("Erasure commit fence: a version rotated away and retired mid-flow refuses the commit retryably — no tombstone stamped, identity state unchanged", async () => {
+  process.env.PROMOTION_DIGEST_KEY_V1 = KEY_V1;
+  try {
+    clientLib.__resetConsistencyCoordinatorMemoryForTests();
+    const email = freshEmail();
+    const client = clientLib.createConsistencyCoordinatorClient();
+    const name = clientLib.promotionCoordinatorName(clientLib.coordinatorEmailHash(email));
+    const seededRegister = tombstoneLib.initialPromotionDigestKeyRegister(T0);
+    await tombstoneLib.writePromotionDigestKeyRegister(seededRegister);
+    // A live, subscribed identity whose erasure is attempted.
+    await client.subscribePromotion(
+      name,
+      subscribeInput(email, factsFor(email, seededRegister, envWithKeys({ v1: KEY_V1 }))),
+    );
+    const listKeys = [
+      subsLib.LEGACY_SUBSCRIPTION_KEY,
+      subsLib.LEGACY_SENT_KEY,
+      subsLib.LEGACY_FOLLOWUP_KEY,
+    ];
+    for (const key of listKeys) {
+      await kv.set(key, [email, "someone-else@example.com"]);
+    }
+    const before = await client.getPromotionState(name);
+    assert.ok(before && before.subscribedAt !== null);
+    const unstaging = stageRegisterRetirementAfterFirstRead();
+    try {
+      await assert.rejects(
+        () => flows.erasePromotionIdentityFlow({ email }),
+        (error) => error instanceof clientLib.ConsistencyCoordinatorUnavailableError,
+      );
+    } finally {
+      unstaging();
+    }
+    // The race really was staged: the register now stands at v2
+    // current with v1 retired on the sweep-complete basis.
+    const registerNow = await tombstoneLib.readPromotionDigestKeyRegister(T0);
+    assert.equal(registerNow.currentVersion, 2);
+    assert.equal(registerNow.versions["1"].status, "retired");
+    assert.equal(registerNow.versions["1"].retirementBasis, "rekey_sweep_complete");
+    // Nothing was stamped and nothing else moved: the identity's
+    // state is byte-for-byte the pre-attempt state (no tombstone
+    // under the retired v1, still subscribed), and the transition-
+    // side cleanup never ran — the address is still in every list.
+    const after = await client.getPromotionState(name);
+    assert.deepEqual(after, before);
+    assert.equal(stateLib.promotionTombstonesOf(after).length, 0);
+    for (const key of listKeys) {
+      assert.ok((await kv.get(key)).includes(email), key);
+    }
+  } finally {
+    delete process.env.PROMOTION_DIGEST_KEY_V1;
+  }
+});
+
+test("Erasure commit fence: the retry stamps the then-current version, and a fresh-facts subscribe hits that tombstone", async () => {
+  process.env.PROMOTION_DIGEST_KEY_V1 = KEY_V1;
+  process.env.PROMOTION_DIGEST_KEY_V2 = KEY_V2;
+  try {
+    clientLib.__resetConsistencyCoordinatorMemoryForTests();
+    const email = freshEmail();
+    const client = clientLib.createConsistencyCoordinatorClient();
+    const name = clientLib.promotionCoordinatorName(clientLib.coordinatorEmailHash(email));
+    const seededRegister = tombstoneLib.initialPromotionDigestKeyRegister(T0);
+    await tombstoneLib.writePromotionDigestKeyRegister(seededRegister);
+    await client.subscribePromotion(
+      name,
+      subscribeInput(email, factsFor(email, seededRegister, envWithKeys({ v1: KEY_V1 }))),
+    );
+    // Attempt 1 runs into the staged rotation + retirement and is
+    // refused at the commit fence.
+    const unstaging = stageRegisterRetirementAfterFirstRead();
+    try {
+      await assert.rejects(
+        () => flows.erasePromotionIdentityFlow({ email }),
+        (error) => error instanceof clientLib.ConsistencyCoordinatorUnavailableError,
+      );
+    } finally {
+      unstaging();
+    }
+    // Attempt 2 (the retry) re-reads the register, stamps the
+    // then-current v2, and the erasure commits.
+    const result = await flows.erasePromotionIdentityFlow({ email });
+    assert.equal(result.alreadyErased, false);
+    assert.equal(stateLib.isReducedPromotionState(result.state), true);
+    const tombstones = stateLib.promotionTombstonesOf(result.state);
+    assert.equal(tombstones.length, 1);
+    assert.equal(tombstones[0].digestKeyVersion, 2);
+    assert.equal(
+      tombstones[0].keyedDigest,
+      tombstoneLib.computePromotionKeyedDigest(email, KEY_V2),
+    );
+    // The erasure holds: a subscribe gathering FRESH lookup facts
+    // (v2 current and resolvable, v1 affirmatively retired) hits the
+    // v2 tombstone — the identity is created already-suppressed, not
+    // resurrected as an eligible subscriber with a coupon job.
+    const subscribed = await flows.subscribePromotionFlow({
+      email,
+      source: "test",
+      couponCode: "FIRST50",
+    });
+    assert.equal(subscribed.tombstoneHit, true);
+    assert.equal(subscribed.isNewSubscriber, false);
+    assert.equal(subscribed.emailDelivered, false);
+    assert.deepEqual(subscribed.state.jobs, {});
+    assert.equal(stateLib.promotionSuppressionsOf(subscribed.state).global.active, true);
+  } finally {
+    delete process.env.PROMOTION_DIGEST_KEY_V1;
+    delete process.env.PROMOTION_DIGEST_KEY_V2;
+  }
+});
+
 test("Erasure flow: an unreadable legacy list fails the cleanup retryably — no success, no stale overwrite", async () => {
   process.env.PROMOTION_DIGEST_KEY_V1 = KEY_V1;
   try {
