@@ -42,7 +42,7 @@ const breadcrumbs = [
 
 const anniversaryTitle = "Anniversary Star Map Gift | Your Night Sky | StarMapCo";
 const anniversaryDescription =
-  "The exact sky from your first date, wedding or engagement night. Free preview, no account. HD from $9 USD; framed + HD with free shipping.";
+  "An anniversary sky map captures the exact sky from your wedding date, first date, engagement night, or the night you first met. Free preview, no account. HD from $9 USD; framed + HD with free shipping.";
 
 export const metadata: Metadata = {
   title: anniversaryTitle,
@@ -65,7 +65,7 @@ const anniversaryFaqItems = [
       "Common date ideas include your wedding date or the night you first met. Any meaningful date works — anniversaries, first dates, and engagements are all solid options.",
   },
   {
-    question: "Is this a good couples gift?",
+    question: "Is an anniversary constellation map a good couples gift?",
     answer:
       "Yes. A personalized anniversary star map is a thoughtful couples gift because it captures a shared moment unique to your relationship.",
   },
@@ -143,10 +143,10 @@ export default function AnniversaryPage() {
       <header className="space-y-3 text-center">
         <Breadcrumbs items={breadcrumbs} className="flex justify-center" />
         <p className="text-xs tracking-[0.3em] text-amber-300 uppercase">StarMapCo</p>
-        <h1 className="text-3xl font-bold text-white sm:text-4xl">Personalized Anniversary Star Map</h1>
+        <h1 className="text-3xl font-bold text-white sm:text-4xl">Personalized Anniversary Star Map Gift</h1>
         <p className="text-sm text-neutral-200 sm:text-base">
-          The stars from the night your story began, set to your date, time and city. Preview free with no
-          account, then choose HD, print or framed.
+          An anniversary sky map keeps the stars from your special date at the heart of the gift, set to
+          your date, time and city. Preview free with no account, then choose HD, print or framed.
         </p>
         <MoneyPagePriceAtGlance className="mx-auto max-w-lg" />
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">

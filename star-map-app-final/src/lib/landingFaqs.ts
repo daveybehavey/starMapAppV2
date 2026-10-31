@@ -21,9 +21,9 @@ export const BIRTHDAY_FAQ_ITEMS: LandingFaqItem[] = [
       "The exact time makes the sky most precise, but you can still create a beautiful birthday star map with just the date and location. If the birth time is unknown, the map defaults to midnight and you can adjust.",
   },
   {
-    question: "Is this good for milestone birthdays?",
+    question: "Is a constellation map birthday gift a personal keepsake for milestone birthdays?",
     answer:
-      "Yes. Birthday star maps fit 18th, 21st, 30th, 40th, 50th, and other milestone celebrations because the sky on the day someone was born is truly one of a kind.",
+      "Yes. A sky map birthday gift is a personal way to commemorate the exact night sky from a birth date or milestone birthday. Birthday star maps fit 18th, 21st, 30th, 40th, 50th, and other milestone celebrations because the sky on the day someone was born is truly one of a kind.",
   },
   {
     question: "Can I use the hospital city as the birth location?",

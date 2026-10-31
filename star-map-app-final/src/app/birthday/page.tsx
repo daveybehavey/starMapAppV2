@@ -36,14 +36,14 @@ const breadcrumbs = [
 ];
 
 export const metadata: Metadata = {
-  title: "Birthday Star Map Generator | StarMapCo",
+  title: "Birthday Star Map Gift Generator | StarMapCo",
   description:
-    "Birthday star map generator for any date and place—preview the exact night sky free, then choose framed + HD (free shipping at $89+ USD), poster, or HD digital delivery.",
+    "Create a personalized star map for birthday gifting from a birth date or special birthday celebration—preview the exact night sky free, then choose framed + HD (free shipping at $89+ USD), poster, or HD digital delivery.",
   alternates: { canonical: `${siteUrl}/birthday` },
   openGraph: {
-    title: "Birthday Star Map Generator | StarMapCo",
+    title: "Birthday Star Map Gift Generator | StarMapCo",
     description:
-      "Create a birthday star map from their birth date and location. Free preview, then framed print, unframed print, or HD digital.",
+      "Create a birthday star map gift from a birth date or special birthday celebration and its location. Free preview, then framed print, unframed print, or HD digital.",
     url: `${siteUrl}/birthday`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -65,10 +65,11 @@ export default function BirthdayPage() {
       <header className="space-y-3 text-center">
         <Breadcrumbs items={breadcrumbs} className="flex justify-center" />
         <p className="text-xs tracking-[0.3em] text-amber-300 uppercase">StarMapCo</p>
-        <h1 className="text-3xl font-bold text-white sm:text-4xl">Birthday Star Map Generator</h1>
+        <h1 className="text-3xl font-bold text-white sm:text-4xl">Birthday Star Map Gift Generator</h1>
         <p className="text-sm text-neutral-200 sm:text-base">
-          Use our birthday star map generator to capture the exact night sky from their birth date and
-          location—a keepsake that feels personal, timeless, and ready to frame.
+          Use our birthday star map generator to capture the exact night sky from a birth date or special
+          birthday celebration and its location. A star chart birthday gift keeps that date at the heart
+          of a personal keepsake.
         </p>
         <MoneyPagePriceAtGlance className="mx-auto max-w-lg" />
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
