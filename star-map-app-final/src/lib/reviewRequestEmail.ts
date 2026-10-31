@@ -9,13 +9,20 @@
  * Compliance shape mirrors OurImprint's review email: CASL identification
  * (the builder THROWS without a business mailing address), an HMAC-signed
  * one-click opt-out URL, and List-Unsubscribe / List-Unsubscribe-Post
- * headers. The mailing address is owner-supplied configuration
- * (REVIEW_REQUEST_MAILING_ADDRESS); this module never invents one.
+ * headers. The mailing address is owner-supplied configuration,
+ * resolved by the engine config through the shared precedence
+ * (COMMERCIAL_EMAIL_MAILING_ADDRESS, falling back to the deprecated
+ * REVIEW_REQUEST_MAILING_ADDRESS); this module never invents one.
+ * The footer and headers are rendered by the shared CASL builders in
+ * transactionalEmailLayout.ts (S93-5 Part 1) — the opt-out mechanism
+ * itself (this module's HMAC over `opt-out:${email}`) stays separate
+ * from the promotion mechanism, as designed.
  */
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { GOOGLE_RATINGS } from "@/lib/googleRatings";
 import {
-  escapeHtml,
+  buildCaslIdentificationFooter,
+  buildListUnsubscribeHeaders,
   renderPrimaryButton,
   renderTransactionalEmailDocument,
 } from "@/lib/transactionalEmailLayout";
@@ -91,8 +98,34 @@ export function buildReviewRequestEmail(input: {
   }
   const supportEmail = input.supportEmail.trim();
   const optOutUrl = input.optOutUrl.trim();
+  if (!optOutUrl) {
+    // Defensive (S93-5 Part 1): an email whose opt-out mechanism is a
+    // blank URL must never render — the engine gates on the signing
+    // secret before claiming, so reaching here with a blank URL is a
+    // bug alarm of the same kind as the address throw above.
+    throw new Error("A review opt-out URL is required for CASL.");
+  }
   const subject = REVIEW_REQUEST_SUBJECT;
   const isPhysical = input.kind === "physical";
+
+  // Shared CASL identification + List-Unsubscribe builders (S93-5
+  // Part 1). The review opt-out route implements an RFC 8058 one-click
+  // POST, so the one-click headers are emitted — byte-identical to the
+  // inline construction they replace. The receiving reason appears in
+  // the HTML footer only, exactly as before (never in plain text).
+  const footer = buildCaslIdentificationFooter({
+    senderIdentity: "StarMapCo",
+    mailingAddress,
+    unsubscribeUrl: optOutUrl,
+    unsubscribeLabel: "Unsubscribe from review requests",
+    receivingReasonHtmlText: "You're receiving this one-time email because you ordered from StarMapCo.",
+    presentation: "dark",
+  });
+  const headers = buildListUnsubscribeHeaders({
+    unsubscribeUrl: optOutUrl,
+    mailtoAddress: supportEmail || null,
+    oneClick: true,
+  });
 
   const introHtml = isPhysical
     ? `<p style="margin:0 0 16px;">Thanks for ordering a printed star map from StarMapCo. Once it arrives and you've had a chance to live with it, we'd love to hear how it turned out.</p>`
@@ -107,7 +140,7 @@ export function buildReviewRequestEmail(input: {
     renderPrimaryButton(GOOGLE_REVIEW_URL, "Review us on Google"),
     `<p style="margin:20px 0 0;">Prefer to share your story here instead? Just reply to this email — with your permission, we may feature it on our site.</p>`,
     `<p style="margin:12px 0 0;">Anything not right with your order? Reply and tell us — we'll make it right.</p>`,
-    `<p style="margin:24px 0 0;font-size:12px;line-height:1.6;color:#94a3b8;">StarMapCo · ${escapeHtml(mailingAddress)}<br/>You're receiving this one-time email because you ordered from StarMapCo. <a href="${escapeHtml(optOutUrl)}" style="color:#94a3b8;text-decoration:underline;">Unsubscribe from review requests</a></p>`,
+    footer.html,
   ].join("\n");
 
   const html = renderTransactionalEmailDocument({
@@ -130,17 +163,13 @@ export function buildReviewRequestEmail(input: {
     "",
     "Anything not right with your order? Reply and tell us — we'll make it right.",
     "",
-    `StarMapCo · ${mailingAddress}`,
-    `Unsubscribe from review requests: ${optOutUrl}`,
+    footer.text,
   ].join("\n");
 
   return {
     subject,
     html,
     text,
-    headers: {
-      "List-Unsubscribe": `<${optOutUrl}>, <mailto:${supportEmail}?subject=unsubscribe>`,
-      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-    },
+    headers,
   };
 }

@@ -346,6 +346,15 @@ export type PromotionJobPayload = {
   subject: string;
   text: string;
   html: string;
+  /** List-Unsubscribe message headers frozen at job creation
+   *  (S93-5 Part 1 compliance contract). Absent on jobs frozen before
+   *  the contract existed — those stay valid STATE (they must remain
+   *  readable/cancellable) but never dispatch: the delivery gate in
+   *  promotions.ts refuses them as unconfigured. */
+  headers?: Record<string, string>;
+  /** Compliance contract version (promotions.ts
+   *  PROMOTION_COMPLIANCE_FORMAT_VERSION); absent = legacy payload. */
+  complianceFormatVersion?: number;
   /** Followup only: the provider-scheduled send instant, frozen at job
    *  creation so a retry submits the identical request. */
   scheduledAtIso?: string;
@@ -514,6 +523,17 @@ export function isValidPromotionJob(value: unknown): value is PromotionJob {
     typeof payload.subject === "string" &&
     typeof payload.text === "string" &&
     typeof payload.html === "string" &&
+    // Compliance contract fields (S93-5 Part 1): OPTIONAL on read —
+    // legacy jobs frozen before the contract existed must stay valid
+    // state even though they can never dispatch. When present they
+    // must be well-formed: a headers record of string values, and a
+    // finite version number.
+    (payload.headers === undefined ||
+      (typeof payload.headers === "object" &&
+        payload.headers !== null &&
+        Object.values(payload.headers).every((value) => typeof value === "string"))) &&
+    (payload.complianceFormatVersion === undefined ||
+      finiteNumber(payload.complianceFormatVersion) !== null) &&
     (job.firstAttemptAt === null || finiteNumber(job.firstAttemptAt) !== null) &&
     finiteNumber(job.attemptCount) !== null &&
     (job.claimedAt === null || finiteNumber(job.claimedAt) !== null) &&

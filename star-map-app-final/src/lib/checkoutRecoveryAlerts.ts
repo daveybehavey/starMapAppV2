@@ -8,6 +8,11 @@ import {
   type PromotionDispatchRefusalReason,
 } from "@/lib/promotionDispatchGuard";
 import { getPromotionUnsubscribeUrl } from "@/lib/promotionSubscriptions";
+import {
+  buildCaslIdentificationFooter,
+  buildListUnsubscribeHeaders,
+  resolveCommercialEmailMailingAddress,
+} from "@/lib/transactionalEmailLayout";
 
 type CheckoutRecoveryAlertProvider = "resend" | "sendgrid" | "none";
 
@@ -326,10 +331,12 @@ function getIncludesBullets(input: CheckoutRecoveryAlertInput): string[] {
  *   (`getPromotionUnsubscribeUrl`, HMAC over the unsubscribe secret
  *   chain); it points at the same /unsubscribe surface whose
  *   suppression the dispatch fence enforces;
- * - the mailing address is the owner-supplied binding the review
- *   engine reads for its own footer (`REVIEW_REQUEST_MAILING_ADDRESS`,
- *   the only mailing-address binding on the Worker) — the sender's
- *   postal address is a fact about the business, not about one send.
+ * - the mailing address is the owner-supplied business address,
+ *   resolved through the shared send-agnostic precedence
+ *   (`COMMERCIAL_EMAIL_MAILING_ADDRESS`, falling back to the review
+ *   engine's original `REVIEW_REQUEST_MAILING_ADDRESS` binding) — the
+ *   sender's postal address is a fact about the business, not about
+ *   one send.
  * Returns null when either fact is unavailable: a commercial send
  * without sender identification or a working unsubscribe mechanism
  * does not go out (the review engine's posture: no address, no email).
@@ -341,7 +348,7 @@ export type CheckoutRecoveryEmailFooter = {
 
 export function resolveCheckoutRecoveryEmailFooter(email: string): CheckoutRecoveryEmailFooter | null {
   const unsubscribeUrl = getPromotionUnsubscribeUrl(email);
-  const mailingAddress = process.env.REVIEW_REQUEST_MAILING_ADDRESS?.trim() ?? "";
+  const mailingAddress = resolveCommercialEmailMailingAddress(process.env) ?? "";
   if (!unsubscribeUrl || !mailingAddress) return null;
   return { unsubscribeUrl, mailingAddress };
 }
@@ -381,6 +388,18 @@ export function checkoutRecoveryFooterNotConfiguredResult(): CheckoutRecoveryAle
 
 function getCopy(input: CheckoutRecoveryAlertInput, footer: CheckoutRecoveryEmailFooter) {
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://starmapco.com").replace(/\/+$/, "");
+  // Shared CASL identification footer (S93-5 Part 1): same renderer
+  // and facts as the other commercial sends; the recovery wording and
+  // card styling stay this class's own.
+  const footerFragment = buildCaslIdentificationFooter({
+    senderIdentity: "StarMapCo",
+    mailingAddress: footer.mailingAddress,
+    unsubscribeUrl: footer.unsubscribeUrl,
+    unsubscribeLabel: "Unsubscribe",
+    receivingReasonHtmlText: "You're receiving this email because you started a checkout at StarMapCo.",
+    receivingReasonText: "You're receiving this email because you started a checkout at StarMapCo.",
+    presentation: "lightMuted",
+  });
   const subject = getSubject(input);
   const offerLabel = getOfferLabel(input);
   const amount = formatAmount(input.amountTotal, input.currency);
@@ -402,9 +421,7 @@ function getCopy(input: CheckoutRecoveryAlertInput, footer: CheckoutRecoveryEmai
     "— StarMapCo",
     siteUrl,
     "",
-    `StarMapCo · ${footer.mailingAddress}`,
-    "You're receiving this email because you started a checkout at StarMapCo.",
-    `Unsubscribe: ${footer.unsubscribeUrl}`,
+    footerFragment.text,
   ]
     .filter(Boolean)
     .join("\n");
@@ -441,7 +458,7 @@ function getCopy(input: CheckoutRecoveryAlertInput, footer: CheckoutRecoveryEmai
           <p style="font-size: 12px; color: #8c7a4a; margin: 0 0 14px;">This link returns you directly to your saved checkout.</p>
           <hr style="border: none; border-top: 1px solid #e6dcc8; margin: 0 0 14px;" />
           <p style="font-size: 13px; color: #5f6677; margin: 0;">Questions? Reply to this email and we will help.</p>
-          <p style="font-size: 12px; line-height: 1.6; color: #5f6677; margin: 14px 0 0;">StarMapCo · ${escapeHtml(footer.mailingAddress)}<br/>You're receiving this email because you started a checkout at StarMapCo. <a href="${footer.unsubscribeUrl}" style="color: #5f6677; text-decoration: underline;">Unsubscribe</a></p>
+          ${footerFragment.html}
         </div>
       </div>
     </div>
@@ -658,11 +675,21 @@ async function sendWithResend(input: CheckoutRecoveryAlertInput, footer: Checkou
     subject: string;
     text: string;
     html: string;
+    headers: Record<string, string>;
     reply_to?: string;
   } = {
     from,
     to: [input.email],
     ...copy,
+    // Shared List-Unsubscribe headers (S93-5 Part 1) over the SAME
+    // resolved promotion URL the footer carries. No one-click Post
+    // header: the /unsubscribe surface is a GET page and does not
+    // implement an RFC 8058 one-click POST (verified — see the
+    // builder's contract in transactionalEmailLayout.ts).
+    headers: buildListUnsubscribeHeaders({
+      unsubscribeUrl: footer.unsubscribeUrl,
+      oneClick: false,
+    }),
   };
 
   if (replyTo) {

@@ -54,6 +54,7 @@ import {
   buildReviewRequestEmail,
   getReviewOptOutSecret,
 } from "@/lib/reviewRequestEmail";
+import { resolveCommercialEmailMailingAddress } from "@/lib/transactionalEmailLayout";
 import {
   deriveReviewSuppressionName,
   sanitizeReviewSuppressionSource,
@@ -179,7 +180,9 @@ export function resolveReviewEngineConfig(
   return {
     enabled: env.REVIEW_REQUESTS_ENABLED?.trim() === "true",
     physicalEnabled: env.REVIEW_REQUESTS_PHYSICAL_ENABLED?.trim() === "true",
-    mailingAddress: env.REVIEW_REQUEST_MAILING_ADDRESS?.trim() ?? "",
+    // Send-agnostic binding wins, the original review binding remains
+    // as deprecated fallback (S93-5 Part 1 binding migration).
+    mailingAddress: resolveCommercialEmailMailingAddress(env) ?? "",
     signingSecret: getReviewOptOutSecret(env),
     siteUrl: env.NEXT_PUBLIC_SITE_URL?.trim() || "https://starmapco.com",
     supportEmail: env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim() || "support@starmapco.com",
