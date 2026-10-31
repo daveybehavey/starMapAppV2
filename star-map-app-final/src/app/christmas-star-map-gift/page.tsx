@@ -89,7 +89,7 @@ export default async function ChristmasStarMapGiftPage({ searchParams }: PagePro
     },
     {
       question: "Do Christmas discount codes apply to HD digital?",
-      answer: getChristmasPromoCodesFaqAnswer(),
+      answer: getChristmasPromoCodesFaqAnswer(clockMs),
     },
     {
       question: "What if I miss the print cutoff?",
