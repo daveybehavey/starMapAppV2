@@ -18,6 +18,10 @@ import {
 } from "./textFit";
 import { resolveShapeTextProfile } from "./shapeTextProfile";
 import {
+  moonIlluminationFraction,
+  resolveMoonTerminatorGeometry,
+} from "./moonPhaseGeometry";
+import {
   resolveWatermarkPlacement,
   WATERMARK_OPACITY,
   WATERMARK_TEXT,
@@ -2094,9 +2098,14 @@ function drawMoon(
   ctx.save();
   ctx.translate(x, y);
 
-  const phaseAngle = phase * 2 * Math.PI;
-  const illumination = (1 - Math.cos(phaseAngle)) / 2;
-  const waxing = phase <= 0.5;
+  // S93-2 class 4: the lit region is the projection of the sunlit
+  // hemisphere (moonPhaseGeometry), painted as a vector path below.
+  // The previous implementation painted this same illumination
+  // fraction as a horizontal gradient whose stop sat at
+  // 1 − illumination: new and full were reversed and waxing was
+  // left-lit.
+  const illumination = moonIlluminationFraction(phase);
+  const moonGeometry = resolveMoonTerminatorGeometry(phase);
 
   // Outer atmospheric glow
   const outerGlow = ctx.createRadialGradient(0, 0, radius * 0.8, 0, 0, radius * 2.2);
@@ -2155,34 +2164,81 @@ function drawMoon(
     ctx.fill();
   }
 
-  // Phase terminator gradient
-  const gradient = ctx.createLinearGradient(-radius, 0, radius, 0);
-  const terminator = 0.5 + Math.cos(phaseAngle) / 2;
-
-  if (waxing) {
-    gradient.addColorStop(0, starColor);
-    gradient.addColorStop(Math.max(0, terminator - 0.08), starColor);
-    gradient.addColorStop(terminator, toRgba(starColor, 0.5));
-    gradient.addColorStop(Math.min(1, terminator + 0.08), "rgba(0, 0, 0, 0.6)");
-    gradient.addColorStop(1, "rgba(0, 0, 0, 0.65)");
-  } else {
-    gradient.addColorStop(0, "rgba(0, 0, 0, 0.65)");
-    gradient.addColorStop(Math.max(0, terminator - 0.08), "rgba(0, 0, 0, 0.6)");
-    gradient.addColorStop(terminator, toRgba(starColor, 0.5));
-    gradient.addColorStop(Math.min(1, terminator + 0.08), starColor);
-    gradient.addColorStop(1, starColor);
-  }
-
-  ctx.fillStyle = gradient;
-  ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
-
-  // Earthshine on dark side during crescent phases
-  if (illumination < 0.35) {
-    ctx.globalAlpha = 0.06 * (1 - illumination * 2.5);
-    ctx.fillStyle = starColor;
+  // Phase shading: the lit region as a closed vector path (limb
+  // arc plus terminator half-ellipse through the poles), the dark
+  // region shaded over the surface detail, earthshine on the dark
+  // region only. Maria and craters stay under this shading, as
+  // they were under the old gradient.
+  const traceLitRegion = () => {
+    ctx.beginPath();
+    if (moonGeometry.kind === "full") {
+      ctx.arc(0, 0, radius, 0, TWO_PI);
+    } else if (moonGeometry.kind === "partial") {
+      ctx.arc(
+        0,
+        0,
+        radius,
+        -Math.PI / 2,
+        Math.PI / 2,
+        moonGeometry.limbCounterclockwise,
+      );
+      ctx.ellipse(
+        0,
+        0,
+        moonGeometry.terminatorRadiusRatio * radius,
+        radius,
+        0,
+        Math.PI / 2,
+        Math.PI * 1.5,
+        moonGeometry.terminatorCounterclockwise,
+      );
+    }
+  };
+  const traceDarkRegion = () => {
+    // The disc minus the lit region: both subpaths under the
+    // even-odd rule leave exactly the unlit part.
     ctx.beginPath();
     ctx.arc(0, 0, radius, 0, TWO_PI);
+    if (moonGeometry.kind === "partial") {
+      ctx.moveTo(0, -radius);
+      ctx.arc(
+        0,
+        0,
+        radius,
+        -Math.PI / 2,
+        Math.PI / 2,
+        moonGeometry.limbCounterclockwise,
+      );
+      ctx.ellipse(
+        0,
+        0,
+        moonGeometry.terminatorRadiusRatio * radius,
+        radius,
+        0,
+        Math.PI / 2,
+        Math.PI * 1.5,
+        moonGeometry.terminatorCounterclockwise,
+      );
+    }
+  };
+
+  if (moonGeometry.kind !== "full") {
+    traceDarkRegion();
+    ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
+    ctx.fill("evenodd");
+  }
+  if (moonGeometry.kind !== "empty") {
+    traceLitRegion();
+    ctx.fillStyle = starColor;
     ctx.fill();
+  }
+
+  // Earthshine on the dark region during crescent phases
+  if (illumination < 0.35 && moonGeometry.kind !== "full") {
+    ctx.globalAlpha = 0.06 * (1 - illumination * 2.5);
+    ctx.fillStyle = starColor;
+    traceDarkRegion();
+    ctx.fill("evenodd");
     ctx.globalAlpha = 1;
   }
 
