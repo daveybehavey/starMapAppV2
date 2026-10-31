@@ -31,6 +31,12 @@
  */
 import type { AccountLiteSessionIndexItem } from "@/lib/accountLite";
 import type { PromotionEmailState } from "@/lib/promotionSubscriptions";
+import {
+  evaluatePromotionTombstoneLookup,
+  isValidPromotionTombstone,
+  type PromotionTombstone,
+  type PromotionTombstoneLookupFacts,
+} from "@/lib/promotionTombstones";
 
 /* ------------------------------------------------------------------ */
 /* Shared constants                                                    */
@@ -448,6 +454,25 @@ export type PromotionCoordinatorState = {
    *  mutates suppression state stamps the records in step with the
    *  legacy fields so the two never contradict. */
   suppressions?: PromotionSuppressions;
+  /** RD-D's consent generation counter (B1A-MODEL §3.1). Optional
+   *  until RD-D lands the counter; RD-C's tombstone mechanics read it
+   *  (via suppressionGenerationOf) and the GM-7D reconstruction writes
+   *  it, because the generation a reconstruction creates at is
+   *  assigned by GM-7D(2) itself. Absent = the initial generation. */
+  generation?: number;
+  /** RD-C (B1A-MODEL §3.1/§3.3): the identity's GM-7A tombstones —
+   *  the tombstone store's physical form under the single-document
+   *  architecture, indexed logically by keyedDigest under each
+   *  non-retired digest-key version. Present only after a terminal
+   *  reduction or a reconstruction that carries one forward. */
+  tombstones?: PromotionTombstone[];
+  /** RD-C (B1A-MODEL §3.1): the keyedDigest of the tombstone that is
+   *  this identity's current terminal evidence — set when the
+   *  identity's evidence has been reduced per GM-7B(c), and carried
+   *  while a reconstruction stands on that tombstone. Superseded
+   *  (cleared) only when a creation proceeds on a recorded
+   *  accepted-loss basis (see applySubscribePromotion). */
+  tombstoneRef?: string;
   updatedAt: number;
   jobs: { coupon?: PromotionJob; followup?: PromotionJob };
 };
@@ -543,6 +568,27 @@ export function isValidPromotionState(value: unknown): value is PromotionCoordin
     if (!isValidPromotionSuppressionRecord(suppressions.reviewOnly)) return false;
     if (!isValidPromotionSuppressionRecord(suppressions.deliverability)) return false;
   }
+  if (state.generation !== undefined) {
+    if (
+      typeof state.generation !== "number" ||
+      !Number.isInteger(state.generation) ||
+      state.generation < 1
+    ) {
+      return false;
+    }
+  }
+  if (state.tombstoneRef !== undefined && nonEmptyString(state.tombstoneRef) === null) {
+    return false;
+  }
+  if (state.tombstones !== undefined) {
+    // A present tombstone set must be exactly GM-7A records: a
+    // malformed or extra-field tombstone surfaces as a malformed
+    // document, never as silently trusted suppression evidence.
+    if (!Array.isArray(state.tombstones)) return false;
+    for (const tombstone of state.tombstones) {
+      if (!isValidPromotionTombstone(tombstone)) return false;
+    }
+  }
   const jobs = state.jobs as Record<string, unknown> | null;
   if (!jobs || typeof jobs !== "object") return false;
   if (jobs.coupon !== undefined && !isValidPromotionJob(jobs.coupon)) return false;
@@ -570,10 +616,53 @@ export function emptyPromotionSuppressions(): PromotionSuppressions {
  *  by construction, and once RD-D's counter is present its value
  *  governs. */
 function suppressionGenerationOf(state: PromotionCoordinatorState): number {
-  const generation = (state as { generation?: unknown }).generation;
+  const generation = state.generation;
   return typeof generation === "number" && Number.isInteger(generation) && generation >= 1
     ? generation
     : 1;
+}
+
+/** RD-C: the identity's stored tombstones (empty for any document
+ *  written before a terminal reduction). */
+export function promotionTombstonesOf(state: PromotionCoordinatorState): PromotionTombstone[] {
+  return state.tombstones ?? [];
+}
+
+/** RD-C: the governing tombstone — the one with the highest
+ *  generation (the latest terminal event), or undefined when the
+ *  identity has never been reduced. */
+export function latestPromotionTombstone(
+  state: PromotionCoordinatorState,
+): PromotionTombstone | undefined {
+  const tombstones = promotionTombstonesOf(state);
+  let latest: PromotionTombstone | undefined;
+  for (const tombstone of tombstones) {
+    if (
+      !latest ||
+      tombstone.generation > latest.generation ||
+      (tombstone.generation === latest.generation && tombstone.terminalAt > latest.terminalAt)
+    ) {
+      latest = tombstone;
+    }
+  }
+  return latest;
+}
+
+/**
+ * RD-C: whether the document is in its REDUCED form — the identity's
+ * evidence has been converted to its tombstone and nothing else
+ * (GM-7B(c)): a tombstoneRef stands, and no subscription or
+ * unsubscribe stamp has been written since. A reconstruction clears
+ * the reduced form by stamping its suppression (unsubscribedAt is
+ * set), so this predicate turns false the moment the identity exists
+ * again — even though it exists only as already-suppressed.
+ */
+export function isReducedPromotionState(state: PromotionCoordinatorState): boolean {
+  return (
+    state.tombstoneRef !== undefined &&
+    state.subscribedAt === null &&
+    state.unsubscribedAt === null
+  );
 }
 
 /** The identity's effective suppression records. A document stamped
@@ -770,6 +859,12 @@ function uncertainAttemptCovered(job: PromotionJob, now: number): boolean {
   );
 }
 
+/** RD-C / GM-7D: how the creation gate disposed of a subscribe. */
+export type PromotionCreationGateOutcome =
+  | "proceeded"
+  | "tombstone_hit"
+  | "refused_indeterminate";
+
 export function applySubscribePromotion(
   state: PromotionCoordinatorState | null,
   input: {
@@ -781,8 +876,91 @@ export function applySubscribePromotion(
     /** Prepared by the caller (its schedule is frozen at creation).
      *  Used only by the accepted-coupon recovery below. */
     followupPayload?: PromotionJobPayload;
+    /** RD-C / GM-7D: the tombstone-lookup facts for this address,
+     *  gathered by the caller (register coverage + candidate digests
+     *  per digest-key version — see gatherPromotionTombstoneLookupFacts
+     *  in promotionTombstones.ts). REQUIRED: a creation path that
+     *  cannot present its lookup facts does not get to create. */
+    tombstoneLookup: PromotionTombstoneLookupFacts;
   },
-): { state: PromotionCoordinatorState; changed: boolean; isNewSubscriber: boolean } {
+): {
+  state: PromotionCoordinatorState;
+  changed: boolean;
+  isNewSubscriber: boolean;
+  creationGate: PromotionCreationGateOutcome;
+} {
+  // GM-7D creation gate — FIRST, before any import or creation work,
+  // in the order GM-7D fixes: (1) consult the tombstone store across
+  // all non-retired digest-key versions; (2) on a hit, create the
+  // identity already-suppressed at tombstone generation + 1 with the
+  // tombstone as its terminal evidence; (3) on no hit, create per the
+  // normal path below (GM-2's detailed contents are not produced —
+  // the shipped creation semantics are what a no-hit creation runs).
+  // An INDETERMINATE lookup (a live version's key unavailable, or a
+  // stored tombstone that cannot be accounted for) refuses the
+  // creation outright: no mutation, no import, no eligible identity —
+  // missing evidence never establishes consent (S88-6 AC-17).
+  if (state && promotionTombstonesOf(state).length > 0) {
+    const lookup = evaluatePromotionTombstoneLookup({
+      tombstones: promotionTombstonesOf(state),
+      facts: input.tombstoneLookup,
+    });
+    if (lookup.outcome === "indeterminate") {
+      return {
+        state,
+        changed: false,
+        isNewSubscriber: false,
+        creationGate: "refused_indeterminate",
+      };
+    }
+    if (lookup.outcome === "hit") {
+      const tombstone = lookup.tombstone;
+      const generation = tombstone.generation + 1;
+      const suppressions = promotionSuppressionsOf(state);
+      const reconstructed: PromotionCoordinatorState = {
+        ...state,
+        generation,
+        // Created already-suppressed: no subscription fact, no jobs,
+        // no welcome — the suppression below is the whole creation.
+        subscribedAt: null,
+        unsubscribedAt: input.now,
+        unsubscribeReason: null,
+        legacySubscribed: false,
+        // The tombstone line is this identity's evidence; a legacy
+        // import must never re-run against it and resurrect facts
+        // the erasure removed.
+        legacyImportCompleted: true,
+        suppressions: {
+          ...suppressions,
+          global: {
+            active: true,
+            setAt: input.now,
+            generation,
+            eventRef: "tombstone_reconstruction",
+          },
+        },
+        tombstoneRef: tombstone.keyedDigest,
+        updatedAt: input.now,
+        jobs: {},
+      };
+      return {
+        state: reconstructed,
+        changed: true,
+        isNewSubscriber: false,
+        creationGate: "tombstone_hit",
+      };
+    }
+    // No hit with stored tombstones: every stored tombstone sits
+    // under a RETIRED digest-key version — invisible by that
+    // retirement's own recorded basis (a completed re-key sweep, or
+    // the gate's recorded acceptance that lookups under it fail,
+    // GM-7C(d)). Creation proceeds, and the creation supersedes the
+    // tombstone as the identity's terminal evidence: the ref is
+    // cleared. The tombstone records themselves stay in the document
+    // — deleting them would be a further act, not a side effect of
+    // the acceptance the gate already recorded.
+    state = { ...state, tombstoneRef: undefined };
+  }
   let current = state ?? createEmptyPromotionState(input.emailHash, input.now);
   const imported = applyPromotionLegacyImport(current, input.facts, input.now);
   current = imported.state;
@@ -882,7 +1060,7 @@ export function applySubscribePromotion(
     updatedAt: input.now,
     jobs,
   };
-  return { state: current, changed: true, isNewSubscriber };
+  return { state: current, changed: true, isNewSubscriber, creationGate: "proceeded" };
 }
 
 export function applyUnsubscribePromotion(
@@ -894,6 +1072,15 @@ export function applyUnsubscribePromotion(
     facts: PromotionLegacyFacts;
   },
 ): { state: PromotionCoordinatorState; changed: boolean; wasAlreadyUnsubscribed: boolean } {
+  if (state && isReducedPromotionState(state)) {
+    // RD-C: erasure is stronger than unsubscribe — the identity's
+    // evidence is its tombstone and nothing else. An unsubscribe
+    // against a reduced document records nothing (an import or a
+    // stamp here would resurrect evidence the erasure removed) and
+    // reports the identity as already unsubscribed: it stands
+    // suppressed more strongly than an unsubscribe suppresses.
+    return { state, changed: false, wasAlreadyUnsubscribed: true };
+  }
   let current = state ?? createEmptyPromotionState(input.emailHash, input.now);
   const imported = applyPromotionLegacyImport(current, input.facts, input.now);
   current = imported.state;
@@ -974,6 +1161,13 @@ export function applyRecordDeliverabilitySuppression(
     facts: PromotionLegacyFacts;
   },
 ): { state: PromotionCoordinatorState; changed: boolean } {
+  if (state && isReducedPromotionState(state)) {
+    // RD-C: a reduced document holds its tombstone and nothing else;
+    // stamping a deliverability record onto it would re-create
+    // evidence the erasure removed. The identity is already
+    // suppressed on every axis that matters — no-op.
+    return { state, changed: false };
+  }
   let current = state ?? createEmptyPromotionState(input.emailHash, input.now);
   if (state === null) {
     // First creation: import the legacy permission facts the same way
@@ -1014,6 +1208,12 @@ export function applyClearDeliverabilitySuppression(
   state: PromotionCoordinatorState,
   input: { now: number },
 ): { state: PromotionCoordinatorState; changed: boolean } {
+  if (isReducedPromotionState(state)) {
+    // RD-C: same rule as recording — a reduced document is its
+    // tombstone and nothing else; there is no deliverability record
+    // to clear and none may be materialized here.
+    return { state, changed: false };
+  }
   const suppressions = promotionSuppressionsOf(state);
   if (!suppressions.deliverability.active) return { state, changed: false };
   return {
@@ -1027,6 +1227,143 @@ export function applyClearDeliverabilitySuppression(
     },
     changed: true,
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* RD-C: erasure and the re-key sweep (GM-7B(c), GM-7C).               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * RD-C / GM-7B(c): the erasure transition. Converts the identity's
+ * consent evidence to its GM-7A tombstone and nothing else: stamps,
+ * reasons, sources, suppression records and delivery jobs are all
+ * cleared in the same committing transition that writes the
+ * tombstone, so no reader can observe an erased identity carrying
+ * live evidence (and no pending job can deliver afterwards — a
+ * completion arriving later finds no job and no-ops). An in-flight
+ * (attempting) job cannot be un-sent; clearing it here records
+ * nothing false — the tombstone's terminalAt is the moment the
+ * identity's evidence ended, whatever the provider already did.
+ *
+ * The tombstone's digest is computed by the CALLER under the current
+ * digest-key version (the transition is pure and key material never
+ * enters the state machine); a digest that fails GM-7A validation
+ * refuses the erasure rather than writing a malformed tombstone.
+ * Erasing an already-reduced identity is an idempotent no-op: the
+ * original tombstone stands as the terminal evidence.
+ *
+ * Erasure and creation for the same identity serialize inside the
+ * same coordinator object (GM-7D): this transition and
+ * applySubscribePromotion's gate are the two sides of AT-13, and
+ * both run under the object's single-document serialization.
+ */
+export function applyErasePromotionIdentity(
+  state: PromotionCoordinatorState | null,
+  input: {
+    emailHash: string;
+    now: number;
+    facts: PromotionLegacyFacts;
+    /** HMAC of the normalized address under the CURRENT digest-key
+     *  version (computed by the caller). */
+    keyedDigest: string;
+    digestKeyVersion: number;
+    /** The coordinator object identity committing the event. */
+    authorityId: string;
+  },
+): {
+  state: PromotionCoordinatorState;
+  changed: boolean;
+  alreadyErased: boolean;
+  erasureRefused?: string;
+} {
+  let current = state ?? createEmptyPromotionState(input.emailHash, input.now);
+  if (isReducedPromotionState(current)) {
+    return { state: current, changed: false, alreadyErased: true };
+  }
+  // Import first, exactly as the other document-creating transitions
+  // do: an erasure for an identity the coordinator has never seen
+  // still tombstones at the generation its legacy evidence establishes
+  // (imported identities are generation 1), never at a guessed one.
+  current = applyPromotionLegacyImport(current, input.facts, input.now).state;
+  const tombstone: PromotionTombstone = {
+    keyedDigest: input.keyedDigest,
+    digestKeyVersion: input.digestKeyVersion,
+    generation: suppressionGenerationOf(current),
+    terminalEventClass: "erasure_with_suppression",
+    terminalAt: input.now,
+    authorityId: input.authorityId,
+  };
+  if (!isValidPromotionTombstone(tombstone)) {
+    return {
+      state: current,
+      changed: false,
+      alreadyErased: false,
+      erasureRefused: "invalid_tombstone",
+    };
+  }
+  const reduced: PromotionCoordinatorState = {
+    kind: "promotion",
+    emailHash: current.emailHash,
+    subscribedAt: null,
+    unsubscribedAt: null,
+    unsubscribeReason: null,
+    lastSource: null,
+    legacySubscribed: false,
+    legacyImportCompleted: true,
+    suppressions: emptyPromotionSuppressions(),
+    generation: suppressionGenerationOf(current),
+    tombstones: [...promotionTombstonesOf(current), tombstone],
+    tombstoneRef: tombstone.keyedDigest,
+    updatedAt: input.now,
+    jobs: {},
+  };
+  return { state: reduced, changed: true, alreadyErased: false };
+}
+
+/**
+ * RD-C / GM-7C: one identity's step of the re-keying sweep. Re-stamps
+ * every tombstone this identity holds under `fromVersion` to the
+ * caller-computed digest under `toVersion`. The caller computes the
+ * new digest from the identity's normalized address — which the
+ * caller must legitimately hold: the sweep runs only over identities
+ * whose addresses are available through ordinary records, and an
+ * erased address can never be fed back in, because nothing in the
+ * tombstone (a one-way keyed digest) can produce it. This transition
+ * verifies only that records under the outgoing version exist to be
+ * re-stamped; digest CORRECTNESS is the sweep caller's act, pinned by
+ * the post-sweep lookup-equivalence check in the sweep flow
+ * (rekeyPromotionTombstoneSweep in promotionCoordinator.ts). Rotation
+ * itself re-keys nothing (GM-7C(c)): this sweep is the only re-stamp
+ * path, and it never runs as a side effect of rotation.
+ */
+export function applyRekeyPromotionTombstones(
+  state: PromotionCoordinatorState,
+  input: { fromVersion: number; toVersion: number; newKeyedDigest: string; now: number },
+): { state: PromotionCoordinatorState; changed: boolean; restamped: number } {
+  const tombstones = promotionTombstonesOf(state);
+  let restamped = 0;
+  const nextTombstones = tombstones.map((tombstone) => {
+    if (tombstone.digestKeyVersion !== input.fromVersion) return tombstone;
+    restamped += 1;
+    return { ...tombstone, keyedDigest: input.newKeyedDigest, digestKeyVersion: input.toVersion };
+  });
+  if (restamped === 0) return { state, changed: false, restamped: 0 };
+  const next: PromotionCoordinatorState = {
+    ...state,
+    tombstones: nextTombstones,
+    updatedAt: input.now,
+  };
+  if (
+    state.tombstoneRef !== undefined &&
+    tombstones.some(
+      (tombstone) =>
+        tombstone.keyedDigest === state.tombstoneRef &&
+        tombstone.digestKeyVersion === input.fromVersion,
+    )
+  ) {
+    next.tombstoneRef = input.newKeyedDigest;
+  }
+  return { state: next, changed: true, restamped };
 }
 
 export type ClaimPromotionJobResult = {
@@ -1469,8 +1806,19 @@ export function nextPromotionAlarmAt(
  *  KV as a non-authoritative projection for the readers that predate the
  *  coordinator (admin summary, review-engine opt-out source). */
 export function promotionStateView(state: PromotionCoordinatorState): PromotionEmailState {
+  // RD-C: a REDUCED document (GM-7B(c)) carries no stamps of its own,
+  // but the projection must still show the identity's derived
+  // effective suppression (§3.4) — an erased identity projected as a
+  // plain subscriber would un-suppress it for every legacy reader
+  // (the review engine's promotions opt-out source reads this
+  // projection). The view therefore carries the governing tombstone's
+  // terminalAt as the unsubscribe stamp. The projection key itself
+  // remains address-named until the RD-E convergence sweep (PR-2)
+  // retires it — completion of GM-7B(b) is defined on that
+  // convergence, not on this transition.
+  const tombstone = isReducedPromotionState(state) ? latestPromotionTombstone(state) : undefined;
   const view: PromotionEmailState = {
-    subscribedAt: state.subscribedAt ?? state.updatedAt,
+    subscribedAt: state.subscribedAt ?? tombstone?.terminalAt ?? state.updatedAt,
     updatedAt: state.updatedAt,
   };
   const couponAcceptedAt = state.jobs.coupon?.acceptedAt ?? null;
@@ -1478,6 +1826,7 @@ export function promotionStateView(state: PromotionCoordinatorState): PromotionE
   const followupAcceptedAt = state.jobs.followup?.acceptedAt ?? null;
   if (followupAcceptedAt !== null) view.followupSentAt = followupAcceptedAt;
   if (state.unsubscribedAt !== null) view.unsubscribedAt = state.unsubscribedAt;
+  else if (tombstone) view.unsubscribedAt = tombstone.terminalAt;
   if (state.unsubscribeReason !== null) view.unsubscribeReason = state.unsubscribeReason;
   if (state.lastSource !== null) view.lastSource = state.lastSource;
   return view;

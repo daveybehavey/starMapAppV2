@@ -22,9 +22,11 @@ import {
   applyClearDeliverabilitySuppression,
   applyCompletePromotionJob,
   applyConsumeMagicToken,
+  applyErasePromotionIdentity,
   applyReadAccountSessions,
   applyRecordDeliverabilitySuppression,
   applyRegisterMagicToken,
+  applyRekeyPromotionTombstones,
   applySubscribePromotion,
   applyUnsubscribePromotion,
   applyUpsertAccountSession,
@@ -35,11 +37,13 @@ import {
   type LegacyMagicLinkRecord,
   type MagicTokenCoordinatorState,
   type PromotionCoordinatorState,
+  type PromotionCreationGateOutcome,
   type PromotionJobKind,
   type PromotionJobPayload,
   type PromotionLegacyFacts,
   type PromotionSendOutcome,
 } from "@/lib/consistencyCoordinatorState";
+import type { PromotionTombstoneLookupFacts } from "@/lib/promotionTombstones";
 import type { AccountLiteSessionIndexItem } from "@/lib/accountLite";
 
 export class ConsistencyCoordinatorUnavailableError extends Error {
@@ -105,7 +109,30 @@ type CoordinatorStub = {
     facts: PromotionLegacyFacts;
     couponPayload: PromotionJobPayload;
     followupPayload?: PromotionJobPayload;
-  }): Promise<{ isNewSubscriber: boolean; state: PromotionCoordinatorState }>;
+    tombstoneLookup: PromotionTombstoneLookupFacts;
+  }): Promise<{
+    isNewSubscriber: boolean;
+    state: PromotionCoordinatorState;
+    creationGate: PromotionCreationGateOutcome;
+  }>;
+  erasePromotionIdentity(input: {
+    emailHash: string;
+    now: number;
+    facts: PromotionLegacyFacts;
+    keyedDigest: string;
+    digestKeyVersion: number;
+    authorityId: string;
+  }): Promise<{
+    state: PromotionCoordinatorState;
+    alreadyErased: boolean;
+    erasureRefused?: string;
+  }>;
+  rekeyPromotionTombstones(input: {
+    fromVersion: number;
+    toVersion: number;
+    newKeyedDigest: string;
+    now: number;
+  }): Promise<{ state: PromotionCoordinatorState | null; restamped: number }>;
   unsubscribePromotion(input: {
     emailHash: string;
     now: number;
@@ -177,8 +204,32 @@ export type ConsistencyCoordinatorClient = {
       facts: PromotionLegacyFacts;
       couponPayload: PromotionJobPayload;
       followupPayload?: PromotionJobPayload;
+      tombstoneLookup: PromotionTombstoneLookupFacts;
     },
-  ): Promise<{ isNewSubscriber: boolean; state: PromotionCoordinatorState }>;
+  ): Promise<{
+    isNewSubscriber: boolean;
+    state: PromotionCoordinatorState;
+    creationGate: PromotionCreationGateOutcome;
+  }>;
+  erasePromotionIdentity(
+    name: string,
+    input: {
+      emailHash: string;
+      now: number;
+      facts: PromotionLegacyFacts;
+      keyedDigest: string;
+      digestKeyVersion: number;
+      authorityId: string;
+    },
+  ): Promise<{
+    state: PromotionCoordinatorState;
+    alreadyErased: boolean;
+    erasureRefused?: string;
+  }>;
+  rekeyPromotionTombstones(
+    name: string,
+    input: { fromVersion: number; toVersion: number; newKeyedDigest: string; now: number },
+  ): Promise<{ state: PromotionCoordinatorState | null; restamped: number }>;
   unsubscribePromotion(
     name: string,
     input: {
@@ -304,7 +355,31 @@ function createMemoryClient(): ConsistencyCoordinatorClient {
       return withMemoryLock(name, () => {
         const result = applySubscribePromotion(memoryKind(name, "promotion"), input);
         if (result.changed) memoryStores.set(name, result.state);
-        return { isNewSubscriber: result.isNewSubscriber, state: result.state };
+        return {
+          isNewSubscriber: result.isNewSubscriber,
+          state: result.state,
+          creationGate: result.creationGate,
+        };
+      });
+    },
+    erasePromotionIdentity(name, input) {
+      return withMemoryLock(name, () => {
+        const result = applyErasePromotionIdentity(memoryKind(name, "promotion"), input);
+        if (result.changed) memoryStores.set(name, result.state);
+        return {
+          state: result.state,
+          alreadyErased: result.alreadyErased,
+          erasureRefused: result.erasureRefused,
+        };
+      });
+    },
+    rekeyPromotionTombstones(name, input) {
+      return withMemoryLock(name, () => {
+        const current = memoryKind(name, "promotion");
+        if (!current) return { state: null, restamped: 0 };
+        const result = applyRekeyPromotionTombstones(current, input);
+        if (result.changed) memoryStores.set(name, result.state);
+        return { state: result.state, restamped: result.restamped };
       });
     },
     unsubscribePromotion(name, input) {
@@ -422,6 +497,12 @@ export function createConsistencyCoordinatorClient(
       call(name, "getAccountSessions", input, () => memory.getAccountSessions(name, input)),
     subscribePromotion: (name, input) =>
       call(name, "subscribePromotion", input, () => memory.subscribePromotion(name, input)),
+    erasePromotionIdentity: (name, input) =>
+      call(name, "erasePromotionIdentity", input, () => memory.erasePromotionIdentity(name, input)),
+    rekeyPromotionTombstones: (name, input) =>
+      call(name, "rekeyPromotionTombstones", input, () =>
+        memory.rekeyPromotionTombstones(name, input),
+      ),
     unsubscribePromotion: (name, input) =>
       call(name, "unsubscribePromotion", input, () => memory.unsubscribePromotion(name, input)),
     recordDeliverabilitySuppression: (name, input) =>
