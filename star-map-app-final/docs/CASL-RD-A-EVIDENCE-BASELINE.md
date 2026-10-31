@@ -32,7 +32,7 @@ Later governing acts layered on that basis:
 | 2026-10-31 | Finding 4 closure filing accepted (B2 repair round) | Review deadline composition is normative: `D_review = min(eligibilityEndsAt, firstDispatchAt + 23h)`, `D_flow = D_review`, `D_effective = min(D_review, D_window)`; `firstAttemptAt` is created once, atomically with the durable provider-invocation admission. **Review dispatching is never reclaimed; ambiguous outcomes are terminal-uncertain, never retried; reconciliation does not authorize another send.** |
 | 2026-10-31 | CASL readiness ruling (gate chair) | The whole-round paper-readiness HOLD is closed. RA-4's **conservative branch is operative** (no receipt horizon assumed). The ruling authorizes no build/send/activation by itself; the six later gates in §8 stand. |
 | 2026-10-31 | RD build authorization (David) | The build may proceed slice by slice under the programme's gates. Sends, activation and configuration flips toward live are **not** authorized. David reviews the first welcome email before any send (FW checkpoint, §8). |
-| 2026-10-31 | Gate-1 fencing build (PR #454, draft) | Implementation evidence toward later gate 1: the shipped promotional transport now refuses at dispatch time without authority permission (see §5). |
+| 2026-10-31 | Gate-1 fencing build (PR #454, draft) | Implementation evidence toward later gate 1, **pending** in draft PR #454 (unmerged at filing): the fence would make the promotional transport refuse at dispatch time without authority permission (see §5). At the baseline (`main` c566fdef) the shipped transport performs no dispatch-time authority read. |
 
 **Governing order** (per S49-6): A2 → standing A1 → original design,
 with the owner decisions updating decision status, AM-01…AM-20 and the
@@ -178,7 +178,7 @@ with the amended design; each slice's acceptance is judged against
 | Per-email Consistency Coordinator (DO, `promotion:v1:<sha256(normalized address)>`) | The contact authority: sole ordering point for consent, suppression, generations, jobs (INV-1) | **Shipped** with subscription state + coupon/followup jobs; extended in place by RD-B/RD-D per B1A-MODEL §3.1 (`generation`, `consentEvents[]`, `pendingConsent`, `suppressions`, `welcomeState`, `frequencyReservations[]`, `projection`, `legacyImport`, `tombstoneRef?`) |
 | Account allocator (account-scoped DO) | Quota + frequency reservations keyed by logical-send identity and frequency subject; boundary-debt annotation; scheduled obligations (B1A-MODEL §3.2/§3.6) | **To build** (RD-F/RD-H/RD-I). Does not exist in shipped code |
 | Scheduler / drivers | Drive committed jobs; the coordinator DO alarm recovers stale claims. A scheduler never authorizes a send — admission happens at claim + reservation + dispatch-time checks | **Shipped** (route driver + DO alarm driver); RD slices extend, never grant it authority |
-| Dispatch fence | Authority re-read at the dispatch decision before any provider leg (gate-1 fencing build) | **Shipped 2026-10-31** (PR #454, draft at filing): `deliverPromotionSend` refuses without permission; see §5 |
+| Dispatch fence | Authority re-read at the dispatch decision before any provider leg (gate-1 fencing build) | **Pending implementation evidence** — exists only in draft PR #454 (unmerged at filing); at baseline c566fdef `deliverPromotionSend` performs no authority read and proceeds directly to the provider legs; see §5 |
 | Review claim ledger (DO) + ReviewRequestSuppressionDO | Review path authorities; the suppression DO's `dispatch` is the only provider-call door for review requests; terminal-uncertain rule (§2.5) governs | **Shipped** (engine activated 2026-10-26; hardening PR #446) |
 | KV projection (`promotionStateView` under `promotions:email:`) | Non-authoritative projection for pre-coordinator readers (admin summary, review engine's promotions opt-out source); single-writer per GM-5A once RD-E lands | **Shipped** as best-effort/strict publish from the flows; versioned single-writer enforcement is RD-E |
 | Tombstone store | GM-7A records consulted before any generation-1 assignment (GM-7D); retained without scheduled expiry (GM-7B) | **To build** (RD-C). No tombstone store exists in shipped code |
@@ -210,7 +210,7 @@ register maps its records to slices without reproducing the annex:
 | 2026-10-29 | S49-6 re-derivation produced (RD-A…RD-K); all seven owner decisions answered (§6) |
 | 2026-10-30 | B1 amendment round landed (AM-01…AM-20, B1A-MODEL, PBO-13R, verdicts §5 of that round); review-engine hardening merged (PR #446) |
 | 2026-10-31 | Subscriber census settled by production reads: both Resend accounts' "General" audiences hold zero contacts; the deployed KV holds exactly 68 keys under `promotions:email:` (a key count — it includes any unsubscribed; the subscribed/unsubscribed split lives in the values) |
-| 2026-10-31 | Gate-1 sender inventory performed at source scope (S90-3: 21 paths inventoried; unrestricted promotion surfaces found) and the fencing build filed as PR #454 (draft): the transport now performs a dispatch-time authority read and refuses without permission. Inventory residue: the AM-11 PBO-1 discharge artifact (account-level senders, dated ≤30 days at RD-F build start) is still owed at RD-F intake |
+| 2026-10-31 | Gate-1 sender inventory performed at source scope (S90-3: 21 paths inventoried; unrestricted promotion surfaces found) and the fencing build filed as PR #454 (draft, unmerged at filing): once merged, the transport will perform a dispatch-time authority read and refuse without permission; at the c566fdef baseline it does neither. Inventory residue: the AM-11 PBO-1 discharge artifact (account-level senders, dated ≤30 days at RD-F build start) is still owed at RD-F intake |
 
 ## 6. Dated decision ledger — owner decisions
 
@@ -291,7 +291,9 @@ build block beyond what the sources name.
    verified units/boundaries/provider semantics; implementation
    evidence for the accepted fencing/refusal policy. GC-3 only if
    uncontrolled senders are found. *(Fencing implementation evidence
-   for the shipped promotion transport: PR #454, draft at filing.)*
+   for the promotion transport is pending in PR #454, draft and
+   unmerged at filing; the shipped transport at c566fdef contains no
+   dispatch fence.)*
 2. **Storage and implementation acceptance** — durable
    admission/anchor initialization, projection uncertainty across
    awaits/restarts, erasure convergence, reconciliation, inherited
