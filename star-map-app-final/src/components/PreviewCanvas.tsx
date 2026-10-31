@@ -511,29 +511,27 @@ export default function PreviewCanvas({
           pendingShapeRecheckRef.current = null;
           const freshRect = textBoundsRef.current.get(recheckId);
           if (freshRect) {
-            // The stored position.x is the renderer's drawing
-            // ANCHOR, not the glyph centre the shape clamp works
-            // in (gate P2): drawText fills at position.x with
-            // ctx.textAlign = the box's align, so for left/right
-            // alignment anchor and centre differ by half the
-            // rendered width. Convert anchor -> centre before
-            // clamping and centre -> anchor before storing, or
-            // the recheck moves contained aligned boxes and lets
-            // others spill. (The drag, commit and nudge paths
-            // clamp centres derived from the bounds rect itself,
-            // so their CLAMPS need no conversion — but all three
-            // convert centre -> anchor before PERSISTING, since
-            // what they store is this same anchor field. E-3 was
-            // exactly that missing conversion.)
+            // The clamp works in glyph-CENTRE space, and the
+            // centre that describes this display is the RENDERED
+            // RECTANGLE's centre (S93-2 class 2): since the
+            // renderer's anchor-aware layout resolution, drawText
+            // converts the stored anchor to a centre, clamps the
+            // centre, and paints from the converted-back anchor —
+            // so the stored anchor no longer describes the centre
+            // that was actually displayed, while the bounds just
+            // written do, exactly. (Before the renderer clamped
+            // anchors as centres, this site reconstructed the
+            // centre from the stored anchor + rendered width,
+            // which is the same value only when the renderer left
+            // the anchor unmoved.) The centre -> anchor conversion
+            // before PERSISTING stays: what is stored is the
+            // anchor field. (The drag, commit and nudge paths
+            // likewise clamp centres derived from the bounds rect
+            // itself.)
             const clampedCenter = clampDragCenter(
               {
-                x: resolveTextAnchorToCenterX(
-                  stored.position.x,
-                  stored.align,
-                  freshRect.width,
-                  width,
-                ),
-                y: stored.position.y,
+                x: (freshRect.x + freshRect.width / 2) / width,
+                y: (freshRect.y + freshRect.height / 2) / height,
               },
               freshRect,
               { width, height }

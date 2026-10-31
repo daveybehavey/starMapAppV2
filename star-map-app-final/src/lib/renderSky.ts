@@ -13,8 +13,7 @@ import { adjustColor, parseHexColor, parseRgbColor, toRgba } from "@/lib/colorUt
 import {
   resolveBaseTextFontSizePx,
   resolveFrameInsetPx,
-  resolveShapeTextAvailableWidth,
-  resolveTextFitScale,
+  resolveTextLineLayout,
   type TextFitLayout,
 } from "./textFit";
 import { resolveShapeTextProfile } from "./shapeTextProfile";
@@ -1590,30 +1589,6 @@ function resolveBandColor(color: string) {
 }
 
 /** Keep text centers inside the canvas so exports match editor drag bounds. */
-function resolveTextCenterNormalized(
-  position: { x?: number; y?: number } | undefined,
-  index: number,
-  textWidth: number,
-  textHeight: number,
-  canvasWidth: number,
-  canvasHeight: number,
-) {
-  const scale = canvasWidth / BASE_CANVAS_WIDTH;
-  const lineGapNorm = (28 * scale) / canvasHeight;
-  const rawX = clamp(position?.x ?? 0.5, 0, 1);
-  const rawY = clamp(position?.y ?? 0.72 + index * lineGapNorm, 0, 1);
-  const halfWidth = textWidth / (canvasWidth * 2);
-  const halfHeight = textHeight / (canvasHeight * 2);
-  const minX = clamp(halfWidth, 0, 0.5);
-  const maxX = clamp(1 - halfWidth, 0.5, 1);
-  const minY = clamp(halfHeight, 0, 0.5);
-  const maxY = clamp(1 - halfHeight, 0.5, 1);
-  return {
-    x: clamp(rawX, minX, maxX),
-    y: clamp(rawY, minY, maxY),
-  };
-}
-
 function drawText(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -1636,39 +1611,41 @@ function drawText(
     // render size.
     const baseFontSize = resolveBaseTextFontSizePx(box.size, scale);
     const baseFont = `${weight} ${baseFontSize}px ${FONT_STACKS[box.fontFamily]}`;
-    // Fit-to-width (P01): a line wider than the canvas shrinks to fit
-    // instead of spilling symmetrically off both edges of the print. Lines
-    // that already fit get a fit scale of exactly 1 and the identical font
-    // string, so their rendering is unchanged.
+    // Fit-to-width (P01): a line wider than its bound shrinks to fit
+    // instead of spilling symmetrically off both edges of the print.
+    // Lines that already fit get a fit scale of exactly 1 and the
+    // identical font string, so their rendering is unchanged.
     const measuredWidth = getCachedTextWidth(ctx, box.text, baseFont);
-    // The canvas edge is not the bound: fitted lines must stay inside
-    // the design's own boundary — the gold frame line on a framed
-    // rectangle (fleet U06), the mask's width at the line's own row on a
-    // diamond (fleet U14). The line's centre row is resolved with the
-    // unfitted height first; resolveShapeTextAvailableWidth measures the
-    // span with that same unfitted height, so the bound is conservative.
-    const provisional = resolveTextCenterNormalized(
-      box.position,
-      index,
-      measuredWidth,
-      baseFontSize * 1.2,
-      width,
-      height,
-    );
-    const availableWidth = resolveShapeTextAvailableWidth({
+    // The canvas edge is not the bound: fitted lines must stay
+    // inside the design's own boundary — the gold frame line on a
+    // framed rectangle (fleet U06), the mask's width at the line's
+    // own row on a diamond (fleet U14). S93-2 classes 2+3: the bound
+    // is resolved by resolveTextLineLayout from the box's own
+    // ANCHOR and alignment — the stored position.x is the drawing
+    // anchor drawText paints with (ctx.textAlign = box.align), not
+    // the glyph centre the pre-fix code clamped it as, and the
+    // shape's safe width is evaluated at the line's own horizontal
+    // destination, not the shape's centre. The resolver is shared
+    // by both renderer entry points (they both draw through here).
+    const lineGapNorm = (28 * scale) / height;
+    const layout = resolveTextLineLayout({
       shape: textLayout?.shape,
       frameEnabled: textLayout?.frameEnabled ?? true,
       shapeMaskFootprint: textLayout?.shapeMaskFootprint,
       shapeTextProfile: textLayout?.shapeTextProfile,
-      centerYNorm: provisional.y,
-      lineHeightPx: baseFontSize * 1.2,
+      position: box.position,
+      defaultX: 0.5,
+      defaultY: 0.72 + index * lineGapNorm,
+      align: box.align,
+      measuredWidthPx: measuredWidth,
+      baseFontSizePx: baseFontSize,
       width,
       height,
     });
-    const fitScale = resolveTextFitScale(measuredWidth, availableWidth);
-    const fontSize = baseFontSize * fitScale;
     const font =
-      fitScale < 1 ? `${weight} ${fontSize}px ${FONT_STACKS[box.fontFamily]}` : baseFont;
+      layout.fitScale < 1
+        ? `${weight} ${layout.fontSizePx}px ${FONT_STACKS[box.fontFamily]}`
+        : baseFont;
     ctx.font = font;
     ctx.fillStyle = box.color;
     if (box.textGlow) {
@@ -1687,26 +1664,10 @@ function drawText(
     }
     ctx.textAlign = box.align;
     ctx.textBaseline = "middle";
-    const textWidth = getCachedTextWidth(ctx, box.text, font);
-    const textHeight = fontSize * 1.2;
-    const { x: normX, y: normY } = resolveTextCenterNormalized(
-      box.position,
-      index,
-      textWidth,
-      textHeight,
-      width,
-      height,
-    );
-    const px = normX * width;
-    const py = normY * height;
-    ctx.fillText(box.text, px, py);
+    ctx.fillText(box.text, layout.anchorX * width, layout.centerY * height);
 
     if (bounds) {
-      let left = px;
-      if (ctx.textAlign === "center") left = px - textWidth / 2;
-      if (ctx.textAlign === "right") left = px - textWidth;
-      const top = py - textHeight / 2;
-      bounds.set(box.id, { x: left, y: top, width: textWidth, height: textHeight });
+      bounds.set(box.id, layout.bounds);
     }
   });
   ctx.shadowColor = "transparent";

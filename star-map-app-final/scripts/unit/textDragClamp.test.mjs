@@ -677,17 +677,24 @@ test("alignment round: centre-aligned boxes flow through the recheck composition
   assert.deepEqual(viaUndefined, viaRecheck);
 });
 
-test("wiring: the recheck converts the stored anchor to the glyph centre before clamping and back before storing (gate P2)", () => {
+test("wiring: the recheck clamps the rendered rectangle's centre and converts back to the anchor before storing (gate P2, S93-2)", () => {
   const canvas = read("src/components/PreviewCanvas.tsx");
-  assert.match(
-    canvas,
-    /resolveTextAnchorToCenterX\(\s*stored\.position\.x,\s*stored\.align,\s*freshRect\.width,\s*width,\s*\)/,
-  );
+  // S93-2 class 2: since the renderer's anchor-aware layout
+  // resolution, drawText converts the stored anchor to a centre,
+  // clamps the centre, and paints from the converted-back anchor —
+  // so the centre that describes the display is the RENDERED
+  // RECTANGLE's centre, and the recheck reads it from the fresh
+  // bounds instead of reconstructing it from the stored anchor
+  // (the gate-P2 composition this pin used to assert; the
+  // recheckCorrect model above remains the oracle for the
+  // conversion helpers the drag/nudge paths still compose).
+  assert.match(canvas, /\(freshRect\.x \+ freshRect\.width \/ 2\) \/ width/);
+  assert.match(canvas, /\(freshRect\.y \+ freshRect\.height \/ 2\) \/ height/);
   assert.match(
     canvas,
     /resolveTextCenterToAnchorX\(\s*clampedCenter\.x,\s*stored\.align,\s*freshRect\.width,\s*width,\s*\)/,
   );
-  // The converted centre is what clampDragCenter receives...
+  // The rendered centre is what clampDragCenter receives...
   assert.match(canvas, /const clampedCenter = clampDragCenter\(/);
   // ...and the value stored is the converted-back `corrected`
   // (the round-1 wiring pin covers the write itself).
