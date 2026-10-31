@@ -116,6 +116,7 @@ type CoordinatorStub = {
     emailHash: string;
     now: number;
     eventRef: string;
+    facts: PromotionLegacyFacts;
   }): Promise<{ state: PromotionCoordinatorState }>;
   clearDeliverabilitySuppression(input: {
     now: number;
@@ -189,7 +190,7 @@ export type ConsistencyCoordinatorClient = {
   ): Promise<{ wasAlreadyUnsubscribed: boolean; state: PromotionCoordinatorState }>;
   recordDeliverabilitySuppression(
     name: string,
-    input: { emailHash: string; now: number; eventRef: string },
+    input: { emailHash: string; now: number; eventRef: string; facts: PromotionLegacyFacts },
   ): Promise<{ state: PromotionCoordinatorState }>;
   clearDeliverabilitySuppression(
     name: string,

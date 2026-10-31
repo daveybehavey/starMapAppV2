@@ -949,11 +949,21 @@ export function applyUnsubscribePromotion(
  * it does not set or clear any consent fact, does not move the
  * subscription stamps, and is not consent evidence. Recording is
  * idempotent: an already-active record stands (its original stamp
- * is the evidence). Creating the coordinator document for an
- * otherwise-unknown identity is legitimate here — the record must
- * exist before any send decision consults it, and a document
- * carrying only a deliverability suppression permits nothing (the
- * dispatch fence finds no subscription fact and refuses).
+ * is the evidence).
+ *
+ * Creating the coordinator document is the one place this transition
+ * reaches beyond the deliverability record, and it follows subscribe /
+ * unsubscribe exactly: a document created here first imports the
+ * legacy permission facts (applyPromotionLegacyImport), so it is born
+ * carrying the identity's actual consent position. Without the import,
+ * a legacy-only subscriber's consent would be stranded in KV — the
+ * dispatch fence reads legacy facts only when NO document exists, so
+ * the created document would shadow the legacy record and, once the
+ * deliverability flag cleared, refuse the subscriber
+ * no_permission_record indefinitely (Codex P2 on PR #457). An
+ * identity with no legacy consent anywhere still gets a document
+ * carrying no subscription fact, and such a document permits nothing
+ * (the dispatch fence finds no subscription fact and refuses).
  */
 export function applyRecordDeliverabilitySuppression(
   state: PromotionCoordinatorState | null,
@@ -961,9 +971,16 @@ export function applyRecordDeliverabilitySuppression(
     emailHash: string;
     now: number;
     eventRef: string;
+    facts: PromotionLegacyFacts;
   },
 ): { state: PromotionCoordinatorState; changed: boolean } {
-  const current = state ?? createEmptyPromotionState(input.emailHash, input.now);
+  let current = state ?? createEmptyPromotionState(input.emailHash, input.now);
+  if (state === null) {
+    // First creation: import the legacy permission facts the same way
+    // subscribe/unsubscribe do, so the document carries the consent
+    // fact from creation (see the header note).
+    current = applyPromotionLegacyImport(current, input.facts, input.now).state;
+  }
   const suppressions = promotionSuppressionsOf(current);
   if (suppressions.deliverability.active) {
     return { state: current, changed: state === null };

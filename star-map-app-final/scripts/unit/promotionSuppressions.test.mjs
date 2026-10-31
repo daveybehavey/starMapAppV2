@@ -15,6 +15,10 @@
  *   through derivation; malformed records fail validation;
  * - the deliverability axis never moves a consent fact, and clearing
  *   it never clears a consent suppression (I-5);
+ * - a deliverability record that CREATES the document imports the
+ *   legacy permission facts (the same import subscribe/unsubscribe
+ *   run), so legacy consent is carried into the document — never
+ *   shadowed by it (PR #457 P2 regression pins);
  * - purpose classification lives in the authority (P-1: promotional
  *   content reclassifies a message as commercial in whole);
  * - the suppression gate's scope discipline (P-3/P-5): global
@@ -245,6 +249,7 @@ test("RD-B recording a deliverability suppression moves no consent fact", () => 
     emailHash: HASH,
     now: NOW + 30_000,
     eventRef: "resend:bounce",
+    facts: NO_FACTS,
   });
   assert.equal(changed, true);
   assert.deepEqual(state.suppressions.deliverability, {
@@ -262,6 +267,7 @@ test("RD-B recording a deliverability suppression moves no consent fact", () => 
     emailHash: HASH,
     now: NOW + 40_000,
     eventRef: "resend:complaint",
+    facts: NO_FACTS,
   });
   assert.equal(again.changed, false, "recording is idempotent");
   assert.equal(again.state.suppressions.deliverability.eventRef, "resend:bounce");
@@ -273,6 +279,7 @@ test("RD-B clearing deliverability never clears a consent suppression", () => {
     emailHash: HASH,
     now: NOW + 90_000,
     eventRef: "resend:bounce",
+    facts: NO_FACTS,
   }).state;
   const cleared = stateLib.applyClearDeliverabilitySuppression(state, { now: NOW + 100_000 });
   assert.equal(cleared.changed, true);
@@ -288,6 +295,100 @@ test("RD-B clearing deliverability never clears a consent suppression", () => {
   assert.equal(noop.changed, false, "clearing an inactive record is a no-op");
 });
 
+/* ------- deliverability-created documents and legacy consent ------- */
+/* Codex P2 on PR #457: a deliverability record that first creates the
+ * coordinator document used to create it EMPTY — the legacy consent
+ * stayed in KV, but the dispatch fence reads legacy facts only when
+ * NO document exists, so the empty document shadowed the legacy
+ * record and, once the flag cleared, refused the subscriber
+ * no_permission_record indefinitely. The creating record now imports
+ * the legacy permission facts, exactly as subscribe/unsubscribe do. */
+
+const LEGACY_STATE_FACTS = {
+  state: {
+    subscribedAt: NOW - 86_400_000,
+    unsubscribedAt: null,
+    unsubscribeReason: null,
+    updatedAt: NOW - 86_400_000,
+  },
+  inLegacySubscriptionList: null,
+  inLegacySentList: null,
+  inLegacyFollowupList: null,
+};
+const LEGACY_LIST_FACTS = {
+  state: null,
+  inLegacySubscriptionList: true,
+  inLegacySentList: null,
+  inLegacyFollowupList: null,
+};
+const dispatchDecision = (coordinatorState) =>
+  guardLib.evaluatePromotionDispatchPermission({
+    coordinatorState,
+    legacyState: null,
+    legacyListMember: false,
+  });
+
+test("RD-B regression (PR #457): recording deliverability on a legacy-only subscriber refuses as deliverability_suppressed while the flag stands", () => {
+  const { state } = stateLib.applyRecordDeliverabilitySuppression(null, {
+    emailHash: HASH,
+    now: NOW,
+    eventRef: "resend:bounce",
+    facts: LEGACY_STATE_FACTS,
+  });
+  // The creating record imported the legacy consent fact: the
+  // document was born carrying the identity's subscription rather
+  // than shadowing it.
+  assert.equal(state.subscribedAt, NOW - 86_400_000);
+  assert.equal(state.suppressions.deliverability.active, true);
+  assert.deepEqual(dispatchDecision(state), {
+    permitted: false,
+    reason: "deliverability_suppressed",
+  });
+});
+
+test("RD-B regression (PR #457): clearing deliverability restores a legacy-only subscriber's permission", () => {
+  const recorded = stateLib.applyRecordDeliverabilitySuppression(null, {
+    emailHash: HASH,
+    now: NOW,
+    eventRef: "resend:bounce",
+    facts: LEGACY_LIST_FACTS,
+  }).state;
+  assert.equal(recorded.legacySubscribed, true, "list-proved consent imported at creation");
+  assert.deepEqual(dispatchDecision(recorded), {
+    permitted: false,
+    reason: "deliverability_suppressed",
+  });
+  const cleared = stateLib.applyClearDeliverabilitySuppression(recorded, {
+    now: NOW + 60_000,
+  }).state;
+  // The regression pin: before the fix this decision was
+  // no_permission_record — the deliverability-created document
+  // carried no subscription fact, permanently stripping the legacy
+  // subscriber's sending permission.
+  assert.deepEqual(dispatchDecision(cleared), { permitted: true });
+});
+
+test("RD-B regression (PR #457): a deliverability-created document manufactures no consent", () => {
+  const recorded = stateLib.applyRecordDeliverabilitySuppression(null, {
+    emailHash: HASH,
+    now: NOW,
+    eventRef: "resend:bounce",
+    facts: NO_FACTS,
+  }).state;
+  assert.equal(recorded.subscribedAt, null);
+  assert.equal(recorded.legacySubscribed, false);
+  const cleared = stateLib.applyClearDeliverabilitySuppression(recorded, {
+    now: NOW + 60_000,
+  }).state;
+  // Negative control: with no legacy consent anywhere, clearing the
+  // flag must NOT conjure permission — the import preserves facts,
+  // it never invents them.
+  assert.deepEqual(dispatchDecision(cleared), {
+    permitted: false,
+    reason: "no_permission_record",
+  });
+});
+
 test("RD-B deliverability RPCs round-trip through the client and the DO", async () => {
   clientLib.__resetConsistencyCoordinatorMemoryForTests();
   const client = clientLib.createConsistencyCoordinatorClient();
@@ -297,6 +398,7 @@ test("RD-B deliverability RPCs round-trip through the client and the DO", async 
     emailHash: clientLib.coordinatorEmailHash(EMAIL),
     now: NOW,
     eventRef: "resend:bounce",
+    facts: NO_FACTS,
   });
   assert.equal(recorded.state.suppressions.deliverability.active, true);
   assert.equal(recorded.state.subscribedAt, null, "a deliverability-only document holds no consent");
@@ -347,6 +449,7 @@ test("RD-B deliverability RPCs round-trip through the client and the DO", async 
     emailHash: clientLib.coordinatorEmailHash(EMAIL),
     now: NOW,
     eventRef: "resend:complaint",
+    facts: NO_FACTS,
   });
   const loaded = await coord.getPromotionState();
   assert.equal(loaded.suppressions.deliverability.active, true);
@@ -434,6 +537,7 @@ test("RD-B fence: a deliverability-suppressed subscriber is refused at dispatch"
     emailHash: HASH,
     now: NOW + 30_000,
     eventRef: "resend:bounce",
+    facts: NO_FACTS,
   }).state;
   assert.deepEqual(
     guardLib.evaluatePromotionDispatchPermission({
@@ -485,6 +589,7 @@ test("RD-B fence: a deliverability-suppressed drive makes zero provider calls", 
     emailHash,
     now: NOW + 1_000,
     eventRef: "resend:bounce",
+    facts: NO_FACTS,
   });
 
   const calls = [];
