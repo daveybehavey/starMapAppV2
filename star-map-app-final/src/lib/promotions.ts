@@ -5,6 +5,25 @@ import {
   type PromotionDispatchPermissionChecker,
   type PromotionDispatchRefusalReason,
 } from "@/lib/promotionDispatchGuard";
+import {
+  buildCaslIdentificationFooter,
+  buildListUnsubscribeHeaders,
+  resolveCommercialEmailMailingAddress,
+} from "@/lib/transactionalEmailLayout";
+
+/**
+ * Frozen-payload compliance contract (CASL send alignment, S93-5
+ * Part 1). Version 1 payloads render the shared CASL identification
+ * footer (sender identity + mailing address + the signed unsubscribe
+ * URL) into the copy AND carry the shared List-Unsubscribe message
+ * headers, both frozen at job creation so a retry submits
+ * byte-identical content under its idempotency key. Payloads frozen
+ * before this contract existed carry no version: deliverPromotionSend
+ * refuses them (`unconfigured`) rather than dispatch content that
+ * cannot be shown compliant — their cancellation/recreation is a
+ * separately reviewed migration, never an at-dispatch re-render.
+ */
+export const PROMOTION_COMPLIANCE_FORMAT_VERSION = 1;
 
 type PromotionAutomationProvider = "resend" | "sendgrid" | "webhook" | "none";
 
@@ -51,6 +70,40 @@ type EmailCopy = {
   html: string;
 };
 
+/**
+ * The compliance facts a compliant promotion payload is frozen with:
+ * the recipient's signed unsubscribe URL and the business mailing
+ * address, plus the List-Unsubscribe headers built from the URL.
+ * Resolved ONCE, at payload preparation (job creation); a null here
+ * means the deployment cannot currently produce a compliant send, and
+ * preparation records that on the payload instead of rendering a
+ * silently non-compliant email (see preparePromotionCouponPayload).
+ */
+type PromotionComplianceFacts = {
+  unsubscribeUrl: string;
+  mailingAddress: string;
+  headers: Record<string, string>;
+};
+
+function resolvePromotionComplianceFacts(email: string): PromotionComplianceFacts | null {
+  const unsubscribeUrl = getPromotionUnsubscribeUrl(email);
+  const mailingAddress = resolveCommercialEmailMailingAddress(process.env);
+  if (!unsubscribeUrl || !mailingAddress) return null;
+  return {
+    unsubscribeUrl,
+    mailingAddress,
+    headers: buildListUnsubscribeHeaders({
+      unsubscribeUrl,
+      // No one-click Post header: the /unsubscribe surface is a GET
+      // page and does not implement an RFC 8058 one-click POST
+      // (verified against src/app/unsubscribe — page only, no POST
+      // route handler). The header builder's contract requires the
+      // caller to assert one-click support; here it cannot.
+      oneClick: false,
+    }),
+  };
+}
+
 function parseEmailAddress(value?: string): ParsedEmailAddress | null {
   if (!value) return null;
   const trimmed = value.trim();
@@ -75,11 +128,28 @@ function weddingPromoUrl(source: string) {
   return `${siteUrl}/wedding?source=${encodeURIComponent(source)}`;
 }
 
-function getPromotionCopy(email: string, couponCode: string): EmailCopy {
+function getPromotionCopy(
+  email: string,
+  couponCode: string,
+  facts: PromotionComplianceFacts | null,
+): EmailCopy {
   const checkoutUrl = editorPromoUrl("promo-welcome");
   const weddingUrl = weddingPromoUrl("promo-welcome");
   const subject = promotionSubject;
-  const unsubscribeUrl = getPromotionUnsubscribeUrl(email) ?? null;
+  // The mandatory CASL identification block (S93-5 Part 1) replaces
+  // the old optional unsubscribe fragment: sender identity, mailing
+  // address, and the same signed URL the headers carry — in both
+  // renderings. Null facts render no block; such a payload is marked
+  // unconfigured at preparation and never dispatches.
+  const footer = facts
+    ? buildCaslIdentificationFooter({
+        senderIdentity: "StarMapCo",
+        mailingAddress: facts.mailingAddress,
+        unsubscribeUrl: facts.unsubscribeUrl,
+        unsubscribeLabel: "Unsubscribe",
+        presentation: "promoPlain",
+      })
+    : null;
   const text = [
     "Thanks for joining the StarMapCo insider list.",
     "",
@@ -92,9 +162,10 @@ function getPromotionCopy(email: string, couponCode: string): EmailCopy {
     "Framed and unframed prints remain available separately after preview.",
     "",
     "Need help? Reply to this email and we can help.",
-    unsubscribeUrl ? `Unsubscribe: ${unsubscribeUrl}` : undefined,
     "",
     "— StarMapCo",
+    footer ? "" : undefined,
+    footer?.text,
   ]
     .filter(Boolean)
     .join("\n");
@@ -110,22 +181,35 @@ function getPromotionCopy(email: string, couponCode: string): EmailCopy {
       <p style="font-size: 13px; color: #3f485b;">This one-time offer applies to ${promotionTargetLabel}.</p>
       <p style="font-size: 13px; color: #3f485b;">Framed and unframed print routes still stay available after preview.</p>
       <p style="font-size: 13px; color: #3f485b;">Need help? Reply and we can help.</p>
-      ${unsubscribeUrl ? `<p style="font-size: 12px; color: #6b7280;">No longer want updates? <a href="${unsubscribeUrl}" style="color: #6b7280;">Unsubscribe</a>.</p>` : ""}
       <p style="margin-top: 18px;">— StarMapCo</p>
+      ${footer ? footer.html : ""}
     </div>
   `;
 
   return { subject, text, html };
 }
 
-function getPromotionFollowupCopy(email: string, couponCode: string): EmailCopy {
+function getPromotionFollowupCopy(
+  email: string,
+  couponCode: string,
+  facts: PromotionComplianceFacts | null,
+): EmailCopy {
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com").replace(/\/+$/, "");
   const checkoutUrl = editorPromoUrl("promo-followup");
   const weddingUrl = weddingPromoUrl("promo-followup");
   const printGuideUrl = `${siteUrl}/how-to-print-star-map`;
   const galleryUrl = `${siteUrl}/star-map-gallery`;
   const subject = promotionFollowupSubject;
-  const unsubscribeUrl = getPromotionUnsubscribeUrl(email) ?? null;
+  // Mandatory CASL identification block — see getPromotionCopy.
+  const footer = facts
+    ? buildCaslIdentificationFooter({
+        senderIdentity: "StarMapCo",
+        mailingAddress: facts.mailingAddress,
+        unsubscribeUrl: facts.unsubscribeUrl,
+        unsubscribeLabel: "Unsubscribe",
+        presentation: "promoPlain",
+      })
+    : null;
   const text = [
     "Quick print tips for your star map:",
     "",
@@ -139,9 +223,10 @@ function getPromotionFollowupCopy(email: string, couponCode: string): EmailCopy 
     `Start or finish your map here: ${checkoutUrl}`,
     "",
     "Need help? Reply to this email and we can help.",
-    unsubscribeUrl ? `Unsubscribe: ${unsubscribeUrl}` : undefined,
     "",
     "— StarMapCo",
+    footer ? "" : undefined,
+    footer?.text,
   ]
     .filter(Boolean)
     .join("\n");
@@ -165,8 +250,8 @@ function getPromotionFollowupCopy(email: string, couponCode: string): EmailCopy 
         Need inspiration? Browse the <a href="${galleryUrl}" style="color: #b07d1b; text-decoration: none;">star map gallery</a>.
       </p>
       <p style="font-size: 13px; color: #3f485b;">Need help? Reply and we can help.</p>
-      ${unsubscribeUrl ? `<p style="font-size: 12px; color: #6b7280;">No longer want updates? <a href="${unsubscribeUrl}" style="color: #6b7280;">Unsubscribe</a>.</p>` : ""}
       <p style="margin-top: 18px;">— StarMapCo</p>
+      ${footer ? footer.html : ""}
     </div>
   `;
 
@@ -191,9 +276,10 @@ function getPromotionFollowupCopy(email: string, couponCode: string): EmailCopy 
 /*                       keeps keys 24h; SendGrid/webhook have no      */
 /*                       equivalent guarantee)                         */
 /*   unconfigured        no provider is configured at all              */
-/* The provider chain is unchanged: Resend, then SendGrid, then the    */
-/* automation webhook; the first CONFIGURED provider's outcome ends    */
-/* the chain, exactly as the legacy wrappers behaved.                  */
+/* The provider chain is Resend, then SendGrid; the first CONFIGURED   */
+/* provider's outcome ends the chain, exactly as the legacy wrappers   */
+/* behaved. The automation webhook is no longer a delivery leg: it     */
+/* cannot carry the frozen compliant content (S93-5 Part 1).           */
 /* ------------------------------------------------------------------ */
 
 export type PromotionJobKind = "coupon" | "followup";
@@ -205,6 +291,14 @@ export type PromotionSendPayload = {
   subject: string;
   text: string;
   html: string;
+  /** List-Unsubscribe message headers, frozen at job creation from
+   *  the same signed URL the rendered footer carries (S93-5 Part 1).
+   *  Absent on payloads frozen before the compliance contract
+   *  existed — those never dispatch (see deliverPromotionSend). */
+  headers?: Record<string, string>;
+  /** Compliance contract version this payload was frozen under
+   *  (PROMOTION_COMPLIANCE_FORMAT_VERSION). Absent = legacy payload. */
+  complianceFormatVersion?: number;
   /** Followup only: the provider-scheduled send instant, frozen at job
    *  creation so a retry submits the identical request. */
   scheduledAtIso?: string;
@@ -230,8 +324,28 @@ export function preparePromotionCouponPayload(
   email: string,
   couponCode: string,
 ): PromotionSendPayload {
-  const copy = getPromotionCopy(email, couponCode);
-  return { email, couponCode, kind: "coupon", subject: copy.subject, text: copy.text, html: copy.html };
+  const facts = resolvePromotionComplianceFacts(email);
+  const copy = getPromotionCopy(email, couponCode, facts);
+  if (!facts) {
+    // Compliance facts unavailable (no signing secret for the
+    // unsubscribe URL, or no mailing address configured): freeze the
+    // payload WITHOUT the compliance contract. deliverPromotionSend
+    // refuses such payloads as `unconfigured` — the job stays
+    // undelivered rather than sending a non-compliant email, and a
+    // later recreation under a fixed configuration freezes a
+    // compliant payload instead.
+    return { email, couponCode, kind: "coupon", subject: copy.subject, text: copy.text, html: copy.html };
+  }
+  return {
+    email,
+    couponCode,
+    kind: "coupon",
+    subject: copy.subject,
+    text: copy.text,
+    html: copy.html,
+    headers: facts.headers,
+    complianceFormatVersion: PROMOTION_COMPLIANCE_FORMAT_VERSION,
+  };
 }
 
 export function preparePromotionFollowupPayload(
@@ -239,7 +353,19 @@ export function preparePromotionFollowupPayload(
   couponCode: string,
   scheduledAtIso: string,
 ): PromotionSendPayload {
-  const copy = getPromotionFollowupCopy(email, couponCode);
+  const facts = resolvePromotionComplianceFacts(email);
+  const copy = getPromotionFollowupCopy(email, couponCode, facts);
+  if (!facts) {
+    return {
+      email,
+      couponCode,
+      kind: "followup",
+      subject: copy.subject,
+      text: copy.text,
+      html: copy.html,
+      scheduledAtIso,
+    };
+  }
   return {
     email,
     couponCode,
@@ -247,6 +373,8 @@ export function preparePromotionFollowupPayload(
     subject: copy.subject,
     text: copy.text,
     html: copy.html,
+    headers: facts.headers,
+    complianceFormatVersion: PROMOTION_COMPLIANCE_FORMAT_VERSION,
     scheduledAtIso,
   };
 }
@@ -270,6 +398,7 @@ async function sendLegResend(
     subject: string;
     text: string;
     html: string;
+    headers?: Record<string, string>;
     reply_to?: string;
     scheduled_at?: string;
   } = {
@@ -279,6 +408,12 @@ async function sendLegResend(
     text: payload.text,
     html: payload.html,
   };
+  if (payload.headers && Object.keys(payload.headers).length > 0) {
+    // Frozen List-Unsubscribe MESSAGE headers (S93-5 Part 1) — kept
+    // distinct from the HTTP headers below (Authorization /
+    // Idempotency-Key), which are transport, not message, headers.
+    body.headers = payload.headers;
+  }
   if (payload.scheduledAtIso) {
     body.scheduled_at = payload.scheduledAtIso;
   }
@@ -341,6 +476,7 @@ async function sendLegSendgrid(payload: PromotionSendPayload): Promise<LegResult
     from: { email: string; name?: string };
     subject: string;
     content: Array<{ type: "text/plain" | "text/html"; value: string }>;
+    headers?: Record<string, string>;
     reply_to?: { email: string; name?: string };
     send_at?: number;
   } = {
@@ -352,6 +488,11 @@ async function sendLegSendgrid(payload: PromotionSendPayload): Promise<LegResult
       { type: "text/html", value: payload.html },
     ],
   };
+  if (payload.headers && Object.keys(payload.headers).length > 0) {
+    // Frozen List-Unsubscribe message headers (S93-5 Part 1), carried
+    // in SendGrid's top-level `headers` field.
+    body.headers = payload.headers;
+  }
   if (replyToAddress) {
     body.reply_to = replyToAddress;
   }
@@ -396,57 +537,31 @@ async function sendLegSendgrid(payload: PromotionSendPayload): Promise<LegResult
   };
 }
 
-async function sendLegWebhook(payload: PromotionSendPayload): Promise<LegResult> {
-  const webhookUrl = process.env.PROMOTION_AUTOMATION_WEBHOOK_URL;
-  if (!webhookUrl) {
-    return { configured: false };
-  }
-
-  let response: Response;
-  try {
-    response = await fetch(webhookUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: payload.email,
-        couponCode: payload.couponCode,
-        list: "first_digital_offer",
-        source: "promotion_signup",
-        sequence: payload.kind === "coupon" ? "welcome" : "print_tips",
-        timestamp: new Date().toISOString(),
-      }),
-    });
-  } catch (error) {
-    return {
-      configured: true,
-      outcome: "ambiguous",
-      error: error instanceof Error ? error.message.slice(0, 280) : "webhook_fetch_failed",
-    };
-  }
-
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    return {
-      configured: true,
-      outcome: isAmbiguousHttpStatus(response.status) ? "ambiguous" : "definitive_failure",
-      error: `webhook_http_${response.status}:${text.slice(0, 280)}`,
-    };
-  }
-
-  return { configured: true, outcome: "accepted", providerMessageId: null };
-}
+/**
+ * The automation-webhook leg is REMOVED from compliant delivery
+ * (S93-5 Part 1): its contract posts campaign metadata (email, coupon
+ * code, sequence) — not the frozen rendered copy — so it cannot
+ * establish delivery of the CASL identification footer or the
+ * List-Unsubscribe headers, and claiming otherwise would misstate the
+ * send's compliance. A deployment whose only configured provider is
+ * the webhook now resolves as `unconfigured` (no compliant provider),
+ * and selectPromotionProvider never selects it for a claim stamp.
+ * Re-enabling it requires an explicit downstream contract that
+ * carries the frozen content + headers, with acceptance evidence.
+ */
 
 /**
  * The provider the delivery chain will use for the next send — the
- * first configured leg, in chain order — and whether that provider
- * guarantees idempotency for the attempt. The coordinator stamps this
- * selection on the job at claim time, BEFORE the provider call, so a
- * driver that dies mid-attempt leaves behind proof of which guarantee
- * covered the attempt; the alarm's stale-claim reclaim reads the stamp
- * (S3-A: an ambiguous attempt may be retried only under a proven
- * guarantee — otherwise it blocks). Mirrors the legs' configured
- * checks exactly; deliverPromotionSend remains the authority at send
- * time.
+ * first configured COMPLIANT leg, in chain order — and whether that
+ * provider guarantees idempotency for the attempt. The coordinator
+ * stamps this selection on the job at claim time, BEFORE the provider
+ * call, so a driver that dies mid-attempt leaves behind proof of
+ * which guarantee covered the attempt; the alarm's stale-claim
+ * reclaim reads the stamp (S3-A: an ambiguous attempt may be retried
+ * only under a proven guarantee — otherwise it blocks). Mirrors the
+ * legs' configured checks exactly; deliverPromotionSend remains the
+ * authority at send time. The webhook is never selected: it is not a
+ * compliant-delivery provider (see the removal note above).
  */
 export function selectPromotionProvider(): {
   provider: PromotionAutomationProvider;
@@ -457,9 +572,6 @@ export function selectPromotionProvider(): {
   }
   if (process.env.SENDGRID_API_KEY && parseEmailAddress(promotionFromEmail)) {
     return { provider: "sendgrid", idempotencyGuaranteed: false };
-  }
-  if (process.env.PROMOTION_AUTOMATION_WEBHOOK_URL) {
-    return { provider: "webhook", idempotencyGuaranteed: false };
   }
   return null;
 }
@@ -475,12 +587,26 @@ export function selectPromotionProvider(): {
  * (the per-email coordinator state, legacy KV only when the coordinator
  * has never seen the recipient). A refusal returns
  * `{ outcome: "refused" }` and NO leg runs — no provider call, no
- * fallback walk, no webhook. Callers with their own authority handle
+ * fallback walk. Callers with their own authority handle
  * (the coordinator drivers) inject their checker via
  * `options.checkDispatchPermission`; every other caller gets the
  * default production checker. A checker that throws is treated as an
  * unreadable authority and refuses (`authority_unavailable`) — the
  * fence fails closed, never open.
+ *
+ * COMPLIANCE GATE (CASL send alignment; S93-5 Part 1): after the
+ * fence, before any leg, the payload must carry the compliance
+ * contract (PROMOTION_COMPLIANCE_FORMAT_VERSION + frozen
+ * List-Unsubscribe headers) AND the deployment must still resolve the
+ * compliance facts (a signing secret for the unsubscribe URL and a
+ * mailing address). Either failing returns
+ * `{ outcome: "unconfigured", provider: "none" }` with a sanitized
+ * category and NO leg runs. Facts are never re-rendered into an
+ * existing payload at dispatch: that would change the request under
+ * the job's idempotency key. A compliant payload therefore retries
+ * byte-identically even if the environment changes afterwards; the
+ * current-configuration check only proves the deployment has not
+ * withdrawn the facts the payload was frozen under.
  */
 export async function deliverPromotionSend(
   payload: PromotionSendPayload,
@@ -499,6 +625,19 @@ export async function deliverPromotionSend(
     return { outcome: "refused", provider: "none", reason: decision.reason };
   }
 
+  if (
+    payload.complianceFormatVersion !== PROMOTION_COMPLIANCE_FORMAT_VERSION ||
+    !payload.headers ||
+    Object.keys(payload.headers).length === 0 ||
+    !resolvePromotionComplianceFacts(payload.email)
+  ) {
+    return {
+      outcome: "unconfigured",
+      provider: "none",
+      error: "promotion_compliance_unconfigured",
+    };
+  }
+
   const legs: Array<{
     provider: PromotionAutomationProvider;
     run: () => Promise<LegResult>;
@@ -506,7 +645,6 @@ export async function deliverPromotionSend(
   }> = [
     { provider: "resend", run: () => sendLegResend(payload, idempotencyKey), idempotencyGuaranteed: true },
     { provider: "sendgrid", run: () => sendLegSendgrid(payload), idempotencyGuaranteed: false },
-    { provider: "webhook", run: () => sendLegWebhook(payload), idempotencyGuaranteed: false },
   ];
 
   for (const leg of legs) {
