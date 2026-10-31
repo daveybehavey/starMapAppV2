@@ -1,6 +1,13 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { PrintVariant } from "@/lib/pricing";
 import { getPrintPricingTiers } from "@/lib/pricing";
+import {
+  checkPromotionDispatchPermission,
+  type PromotionDispatchDecision,
+  type PromotionDispatchPermissionChecker,
+  type PromotionDispatchRefusalReason,
+} from "@/lib/promotionDispatchGuard";
+import { getPromotionUnsubscribeUrl } from "@/lib/promotionSubscriptions";
 
 type CheckoutRecoveryAlertProvider = "resend" | "sendgrid" | "none";
 
@@ -311,7 +318,68 @@ function getIncludesBullets(input: CheckoutRecoveryAlertInput): string[] {
   return bullets;
 }
 
-function getCopy(input: CheckoutRecoveryAlertInput) {
+/**
+ * CASL identification + unsubscribe facts for the recovery email,
+ * resolved from the SAME sources the other commercial sends use —
+ * never invented in code:
+ * - the unsubscribe URL is the promotion system's signed URL
+ *   (`getPromotionUnsubscribeUrl`, HMAC over the unsubscribe secret
+ *   chain); it points at the same /unsubscribe surface whose
+ *   suppression the dispatch fence enforces;
+ * - the mailing address is the owner-supplied binding the review
+ *   engine reads for its own footer (`REVIEW_REQUEST_MAILING_ADDRESS`,
+ *   the only mailing-address binding on the Worker) — the sender's
+ *   postal address is a fact about the business, not about one send.
+ * Returns null when either fact is unavailable: a commercial send
+ * without sender identification or a working unsubscribe mechanism
+ * does not go out (the review engine's posture: no address, no email).
+ */
+export type CheckoutRecoveryEmailFooter = {
+  unsubscribeUrl: string;
+  mailingAddress: string;
+};
+
+export function resolveCheckoutRecoveryEmailFooter(email: string): CheckoutRecoveryEmailFooter | null {
+  const unsubscribeUrl = getPromotionUnsubscribeUrl(email);
+  const mailingAddress = process.env.REVIEW_REQUEST_MAILING_ADDRESS?.trim() ?? "";
+  if (!unsubscribeUrl || !mailingAddress) return null;
+  return { unsubscribeUrl, mailingAddress };
+}
+
+/**
+ * Dispatch-fence refusal mapped onto the recovery result taxonomy.
+ * The errorCode mirrors the fence's own surfacing on the promotional
+ * transport (`promotion_dispatch_refused:<reason>`), so the webhook's
+ * attempt records carry the same sanitized category. No provider is
+ * attempted for a refused send. `authority_unavailable` stays
+ * retryable — the fence's semantics: the refusal is not a consent
+ * fact, so the send stays retryable once authority is readable again
+ * (Stripe redelivery remains bounded by the safe-window gate in the
+ * webhook). Consent refusals (unsubscribed, deliverability,
+ * no_permission_record) are terminal: redelivery cannot change them.
+ */
+export function checkoutRecoveryDispatchRefusedResult(
+  reason: PromotionDispatchRefusalReason
+): CheckoutRecoveryAlertResult {
+  return {
+    delivered: false,
+    provider: "none",
+    retryability: reason === "authority_unavailable" ? "retryable" : "terminal",
+    errorCode: `promotion_dispatch_refused:${reason}`,
+  };
+}
+
+/** Footer facts unavailable → the compliant send is not configured. */
+export function checkoutRecoveryFooterNotConfiguredResult(): CheckoutRecoveryAlertResult {
+  return {
+    delivered: false,
+    provider: "none",
+    retryability: "not_configured",
+    errorCode: "checkout_recovery_footer_not_configured",
+  };
+}
+
+function getCopy(input: CheckoutRecoveryAlertInput, footer: CheckoutRecoveryEmailFooter) {
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://starmapco.com").replace(/\/+$/, "");
   const subject = getSubject(input);
   const offerLabel = getOfferLabel(input);
@@ -333,6 +401,10 @@ function getCopy(input: CheckoutRecoveryAlertInput) {
     "",
     "— StarMapCo",
     siteUrl,
+    "",
+    `StarMapCo · ${footer.mailingAddress}`,
+    "You're receiving this email because you started a checkout at StarMapCo.",
+    `Unsubscribe: ${footer.unsubscribeUrl}`,
   ]
     .filter(Boolean)
     .join("\n");
@@ -369,6 +441,7 @@ function getCopy(input: CheckoutRecoveryAlertInput) {
           <p style="font-size: 12px; color: #8c7a4a; margin: 0 0 14px;">This link returns you directly to your saved checkout.</p>
           <hr style="border: none; border-top: 1px solid #e6dcc8; margin: 0 0 14px;" />
           <p style="font-size: 13px; color: #5f6677; margin: 0;">Questions? Reply to this email and we will help.</p>
+          <p style="font-size: 12px; line-height: 1.6; color: #5f6677; margin: 14px 0 0;">StarMapCo · ${escapeHtml(footer.mailingAddress)}<br/>You're receiving this email because you started a checkout at StarMapCo. <a href="${footer.unsubscribeUrl}" style="color: #5f6677; text-decoration: underline;">Unsubscribe</a></p>
         </div>
       </div>
     </div>
@@ -570,7 +643,7 @@ export function applyCheckoutRecoveryAlertToSessionFields(
   };
 }
 
-async function sendWithResend(input: CheckoutRecoveryAlertInput) {
+async function sendWithResend(input: CheckoutRecoveryAlertInput, footer: CheckoutRecoveryEmailFooter) {
   const resendApiKey = process.env.RESEND_API_KEY?.trim() || "";
   const from = getAlertFrom();
   if (!resendApiKey || !from) {
@@ -578,7 +651,7 @@ async function sendWithResend(input: CheckoutRecoveryAlertInput) {
   }
 
   const replyTo = getAlertReplyTo();
-  const copy = getCopy(input);
+  const copy = getCopy(input, footer);
   const payload: {
     from: string;
     to: string[];
@@ -622,12 +695,51 @@ async function sendWithResend(input: CheckoutRecoveryAlertInput) {
  * Checkout recovery delivery is Resend-only ({@link CHECKOUT_RECOVERY_EMAIL_PROVIDER_POLICY}).
  * When Resend is not configured, returns truthful `not_configured` — never falls back to
  * a non-idempotent provider.
+ *
+ * DISPATCH FENCE (CASL checkout-recovery fence build): this send
+ * historically posted straight to Resend with NO consent check. The
+ * recovery template carries promotional content beyond the session
+ * link + summary (offer framing, price, saved-design marketing copy),
+ * so under the design's classification (A1 P-1) it is the
+ * `checkout_recovery_promotional` class — a commercial send. Before
+ * any provider leg, the recipient's permission is now re-read from
+ * the shipped dispatch authority — the SAME checker the promotional
+ * transport's fence uses (`checkPromotionDispatchPermission`,
+ * injectable here exactly as `deliverPromotionSend` accepts it). The
+ * checker's suppression gate decides the commercial classes
+ * identically on the global and deliverability axes, so no second,
+ * divergent consent check exists. A refusal returns
+ * {@link checkoutRecoveryDispatchRefusedResult} and NO provider call
+ * is attempted; a checker that throws is treated as an unreadable
+ * authority and refuses (`authority_unavailable`) — fail closed,
+ * never open, exactly as the transport fence hardens it. The email
+ * itself now carries the sender-identification + unsubscribe footer
+ * ({@link resolveCheckoutRecoveryEmailFooter}); without those facts
+ * the send is `not_configured`, not silently non-compliant.
  */
 export async function sendCheckoutRecoveryAlert(
-  input: CheckoutRecoveryAlertInput
+  input: CheckoutRecoveryAlertInput,
+  options?: { checkDispatchPermission?: PromotionDispatchPermissionChecker }
 ): Promise<CheckoutRecoveryAlertResult> {
+  const checkDispatchPermission =
+    options?.checkDispatchPermission ?? checkPromotionDispatchPermission;
+  let decision: PromotionDispatchDecision;
   try {
-    const resendResult = await sendWithResend(input);
+    decision = await checkDispatchPermission(input.email);
+  } catch {
+    decision = { permitted: false, reason: "authority_unavailable" };
+  }
+  if (!decision.permitted) {
+    return checkoutRecoveryDispatchRefusedResult(decision.reason);
+  }
+
+  const footer = resolveCheckoutRecoveryEmailFooter(input.email);
+  if (!footer) {
+    return checkoutRecoveryFooterNotConfiguredResult();
+  }
+
+  try {
+    const resendResult = await sendWithResend(input, footer);
     if (resendResult.provider !== "none") return resendResult;
     return notConfiguredResult();
   } catch {
