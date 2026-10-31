@@ -85,6 +85,13 @@ export const ENTITLEMENT_KV = {
   accessEmailResult: (sessionId: string) => `stripe:access-email:result:v1:${sessionId}`,
   recoveryResult: (sessionId: string) => `stripe:recovery:result:v1:${sessionId}`,
   /**
+   * HD download email outcomes (S93-1 item 2): one record per variant, so
+   * an initial result can never replace an archive-ready result. Both keys
+   * deliberately sit OUTSIDE the `stripe:session:` prefix.
+   */
+  hdInitialEmailResult: (sessionId: string) => `stripe:hd-email:initial-result:v1:${sessionId}`,
+  hdArchiveEmailResult: (sessionId: string) => `stripe:hd-email:archive-result:v1:${sessionId}`,
+  /**
    * Fix round 4 (G-dot gate, PR #447): settlement metadata completion lives
    * in its own record, NEVER on the session record. The key is deliberately
    * NOT under the `stripe:session:` prefix (the review engine scans that
@@ -277,6 +284,29 @@ export type AccessEmailResultRecord = {
 };
 
 /**
+ * HD download email outcome (S93-1 item 2). The initial and archive-ready
+ * HD emails record their outcomes in these per-variant sidecar records —
+ * never by replacing the entitlement session record with a caller-held
+ * snapshot (the W2–W4 writer class: a concurrent settlement, consume,
+ * debit, or revocation landing after the caller's read was silently
+ * overwritten by the bookkeeping put). Allowlisted by construction: the
+ * record is built field-by-field from the dispatch result, so no session
+ * field and no arbitrary provider field can enter it.
+ */
+export type HdEmailResultRecord = {
+  schemaVersion: number;
+  sessionId: string;
+  variant: "initial" | "archive_ready";
+  provider?: string;
+  error?: string;
+  /** Provider-confirmed delivery time; absent means not delivered. */
+  deliveredAt?: number;
+  /** Whether the delivered message carried the archive (direct file) link. */
+  includedArchive?: boolean;
+  recordedAt: number;
+};
+
+/**
  * Settlement metadata completed onto an already-settled record (fix round
  * 4). Holds ONLY the SETTLEMENT_METADATA_COMPLETION_FIELDS values; it is
  * not an accounting record and no balance/terms/revocation state may ever
@@ -344,6 +374,38 @@ export async function readSessionRevocationEvidence(
   }
   if (paymentIntentId) {
     const tombstone = await kv.get<{ revoked?: boolean; reason?: string }>(
+      revokedPaymentIntentKey(paymentIntentId),
+    );
+    if (tombstone?.revoked) {
+      return { revoked: true, reason: tombstone.reason ?? "refund" };
+    }
+  }
+  return { revoked: false };
+}
+
+/**
+ * Error-preserving variant of {@link readSessionRevocationEvidence}
+ * (S93-1 item 5): the same two evidence sources, read through
+ * `kv.getErrorPreserving`, so a read failure THROWS (KvReadError)
+ * instead of degrading to local fallback. Decision paths that can grant
+ * credits or activate access (referral grant, subscription activation)
+ * use this reader: for them, "evidence unreadable" must stay retryable
+ * and must never be indistinguishable from "no revocation". The
+ * advisory reader above keeps its existing contract for its existing
+ * callers — this reader is added alongside, not substituted.
+ */
+export async function readSessionRevocationEvidenceStrict(
+  sessionId: string,
+  paymentIntentId?: string | null,
+): Promise<RevocationEvidenceResult> {
+  const side = await kv.getErrorPreserving<SessionRevocationEvidence>(
+    ENTITLEMENT_KV.sessionRevoked(sessionId),
+  );
+  if (side?.revoked) {
+    return { revoked: true, reason: side.reason ?? "refund" };
+  }
+  if (paymentIntentId) {
+    const tombstone = await kv.getErrorPreserving<{ revoked?: boolean; reason?: string }>(
       revokedPaymentIntentKey(paymentIntentId),
     );
     if (tombstone?.revoked) {
@@ -803,10 +865,16 @@ export async function settleSessionPurchase<T extends StripeSessionEntitlement>(
 }
 
 /**
- * Record an interim carry refusal. Audit evidence only: a failure to record
- * must never cause movement, so failures are logged and swallowed. The
- * refusal itself performs no balance read and no balance write — zero
- * transfers in, zero transfers out.
+ * Record an interim carry refusal. Audit evidence only — the refusal
+ * itself performs no balance read and no balance write (zero transfers
+ * in, zero transfers out) — but the evidence write is NOT swallowed
+ * (S93-1 item 8): a returned record means the durable put resolved, and
+ * a persistence failure throws (KvDurableWriteError) so the caller owns
+ * the response policy for an unrecorded refusal. The verify route's
+ * companion change (catch the failure locally, outside its Stripe
+ * catch, and answer 503 pending) is sequenced with the lane that owns
+ * that route — until it lands, this propagation is the contract the
+ * gate must sequence against.
  */
 export async function recordTransferRefusal(input: {
   sourceSessionId: string;
@@ -822,17 +890,9 @@ export async function recordTransferRefusal(input: {
     policyVersion: CARRY_POLICY_VERSION,
     recordedAt: Date.now(),
   };
-  try {
-    await kv.setDurable(
-      ENTITLEMENT_KV.transferRefused(input.sourceSessionId, input.destinationSessionId),
-      refusal,
-    );
-  } catch (error) {
-    console.warn("Transfer refusal evidence write failed (audit only; refusal stands)", {
-      sourceSessionId: input.sourceSessionId,
-      destinationSessionId: input.destinationSessionId,
-      error,
-    });
-  }
+  await kv.setDurable(
+    ENTITLEMENT_KV.transferRefused(input.sourceSessionId, input.destinationSessionId),
+    refusal,
+  );
   return refusal;
 }
