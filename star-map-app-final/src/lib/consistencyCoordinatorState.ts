@@ -398,6 +398,38 @@ export type PromotionJob = {
   updatedAt: number;
 };
 
+/**
+ * RD-B (B1A-MODEL §3.1; A1 P-3): the three suppression scopes are
+ * DISTINCT records inside the coordinator document — never one bare
+ * timestamp standing for all of them. `global` is the marketing
+ * unsubscribe (dominates every commercial purpose), `reviewOnly` gates
+ * review sends only, and `deliverability` is the bounce/complaint axis
+ * (A1 I-5: recorded separately from consent, blocks commercial sends,
+ * and is never consent evidence). Each record carries the consent
+ * generation current when it was set; the generation counter itself
+ * is RD-D's field — until it exists every event is a generation-1
+ * event (G-1 / GM-7D assign generation 1 initially), and stamps read
+ * the counter when it is present (see suppressionGenerationOf).
+ */
+export type PromotionSuppressionRecord = {
+  active: boolean;
+  /** Server time the suppression was recorded; null when never set. */
+  setAt: number | null;
+  /** Consent generation current when the suppression was recorded. */
+  generation: number;
+  /** The event that set the record (an entry-point reason such as
+   *  "email_link", a provider event ref, "legacy_import"); null when
+   *  never set. Preserved when the record is later cleared, so the
+   *  most recent setting stays attributable. */
+  eventRef: string | null;
+};
+
+export type PromotionSuppressions = {
+  global: PromotionSuppressionRecord;
+  reviewOnly: PromotionSuppressionRecord;
+  deliverability: PromotionSuppressionRecord;
+};
+
 export type PromotionCoordinatorState = {
   kind: "promotion";
   emailHash: string;
@@ -409,6 +441,13 @@ export type PromotionCoordinatorState = {
    *  subscription; carries no timestamp of its own. */
   legacySubscribed: boolean;
   legacyImportCompleted: boolean;
+  /** RD-B scoped suppression records (B1A-MODEL §3.1). Optional
+   *  because documents written before RD-B carry none: readers use
+   *  promotionSuppressionsOf, which derives the global record from
+   *  the legacy unsubscribedAt stamp, and every transition that
+   *  mutates suppression state stamps the records in step with the
+   *  legacy fields so the two never contradict. */
+  suppressions?: PromotionSuppressions;
   updatedAt: number;
   jobs: { coupon?: PromotionJob; followup?: PromotionJob };
 };
@@ -470,6 +509,21 @@ export function isValidPromotionJob(value: unknown): value is PromotionJob {
   );
 }
 
+function isValidPromotionSuppressionRecord(
+  value: unknown,
+): value is PromotionSuppressionRecord {
+  if (!value || typeof value !== "object") return false;
+  const record = value as Record<string, unknown>;
+  return (
+    typeof record.active === "boolean" &&
+    (record.setAt === null || finiteNumber(record.setAt) !== null) &&
+    typeof record.generation === "number" &&
+    Number.isInteger(record.generation) &&
+    (record.generation as number) >= 1 &&
+    (record.eventRef === null || typeof record.eventRef === "string")
+  );
+}
+
 export function isValidPromotionState(value: unknown): value is PromotionCoordinatorState {
   if (!value || typeof value !== "object") return false;
   const state = value as Record<string, unknown>;
@@ -478,11 +532,71 @@ export function isValidPromotionState(value: unknown): value is PromotionCoordin
   if (finiteNumber(state.updatedAt) === null) return false;
   if (typeof state.legacyImportCompleted !== "boolean") return false;
   if (typeof state.legacySubscribed !== "boolean") return false;
+  if (state.suppressions !== undefined) {
+    // Optional (pre-RD-B documents carry none), but a present record
+    // set must be exactly the three B1A-MODEL §3.1 scopes, each
+    // well-formed — a malformed suppression record must surface as a
+    // malformed document, never be silently trusted or ignored.
+    const suppressions = state.suppressions as Record<string, unknown> | null;
+    if (!suppressions || typeof suppressions !== "object") return false;
+    if (!isValidPromotionSuppressionRecord(suppressions.global)) return false;
+    if (!isValidPromotionSuppressionRecord(suppressions.reviewOnly)) return false;
+    if (!isValidPromotionSuppressionRecord(suppressions.deliverability)) return false;
+  }
   const jobs = state.jobs as Record<string, unknown> | null;
   if (!jobs || typeof jobs !== "object") return false;
   if (jobs.coupon !== undefined && !isValidPromotionJob(jobs.coupon)) return false;
   if (jobs.followup !== undefined && !isValidPromotionJob(jobs.followup)) return false;
   return true;
+}
+
+function emptySuppressionRecord(): PromotionSuppressionRecord {
+  return { active: false, setAt: null, generation: 1, eventRef: null };
+}
+
+export function emptyPromotionSuppressions(): PromotionSuppressions {
+  return {
+    global: emptySuppressionRecord(),
+    reviewOnly: emptySuppressionRecord(),
+    deliverability: emptySuppressionRecord(),
+  };
+}
+
+/** The consent generation a new suppression stamp belongs to. The
+ *  counter field itself is RD-D's; a document without it is in its
+ *  initial generation (G-1: generation 1 is where every identity
+ *  starts, and reconstruction assigns generation 1 — GM-7D), so a
+ *  stamp recorded before the counter exists is a generation-1 stamp
+ *  by construction, and once RD-D's counter is present its value
+ *  governs. */
+function suppressionGenerationOf(state: PromotionCoordinatorState): number {
+  const generation = (state as { generation?: unknown }).generation;
+  return typeof generation === "number" && Number.isInteger(generation) && generation >= 1
+    ? generation
+    : 1;
+}
+
+/** The identity's effective suppression records. A document stamped
+ *  by an RD-B transition carries them explicitly; a pre-RD-B document
+ *  derives its global record from the legacy unsubscribe stamp (the
+ *  only suppression fact those documents can hold — review-only and
+ *  deliverability suppressions were never recordable before RD-B).
+ *  Derivation is read-only: the records are materialized the next
+ *  time a transition mutates suppression state. */
+export function promotionSuppressionsOf(
+  state: PromotionCoordinatorState,
+): PromotionSuppressions {
+  if (state.suppressions) return state.suppressions;
+  const derived = emptyPromotionSuppressions();
+  if (state.unsubscribedAt !== null) {
+    derived.global = {
+      active: true,
+      setAt: state.unsubscribedAt,
+      generation: 1,
+      eventRef: state.unsubscribeReason,
+    };
+  }
+  return derived;
 }
 
 function createEmptyPromotionState(emailHash: string, now: number): PromotionCoordinatorState {
@@ -495,6 +609,7 @@ function createEmptyPromotionState(emailHash: string, now: number): PromotionCoo
     lastSource: null,
     legacySubscribed: false,
     legacyImportCompleted: false,
+    suppressions: emptyPromotionSuppressions(),
     updatedAt: now,
     jobs: {},
   };
@@ -560,6 +675,22 @@ function applyPromotionLegacyImport(
       unsubscribeReason: legacyState.unsubscribeReason ?? null,
       lastSource: legacyState.lastSource ?? null,
     });
+    if (legacyState.unsubscribedAt != null) {
+      // RD-B: an imported unsubscribe is a global suppression like any
+      // other — stamp the scoped record in the same import so the
+      // record set never contradicts the legacy stamp it came from.
+      patch({
+        suppressions: {
+          ...promotionSuppressionsOf(next),
+          global: {
+            active: true,
+            setAt: legacyState.unsubscribedAt,
+            generation: 1,
+            eventRef: "legacy_import",
+          },
+        },
+      });
+    }
   }
   if (!legacyState && facts.inLegacySubscriptionList === true && untouched) {
     patch({ legacySubscribed: true });
@@ -723,6 +854,7 @@ export function applySubscribePromotion(
     jobs.followup = createPendingJob(input.emailHash, input.followupPayload, input.now);
   }
 
+  const suppressions = promotionSuppressionsOf(current);
   current = {
     ...current,
     // Mirror the legacy route: a resubscribe after unsubscribe restarts
@@ -732,6 +864,20 @@ export function applySubscribePromotion(
       : (current.subscribedAt ?? input.now),
     unsubscribedAt: null,
     unsubscribeReason: null,
+    // RD-B: this transition is the shipped re-consent act, and it
+    // clears the global suppression record in the same transition
+    // that clears unsubscribedAt, so the two never contradict. Only
+    // the active flag flips — the most recent suppression's
+    // setAt/generation/eventRef stand as its record. (A1 G-3's
+    // ceremony rule re-points this clearing to the completed double
+    // opt-in when RD-D/RD-K land it; until then the shipped subscribe
+    // is the only re-consent act that exists.)
+    suppressions: {
+      ...suppressions,
+      global: suppressions.global.active
+        ? { ...suppressions.global, active: false }
+        : suppressions.global,
+    },
     lastSource: input.source || current.lastSource,
     updatedAt: input.now,
     jobs,
@@ -777,10 +923,93 @@ export function applyUnsubscribePromotion(
     subscribedAt: current.subscribedAt ?? input.now,
     unsubscribedAt: input.now,
     unsubscribeReason: input.reason,
+    // RD-B: the unsubscribe IS the global suppression event (A1 P-3) —
+    // stamp its scoped record in the same committing transition
+    // (U-2: the commit precedes any success report), so authority
+    // readers see one fact in two shapes, never two facts.
+    suppressions: {
+      ...promotionSuppressionsOf(current),
+      global: {
+        active: true,
+        setAt: input.now,
+        generation: suppressionGenerationOf(current),
+        eventRef: input.reason,
+      },
+    },
     updatedAt: input.now,
     jobs,
   };
   return { state: current, changed: true, wasAlreadyUnsubscribed };
+}
+
+/**
+ * RD-B (A1 I-5): record a deliverability suppression (bounce /
+ * complaint) on the identity. This axis is deliberately disjoint from
+ * consent: the transition touches ONLY the deliverability record —
+ * it does not set or clear any consent fact, does not move the
+ * subscription stamps, and is not consent evidence. Recording is
+ * idempotent: an already-active record stands (its original stamp
+ * is the evidence). Creating the coordinator document for an
+ * otherwise-unknown identity is legitimate here — the record must
+ * exist before any send decision consults it, and a document
+ * carrying only a deliverability suppression permits nothing (the
+ * dispatch fence finds no subscription fact and refuses).
+ */
+export function applyRecordDeliverabilitySuppression(
+  state: PromotionCoordinatorState | null,
+  input: {
+    emailHash: string;
+    now: number;
+    eventRef: string;
+  },
+): { state: PromotionCoordinatorState; changed: boolean } {
+  const current = state ?? createEmptyPromotionState(input.emailHash, input.now);
+  const suppressions = promotionSuppressionsOf(current);
+  if (suppressions.deliverability.active) {
+    return { state: current, changed: state === null };
+  }
+  return {
+    state: {
+      ...current,
+      suppressions: {
+        ...suppressions,
+        deliverability: {
+          active: true,
+          setAt: input.now,
+          generation: suppressionGenerationOf(current),
+          eventRef: input.eventRef,
+        },
+      },
+      updatedAt: input.now,
+    },
+    changed: true,
+  };
+}
+
+/**
+ * RD-B (A1 I-5): clear a deliverability suppression under provider
+ * policy (e.g. a remediated bounce). Clearing flips ONLY this
+ * record's active flag — it can never clear a consent suppression:
+ * a globally unsubscribed identity stays unsubscribed whatever
+ * happens on the deliverability axis.
+ */
+export function applyClearDeliverabilitySuppression(
+  state: PromotionCoordinatorState,
+  input: { now: number },
+): { state: PromotionCoordinatorState; changed: boolean } {
+  const suppressions = promotionSuppressionsOf(state);
+  if (!suppressions.deliverability.active) return { state, changed: false };
+  return {
+    state: {
+      ...state,
+      suppressions: {
+        ...suppressions,
+        deliverability: { ...suppressions.deliverability, active: false },
+      },
+      updatedAt: input.now,
+    },
+    changed: true,
+  };
 }
 
 export type ClaimPromotionJobResult = {
@@ -1235,4 +1464,106 @@ export function promotionStateView(state: PromotionCoordinatorState): PromotionE
   if (state.unsubscribeReason !== null) view.unsubscribeReason = state.unsubscribeReason;
   if (state.lastSource !== null) view.lastSource = state.lastSource;
   return view;
+}
+
+/* ------------------------------------------------------------------ */
+/* RD-B: purpose classification and the suppression gate (A1 §5).      */
+/* Address identity and message purpose are classified HERE, in the    */
+/* authority's own module — never by labels asserted at call sites     */
+/* (RD-A register §2.1; A1 P-1/P-2).                                   */
+/* ------------------------------------------------------------------ */
+
+/** The P-2 purpose rows. The three commercial classes require
+ *  commercial permission, suppression clearance, and quota/frequency
+ *  treatment as commercial; transactional and service sends are the
+ *  customer's own transactions and requests. */
+export type PromotionPurposeClass =
+  | "transactional"
+  | "service"
+  | "checkout_recovery_promotional"
+  | "lifecycle_commercial"
+  | "review_request";
+
+export function isCommercialPromotionPurpose(purpose: PromotionPurposeClass): boolean {
+  return (
+    purpose === "checkout_recovery_promotional" ||
+    purpose === "lifecycle_commercial" ||
+    purpose === "review_request"
+  );
+}
+
+/** The sending flow a message originates from, before classification.
+ *  A flow is not a purpose: P-1 classifies by content and purpose,
+ *  never by the flow's own label. */
+export type PromotionPurposeFlow =
+  | "transactional"
+  | "service"
+  | "checkout_recovery"
+  | "lifecycle"
+  | "review";
+
+/**
+ * P-1 classification. A message containing promotional content
+ * (coupon, cross-sell, offer) is commercial IN WHOLE, whatever flow
+ * sent it: a transactional or service message carrying a coupon is
+ * gated as a commercial send, and a checkout-recovery message is the
+ * promotional class the moment it carries anything beyond the session
+ * link + summary (without promotional content it is the service row's
+ * "recovery of an in-progress session's link"). Lifecycle flows
+ * (welcome / tips / cross-sell / occasion) and review requests are
+ * commercial by definition.
+ */
+export function classifyPromotionPurpose(input: {
+  flow: PromotionPurposeFlow;
+  containsPromotionalContent: boolean;
+}): PromotionPurposeClass {
+  switch (input.flow) {
+    case "transactional":
+      return input.containsPromotionalContent ? "lifecycle_commercial" : "transactional";
+    case "service":
+      return input.containsPromotionalContent ? "lifecycle_commercial" : "service";
+    case "checkout_recovery":
+      return input.containsPromotionalContent ? "checkout_recovery_promotional" : "service";
+    case "lifecycle":
+      return "lifecycle_commercial";
+    case "review":
+      return "review_request";
+  }
+}
+
+export type PromotionSuppressionGateDecision =
+  | { permitted: true }
+  | {
+      permitted: false;
+      reason: "globally_suppressed" | "review_suppressed" | "deliverability_suppressed";
+    };
+
+/**
+ * The suppression gate over the authority's scoped records (P-3):
+ * - the global record dominates EVERY commercial purpose;
+ * - the review-only record gates review sends only — it is never
+ *   read as, or upgraded into, a global suppression (U-7), and it
+ *   never gates any other purpose;
+ * - the deliverability record blocks commercial sends (I-5);
+ * - transactional and service sends are never blocked by any consent
+ *   suppression (P-5: a marketing unsubscribe never blocks the
+ *   customer's own transactional or service mail; deliverability
+ *   handling for essential mail is provider policy, not this gate).
+ */
+export function evaluateSuppressionGate(input: {
+  suppressions: PromotionSuppressions;
+  purpose: PromotionPurposeClass;
+}): PromotionSuppressionGateDecision {
+  const { suppressions, purpose } = input;
+  if (!isCommercialPromotionPurpose(purpose)) return { permitted: true };
+  if (suppressions.global.active) {
+    return { permitted: false, reason: "globally_suppressed" };
+  }
+  if (purpose === "review_request" && suppressions.reviewOnly.active) {
+    return { permitted: false, reason: "review_suppressed" };
+  }
+  if (suppressions.deliverability.active) {
+    return { permitted: false, reason: "deliverability_suppressed" };
+  }
+  return { permitted: true };
 }

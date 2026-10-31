@@ -19,9 +19,11 @@ import { createHash } from "node:crypto";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import {
   applyClaimPromotionJob,
+  applyClearDeliverabilitySuppression,
   applyCompletePromotionJob,
   applyConsumeMagicToken,
   applyReadAccountSessions,
+  applyRecordDeliverabilitySuppression,
   applyRegisterMagicToken,
   applySubscribePromotion,
   applyUnsubscribePromotion,
@@ -110,6 +112,14 @@ type CoordinatorStub = {
     reason: string;
     facts: PromotionLegacyFacts;
   }): Promise<{ wasAlreadyUnsubscribed: boolean; state: PromotionCoordinatorState }>;
+  recordDeliverabilitySuppression(input: {
+    emailHash: string;
+    now: number;
+    eventRef: string;
+  }): Promise<{ state: PromotionCoordinatorState }>;
+  clearDeliverabilitySuppression(input: {
+    now: number;
+  }): Promise<{ state: PromotionCoordinatorState | null }>;
   claimPromotionJob(input: {
     kind: PromotionJobKind;
     now: number;
@@ -177,6 +187,14 @@ export type ConsistencyCoordinatorClient = {
       facts: PromotionLegacyFacts;
     },
   ): Promise<{ wasAlreadyUnsubscribed: boolean; state: PromotionCoordinatorState }>;
+  recordDeliverabilitySuppression(
+    name: string,
+    input: { emailHash: string; now: number; eventRef: string },
+  ): Promise<{ state: PromotionCoordinatorState }>;
+  clearDeliverabilitySuppression(
+    name: string,
+    input: { now: number },
+  ): Promise<{ state: PromotionCoordinatorState | null }>;
   claimPromotionJob(
     name: string,
     input: {
@@ -298,6 +316,25 @@ function createMemoryClient(): ConsistencyCoordinatorClient {
         };
       });
     },
+    recordDeliverabilitySuppression(name, input) {
+      return withMemoryLock(name, () => {
+        const result = applyRecordDeliverabilitySuppression(
+          memoryKind(name, "promotion"),
+          input,
+        );
+        if (result.changed) memoryStores.set(name, result.state);
+        return { state: result.state };
+      });
+    },
+    clearDeliverabilitySuppression(name, input) {
+      return withMemoryLock(name, () => {
+        const current = memoryKind(name, "promotion");
+        if (!current) return { state: null };
+        const result = applyClearDeliverabilitySuppression(current, input);
+        if (result.changed) memoryStores.set(name, result.state);
+        return { state: result.state };
+      });
+    },
     claimPromotionJob(name, input) {
       return withMemoryLock(name, () => {
         const current = memoryKind(name, "promotion");
@@ -386,6 +423,14 @@ export function createConsistencyCoordinatorClient(
       call(name, "subscribePromotion", input, () => memory.subscribePromotion(name, input)),
     unsubscribePromotion: (name, input) =>
       call(name, "unsubscribePromotion", input, () => memory.unsubscribePromotion(name, input)),
+    recordDeliverabilitySuppression: (name, input) =>
+      call(name, "recordDeliverabilitySuppression", input, () =>
+        memory.recordDeliverabilitySuppression(name, input),
+      ),
+    clearDeliverabilitySuppression: (name, input) =>
+      call(name, "clearDeliverabilitySuppression", input, () =>
+        memory.clearDeliverabilitySuppression(name, input),
+      ),
     claimPromotionJob: (name, input) =>
       call(name, "claimPromotionJob", input, () => memory.claimPromotionJob(name, input)),
     completePromotionJob: (name, input) =>
