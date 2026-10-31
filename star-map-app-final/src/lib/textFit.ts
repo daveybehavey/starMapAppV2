@@ -42,6 +42,43 @@ export function resolveFittedFontSize(
   return fontSize * resolveTextFitScale(textWidth, availableWidth, minScale);
 }
 
+/** The renderer's reference canvas width: configured text sizes are
+ * authored against a 1200px-wide canvas and scaled from it. */
+export const TEXT_REFERENCE_CANVAS_WIDTH = 1200;
+
+/** Smallest configured text size, in REFERENCE-canvas pixels. */
+export const REFERENCE_MIN_TEXT_SIZE_PX = 10;
+
+/** Configured size of a text box that carries none (the renderer's
+ * long-standing default). */
+export const DEFAULT_TEXT_BOX_SIZE_PX = 28;
+
+/**
+ * The base (unfitted) font size for a text box, in output pixels
+ * (S93-2 class 1). The configured size lives on the reference canvas,
+ * so the legibility minimum floors the CONFIGURED size before it is
+ * scaled — `max(10, size) * scale` — never the scaled result. The
+ * pre-fix form, `max(10, size * scale)`, let the absolute 10px floor
+ * override proportional scaling at small render sizes: a size-28 box
+ * rendered at 10px on a 300px preview (43% oversized relative to the
+ * canvas) but at the proportional 7px-equivalent on a 6000px export,
+ * so preview and print disagreed about the design's proportions.
+ *
+ * For configured sizes >= 10 at scales >= 1 (every paid render at
+ * 1200px and above whose floor did not bind) the result is
+ * numerically identical to the pre-fix expression; below that
+ * boundary the smaller, proportional size IS the fix.
+ */
+export function resolveBaseTextFontSizePx(
+  size: number | undefined,
+  scale: number,
+): number {
+  return (
+    Math.max(REFERENCE_MIN_TEXT_SIZE_PX, size ?? DEFAULT_TEXT_BOX_SIZE_PX) *
+    scale
+  );
+}
+
 /**
  * The rectangle frame's inset from the canvas edge, in pixels — one
  * calculation, shared by the frame stroke (drawBackground in
@@ -722,6 +759,438 @@ function textAnchorCenterOffsetX(
   if (align === "left") return halfWidthNorm;
   if (align === "right") return -halfWidthNorm;
   return 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Anchor-aware single-line layout (S93-2 classes 2 + 3)              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * One pure layout resolution for a single text line, shared by both
+ * renderer entry points (renderStarMap and renderStarMapTextLayer
+ * both draw through it). It replaces the centred-only pipeline the
+ * renderer used before, which had two proven defects:
+ *
+ * - Class 2: the stored position was clamped as though it were the
+ *   glyph CENTRE, then painted as the alignment ANCHOR — a valid
+ *   left anchor at 0 was shifted half a line inward, and a left
+ *   anchor at .9 painted past the canvas edge. Here the anchor is
+ *   converted to a centre with the box's alignment and measured
+ *   width, the CENTRE is clamped, and the clamped centre is
+ *   converted back to the drawing anchor. Centre-aligned boxes
+ *   convert by exactly 0, so their resolution is the pre-fix
+ *   calculation verbatim, including the oversized-line fallback
+ *   (centre pinned to 0.5).
+ * - Class 3: the fit bound ignored where the line sits — the
+ *   mask/frame width at the CENTRE of the shape was offered to a
+ *   line placed anywhere. Here the available width is resolved
+ *   from the line's own anchor against the shape's safe interval
+ *   at its own rows: for anchor `a` inside interval [L, R] the
+ *   capacity is R − a (left), 2 × min(a − L, R − a) (centre), or
+ *   a − L (right), minimised over the rows of the line's span.
+ *   Heart/star intervals come from the shape-interior profile and
+ *   are never bridged across the cleft/notch: an anchor in a gap
+ *   has no capacity on that row.
+ *
+ * The fit runs ONCE, against the span measured with the unfitted
+ * line height (conservative, as the pre-existing fit). The fitted
+ * font is then measured, canvas and shape centre clamps are applied
+ * with the FINAL dimensions, and the size is NOT recomputed if a
+ * clamp moves the line — there is no fit → move → refit loop.
+ */
+
+export type TextLineLayoutInput = {
+  /** Selected shape id ("rectangle" | "circle" | "heart" | "star" | "diamond"). */
+  shape?: string;
+  /** Whether the gold frame/outline is drawn for this render. */
+  frameEnabled?: boolean;
+  /** Shape-mask footprint under the #406 uniform layout (see TextFitLayout). */
+  shapeMaskFootprint?: ShapeMaskFootprint | null;
+  /** Shape-interior profile for heart/star (see TextFitLayout). */
+  shapeTextProfile?: ShapeTextProfile | null;
+  /** The box's stored position: x is the drawing ANCHOR, y the centre row. */
+  position?: { x?: number; y?: number };
+  /** Anchor fallback when position.x is absent (the renderer's 0.5). */
+  defaultX: number;
+  /** Centre-row fallback when position.y is absent (row-staggered by the renderer). */
+  defaultY: number;
+  /** The box's alignment ("left" | "center" | "right"). */
+  align?: string;
+  /** Line width measured at the unfitted base font size, in pixels. */
+  measuredWidthPx: number;
+  /** The unfitted base font size, in pixels. */
+  baseFontSizePx: number;
+  /** Canvas width in pixels. */
+  width: number;
+  /** Canvas height in pixels. */
+  height: number;
+};
+
+export type TextLineLayout = {
+  /** Shrink factor applied to the base size (1 = unfitted). */
+  fitScale: number;
+  /** The fitted font size, in pixels. */
+  fontSizePx: number;
+  /** The fitted line width, in pixels (measured width x fit scale:
+   * canvas measurement scales linearly with font size). */
+  textWidthPx: number;
+  /** The fitted line height (font size x the renderer's 1.2), in pixels. */
+  textHeightPx: number;
+  /** Drawing anchor, normalized: fillText's x under the box's textAlign. */
+  anchorX: number;
+  /** Glyph centre, normalized. */
+  centerX: number;
+  /** Centre row, normalized: fillText's y (the baseline is "middle"). */
+  centerY: number;
+  /** The glyph rect, in pixels — the bounds the renderer records. */
+  bounds: { x: number; y: number; width: number; height: number };
+  /**
+   * True when the fitted line cannot be contained in the shape's
+   * safe interval at its final position: no capacity at the anchor,
+   * or a line wider than every interval even at the fit floor. The
+   * line is still painted (bounded spill, as the fit floor has
+   * always allowed); the flag exists so callers and tests can tell
+   * a contained render from an honest overflow.
+   */
+  overflow: boolean;
+};
+
+/** Line height as a multiple of font size — the renderer's fixed
+ * text-box height factor (drawText measures textHeight = size x 1.2). */
+const TEXT_LINE_HEIGHT_FACTOR = 1.2;
+
+type HorizontalIntervalPx = readonly [number, number];
+
+function clampUnitInterval(value: number): number {
+  if (!Number.isFinite(value)) return value;
+  return Math.min(1, Math.max(0, value));
+}
+
+/**
+ * The centre clamp the renderer has always applied: a centre is
+ * kept half a rect inside the canvas on its axis, with the
+ * oversized-rect fallback pinning it to 0.5. (Identical bounds to
+ * the historical resolveTextCenterNormalized: min clamps to
+ * [0, 0.5], max to [0.5, 1].)
+ */
+function clampCenterToCanvasAxis(
+  value: number,
+  rectSizePx: number,
+  canvasSizePx: number,
+): number {
+  if (
+    !Number.isFinite(rectSizePx) ||
+    !Number.isFinite(canvasSizePx) ||
+    canvasSizePx <= 0
+  ) {
+    return clampUnitInterval(value);
+  }
+  const half = rectSizePx / (canvasSizePx * 2);
+  const min = Math.min(0.5, Math.max(0, half));
+  const max = Math.max(0.5, Math.min(1, 1 - half));
+  return Math.min(max, Math.max(min, value));
+}
+
+/**
+ * Rows a span must be evaluated at to be exact for the shape
+ * profile's flattened polygon: the span's endpoints plus every
+ * critical row inside it (the interval structure can only change
+ * at a critical row). This mirrors shapeSpanSampleRows in
+ * shapeTextGeometry.ts over the profile's public criticalRows —
+ * textFit.ts stays free of runtime imports so the plain-Node unit
+ * runner can import it directly (the same reason the profile
+ * itself is passed in as data); the unit suite pins the two
+ * implementations to identical outputs.
+ */
+export function resolveTextSpanSampleRows(
+  profile: ShapeTextProfile,
+  vTop: number,
+  vBottom: number,
+): number[] {
+  const lo = Math.max(0, Math.min(vTop, vBottom));
+  const hi = Math.min(1, Math.max(vTop, vBottom));
+  const critical = profile.criticalRows;
+  let start = 0;
+  let end = critical.length;
+  while (start < end) {
+    const mid = (start + end) >> 1;
+    if (critical[mid] <= lo) start = mid + 1;
+    else end = mid;
+  }
+  const rows = [lo];
+  for (let i = start; i < critical.length && critical[i] < hi; i++) {
+    rows.push(critical[i]);
+  }
+  rows.push(hi);
+  return rows;
+}
+
+type TextSpanGeometry = {
+  /** Rows (in this geometry's row space) the fit must be evaluated at. */
+  fitRows: number[];
+  /** Interior intervals in canvas px at one fit row. */
+  intervalsAtFitRow(row: number): HorizontalIntervalPx[];
+  /** Interior intervals in canvas px persisting across the whole span. */
+  spanIntervals: HorizontalIntervalPx[];
+};
+
+/**
+ * The shape's safe horizontal geometry for one line span (centre row
+ * + height, both px). `forFit` selects the span the caller means:
+ * the fit span is measured with the UNFITTTED height at the
+ * provisional centre; the final span with the fitted height at the
+ * final centre (the centre clamps use it).
+ */
+function resolveTextSpanGeometry(
+  input: TextLineLayoutInput,
+  centerYPx: number,
+  spanHeightPx: number,
+): TextSpanGeometry {
+  const { width, height } = input;
+  const shape = input.shape;
+  const canvasInterval: HorizontalIntervalPx[] = [[0, width]];
+
+  if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+    return { fitRows: [0], intervalsAtFitRow: () => canvasInterval, spanIntervals: canvasInterval };
+  }
+
+  if (shape === "diamond") {
+    const footprint = input.shapeMaskFootprint ?? null;
+    const intervalAtRow = (centerYNormCanvas: number): HorizontalIntervalPx => {
+      if (footprint) {
+        const v = (centerYNormCanvas * height - footprint.offsetY) / footprint.size;
+        const hw = resolveDiamondHalfWidthAt(v);
+        return [
+          footprint.offsetX + (0.5 - hw) * footprint.size,
+          footprint.offsetX + (0.5 + hw) * footprint.size,
+        ];
+      }
+      const hw = resolveDiamondHalfWidthAt(centerYNormCanvas);
+      return [(0.5 - hw) * width, (0.5 + hw) * width];
+    };
+    const halfSpanNorm = Math.max(0, spanHeightPx) / 2 / height;
+    const centerYNorm = centerYPx / height;
+    // The tent's half-width is linear between its apexes and the
+    // middle, so over any span its minimum sits at a span END row:
+    // evaluating the two end rows is exact.
+    const topRow = centerYNorm - halfSpanNorm;
+    const bottomRow = centerYNorm + halfSpanNorm;
+    const hwTop = intervalAtRow(topRow);
+    const hwBottom = intervalAtRow(bottomRow);
+    const spanInterval: HorizontalIntervalPx = [
+      Math.max(hwTop[0], hwBottom[0]),
+      Math.min(hwTop[1], hwBottom[1]),
+    ];
+    return {
+      fitRows: [topRow, bottomRow],
+      intervalsAtFitRow: (row) => [intervalAtRow(row)],
+      spanIntervals: [spanInterval],
+    };
+  }
+
+  const textProfile = input.shapeTextProfile ?? null;
+  if ((shape === "heart" || shape === "star") && textProfile) {
+    const footprint = input.shapeMaskFootprint ?? null;
+    const xScalePx = footprint ? footprint.size : width;
+    const yScalePx = footprint ? footprint.size : height;
+    const offsetX = footprint ? footprint.offsetX : 0;
+    const offsetY = footprint ? footprint.offsetY : 0;
+    const halfSpanPx = Math.max(0, spanHeightPx) / 2;
+    const vTop = (centerYPx - halfSpanPx - offsetY) / yScalePx;
+    const vBottom = (centerYPx + halfSpanPx - offsetY) / yScalePx;
+    const toPx = (
+      intervals: Array<readonly [number, number]>,
+    ): HorizontalIntervalPx[] =>
+      intervals.map(([l, r]) => [offsetX + l * xScalePx, offsetX + r * xScalePx]);
+    return {
+      // Exact for the flattened polygon (the profile's sampling
+      // argument): the span's end rows plus every structural row
+      // inside it.
+      fitRows: resolveTextSpanSampleRows(textProfile, vTop, vBottom),
+      intervalsAtFitRow: (row) => toPx(textProfile.intervalsAt(row)),
+      spanIntervals: toPx(textProfile.interiorIntervalsAcrossSpan(vTop, vBottom)),
+    };
+  }
+
+  if ((shape === undefined || shape === "rectangle") && (input.frameEnabled ?? true)) {
+    const inset =
+      resolveFrameInsetPx(width, height) + resolveFrameTextFitPaddingPx(width);
+    const interval: HorizontalIntervalPx[] = [[inset, width - inset]];
+    return { fitRows: [0], intervalsAtFitRow: () => interval, spanIntervals: interval };
+  }
+
+  // Circle and every other shape keep the renderer's full-canvas
+  // text policy (their designed layouts place text outside the sky
+  // shape's chord — see clampTextCenterToShape's rectangle note).
+  return { fitRows: [0], intervalsAtFitRow: () => canvasInterval, spanIntervals: canvasInterval };
+}
+
+/**
+ * How much line width an anchor may use inside ONE interval, by
+ * alignment (S93-2 class 3's table). The anchor is the segment's
+ * left edge (left), centre (centre), or right edge (right).
+ */
+function availableWidthInIntervalPx(
+  interval: HorizontalIntervalPx,
+  anchorPx: number,
+  align: string | undefined,
+): number {
+  const [l, r] = interval;
+  if (align === "left") return Math.max(0, r - anchorPx);
+  if (align === "right") return Math.max(0, anchorPx - l);
+  return Math.max(0, 2 * Math.min(anchorPx - l, r - anchorPx));
+}
+
+/**
+ * The available width for an anchor at one row: the capacity of the
+ * interval CONTAINING the anchor; when the anchor sits in a gap
+ * (the heart's cleft, outside the frame), the NEAREST interval
+ * answers — ties toward the lower x — and its capacity formula
+ * decides (a centred anchor in a gap measures a negative capacity
+ * against either neighbour, which clamps to zero: no capacity,
+ * never a bridged interval).
+ */
+function availableWidthAtRowPx(
+  intervals: HorizontalIntervalPx[],
+  anchorPx: number,
+  align: string | undefined,
+): number {
+  if (!intervals.length) return 0;
+  for (const interval of intervals) {
+    if (anchorPx >= interval[0] && anchorPx <= interval[1]) {
+      return availableWidthInIntervalPx(interval, anchorPx, align);
+    }
+  }
+  let nearest: HorizontalIntervalPx = intervals[0];
+  let nearestDistance = Number.POSITIVE_INFINITY;
+  for (const interval of intervals) {
+    const distance =
+      anchorPx < interval[0] ? interval[0] - anchorPx : anchorPx - interval[1];
+    if (distance < nearestDistance) {
+      nearestDistance = distance;
+      nearest = interval;
+    }
+  }
+  return availableWidthInIntervalPx(nearest, anchorPx, align);
+}
+
+/**
+ * Clamp a glyph centre (px) so its rect lies inside one of the
+ * span's persistent intervals: the nearest feasible centre wins,
+ * ties toward the lower x. A centre already contained is returned
+ * exactly; when no interval can hold the rect the centre is left
+ * where it is (the overflow is the fit floor's bounded spill, not
+ * something a clamp can repair).
+ */
+function clampCenterIntoIntervalsPx(
+  centerPx: number,
+  rectWidthPx: number,
+  intervals: HorizontalIntervalPx[],
+): number {
+  const half = rectWidthPx / 2;
+  for (const [l, r] of intervals) {
+    if (centerPx - half >= l && centerPx + half <= r) return centerPx;
+  }
+  let best: number | null = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const [l, r] of intervals) {
+    if (r - l < rectWidthPx) continue;
+    const candidate = Math.min(r - half, Math.max(l + half, centerPx));
+    const distance = Math.abs(candidate - centerPx);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = candidate;
+    }
+  }
+  return best ?? centerPx;
+}
+
+export function resolveTextLineLayout(
+  input: TextLineLayoutInput,
+): TextLineLayout {
+  const { width, height, align } = input;
+  const rawAnchorX = clampUnitInterval(input.position?.x ?? input.defaultX);
+  const rawCenterY = clampUnitInterval(input.position?.y ?? input.defaultY);
+  const unfittedHeightPx = input.baseFontSizePx * TEXT_LINE_HEIGHT_FACTOR;
+
+  // Provisional centre row, resolved with the UNFITTED height (the
+  // historical provisional step): the fit's span is measured there,
+  // overstating the fitted line's span, so the bound stays
+  // conservative.
+  const provisionalCenterY = clampCenterToCanvasAxis(
+    rawCenterY,
+    unfittedHeightPx,
+    height,
+  );
+  const fitGeometry = resolveTextSpanGeometry(
+    input,
+    provisionalCenterY * height,
+    unfittedHeightPx,
+  );
+  const anchorPx = rawAnchorX * width;
+  let availableWidthPx = Number.POSITIVE_INFINITY;
+  for (const row of fitGeometry.fitRows) {
+    availableWidthPx = Math.min(
+      availableWidthPx,
+      availableWidthAtRowPx(fitGeometry.intervalsAtFitRow(row), anchorPx, align),
+    );
+  }
+  if (!Number.isFinite(availableWidthPx)) availableWidthPx = 0;
+  const noCapacity = availableWidthPx <= 0;
+
+  // Fit ONCE against the anchor-aware capacity. A non-positive
+  // capacity is a real measurement (no room at this anchor), not a
+  // measurement failure: the 1px bound lands the fit on the
+  // MIN_TEXT_FIT_SCALE floor, exactly as the shape branches of
+  // resolveShapeTextAvailableWidth have always treated a zero.
+  const fitScale = resolveTextFitScale(
+    input.measuredWidthPx,
+    Math.max(1, availableWidthPx),
+  );
+  const fontSizePx = input.baseFontSizePx * fitScale;
+  const textWidthPx = input.measuredWidthPx * fitScale;
+  const textHeightPx = fontSizePx * TEXT_LINE_HEIGHT_FACTOR;
+
+  // Final placement with the FINAL dimensions: anchor -> centre,
+  // canvas clamp, shape centre clamp, centre -> anchor. The fitted
+  // size is retained even when a clamp moves the line.
+  let centerX = resolveTextAnchorToCenterX(rawAnchorX, align, textWidthPx, width);
+  centerX = clampCenterToCanvasAxis(centerX, textWidthPx, width);
+  const centerY = clampCenterToCanvasAxis(rawCenterY, textHeightPx, height);
+  const finalGeometry = resolveTextSpanGeometry(input, centerY * height, textHeightPx);
+  centerX =
+    clampCenterIntoIntervalsPx(centerX * width, textWidthPx, finalGeometry.spanIntervals) /
+    width;
+  const anchorX = resolveTextCenterToAnchorX(centerX, align, textWidthPx, width);
+
+  const anchorDrawPx = anchorX * width;
+  const boundsLeftPx =
+    align === "right"
+      ? anchorDrawPx - textWidthPx
+      : align === "left"
+        ? anchorDrawPx
+        : anchorDrawPx - textWidthPx / 2;
+  const bounds = {
+    x: boundsLeftPx,
+    y: centerY * height - textHeightPx / 2,
+    width: textWidthPx,
+    height: textHeightPx,
+  };
+  const contained = finalGeometry.spanIntervals.some(
+    ([l, r]) => bounds.x >= l - 1e-6 && bounds.x + bounds.width <= r + 1e-6,
+  );
+
+  return {
+    fitScale,
+    fontSizePx,
+    textWidthPx,
+    textHeightPx,
+    anchorX,
+    centerX,
+    centerY,
+    bounds,
+    overflow: noCapacity || !contained,
+  };
 }
 
 /* ------------------------------------------------------------------ */

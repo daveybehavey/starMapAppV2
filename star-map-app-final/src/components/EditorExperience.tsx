@@ -126,6 +126,7 @@ import {
   type HydratableMapRecipe,
 } from "@/lib/mapRecipeHydration";
 import { parseMapIdParam } from "@/lib/mapId";
+import { shouldApplyHydratedMapRecipe } from "@/lib/editorHydrationGuard";
 import {
   readEditorDraftFromHost,
   resolveRestoredCustomOccasion,
@@ -417,6 +418,12 @@ export function EditorExperience({
   const queryPromoCode = normalizePromoCode(searchParams.get("code"));
   const queryReferralCode = normalizeReferralCode(searchParams.get("ref"));
   const mapIdFromQuery = useMemo(() => parseMapIdParam(searchParams.get("map_id")), [searchParams]);
+  // S93-2 class 5: hydration race guard — a monotonic count of
+  // recipe-state changes (bumped by the effect below) and a mirror
+  // of the URL map id, so a late /api/maps response can prove the
+  // editor has not moved on before it is allowed to apply.
+  const editGenerationRef = useRef(0);
+  const mapIdFromQueryRef = useRef(mapIdFromQuery);
   const merchFamilyFromQuery = searchParams.get("merch_family");
   // M04: a merch-led landing (shop card click) must name the product the
   // shopper chose — the generic print line never mentions it. Only a
@@ -1041,16 +1048,45 @@ export function EditorExperience({
     ]
   );
 
+  // S93-2 class 5: keep the map-id mirror current and count every
+  // recipe-state change as an edit generation. Declared before the
+  // hydration effect so a commit that both restores state and arms
+  // hydration is counted before the fetch captures its generation.
+  useEffect(() => {
+    mapIdFromQueryRef.current = mapIdFromQuery;
+  }, [mapIdFromQuery]);
+
+  useEffect(() => {
+    editGenerationRef.current += 1;
+  }, [dateTime, location, textBoxes, selectedStyle, aspectRatio, shape, renderOptions, selectedOccasion]);
+
   useEffect(() => {
     if (!restored || mapFromUrlHandledRef.current || !mapIdFromQuery) return;
     mapFromUrlHandledRef.current = true;
+    const requestedMapId = mapIdFromQuery;
+    const generationAtFetchStart = editGenerationRef.current;
+    let cancelled = false;
 
     void (async () => {
       try {
-        const res = await fetch(`/api/maps?id=${encodeURIComponent(mapIdFromQuery)}`);
+        const res = await fetch(`/api/maps?id=${encodeURIComponent(requestedMapId)}`);
         if (!res.ok) return;
         const data = (await res.json()) as unknown;
         if (!isHydratableMapRecipe(data)) return;
+        // A response that arrives after the user edited anything,
+        // after this effect was cleaned up, or for a map the URL no
+        // longer names must not overwrite the live editor state.
+        if (
+          !shouldApplyHydratedMapRecipe({
+            cancelled,
+            requestedMapId,
+            currentMapId: mapIdFromQueryRef.current,
+            editGenerationAtFetchStart: generationAtFetchStart,
+            editGenerationNow: editGenerationRef.current,
+          })
+        ) {
+          return;
+        }
 
         draftWritesBlockedRef.current = false;
         applyHydratedMapRecipe(data);
@@ -1082,6 +1118,10 @@ export function EditorExperience({
         // ignore failed hydration; editor still works from draft
       }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [applyHydratedMapRecipe, aspectRatio, mapIdFromQuery, renderOptions, restored, selectedStyle, shape]);
 
   useEffect(() => {

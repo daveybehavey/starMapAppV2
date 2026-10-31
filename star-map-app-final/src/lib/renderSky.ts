@@ -11,12 +11,16 @@ import type { AspectRatio, Shape } from "@/lib/types";
 import { FONT_STACKS } from "@/lib/fonts";
 import { adjustColor, parseHexColor, parseRgbColor, toRgba } from "@/lib/colorUtils";
 import {
+  resolveBaseTextFontSizePx,
   resolveFrameInsetPx,
-  resolveShapeTextAvailableWidth,
-  resolveTextFitScale,
+  resolveTextLineLayout,
   type TextFitLayout,
 } from "./textFit";
 import { resolveShapeTextProfile } from "./shapeTextProfile";
+import {
+  moonIlluminationFraction,
+  resolveMoonTerminatorGeometry,
+} from "./moonPhaseGeometry";
 import {
   resolveWatermarkPlacement,
   WATERMARK_OPACITY,
@@ -1589,30 +1593,6 @@ function resolveBandColor(color: string) {
 }
 
 /** Keep text centers inside the canvas so exports match editor drag bounds. */
-function resolveTextCenterNormalized(
-  position: { x?: number; y?: number } | undefined,
-  index: number,
-  textWidth: number,
-  textHeight: number,
-  canvasWidth: number,
-  canvasHeight: number,
-) {
-  const scale = canvasWidth / BASE_CANVAS_WIDTH;
-  const lineGapNorm = (28 * scale) / canvasHeight;
-  const rawX = clamp(position?.x ?? 0.5, 0, 1);
-  const rawY = clamp(position?.y ?? 0.72 + index * lineGapNorm, 0, 1);
-  const halfWidth = textWidth / (canvasWidth * 2);
-  const halfHeight = textHeight / (canvasHeight * 2);
-  const minX = clamp(halfWidth, 0, 0.5);
-  const maxX = clamp(1 - halfWidth, 0.5, 1);
-  const minY = clamp(halfHeight, 0, 0.5);
-  const maxY = clamp(1 - halfHeight, 0.5, 1);
-  return {
-    x: clamp(rawX, minX, maxX),
-    y: clamp(rawY, minY, maxY),
-  };
-}
-
 function drawText(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -1629,41 +1609,47 @@ function drawText(
     if (!box.text || box.text.trim() === "") return;
 
     const weight = box.fontWeight ?? 600;
-    const baseFontSize = Math.max(10, (box.size ?? 28) * scale);
+    // S93-2 class 1: the 10px legibility floor applies to the
+    // configured (reference-canvas) size, not the scaled result, so
+    // the box keeps the same proportion of the canvas at every
+    // render size.
+    const baseFontSize = resolveBaseTextFontSizePx(box.size, scale);
     const baseFont = `${weight} ${baseFontSize}px ${FONT_STACKS[box.fontFamily]}`;
-    // Fit-to-width (P01): a line wider than the canvas shrinks to fit
-    // instead of spilling symmetrically off both edges of the print. Lines
-    // that already fit get a fit scale of exactly 1 and the identical font
-    // string, so their rendering is unchanged.
+    // Fit-to-width (P01): a line wider than its bound shrinks to fit
+    // instead of spilling symmetrically off both edges of the print.
+    // Lines that already fit get a fit scale of exactly 1 and the
+    // identical font string, so their rendering is unchanged.
     const measuredWidth = getCachedTextWidth(ctx, box.text, baseFont);
-    // The canvas edge is not the bound: fitted lines must stay inside
-    // the design's own boundary — the gold frame line on a framed
-    // rectangle (fleet U06), the mask's width at the line's own row on a
-    // diamond (fleet U14). The line's centre row is resolved with the
-    // unfitted height first; resolveShapeTextAvailableWidth measures the
-    // span with that same unfitted height, so the bound is conservative.
-    const provisional = resolveTextCenterNormalized(
-      box.position,
-      index,
-      measuredWidth,
-      baseFontSize * 1.2,
-      width,
-      height,
-    );
-    const availableWidth = resolveShapeTextAvailableWidth({
+    // The canvas edge is not the bound: fitted lines must stay
+    // inside the design's own boundary — the gold frame line on a
+    // framed rectangle (fleet U06), the mask's width at the line's
+    // own row on a diamond (fleet U14). S93-2 classes 2+3: the bound
+    // is resolved by resolveTextLineLayout from the box's own
+    // ANCHOR and alignment — the stored position.x is the drawing
+    // anchor drawText paints with (ctx.textAlign = box.align), not
+    // the glyph centre the pre-fix code clamped it as, and the
+    // shape's safe width is evaluated at the line's own horizontal
+    // destination, not the shape's centre. The resolver is shared
+    // by both renderer entry points (they both draw through here).
+    const lineGapNorm = (28 * scale) / height;
+    const layout = resolveTextLineLayout({
       shape: textLayout?.shape,
       frameEnabled: textLayout?.frameEnabled ?? true,
       shapeMaskFootprint: textLayout?.shapeMaskFootprint,
       shapeTextProfile: textLayout?.shapeTextProfile,
-      centerYNorm: provisional.y,
-      lineHeightPx: baseFontSize * 1.2,
+      position: box.position,
+      defaultX: 0.5,
+      defaultY: 0.72 + index * lineGapNorm,
+      align: box.align,
+      measuredWidthPx: measuredWidth,
+      baseFontSizePx: baseFontSize,
       width,
       height,
     });
-    const fitScale = resolveTextFitScale(measuredWidth, availableWidth);
-    const fontSize = baseFontSize * fitScale;
     const font =
-      fitScale < 1 ? `${weight} ${fontSize}px ${FONT_STACKS[box.fontFamily]}` : baseFont;
+      layout.fitScale < 1
+        ? `${weight} ${layout.fontSizePx}px ${FONT_STACKS[box.fontFamily]}`
+        : baseFont;
     ctx.font = font;
     ctx.fillStyle = box.color;
     if (box.textGlow) {
@@ -1682,26 +1668,10 @@ function drawText(
     }
     ctx.textAlign = box.align;
     ctx.textBaseline = "middle";
-    const textWidth = getCachedTextWidth(ctx, box.text, font);
-    const textHeight = fontSize * 1.2;
-    const { x: normX, y: normY } = resolveTextCenterNormalized(
-      box.position,
-      index,
-      textWidth,
-      textHeight,
-      width,
-      height,
-    );
-    const px = normX * width;
-    const py = normY * height;
-    ctx.fillText(box.text, px, py);
+    ctx.fillText(box.text, layout.anchorX * width, layout.centerY * height);
 
     if (bounds) {
-      let left = px;
-      if (ctx.textAlign === "center") left = px - textWidth / 2;
-      if (ctx.textAlign === "right") left = px - textWidth;
-      const top = py - textHeight / 2;
-      bounds.set(box.id, { x: left, y: top, width: textWidth, height: textHeight });
+      bounds.set(box.id, layout.bounds);
     }
   });
   ctx.shadowColor = "transparent";
@@ -1992,12 +1962,16 @@ function drawConstellations(
 
   if (!showLabels) return;
 
+  // S93-2 class 1: the label minima are reference-canvas minima —
+  // they floor the unscaled tier size, then scale with the canvas
+  // (the pre-fix form floored the scaled size, inflating labels on
+  // small renders and distorting collision decisions there).
   const labelFontSize =
     mapLookTier === "minimal"
-      ? Math.max(7.5, 8 * scale)
+      ? Math.max(7.5, 8) * scale
       : mapLookTier === "polished"
-        ? Math.max(8.5, 9.5 * scale)
-        : Math.max(8, 9 * scale);
+        ? Math.max(8.5, 9.5) * scale
+        : Math.max(8, 9) * scale;
   const labelLetterSpacing =
     mapLookTier === "minimal" ? 0.2 * scale : mapLookTier === "polished" ? 0.15 * scale : 0.12 * scale;
   const collisionPadX = mapLookTier === "minimal" ? 6 * scale : 5 * scale;
@@ -2124,9 +2098,14 @@ function drawMoon(
   ctx.save();
   ctx.translate(x, y);
 
-  const phaseAngle = phase * 2 * Math.PI;
-  const illumination = (1 - Math.cos(phaseAngle)) / 2;
-  const waxing = phase <= 0.5;
+  // S93-2 class 4: the lit region is the projection of the sunlit
+  // hemisphere (moonPhaseGeometry), painted as a vector path below.
+  // The previous implementation painted this same illumination
+  // fraction as a horizontal gradient whose stop sat at
+  // 1 − illumination: new and full were reversed and waxing was
+  // left-lit.
+  const illumination = moonIlluminationFraction(phase);
+  const moonGeometry = resolveMoonTerminatorGeometry(phase);
 
   // Outer atmospheric glow
   const outerGlow = ctx.createRadialGradient(0, 0, radius * 0.8, 0, 0, radius * 2.2);
@@ -2185,34 +2164,81 @@ function drawMoon(
     ctx.fill();
   }
 
-  // Phase terminator gradient
-  const gradient = ctx.createLinearGradient(-radius, 0, radius, 0);
-  const terminator = 0.5 + Math.cos(phaseAngle) / 2;
-
-  if (waxing) {
-    gradient.addColorStop(0, starColor);
-    gradient.addColorStop(Math.max(0, terminator - 0.08), starColor);
-    gradient.addColorStop(terminator, toRgba(starColor, 0.5));
-    gradient.addColorStop(Math.min(1, terminator + 0.08), "rgba(0, 0, 0, 0.6)");
-    gradient.addColorStop(1, "rgba(0, 0, 0, 0.65)");
-  } else {
-    gradient.addColorStop(0, "rgba(0, 0, 0, 0.65)");
-    gradient.addColorStop(Math.max(0, terminator - 0.08), "rgba(0, 0, 0, 0.6)");
-    gradient.addColorStop(terminator, toRgba(starColor, 0.5));
-    gradient.addColorStop(Math.min(1, terminator + 0.08), starColor);
-    gradient.addColorStop(1, starColor);
-  }
-
-  ctx.fillStyle = gradient;
-  ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
-
-  // Earthshine on dark side during crescent phases
-  if (illumination < 0.35) {
-    ctx.globalAlpha = 0.06 * (1 - illumination * 2.5);
-    ctx.fillStyle = starColor;
+  // Phase shading: the lit region as a closed vector path (limb
+  // arc plus terminator half-ellipse through the poles), the dark
+  // region shaded over the surface detail, earthshine on the dark
+  // region only. Maria and craters stay under this shading, as
+  // they were under the old gradient.
+  const traceLitRegion = () => {
+    ctx.beginPath();
+    if (moonGeometry.kind === "full") {
+      ctx.arc(0, 0, radius, 0, TWO_PI);
+    } else if (moonGeometry.kind === "partial") {
+      ctx.arc(
+        0,
+        0,
+        radius,
+        -Math.PI / 2,
+        Math.PI / 2,
+        moonGeometry.limbCounterclockwise,
+      );
+      ctx.ellipse(
+        0,
+        0,
+        moonGeometry.terminatorRadiusRatio * radius,
+        radius,
+        0,
+        Math.PI / 2,
+        Math.PI * 1.5,
+        moonGeometry.terminatorCounterclockwise,
+      );
+    }
+  };
+  const traceDarkRegion = () => {
+    // The disc minus the lit region: both subpaths under the
+    // even-odd rule leave exactly the unlit part.
     ctx.beginPath();
     ctx.arc(0, 0, radius, 0, TWO_PI);
+    if (moonGeometry.kind === "partial") {
+      ctx.moveTo(0, -radius);
+      ctx.arc(
+        0,
+        0,
+        radius,
+        -Math.PI / 2,
+        Math.PI / 2,
+        moonGeometry.limbCounterclockwise,
+      );
+      ctx.ellipse(
+        0,
+        0,
+        moonGeometry.terminatorRadiusRatio * radius,
+        radius,
+        0,
+        Math.PI / 2,
+        Math.PI * 1.5,
+        moonGeometry.terminatorCounterclockwise,
+      );
+    }
+  };
+
+  if (moonGeometry.kind !== "full") {
+    traceDarkRegion();
+    ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
+    ctx.fill("evenodd");
+  }
+  if (moonGeometry.kind !== "empty") {
+    traceLitRegion();
+    ctx.fillStyle = starColor;
     ctx.fill();
+  }
+
+  // Earthshine on the dark region during crescent phases
+  if (illumination < 0.35 && moonGeometry.kind !== "full") {
+    ctx.globalAlpha = 0.06 * (1 - illumination * 2.5);
+    ctx.fillStyle = starColor;
+    traceDarkRegion();
+    ctx.fill("evenodd");
     ctx.globalAlpha = 1;
   }
 
@@ -2553,7 +2579,6 @@ export const __testUtils = {
   toRgba,
   adjustColor,
   toUTCDateFromLocal,
-  resolveTextCenterNormalized,
   parchmentRetentionFactor,
   minAlphaForContrast,
   parchmentBackingAt,
