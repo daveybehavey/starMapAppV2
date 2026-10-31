@@ -37,6 +37,7 @@ import {
   normalizePromotionEmail,
   type PromotionEmailState,
 } from "@/lib/promotionSubscriptions";
+import { createPromotionDispatchPermissionChecker } from "@/lib/promotionDispatchGuard";
 import {
   deliverPromotionSend,
   getPromotionFollowupDelaySeconds,
@@ -125,6 +126,17 @@ function toCoordinatorOutcome(outcome: PromotionDeliveryOutcome): PromotionSendO
       idempotencyGuaranteed: outcome.idempotencyGuaranteed,
     };
   }
+  if (outcome.outcome === "refused") {
+    // Dispatch fence refusal (gate-1 fencing build): no provider was
+    // attempted, so the completion semantics are exactly the
+    // no-attempt ones — the claim is restored for a later drive, or
+    // CANCELLED when the refusal was a committed unsubscribe (the
+    // unconfigured completion branch checks the CURRENT subscription
+    // state). Mapping a refusal to any provider outcome would either
+    // fail a send that never happened or risk a retry the fence just
+    // forbade.
+    return { type: "unconfigured" };
+  }
   return { type: "unconfigured" };
 }
 
@@ -186,7 +198,11 @@ export async function drivePromotionJobs(
 
     let outcome: PromotionSendOutcome;
     try {
-      const delivery = await deliverPromotionSend(claim.payload, claim.providerIdempotencyKey);
+      const delivery = await deliverPromotionSend(claim.payload, claim.providerIdempotencyKey, {
+        // The fence reads authority through THIS driver client, so the
+        // check and the claim observe the same coordinator.
+        checkDispatchPermission: createPromotionDispatchPermissionChecker(client),
+      });
       outcome = toCoordinatorOutcome(delivery);
     } catch (error) {
       outcome = {

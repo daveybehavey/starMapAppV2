@@ -1,5 +1,10 @@
 import { getPromotionUnsubscribeUrl } from "@/lib/promotionSubscriptions";
 import { getPromotionOfferName, getPromotionTargetLabel } from "@/lib/promotionOffer";
+import {
+  checkPromotionDispatchPermission,
+  type PromotionDispatchPermissionChecker,
+  type PromotionDispatchRefusalReason,
+} from "@/lib/promotionDispatchGuard";
 
 type PromotionAutomationProvider = "resend" | "sendgrid" | "webhook" | "none";
 
@@ -209,7 +214,8 @@ export type PromotionDeliveryOutcome =
   | { outcome: "accepted"; provider: PromotionAutomationProvider; providerMessageId?: string | null }
   | { outcome: "definitive_failure"; provider: PromotionAutomationProvider; error?: string }
   | { outcome: "ambiguous"; provider: PromotionAutomationProvider; error?: string; idempotencyGuaranteed: boolean }
-  | { outcome: "unconfigured"; provider: "none"; error?: string };
+  | { outcome: "unconfigured"; provider: "none"; error?: string }
+  | { outcome: "refused"; provider: "none"; reason: PromotionDispatchRefusalReason };
 
 type LegResult =
   | { configured: false }
@@ -463,11 +469,36 @@ export function selectPromotionProvider(): {
  * key is passed to Resend (the only leg with a documented idempotency
  * guarantee); ambiguous outcomes report whether that guarantee covers
  * the attempt that produced them.
+ *
+ * DISPATCH FENCE (CASL gate-1 fencing build; S91-4): before any leg is
+ * attempted, the recipient's permission is re-read from the authority
+ * (the per-email coordinator state, legacy KV only when the coordinator
+ * has never seen the recipient). A refusal returns
+ * `{ outcome: "refused" }` and NO leg runs — no provider call, no
+ * fallback walk, no webhook. Callers with their own authority handle
+ * (the coordinator drivers) inject their checker via
+ * `options.checkDispatchPermission`; every other caller gets the
+ * default production checker. A checker that throws is treated as an
+ * unreadable authority and refuses (`authority_unavailable`) — the
+ * fence fails closed, never open.
  */
 export async function deliverPromotionSend(
   payload: PromotionSendPayload,
   idempotencyKey?: string,
+  options?: { checkDispatchPermission?: PromotionDispatchPermissionChecker },
 ): Promise<PromotionDeliveryOutcome> {
+  const checkDispatchPermission =
+    options?.checkDispatchPermission ?? checkPromotionDispatchPermission;
+  let decision: Awaited<ReturnType<PromotionDispatchPermissionChecker>>;
+  try {
+    decision = await checkDispatchPermission(payload.email);
+  } catch {
+    decision = { permitted: false, reason: "authority_unavailable" };
+  }
+  if (!decision.permitted) {
+    return { outcome: "refused", provider: "none", reason: decision.reason };
+  }
+
   const legs: Array<{
     provider: PromotionAutomationProvider;
     run: () => Promise<LegResult>;
@@ -515,6 +546,13 @@ export async function deliverPromotionSend(
 function toLegacyResult(outcome: PromotionDeliveryOutcome): PromotionAutomationResult {
   if (outcome.outcome === "accepted") {
     return { delivered: true, provider: outcome.provider };
+  }
+  if (outcome.outcome === "refused") {
+    return {
+      delivered: false,
+      provider: "none",
+      error: `promotion_dispatch_refused:${outcome.reason}`,
+    };
   }
   if (outcome.outcome === "unconfigured") {
     return { delivered: false, provider: "none", error: outcome.error ?? "No automation provider configured." };

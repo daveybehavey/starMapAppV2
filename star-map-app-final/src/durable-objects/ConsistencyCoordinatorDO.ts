@@ -53,6 +53,7 @@ import {
   type PromotionSendOutcome,
 } from "../lib/consistencyCoordinatorState";
 import type { AccountLiteSessionIndexItem } from "../lib/accountLite";
+import { evaluatePromotionDispatchPermission } from "../lib/promotionDispatchGuard";
 import {
   deliverPromotionSend,
   getPromotionFollowupDelaySeconds,
@@ -90,6 +91,13 @@ function outcomeToCoordinator(outcome: PromotionDeliveryOutcome): PromotionSendO
       error: outcome.error,
       idempotencyGuaranteed: outcome.idempotencyGuaranteed,
     };
+  }
+  if (outcome.outcome === "refused") {
+    // Dispatch fence refusal (gate-1 fencing build): no provider was
+    // attempted; completion uses the no-attempt semantics (claim
+    // restored, or cancelled when the refusal was a committed
+    // unsubscribe) — see promotionCoordinator.ts's identical mapping.
+    return { type: "unconfigured" };
   }
   return { type: "unconfigured" };
 }
@@ -347,6 +355,20 @@ export class ConsistencyCoordinatorDO extends DurableObject {
         const delivery = await deliverPromotionSend(
           claimed.claim.payload,
           claimed.claim.providerIdempotencyKey,
+          {
+            // Dispatch fence (gate-1 fencing build): the authority for
+            // this object is THIS document — evaluate it directly,
+            // re-read at dispatch time. (No client/RPC: an alarm has no
+            // request context, and a self-RPC would add a failure mode
+            // without adding authority.) Legacy facts are already
+            // folded into the document's own fields by the import.
+            checkDispatchPermission: async () =>
+              evaluatePromotionDispatchPermission({
+                coordinatorState: this.readKind("promotion"),
+                legacyState: null,
+                legacyListMember: false,
+              }),
+          },
         );
         outcome = outcomeToCoordinator(delivery);
       } catch (error) {
