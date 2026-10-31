@@ -53,7 +53,7 @@ const tombstoneLib = await import("../../src/lib/promotionTombstones.ts");
 const clientLib = await import("../../src/lib/consistencyCoordinator.ts");
 const flows = await import("../../src/lib/promotionCoordinator.ts");
 const guardLib = await import("../../src/lib/promotionDispatchGuard.ts");
-const { kv } = await import("../../src/lib/kv.ts");
+const { kv, KvReadError } = await import("../../src/lib/kv.ts");
 const subsLib = await import("../../src/lib/promotionSubscriptions.ts");
 
 const KEY_V1 = "test-digest-key-v1-0123456789";
@@ -340,6 +340,23 @@ test("GM-7C(b) lookup: a tombstone under a retired version is invisible only via
   );
 });
 
+test("AC-17 lookup: a tombstone under a version the snapshot never saw resolves indeterminate, never invisible", () => {
+  const email = freshEmail();
+  const tombstone = makeTombstone(email, { version: 2, key: KEY_V2 });
+  // The caller's register snapshot predates the rotation that created
+  // v2: it records v1 only, so v2 is NEITHER live NOR affirmatively
+  // retired in the gathered evidence. Absence from the snapshot is
+  // not retirement — the tombstone cannot be acquitted by it.
+  const staleRegister = tombstoneLib.initialPromotionDigestKeyRegister(T0);
+  const facts = factsFor(email, staleRegister, envWithKeys({ v1: KEY_V1 }));
+  const outcome = tombstoneLib.evaluatePromotionTombstoneLookup({
+    tombstones: [tombstone],
+    facts,
+  });
+  assert.equal(outcome.outcome, "indeterminate");
+  assert.match(outcome.reason, /digest_key_version_unknown:v2/);
+});
+
 test("AC-17 lookup: a live version whose key is unavailable resolves indeterminate, never a miss", () => {
   const email = freshEmail();
   const tombstone = makeTombstone(email, { version: 1, key: KEY_V1 });
@@ -398,7 +415,7 @@ test("AC-17 lookup: an unresolvable newer tombstone dominates an older verified 
 test("GM-7B(c) erasure: the identity's evidence reduces to its tombstone and nothing else", () => {
   const email = freshEmail();
   const emailHash = clientLib.coordinatorEmailHash(email);
-  const idleFacts = { digestsByVersion: {}, nonRetiredVersions: [1], resolvableVersions: [] };
+  const idleFacts = { digestsByVersion: {}, nonRetiredVersions: [1], resolvableVersions: [], retiredVersions: [] };
   const subscribed = stateLib.applySubscribePromotion(null, {
     ...subscribeInput(email, idleFacts, T0),
   }).state;
@@ -513,9 +530,62 @@ test("AC-17/AC-18 negative control: indeterminate lookup refuses creation — no
   assert.deepEqual(state.jobs, {});
 });
 
+test("AC-17 creation gate: a stale snapshot refuses creation over a newer-version tombstone — zero mutation, no jobs", () => {
+  const email = freshEmail();
+  // The erasure committed under v2 — the version a rotation created.
+  const erased = stateLib.applyErasePromotionIdentity(
+    null,
+    eraseInput(email, { version: 2, key: KEY_V2, now: T0 + 1000 }),
+  ).state;
+  // The subscribe gathered its lookup facts from a register snapshot
+  // taken BEFORE that rotation: it knows v1 only, so the v2 tombstone
+  // is neither live nor affirmatively retired in its evidence. The
+  // gate must refuse — treating the tombstone as retired would clear
+  // the ref/suppression and create a coupon job for an erased
+  // identity.
+  const staleRegister = tombstoneLib.initialPromotionDigestKeyRegister(T0);
+  const staleFacts = factsFor(email, staleRegister, envWithKeys({ v1: KEY_V1 }));
+  const refused = stateLib.applySubscribePromotion(erased, subscribeInput(email, staleFacts, T0 + 2000));
+  assert.equal(refused.creationGate, "refused_indeterminate");
+  assert.equal(refused.changed, false);
+  assert.equal(refused.isNewSubscriber, false);
+  // Zero mutation: the returned state IS the reduced record the
+  // erasure committed — tombstone standing, ref intact, no jobs.
+  assert.equal(refused.state, erased);
+  assert.equal(stateLib.isReducedPromotionState(refused.state), true);
+  assert.deepEqual(refused.state.jobs, {});
+  assert.equal(refused.state.tombstoneRef, erased.tombstones[0].keyedDigest);
+});
+
+test("GM-7C(b) creation gate: a snapshot that affirmatively retires the tombstone's version lets creation proceed as before", () => {
+  const email = freshEmail();
+  const erased = stateLib.applyErasePromotionIdentity(null, eraseInput(email, { now: T0 + 1000 })).state;
+  // Rotate, then RETIRE v1 on a permitted basis: the snapshot now
+  // affirmatively records the retirement (with its basis), which is
+  // the one evidence on which the v1 tombstone stops answering.
+  let register = tombstoneLib.initialPromotionDigestKeyRegister(T0);
+  register = tombstoneLib.applyRotatePromotionDigestKeys(register, {
+    now: T0 + 1500,
+    expectedRevision: 0,
+    outgoingChosenRetirementAt: null,
+  }).register;
+  register = tombstoneLib.applyRetirePromotionDigestKeyVersion(register, {
+    now: T0 + 1600,
+    expectedRevision: register.revision,
+    version: 1,
+    basis: "rekey_sweep_complete",
+  }).register;
+  const facts = factsFor(email, register, envWithKeys({ v1: KEY_V1, v2: KEY_V2 }));
+  const created = stateLib.applySubscribePromotion(erased, subscribeInput(email, facts, T0 + 2000));
+  assert.equal(created.creationGate, "proceeded");
+  assert.equal(created.state.subscribedAt, T0 + 2000);
+  assert.ok(!created.state.tombstoneRef);
+  assert.ok(created.state.jobs.coupon);
+});
+
 test("Production-safety pin: an unprovisioned digest-key system leaves ordinary subscribes untouched", () => {
   const email = freshEmail();
-  const idleFacts = { digestsByVersion: {}, nonRetiredVersions: [1], resolvableVersions: [] };
+  const idleFacts = { digestsByVersion: {}, nonRetiredVersions: [1], resolvableVersions: [], retiredVersions: [] };
   const created = stateLib.applySubscribePromotion(null, subscribeInput(email, idleFacts));
   assert.equal(created.creationGate, "proceeded");
   assert.equal(created.isNewSubscriber, true);
@@ -671,7 +741,7 @@ test("GM-7C sweep step: an identity with no records under the version reports it
       outgoingChosenRetirementAt: null,
     }).register;
     await tombstoneLib.writePromotionDigestKeyRegister(register);
-    const idleFacts = { digestsByVersion: {}, nonRetiredVersions: [1], resolvableVersions: [] };
+    const idleFacts = { digestsByVersion: {}, nonRetiredVersions: [1], resolvableVersions: [], retiredVersions: [] };
     const client = clientLib.createConsistencyCoordinatorClient();
     const emailHash = clientLib.coordinatorEmailHash(email);
     const name = clientLib.promotionCoordinatorName(emailHash);
@@ -788,6 +858,178 @@ test("Subscribe flow on a tombstoned identity (keys provisioned) creates it alre
     assert.equal(result.deliveryProvider, "none");
     assert.deepEqual(result.state.jobs, {});
     assert.equal(stateLib.promotionSuppressionsOf(result.state).global.active, true);
+  } finally {
+    delete process.env.PROMOTION_DIGEST_KEY_V1;
+  }
+});
+
+/* ------------- §3.3 flow-level: erasure cleanup races/failures ------------- */
+
+test("Erasure flows: two concurrent erasures over the shared legacy lists never lose a deletion", async () => {
+  process.env.PROMOTION_DIGEST_KEY_V1 = KEY_V1;
+  try {
+    clientLib.__resetConsistencyCoordinatorMemoryForTests();
+    const emailA = freshEmail();
+    const emailB = freshEmail();
+    await tombstoneLib.writePromotionDigestKeyRegister(
+      tombstoneLib.initialPromotionDigestKeyRegister(T0),
+    );
+    const listKeys = [
+      subsLib.LEGACY_SUBSCRIPTION_KEY,
+      subsLib.LEGACY_SENT_KEY,
+      subsLib.LEGACY_FOLLOWUP_KEY,
+    ];
+    for (const key of listKeys) {
+      await kv.set(key, [emailA, emailB, "someone-else@example.com"]);
+    }
+    // Deterministic stagger, on the WRITE side: park the FIRST
+    // cleanup write to the subscription list until both flows have
+    // completed their cleanup reads of it (four list reads in total:
+    // a fact-gathering read and a cleanup read per flow), or until a
+    // lapse window passes. Parking the write — not a read — is what
+    // makes the reproduction deterministic: whichever flow writes
+    // first cannot land its write until the other flow's cleanup has
+    // read the same pre-deletion list, so the second flow's
+    // read-modify-write is computed from stale contents and its
+    // write resurrects the first flow's deletion. (Gating reads
+    // instead does not reproduce it: the flows' cleanup phases do not
+    // reliably overlap, and a read gate either serializes them or
+    // deadlocks against the serialized cleanup — whose correctness
+    // does not depend on the gate, which only ever delays a write,
+    // hence the lapse: a serialized cleanup pays the lapse once and
+    // proceeds.)
+    let subReads = 0;
+    let writeGateUsed = false;
+    let writeReleased = false;
+    const writeWaiters = [];
+    const releaseWrite = () => {
+      if (writeReleased) return;
+      writeReleased = true;
+      for (const resolve of writeWaiters) resolve();
+      writeWaiters.length = 0;
+    };
+    const noteSubRead = () => {
+      subReads += 1;
+      if (subReads >= 4) releaseWrite();
+    };
+    const originalGet = kv.get;
+    const originalGetErrorPreserving = kv.getErrorPreserving;
+    const originalSet = kv.set;
+    kv.get = async (key, ...rest) => {
+      const value = await originalGet(key, ...rest);
+      if (key === subsLib.LEGACY_SUBSCRIPTION_KEY) noteSubRead();
+      return value;
+    };
+    kv.getErrorPreserving = async (key, ...rest) => {
+      const value = await originalGetErrorPreserving(key, ...rest);
+      if (key === subsLib.LEGACY_SUBSCRIPTION_KEY) noteSubRead();
+      return value;
+    };
+    kv.set = async (key, value, ...rest) => {
+      if (key === subsLib.LEGACY_SUBSCRIPTION_KEY && !writeGateUsed) {
+        writeGateUsed = true;
+        if (!writeReleased) {
+          await new Promise((resolve) => {
+            writeWaiters.push(resolve);
+            setTimeout(releaseWrite, 300);
+          });
+        }
+      }
+      return originalSet(key, value, ...rest);
+    };
+    let resultA;
+    let resultB;
+    try {
+      [resultA, resultB] = await Promise.all([
+        flows.erasePromotionIdentityFlow({ email: emailA }),
+        flows.erasePromotionIdentityFlow({ email: emailB }),
+      ]);
+    } finally {
+      kv.get = originalGet;
+      kv.getErrorPreserving = originalGetErrorPreserving;
+      kv.set = originalSet;
+    }
+    assert.equal(resultA.alreadyErased, false);
+    assert.equal(resultB.alreadyErased, false);
+    // Neither deletion was lost, and no flow reported success while
+    // its address remained: both addresses are gone from every list,
+    // and the unrelated entry is untouched.
+    for (const key of listKeys) {
+      const list = await kv.get(key);
+      assert.ok(!list.includes(emailA), `${key} still holds emailA`);
+      assert.ok(!list.includes(emailB), `${key} still holds emailB`);
+      assert.ok(list.includes("someone-else@example.com"), key);
+    }
+  } finally {
+    delete process.env.PROMOTION_DIGEST_KEY_V1;
+  }
+});
+
+test("Erasure flow: an unreadable legacy list fails the cleanup retryably — no success, no stale overwrite", async () => {
+  process.env.PROMOTION_DIGEST_KEY_V1 = KEY_V1;
+  try {
+    clientLib.__resetConsistencyCoordinatorMemoryForTests();
+    const email = freshEmail();
+    await tombstoneLib.writePromotionDigestKeyRegister(
+      tombstoneLib.initialPromotionDigestKeyRegister(T0),
+    );
+    const listKeys = [
+      subsLib.LEGACY_SUBSCRIPTION_KEY,
+      subsLib.LEGACY_SENT_KEY,
+      subsLib.LEGACY_FOLLOWUP_KEY,
+    ];
+    for (const key of listKeys) {
+      await kv.set(key, [email]);
+    }
+    // Inject the read failure at the cleanup's own read of the
+    // subscription list: the error-preserving read throws KvReadError
+    // (what a failed Cloudflare read produces), while the
+    // error-swallowing kv.get keeps answering — which is precisely
+    // the asymmetry the finding is about. Patch-level injection (not
+    // a corrupted fallback file) because the list keys are shared
+    // with other suites' processes; the failure stays inside this
+    // one. Track writes to the list so "no write from stale data" is
+    // asserted, not assumed.
+    let subListWrites = 0;
+    const originalGetErrorPreserving = kv.getErrorPreserving;
+    const originalSet = kv.set;
+    kv.getErrorPreserving = async (key, ...rest) => {
+      if (key === subsLib.LEGACY_SUBSCRIPTION_KEY) {
+        throw new KvReadError("injected legacy list read failure");
+      }
+      return originalGetErrorPreserving(key, ...rest);
+    };
+    kv.set = async (key, value, ...rest) => {
+      if (key === subsLib.LEGACY_SUBSCRIPTION_KEY) subListWrites += 1;
+      return originalSet(key, value, ...rest);
+    };
+    try {
+      // The erasure FAILS on the unreadable list (KvReadError)
+      // instead of treating it as absent and reporting success.
+      await assert.rejects(
+        () => flows.erasePromotionIdentityFlow({ email }),
+        (error) => error instanceof KvReadError,
+      );
+    } finally {
+      kv.getErrorPreserving = originalGetErrorPreserving;
+      kv.set = originalSet;
+    }
+    // No list was written from stale data — the failing list saw zero
+    // writes — and no cleanup completed behind the failure: every
+    // list still holds the address, so nothing reported it erased.
+    assert.equal(subListWrites, 0);
+    for (const key of listKeys) {
+      assert.ok((await kv.get(key)).includes(email), key);
+    }
+    // Retryable: with the read healthy again, the retry completes
+    // the cleanup (the coordinator transition is idempotent — the
+    // tombstone committed by the failed attempt stands).
+    const retried = await flows.erasePromotionIdentityFlow({ email });
+    assert.equal(retried.alreadyErased, true);
+    for (const key of listKeys) {
+      const list = await kv.get(key);
+      assert.ok(!list.includes(email), key);
+    }
   } finally {
     delete process.env.PROMOTION_DIGEST_KEY_V1;
   }

@@ -421,12 +421,24 @@ export function applyRetirePromotionDigestKeyVersion(
  * (where the address and the environment are available) and passed
  * into the pure evaluation: the candidate digest of the address under
  * every version whose key material resolved, the versions lookups must
- * cover, and which of those versions' keys actually resolved.
+ * cover, which of those versions' keys actually resolved, and the
+ * versions the caller's register snapshot affirmatively records as
+ * retired (the retirement evidence — see the field comment).
  */
 export type PromotionTombstoneLookupFacts = {
   digestsByVersion: Record<string, string>;
   nonRetiredVersions: number[];
   resolvableVersions: number[];
+  /** Versions the caller's register snapshot affirmatively records as
+   *  RETIRED — each carrying the recorded basis GM-7C(d) permits (the
+   *  register's validation refuses a retired record without one).
+   *  This snapshot evidence is the ONLY basis on which a stored
+   *  tombstone may be treated as invisible: a version absent from
+   *  BOTH this list and `nonRetiredVersions` is a version the
+   *  snapshot never saw (e.g. created by a rotation after the
+   *  snapshot was gathered), and a tombstone under it resolves
+   *  INDETERMINATE — absence from a stale snapshot is not retirement. */
+  retiredVersions: number[];
 };
 
 export type PromotionTombstoneLookupOutcome =
@@ -448,10 +460,15 @@ export type PromotionTombstoneLookupOutcome =
  *   material changed out of band, or the record is corrupt; either way
  *   the honest answer is refusal, not a miss). Indeterminate NEVER
  *   establishes consent (AC-17).
- * - NO HIT: no stored tombstones, or every stored tombstone sits under
- *   a retired version — invisible by the retirement act's own recorded
- *   basis (sweep-complete, or gate-accepted lookup loss), which is the
- *   one path on which a tombstone legitimately stops answering.
+ * - NO HIT: no stored tombstones, or every stored tombstone sits
+ *   under a version the caller's snapshot affirmatively records as
+ *   retired — invisible by the retirement act's own recorded basis
+ *   (sweep-complete, or gate-accepted lookup loss), which is the one
+ *   path on which a tombstone legitimately stops answering. A stored
+ *   tombstone under a version the snapshot NEVER SAW (absent from
+ *   both the non-retired and the retired lists) is not invisible: it
+ *   resolves INDETERMINATE, because a snapshot gathered before a
+ *   rotation cannot acquit an erasure committed after it.
  */
 export function evaluatePromotionTombstoneLookup(input: {
   tombstones: readonly PromotionTombstone[];
@@ -459,11 +476,23 @@ export function evaluatePromotionTombstoneLookup(input: {
 }): PromotionTombstoneLookupOutcome {
   const { tombstones, facts } = input;
   const nonRetired = new Set(facts.nonRetiredVersions);
+  const retired = new Set(facts.retiredVersions);
   const resolvable = new Set(facts.resolvableVersions);
   let indeterminateReason: string | null = null;
   let hit: PromotionTombstone | null = null;
   for (const tombstone of tombstones) {
-    if (!nonRetired.has(tombstone.digestKeyVersion)) continue;
+    if (retired.has(tombstone.digestKeyVersion)) continue;
+    if (!nonRetired.has(tombstone.digestKeyVersion)) {
+      // A version the caller's snapshot never saw: neither live nor
+      // affirmatively retired in the gathered evidence (the race: a
+      // subscribe gathered its facts before a key rotation, and an
+      // erasure then committed under the NEW version). Treating the
+      // tombstone as retired here would silently resurrect an erased
+      // identity — invisibility requires the snapshot's own recorded
+      // retirement, so the honest outcome is indeterminate.
+      indeterminateReason = `digest_key_version_unknown:v${tombstone.digestKeyVersion}`;
+      continue;
+    }
     if (!resolvable.has(tombstone.digestKeyVersion)) {
       indeterminateReason = `digest_key_unavailable:v${tombstone.digestKeyVersion}`;
       continue;
@@ -539,6 +568,10 @@ export function gatherPromotionTombstoneLookupFactsSync(input: {
   env?: Record<string, string | undefined>;
 }): PromotionTombstoneLookupFacts {
   const nonRetiredVersions = nonRetiredDigestKeyVersions(input.register);
+  const retiredVersions = Object.values(input.register.versions)
+    .filter((record) => record.status === "retired")
+    .map((record) => record.version)
+    .sort((a, b) => b - a);
   const digestsByVersion: Record<string, string> = {};
   const resolvableVersions: number[] = [];
   for (const version of nonRetiredVersions) {
@@ -547,7 +580,7 @@ export function gatherPromotionTombstoneLookupFactsSync(input: {
     resolvableVersions.push(version);
     digestsByVersion[String(version)] = computePromotionKeyedDigest(input.normalizedEmail, key);
   }
-  return { digestsByVersion, nonRetiredVersions, resolvableVersions };
+  return { digestsByVersion, nonRetiredVersions, resolvableVersions, retiredVersions };
 }
 
 export async function gatherPromotionTombstoneLookupFacts(input: {

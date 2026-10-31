@@ -418,7 +418,7 @@ const noFacts = {
 
 /** RD-C: creation-gate lookup facts for documents that carry no
  *  tombstones (the gate consults them only when a tombstone exists). */
-const noTombstoneLookup = { digestsByVersion: {}, nonRetiredVersions: [1], resolvableVersions: [] };
+const noTombstoneLookup = { digestsByVersion: {}, nonRetiredVersions: [1], resolvableVersions: [], retiredVersions: [] };
 
 function freshClient() {
   clientLib.__resetConsistencyCoordinatorMemoryForTests();

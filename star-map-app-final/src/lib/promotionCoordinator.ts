@@ -405,20 +405,68 @@ export async function unsubscribePromotionFlow(input: {
 /* reconstruction prevention, or audit of those two (AC-20).           */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Shared serialization for legacy-list cleanup mutations. The three
+ * legacy lists are shared across ALL identities, and the cleanup is a
+ * read-modify-write of each whole list: two erasure flows running
+ * concurrently for different identities would otherwise read the same
+ * list, each remove only its own address, and the later write would
+ * resurrect the earlier flow's deletion — while both flows report
+ * success. Every cleanup therefore runs through this one chain, so a
+ * flow's read-modify-write (and its confirmation re-read) completes
+ * before the next flow's begins. The coordinator remains the authority
+ * for identity state; this chain serializes only the shared-list
+ * side effect no per-identity object can arbitrate.
+ */
+let legacyListCleanupTail: Promise<void> = Promise.resolve();
+
+function runSerializedLegacyListCleanup<T>(operation: () => Promise<T>): Promise<T> {
+  const result = legacyListCleanupTail.then(operation, operation);
+  legacyListCleanupTail = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  return result;
+}
+
 /** Remove one address from the legacy address-bearing lists (the
  *  transition-side address deletion of GM-7B(b): the lists are this
  *  system's own records, and the erased address leaves them in the
- *  same flow that commits the tombstone). Idempotent. */
+ *  same flow that commits the tombstone). Idempotent.
+ *
+ *  The list reads are ERROR-PRESERVING (#454's lesson): `kv.get`
+ *  degrades a failed Cloudflare read to the local fallback and can
+ *  answer with stale contents or a false absence — a cleanup on that
+ *  read could skip a deletion, or overwrite the authoritative list
+ *  with the stale fallback copy, while the flow reports success. An
+ *  unreadable list therefore FAILS the cleanup (retryably: the
+ *  coordinator transition is idempotent and a retry re-runs this
+ *  cleanup) instead of masquerading as an absent list.
+ *
+ *  Success is reported only on confirmation: after the removals, the
+ *  cleanup re-reads every list, and an address that verifiably remains
+ *  fails the flow rather than letting it claim an erasure that did
+ *  not land. */
 async function removeFromLegacyLists(email: string): Promise<void> {
-  for (const listKey of [LEGACY_SUBSCRIPTION_KEY, LEGACY_SENT_KEY, LEGACY_FOLLOWUP_KEY]) {
-    const list = await kv.get<string[]>(listKey);
-    if (Array.isArray(list) && list.includes(email)) {
-      await kv.set(
-        listKey,
-        list.filter((entry) => entry !== email),
-      );
+  await runSerializedLegacyListCleanup(async () => {
+    for (const listKey of [LEGACY_SUBSCRIPTION_KEY, LEGACY_SENT_KEY, LEGACY_FOLLOWUP_KEY]) {
+      const list = await kv.getErrorPreserving<string[]>(listKey);
+      if (Array.isArray(list) && list.includes(email)) {
+        await kv.set(
+          listKey,
+          list.filter((entry) => entry !== email),
+        );
+      }
     }
-  }
+    for (const listKey of [LEGACY_SUBSCRIPTION_KEY, LEGACY_SENT_KEY, LEGACY_FOLLOWUP_KEY]) {
+      const list = await kv.getErrorPreserving<string[]>(listKey);
+      if (Array.isArray(list) && list.includes(email)) {
+        throw new ConsistencyCoordinatorUnavailableError(
+          `promotion erasure cleanup could not confirm removal from ${listKey}`,
+        );
+      }
+    }
+  });
 }
 
 export type ErasePromotionIdentityFlowResult = {

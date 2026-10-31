@@ -60,7 +60,7 @@ const NO_FACTS = {
 };
 /** RD-C: creation-gate lookup facts for documents that carry no
  *  tombstones (the gate consults them only when a tombstone exists). */
-const NO_TOMBSTONE_LOOKUP = { digestsByVersion: {}, nonRetiredVersions: [1], resolvableVersions: [] };
+const NO_TOMBSTONE_LOOKUP = { digestsByVersion: {}, nonRetiredVersions: [1], resolvableVersions: [], retiredVersions: [] };
 const EMPTY_RECORD = { active: false, setAt: null, generation: 1, eventRef: null };
 
 function couponPayload(email = EMAIL) {
