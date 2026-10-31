@@ -28,10 +28,12 @@
 import { DurableObject } from "cloudflare:workers";
 import {
   applyClaimPromotionJob,
+  applyClearDeliverabilitySuppression,
   applyCompletePromotionJob,
   applyConsumeMagicToken,
   applyPromotionAlarm,
   applyReadAccountSessions,
+  applyRecordDeliverabilitySuppression,
   applyRegisterMagicToken,
   applySubscribePromotion,
   applyUnsubscribePromotion,
@@ -248,6 +250,37 @@ export class ConsistencyCoordinatorDO extends DurableObject {
     if (result.changed) this.writeDocument(result.state);
     await this.syncAlarm(result.state);
     return { wasAlreadyUnsubscribed: result.wasAlreadyUnsubscribed, state: result.state };
+  }
+
+  /** RD-B (A1 I-5): record/clear the deliverability suppression axis
+   *  on this identity's document. On an existing document neither
+   *  transition moves any consent fact, so neither touches the alarm
+   *  (no job state can change). A record that CREATES the document
+   *  first imports the legacy permission facts — the same import
+   *  subscribe/unsubscribe run — so the document is born carrying the
+   *  identity's consent position instead of shadowing it in KV
+   *  (Codex P2 on PR #457); imported jobs are terminal legacy-accepted
+   *  markers, so the alarm is still untouched. */
+  async recordDeliverabilitySuppression(input: {
+    emailHash: string;
+    now: number;
+    eventRef: string;
+    facts: PromotionLegacyFacts;
+  }): Promise<{ state: PromotionCoordinatorState }> {
+    const current = this.readKind("promotion");
+    const result = applyRecordDeliverabilitySuppression(current, input);
+    if (result.changed) this.writeDocument(result.state);
+    return { state: result.state };
+  }
+
+  async clearDeliverabilitySuppression(input: {
+    now: number;
+  }): Promise<{ state: PromotionCoordinatorState | null }> {
+    const current = this.readKind("promotion");
+    if (!current) return { state: null };
+    const result = applyClearDeliverabilitySuppression(current, input);
+    if (result.changed) this.writeDocument(result.state);
+    return { state: result.state };
   }
 
   async claimPromotionJob(input: {

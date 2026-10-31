@@ -34,6 +34,10 @@ import {
   type ConsistencyCoordinatorClient,
 } from "@/lib/consistencyCoordinator";
 import type { PromotionCoordinatorState } from "@/lib/consistencyCoordinatorState";
+import {
+  evaluateSuppressionGate,
+  promotionSuppressionsOf,
+} from "@/lib/consistencyCoordinatorState";
 import { kv } from "@/lib/kv";
 import {
   LEGACY_SUBSCRIPTION_KEY,
@@ -44,6 +48,7 @@ import {
 
 export type PromotionDispatchRefusalReason =
   | "unsubscribed"
+  | "deliverability_suppressed"
   | "no_permission_record"
   | "authority_unavailable";
 
@@ -68,16 +73,35 @@ export function evaluatePromotionDispatchPermission(input: {
 }): PromotionDispatchDecision {
   const { coordinatorState, legacyState, legacyListMember } = input;
   if (coordinatorState) {
-    if (coordinatorState.unsubscribedAt !== null) {
-      return { permitted: false, reason: "unsubscribed" };
+    // RD-B: the authority's scoped suppression records gate first
+    // (A1 P-3). This transport carries the lifecycle sends (coupon +
+    // followup), so the purpose is lifecycle_commercial. For a
+    // document stamped by an RD-B transition the global record and
+    // the legacy unsubscribedAt are the same fact in two shapes, and
+    // for a pre-RD-B document promotionSuppressionsOf derives the
+    // record from that stamp — either way a globally suppressed
+    // identity refuses here exactly as the unsubscribedAt check did,
+    // under the same reason. The new behaviour is the deliverability
+    // axis (I-5): a bounce/complaint suppression now refuses
+    // commercial dispatch even on a subscribed identity.
+    const gate = evaluateSuppressionGate({
+      suppressions: promotionSuppressionsOf(coordinatorState),
+      purpose: "lifecycle_commercial",
+    });
+    if (!gate.permitted) {
+      return {
+        permitted: false,
+        reason: gate.reason === "globally_suppressed" ? "unsubscribed" : "deliverability_suppressed",
+      };
     }
     if (coordinatorState.subscribedAt !== null || coordinatorState.legacySubscribed) {
       return { permitted: true };
     }
     // A coordinator object exists but carries no subscription fact at
-    // all (e.g. created by an unsubscribe whose own stamp was later
-    // cleared is impossible today — unsubscribe always stamps — so this
-    // is a defensive refuse, never a permit).
+    // all (e.g. a document created by a deliverability record alone,
+    // or an unsubscribe whose own stamp was later cleared — impossible
+    // today, unsubscribe always stamps — so this is a defensive
+    // refuse, never a permit).
     return { permitted: false, reason: "no_permission_record" };
   }
   if (legacyState?.unsubscribedAt) {
