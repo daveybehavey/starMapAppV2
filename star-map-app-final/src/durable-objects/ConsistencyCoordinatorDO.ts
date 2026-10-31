@@ -30,13 +30,16 @@ import {
   applyClaimPromotionJob,
   applyClearDeliverabilitySuppression,
   applyCompletePromotionJob,
+  applyConfirmPromotionConsent,
   applyConsumeMagicToken,
   applyErasePromotionIdentity,
   applyPromotionAlarm,
   applyReadAccountSessions,
   applyRecordDeliverabilitySuppression,
   applyRegisterMagicToken,
+  applyReissuePromotionConfirmation,
   applyRekeyPromotionTombstones,
+  applyRequestPromotionConsent,
   applySubscribePromotion,
   applyUnsubscribePromotion,
   applyUpsertAccountSession,
@@ -50,11 +53,16 @@ import {
   type ConsumeMagicTokenResult,
   type LegacyMagicLinkRecord,
   type MagicTokenCoordinatorState,
+  type PromotionConfirmationReissueOutcome,
+  type PromotionConfirmationResult,
+  type PromotionConsentEvidenceInput,
+  type PromotionConsentRequestOutcome,
   type PromotionCoordinatorState,
   type PromotionCreationGateOutcome,
   type PromotionJobKind,
   type PromotionJobPayload,
   type PromotionLegacyFacts,
+  type PromotionPendingConsent,
   type PromotionSendOutcome,
 } from "../lib/consistencyCoordinatorState";
 import type { PromotionTombstoneLookupFacts } from "../lib/promotionTombstones";
@@ -236,6 +244,7 @@ export class ConsistencyCoordinatorDO extends DurableObject {
     couponPayload: PromotionJobPayload;
     followupPayload?: PromotionJobPayload;
     tombstoneLookup: PromotionTombstoneLookupFacts;
+    evidence?: PromotionConsentEvidenceInput;
   }): Promise<{
     isNewSubscriber: boolean;
     state: PromotionCoordinatorState;
@@ -299,12 +308,69 @@ export class ConsistencyCoordinatorDO extends DurableObject {
     now: number;
     reason: string;
     facts: PromotionLegacyFacts;
+    evidence?: PromotionConsentEvidenceInput;
   }): Promise<{ wasAlreadyUnsubscribed: boolean; state: PromotionCoordinatorState }> {
     const current = this.readKind("promotion");
     const result = applyUnsubscribePromotion(current, input);
     if (result.changed) this.writeDocument(result.state);
     await this.syncAlarm(result.state);
     return { wasAlreadyUnsubscribed: result.wasAlreadyUnsubscribed, state: result.state };
+  }
+
+  /** RD-D (A1 G-3/G-6, T-1): the pending-consent transitions. None
+   *  of them moves a delivery job — a pending request creates,
+   *  rotates, or completes consent only — so none touches the alarm
+   *  (the deliverability methods' precedent). Confirmation
+   *  completion changes the subscription stamps, but the alarm is
+   *  computed from job state alone, which completion never alters. */
+  async requestPromotionConsent(input: {
+    emailHash: string;
+    now: number;
+    facts: PromotionLegacyFacts;
+    requestId: string;
+    tokenHash: string;
+  }): Promise<{
+    state: PromotionCoordinatorState;
+    outcome: PromotionConsentRequestOutcome;
+    pendingConsent: PromotionPendingConsent | null;
+  }> {
+    const current = this.readKind("promotion");
+    const result = applyRequestPromotionConsent(current, input);
+    if (result.changed) this.writeDocument(result.state);
+    return {
+      state: result.state,
+      outcome: result.outcome,
+      pendingConsent: result.pendingConsent,
+    };
+  }
+
+  async reissuePromotionConfirmation(input: {
+    now: number;
+    tokenHash: string;
+  }): Promise<{
+    state: PromotionCoordinatorState | null;
+    outcome: PromotionConfirmationReissueOutcome;
+  }> {
+    const current = this.readKind("promotion");
+    if (!current) return { state: null, outcome: "no_pending_request" };
+    const result = applyReissuePromotionConfirmation(current, input);
+    if (result.changed) this.writeDocument(result.state);
+    return { state: result.state, outcome: result.outcome };
+  }
+
+  async confirmPromotionConsent(input: {
+    now: number;
+    tokenHash: string;
+    evidence?: PromotionConsentEvidenceInput;
+  }): Promise<{
+    state: PromotionCoordinatorState | null;
+    result: PromotionConfirmationResult;
+  }> {
+    const current = this.readKind("promotion");
+    if (!current) return { state: null, result: "no_pending_request" };
+    const result = applyConfirmPromotionConsent(current, input);
+    if (result.changed) this.writeDocument(result.state);
+    return { state: result.state, result: result.result };
   }
 
   /** RD-B (A1 I-5): record/clear the deliverability suppression axis

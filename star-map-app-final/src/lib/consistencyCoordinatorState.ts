@@ -412,10 +412,9 @@ export type PromotionJob = {
  * review sends only, and `deliverability` is the bounce/complaint axis
  * (A1 I-5: recorded separately from consent, blocks commercial sends,
  * and is never consent evidence). Each record carries the consent
- * generation current when it was set; the generation counter itself
- * is RD-D's field — until it exists every event is a generation-1
- * event (G-1 / GM-7D assign generation 1 initially), and stamps read
- * the counter when it is present (see suppressionGenerationOf).
+ * generation its event belongs to (for a committed unsubscribe, the
+ * generation the event creates — G-1/T-2); the counter itself is
+ * RD-D's field, read via promotionGenerationOf (absent ⇒ 1).
  */
 export type PromotionSuppressionRecord = {
   active: boolean;
@@ -434,6 +433,114 @@ export type PromotionSuppressions = {
   global: PromotionSuppressionRecord;
   reviewOnly: PromotionSuppressionRecord;
   deliverability: PromotionSuppressionRecord;
+};
+
+/**
+ * RD-D (B1A-MODEL §3.1): one entry of the append-only consent-evidence
+ * history (A1 G-4). Appended by the consent transitions themselves —
+ * subscribe, a COMMITTED unsubscribe, a completed re-consent ceremony —
+ * stamped with the generation the entry belongs to: for an unsubscribe
+ * or a completed ceremony that is the generation the transition CREATES
+ * (G-1; T-2: an unsubscribe's effect "is stamped with the generation it
+ * creates"); for a subscribe, the generation current at the act. The
+ * history survives generation changes; erasure's reduction (GM-7B(c))
+ * removes it with everything else, converting the identity's evidence
+ * to its tombstone and nothing else.
+ */
+export type PromotionConsentEventKind = "subscribe" | "unsubscribe" | "reconsent";
+
+export type PromotionConsentEvent = {
+  kind: PromotionConsentEventKind;
+  generation: number;
+  /** Server time of the act. */
+  serverAt: number;
+  surface: string;
+  source: string;
+  /** The consent disclosure the surface presented, and its hash.
+   *  Empty when the calling surface supplied neither (the shipped
+   *  pre-RD-K surfaces pass no disclosure stamp; the field records
+   *  what was supplied, never an invented value). */
+  disclosureVersion: string;
+  disclosureHash: string;
+  affirmativeAction: string;
+  orderRef?: string;
+  checkoutRef?: string;
+  designRef?: string;
+  /** RD-C R-8 (GM-7C(a): every consent-evidence digest records its
+   *  digestKeyVersion): the keyed digest of the address under the
+   *  digest-key register's current version when the event was
+   *  recorded, and that version. Both present or both absent — the
+   *  stamp is recorded when the register's current key is
+   *  provisioned, and it never gates the consent act it decorates. */
+  keyedDigest?: string;
+  digestKeyVersion?: number;
+};
+
+/** Caller-supplied consent-evidence fields for a transition. The
+ *  transition owns kind/generation/serverAt; the caller (a flow, and
+ *  behind it a surface) supplies what it presented and did. */
+export type PromotionConsentEvidenceInput = {
+  surface?: string;
+  source?: string;
+  disclosureVersion?: string;
+  disclosureHash?: string;
+  affirmativeAction?: string;
+  orderRef?: string;
+  checkoutRef?: string;
+  designRef?: string;
+  /** Computed by the flow from the digest-key register (the pure
+   *  transition never touches key material — the RD-C pattern). */
+  digestStamp?: { keyedDigest: string; digestKeyVersion: number };
+};
+
+/** A1 T-1: confirmation tokens live 48 hours from issuance, judged
+ *  on server time. */
+export const PROMOTION_CONFIRMATION_TOKEN_TTL_MS = 48 * 60 * 60 * 1000;
+
+/**
+ * RD-D (B1A-MODEL §3.1; A1 T-1): the identity's one pending
+ * double-opt-in / re-consent request. Exactly one live confirmation
+ * exists per pending request (AM-09/G-6): the slot holds ONE token
+ * hash — the raw token exists only in the confirmation email — and
+ * re-issuance replaces the hash in place, superseding the prior
+ * unconsumed token. A resolved slot is RETAINED, not deleted: its
+ * recorded status is what a replayed token presentation returns
+ * (T-1), until a fresh request replaces the slot. Expiry and
+ * supersession-by-generation are judged at presentation from the
+ * slot + the clock + the current generation, deterministically and
+ * with zero mutation, so every replay of the same token returns the
+ * same recorded result.
+ */
+export type PromotionPendingConsent = {
+  requestId: string;
+  /** The generation the request (and its token) is stamped with. */
+  generation: number;
+  createdAt: number;
+  tokenHash: string;
+  tokenExpiresAt: number;
+  /** Token issuances for this request: the creation issuance plus
+   *  every re-issuance. G-6 dedupe keeps repeat REQUESTS from
+   *  minting new tokens, so this counts issuances, not requests. */
+  confirmationSendCount: number;
+  status: "pending" | "confirmed";
+  /** Server time the ceremony completed; null while pending. */
+  confirmedAt: number | null;
+};
+
+/**
+ * RD-D (B1A-MODEL §3.1; A1 G-4): once-ever welcome bookkeeping. This
+ * is a DERIVED, monotone summary of the shipped welcome facts — the
+ * coupon job's acceptance and the legacy couponSentAt monotone
+ * import — never an independent fact: promotionWelcomeStateOf merges
+ * the stored value over the job record, transitions materialize the
+ * derivation when they commit, and the once-ever enforcement itself
+ * stays with the shipped job machinery (one coupon job per identity,
+ * never re-minted). Sending is RD-K's; this field only remembers.
+ */
+export type PromotionWelcomeState = {
+  eligibleAt?: number;
+  sentAt?: number;
+  couponRef?: string;
 };
 
 export type PromotionCoordinatorState = {
@@ -460,6 +567,19 @@ export type PromotionCoordinatorState = {
    *  it, because the generation a reconstruction creates at is
    *  assigned by GM-7D(2) itself. Absent = the initial generation. */
   generation?: number;
+  /** RD-D (B1A-MODEL §3.1): the append-only consent-evidence history
+   *  (A1 G-4). Optional because documents written before RD-D carry
+   *  none; readers use promotionConsentEventsOf. */
+  consentEvents?: PromotionConsentEvent[];
+  /** RD-D (B1A-MODEL §3.1; A1 T-1): the one pending consent request,
+   *  or null. Optional for pre-RD-D documents; readers use
+   *  promotionPendingConsentOf. */
+  pendingConsent?: PromotionPendingConsent | null;
+  /** RD-D (B1A-MODEL §3.1; A1 G-4): the derived once-ever welcome
+   *  summary. Optional because it is materialized lazily by the
+   *  transitions that move the underlying facts; readers use
+   *  promotionWelcomeStateOf, which derives it either way. */
+  welcomeState?: PromotionWelcomeState;
   /** RD-C (B1A-MODEL §3.1/§3.3): the identity's GM-7A tombstones —
    *  the tombstone store's physical form under the single-document
    *  architecture, indexed logically by keyedDigest under each
@@ -549,6 +669,75 @@ function isValidPromotionSuppressionRecord(
   );
 }
 
+function isValidPromotionConsentEvent(value: unknown): value is PromotionConsentEvent {
+  if (!value || typeof value !== "object") return false;
+  const event = value as Record<string, unknown>;
+  if (event.kind !== "subscribe" && event.kind !== "unsubscribe" && event.kind !== "reconsent") {
+    return false;
+  }
+  if (
+    typeof event.generation !== "number" ||
+    !Number.isInteger(event.generation) ||
+    event.generation < 1
+  ) {
+    return false;
+  }
+  if (finiteNumber(event.serverAt) === null) return false;
+  if (typeof event.surface !== "string" || typeof event.source !== "string") return false;
+  if (typeof event.disclosureVersion !== "string" || typeof event.disclosureHash !== "string") {
+    return false;
+  }
+  if (typeof event.affirmativeAction !== "string") return false;
+  for (const ref of ["orderRef", "checkoutRef", "designRef"] as const) {
+    if (event[ref] !== undefined && typeof event[ref] !== "string") return false;
+  }
+  // The R-8 digest stamp is a pair: both fields or neither.
+  const hasDigest = event.keyedDigest !== undefined;
+  const hasVersion = event.digestKeyVersion !== undefined;
+  if (hasDigest !== hasVersion) return false;
+  if (hasDigest && nonEmptyString(event.keyedDigest) === null) return false;
+  if (
+    hasVersion &&
+    (typeof event.digestKeyVersion !== "number" ||
+      !Number.isInteger(event.digestKeyVersion) ||
+      (event.digestKeyVersion as number) < 1)
+  ) {
+    return false;
+  }
+  return true;
+}
+
+function isValidPromotionPendingConsent(value: unknown): value is PromotionPendingConsent {
+  if (!value || typeof value !== "object") return false;
+  const pending = value as Record<string, unknown>;
+  return (
+    nonEmptyString(pending.requestId) !== null &&
+    typeof pending.generation === "number" &&
+    Number.isInteger(pending.generation) &&
+    (pending.generation as number) >= 1 &&
+    finiteNumber(pending.createdAt) !== null &&
+    nonEmptyString(pending.tokenHash) !== null &&
+    finiteNumber(pending.tokenExpiresAt) !== null &&
+    typeof pending.confirmationSendCount === "number" &&
+    Number.isInteger(pending.confirmationSendCount) &&
+    (pending.confirmationSendCount as number) >= 1 &&
+    (pending.status === "pending" || pending.status === "confirmed") &&
+    (pending.confirmedAt === null || finiteNumber(pending.confirmedAt) !== null) &&
+    // A pending request has no completion stamp; a confirmed one must
+    // carry it — the pair is the recorded result a replay returns.
+    (pending.status === "pending") === (pending.confirmedAt === null)
+  );
+}
+
+function isValidPromotionWelcomeState(value: unknown): value is PromotionWelcomeState {
+  if (!value || typeof value !== "object") return false;
+  const welcome = value as Record<string, unknown>;
+  if (welcome.eligibleAt !== undefined && finiteNumber(welcome.eligibleAt) === null) return false;
+  if (welcome.sentAt !== undefined && finiteNumber(welcome.sentAt) === null) return false;
+  if (welcome.couponRef !== undefined && nonEmptyString(welcome.couponRef) === null) return false;
+  return true;
+}
+
 export function isValidPromotionState(value: unknown): value is PromotionCoordinatorState {
   if (!value || typeof value !== "object") return false;
   const state = value as Record<string, unknown>;
@@ -576,6 +765,22 @@ export function isValidPromotionState(value: unknown): value is PromotionCoordin
     ) {
       return false;
     }
+  }
+  if (state.consentEvents !== undefined) {
+    // Optional (pre-RD-D documents carry none), but a present history
+    // must be well-formed entry by entry — malformed consent evidence
+    // surfaces as a malformed document, never as silently trusted or
+    // silently dropped history (the suppressions/tombstones posture).
+    if (!Array.isArray(state.consentEvents)) return false;
+    for (const event of state.consentEvents) {
+      if (!isValidPromotionConsentEvent(event)) return false;
+    }
+  }
+  if (state.pendingConsent !== undefined && state.pendingConsent !== null) {
+    if (!isValidPromotionPendingConsent(state.pendingConsent)) return false;
+  }
+  if (state.welcomeState !== undefined && !isValidPromotionWelcomeState(state.welcomeState)) {
+    return false;
   }
   if (state.tombstoneRef !== undefined && nonEmptyString(state.tombstoneRef) === null) {
     return false;
@@ -608,18 +813,123 @@ export function emptyPromotionSuppressions(): PromotionSuppressions {
   };
 }
 
-/** The consent generation a new suppression stamp belongs to. The
- *  counter field itself is RD-D's; a document without it is in its
- *  initial generation (G-1: generation 1 is where every identity
- *  starts, and reconstruction assigns generation 1 — GM-7D), so a
- *  stamp recorded before the counter exists is a generation-1 stamp
- *  by construction, and once RD-D's counter is present its value
- *  governs. */
-function suppressionGenerationOf(state: PromotionCoordinatorState): number {
+/** RD-D: the identity's current consent generation (A1 G-1). The
+ *  counter is a document field, but a document written before it
+ *  existed (or before any incrementing transition ran) is in its
+ *  initial generation by construction: generation 1 is where every
+ *  identity starts, and reconstruction assigns generation 1 (GM-7D).
+ *  Absent ⇒ 1; a present-but-malformed counter is a malformed
+ *  document (isValidPromotionState), never a read-time surprise. */
+export function promotionGenerationOf(state: PromotionCoordinatorState): number {
   const generation = state.generation;
   return typeof generation === "number" && Number.isInteger(generation) && generation >= 1
     ? generation
     : 1;
+}
+
+/** The consent generation a new suppression stamp belongs to. */
+function suppressionGenerationOf(state: PromotionCoordinatorState): number {
+  return promotionGenerationOf(state);
+}
+
+/** RD-D: the identity's consent-evidence history (empty for any
+ *  document written before RD-D). */
+export function promotionConsentEventsOf(
+  state: PromotionCoordinatorState,
+): PromotionConsentEvent[] {
+  return state.consentEvents ?? [];
+}
+
+/** RD-D: the identity's pending consent request, if one stands. */
+export function promotionPendingConsentOf(
+  state: PromotionCoordinatorState,
+): PromotionPendingConsent | null {
+  return state.pendingConsent ?? null;
+}
+
+function buildConsentEvent(input: {
+  kind: PromotionConsentEventKind;
+  generation: number;
+  now: number;
+  evidence?: PromotionConsentEvidenceInput;
+  fallbackSurface: string;
+  fallbackSource: string;
+  fallbackAction: string;
+}): PromotionConsentEvent {
+  const evidence = input.evidence;
+  const event: PromotionConsentEvent = {
+    kind: input.kind,
+    generation: input.generation,
+    serverAt: input.now,
+    surface: evidence?.surface ?? input.fallbackSurface,
+    source: evidence?.source ?? input.fallbackSource,
+    disclosureVersion: evidence?.disclosureVersion ?? "",
+    disclosureHash: evidence?.disclosureHash ?? "",
+    affirmativeAction: evidence?.affirmativeAction ?? input.fallbackAction,
+  };
+  if (evidence?.orderRef !== undefined) event.orderRef = evidence.orderRef;
+  if (evidence?.checkoutRef !== undefined) event.checkoutRef = evidence.checkoutRef;
+  if (evidence?.designRef !== undefined) event.designRef = evidence.designRef;
+  if (evidence?.digestStamp) {
+    event.keyedDigest = evidence.digestStamp.keyedDigest;
+    event.digestKeyVersion = evidence.digestStamp.digestKeyVersion;
+  }
+  return event;
+}
+
+function appendConsentEvent(
+  state: PromotionCoordinatorState,
+  event: PromotionConsentEvent,
+): PromotionConsentEvent[] {
+  return [...(state.consentEvents ?? []), event];
+}
+
+/**
+ * RD-D: the identity's once-ever welcome state, derived. The stored
+ * field wins field-by-field (it is the monotone record — a stored
+ * eligibleAt never moves, even when a later resubscribe moves
+ * subscribedAt); whatever the stored field lacks is derived from the
+ * shipped facts: eligibility begins at the subscription fact, and
+ * the coupon job's acceptance is the welcome's sent fact, with the
+ * job id as its reference. An identity whose coupon was accepted by
+ * legacy import derives the same state as one the coordinator drove
+ * — the fact is the acceptance, not the path.
+ */
+export function promotionWelcomeStateOf(
+  state: PromotionCoordinatorState,
+): PromotionWelcomeState {
+  const derived: PromotionWelcomeState = { ...(state.welcomeState ?? {}) };
+  const coupon = state.jobs.coupon;
+  if (coupon?.status === "accepted" && coupon.acceptedAt !== null) {
+    if (derived.sentAt === undefined) derived.sentAt = coupon.acceptedAt;
+    if (derived.couponRef === undefined) derived.couponRef = coupon.jobId;
+    if (derived.eligibleAt === undefined) derived.eligibleAt = coupon.acceptedAt;
+  }
+  if (derived.eligibleAt === undefined && state.subscribedAt !== null) {
+    derived.eligibleAt = state.subscribedAt;
+  }
+  return derived;
+}
+
+/** Materialize the welcome derivation onto a state a transition is
+ *  committing, so the stored field stands even if the underlying job
+ *  record is later rearmed or replaced. No-op when nothing is
+ *  derivable or the stored field already says it all. */
+function withMaterializedWelcomeState(
+  state: PromotionCoordinatorState,
+): PromotionCoordinatorState {
+  const derived = promotionWelcomeStateOf(state);
+  if (Object.keys(derived).length === 0) return state;
+  const stored = state.welcomeState;
+  if (
+    stored &&
+    stored.eligibleAt === derived.eligibleAt &&
+    stored.sentAt === derived.sentAt &&
+    stored.couponRef === derived.couponRef
+  ) {
+    return state;
+  }
+  return { ...state, welcomeState: derived };
 }
 
 /** RD-C: the identity's stored tombstones (empty for any document
@@ -699,6 +1009,12 @@ function createEmptyPromotionState(emailHash: string, now: number): PromotionCoo
     legacySubscribed: false,
     legacyImportCompleted: false,
     suppressions: emptyPromotionSuppressions(),
+    // RD-D: a new document starts with an empty consent history and
+    // no pending request. The generation counter itself stays absent
+    // (⇒ generation 1 by derivation) until an incrementing transition
+    // or a GM-7D reconstruction materializes it.
+    consentEvents: [],
+    pendingConsent: null,
     updatedAt: now,
     jobs: {},
   };
@@ -882,6 +1198,10 @@ export function applySubscribePromotion(
      *  in promotionTombstones.ts). REQUIRED: a creation path that
      *  cannot present its lookup facts does not get to create. */
     tombstoneLookup: PromotionTombstoneLookupFacts;
+    /** RD-D: consent-evidence fields for the subscribe event this
+     *  transition appends (the flow supplies what the surface
+     *  presented; see PromotionConsentEvidenceInput). */
+    evidence?: PromotionConsentEvidenceInput;
   },
 ): {
   state: PromotionCoordinatorState;
@@ -1056,11 +1376,35 @@ export function applySubscribePromotion(
         ? { ...suppressions.global, active: false }
         : suppressions.global,
     },
+    // RD-D: the subscribe is a consent fact — append its evidence
+    // entry at the generation current for the act. Subscribing alone
+    // NEVER increments the counter (G-1/G-3: only a committed
+    // unsubscribe or a completed ceremony does), including this
+    // shipped immediate re-consent path, whose ceremony split lands
+    // with RD-K/L-1. The tombstone-hit path above appends nothing:
+    // a reconstruction's evidence is the tombstone it stands on.
+    consentEvents: appendConsentEvent(
+      current,
+      buildConsentEvent({
+        kind: "subscribe",
+        generation: suppressionGenerationOf(current),
+        now: input.now,
+        evidence: input.evidence,
+        fallbackSurface: input.source,
+        fallbackSource: input.source,
+        fallbackAction: "subscribe",
+      }),
+    ),
     lastSource: input.source || current.lastSource,
     updatedAt: input.now,
     jobs,
   };
-  return { state: current, changed: true, isNewSubscriber, creationGate: "proceeded" };
+  return {
+    state: withMaterializedWelcomeState(current),
+    changed: true,
+    isNewSubscriber,
+    creationGate: "proceeded",
+  };
 }
 
 export function applyUnsubscribePromotion(
@@ -1070,6 +1414,9 @@ export function applyUnsubscribePromotion(
     now: number;
     reason: string;
     facts: PromotionLegacyFacts;
+    /** RD-D: consent-evidence fields for the unsubscribe event this
+     *  transition appends when it commits. */
+    evidence?: PromotionConsentEvidenceInput;
   },
 ): { state: PromotionCoordinatorState; changed: boolean; wasAlreadyUnsubscribed: boolean } {
   if (state && isReducedPromotionState(state)) {
@@ -1103,6 +1450,17 @@ export function applyUnsubscribePromotion(
       jobs[kind] = { ...job, status: "cancelled", nextAttemptAt: null, updatedAt: input.now };
     }
   }
+  // RD-D / G-1: a COMMITTED unsubscribe is one of exactly two
+  // incrementing event classes. The counter advances by one, and the
+  // suppression record + consent event are stamped with the
+  // generation the unsubscribe CREATES (T-2: an unsubscribe's effect
+  // "is stamped with the generation it creates") — the same
+  // convention as GM-7D reconstruction, whose record is stamped with
+  // the generation the identity then stands in. (The repeat path
+  // above commits nothing and increments nothing; a legacy import
+  // that already carries the unsubscribe is historical generation-1
+  // evidence under GM-1, not a new commit, and never reaches here.)
+  const generation = suppressionGenerationOf(current) + 1;
   current = {
     ...current,
     // Mirror the legacy unsubscribe page: it preserved (or stamped) the
@@ -1110,6 +1468,7 @@ export function applyUnsubscribePromotion(
     subscribedAt: current.subscribedAt ?? input.now,
     unsubscribedAt: input.now,
     unsubscribeReason: input.reason,
+    generation,
     // RD-B: the unsubscribe IS the global suppression event (A1 P-3) —
     // stamp its scoped record in the same committing transition
     // (U-2: the commit precedes any success report), so authority
@@ -1119,10 +1478,22 @@ export function applyUnsubscribePromotion(
       global: {
         active: true,
         setAt: input.now,
-        generation: suppressionGenerationOf(current),
+        generation,
         eventRef: input.reason,
       },
     },
+    consentEvents: appendConsentEvent(
+      current,
+      buildConsentEvent({
+        kind: "unsubscribe",
+        generation,
+        now: input.now,
+        evidence: input.evidence,
+        fallbackSurface: input.reason,
+        fallbackSource: input.reason,
+        fallbackAction: "unsubscribe",
+      }),
+    ),
     updatedAt: input.now,
     jobs,
   };
@@ -1227,6 +1598,270 @@ export function applyClearDeliverabilitySuppression(
     },
     changed: true,
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* RD-D: pending consent and the re-consent ceremony (A1 G-1..G-4,     */
+/* G-6, T-1; A2 GM-6; AM-09 as repaired).                              */
+/* ------------------------------------------------------------------ */
+
+export type PromotionConsentRequestOutcome =
+  /** A new pending request was recorded (the slot's first issuance
+   *  is created with it — confirmationSendCount 1). */
+  | "created"
+  /** G-6 dedupe: a live current-generation request already stands;
+   *  the repeat created nothing and minted no new token. */
+  | "existing"
+  /** The identity's evidence is its tombstone (GM-7B(c)): a pending
+   *  request is new consent evidence, and a reduced document holds
+   *  none. Creation for an erased identity runs through the GM-7D
+   *  gate, never around it. */
+  | "not_created_reduced";
+
+/**
+ * RD-D: record a fresh, explicit re-consent / double-opt-in request
+ * (the ceremony's entry step, G-3/GM-6). The request creates pending
+ * consent stamped with the CURRENT generation — and nothing else:
+ * it does not clear suppression, does not increment the generation,
+ * and admits no send of any class (suppression remains fully in
+ * force until the ceremony completes; the dispatch gate reads the
+ * suppression records, which a pending request never touches).
+ *
+ * AM-09 AS REPAIRED governs creation on a suppressed address: the
+ * B1 round's original cell ("a pending request created after a
+ * global suppression is not created at all") was identified by the
+ * two-repairs filing as the defect that blocked the ceremony's
+ * entry step, and the chair-accepted replacement cell provides that
+ * a fresh explicit request DOES create the current-generation
+ * pending request on a globally suppressed address. This transition
+ * therefore refuses creation on exactly one ground: a reduced
+ * (erased) document.
+ *
+ * Dedupe (G-6): a live, unexpired, current-generation pending
+ * request already standing is returned as-is — repeat requests
+ * cannot mint unbounded tokens or confirmation mail. An expired,
+ * confirmed, or stale-generation slot is replaced by the fresh
+ * request (a stale slot's token stays inert under G-2 whatever
+ * happens here; replacing the slot asserts nothing about it).
+ *
+ * A document created by this transition first imports the legacy
+ * permission facts, exactly like the other document-creating
+ * transitions (the deliverability-creation precedent): the pending
+ * request is then judged against the identity's actual consent
+ * position, and the created document never shadows legacy consent.
+ */
+export function applyRequestPromotionConsent(
+  state: PromotionCoordinatorState | null,
+  input: {
+    emailHash: string;
+    now: number;
+    facts: PromotionLegacyFacts;
+    /** Minted by the caller (the transition is pure). */
+    requestId: string;
+    /** Hash of the confirmation token minted by the caller; the raw
+     *  token never enters the state machine (T-1). */
+    tokenHash: string;
+  },
+): {
+  state: PromotionCoordinatorState;
+  changed: boolean;
+  outcome: PromotionConsentRequestOutcome;
+  pendingConsent: PromotionPendingConsent | null;
+} {
+  if (state && isReducedPromotionState(state)) {
+    return { state, changed: false, outcome: "not_created_reduced", pendingConsent: null };
+  }
+  let current = state ?? createEmptyPromotionState(input.emailHash, input.now);
+  let importChanged = false;
+  if (state === null) {
+    const imported = applyPromotionLegacyImport(current, input.facts, input.now);
+    current = imported.state;
+    importChanged = imported.changed;
+  }
+  const generation = promotionGenerationOf(current);
+  const existing = current.pendingConsent ?? null;
+  if (
+    existing &&
+    existing.status === "pending" &&
+    existing.generation === generation &&
+    input.now < existing.tokenExpiresAt
+  ) {
+    return { state: current, changed: importChanged, outcome: "existing", pendingConsent: existing };
+  }
+  const pendingConsent: PromotionPendingConsent = {
+    requestId: input.requestId,
+    generation,
+    createdAt: input.now,
+    tokenHash: input.tokenHash,
+    tokenExpiresAt: input.now + PROMOTION_CONFIRMATION_TOKEN_TTL_MS,
+    confirmationSendCount: 1,
+    status: "pending",
+    confirmedAt: null,
+  };
+  return {
+    state: { ...current, pendingConsent, updatedAt: input.now },
+    changed: true,
+    outcome: "created",
+    pendingConsent,
+  };
+}
+
+export type PromotionConfirmationReissueOutcome =
+  /** The slot's token was rotated: the prior unconsumed token is
+   *  superseded from this commit on. */
+  | "reissued"
+  | "no_pending_request"
+  /** The standing request is confirmed, expired, or stamped under
+   *  an older generation — re-issuing a token for it would mint an
+   *  artefact that is already inert (G-2). */
+  | "not_live";
+
+/**
+ * RD-D / T-1 rotation: re-issue the confirmation token for the
+ * standing pending request. The replacement hash lands in the same
+ * slot in one transition, so the prior token's presentation resolves
+ * as superseded from this commit on — there is no instant at which
+ * two tokens are live (AM-09: exactly one live confirmation per
+ * pending request). The fresh issuance restarts the 48h expiry
+ * (T-1: expiry runs from issuance) and counts as an issuance.
+ */
+export function applyReissuePromotionConfirmation(
+  state: PromotionCoordinatorState,
+  input: { now: number; tokenHash: string },
+): { state: PromotionCoordinatorState; changed: boolean; outcome: PromotionConfirmationReissueOutcome } {
+  const pending = state.pendingConsent ?? null;
+  if (!pending || pending.status !== "pending") {
+    return { state, changed: false, outcome: "no_pending_request" };
+  }
+  if (pending.generation !== promotionGenerationOf(state) || input.now >= pending.tokenExpiresAt) {
+    return { state, changed: false, outcome: "not_live" };
+  }
+  return {
+    state: {
+      ...state,
+      pendingConsent: {
+        ...pending,
+        tokenHash: input.tokenHash,
+        tokenExpiresAt: input.now + PROMOTION_CONFIRMATION_TOKEN_TTL_MS,
+        confirmationSendCount: pending.confirmationSendCount + 1,
+      },
+      updatedAt: input.now,
+    },
+    changed: true,
+    outcome: "reissued",
+  };
+}
+
+export type PromotionConfirmationResult =
+  /** The ceremony completed in THIS transition. */
+  | "confirmed"
+  /** Replay of the recorded completion (T-1): no new consent, no
+   *  generation increment, no welcome issuance — zero mutation. */
+  | "already_confirmed"
+  /** The token's 48h window closed before presentation, judged on
+   *  server time. Zero mutation; every replay returns the same. */
+  | "expired"
+  /** The presented token is not the live one (rotated away,
+   *  replaced, or stamped under an older generation): inert under
+   *  G-2. Zero mutation. */
+  | "superseded"
+  | "no_pending_request";
+
+/**
+ * RD-D / T-1 consumption + G-3 ceremony completion — the ONLY
+ * transition in this slice that clears a global suppression, and
+ * one of exactly two that increment the generation (G-1).
+ *
+ * Presentation outcomes, all decided against the standing slot:
+ * - no slot ⇒ no_pending_request;
+ * - a hash that is not the slot's ⇒ superseded (a rotated-away or
+ *   replaced token, or one never minted for this request — the
+ *   recorded-result vocabulary has no fourth outcome, and the
+ *   answer mutates nothing either way);
+ * - the slot already confirmed under this hash ⇒ already_confirmed
+ *   (the T-1 replay: the recorded result stands, no second consent,
+ *   no second increment, no welcome issuance);
+ * - the slot stamped under an older generation ⇒ superseded
+ *   (G-2 inertness — in particular, an unsubscribe that landed
+ *   while the request stood pending kills its token);
+ * - the 48h window closed ⇒ expired (server time);
+ * - otherwise the ceremony completes, atomically in this one
+ *   transition (single-use: the slot flips to confirmed as part of
+ *   the same commit that clears suppression, so no second
+ *   presentation can complete it again).
+ *
+ * Completion (G-3/GM-6): the generation advances by exactly one;
+ * the global suppression clears, its record stamped with the new
+ * generation and the ceremony's eventRef; the legacy stamps move
+ * with it (unsubscribedAt clears, the subscription clock restarts —
+ * the record and the stamp are one fact in two shapes, the RD-B
+ * rule the shipped subscribe also follows); a reconsent evidence
+ * entry is appended at the new generation; welcomeState is
+ * preserved and materialized (G-4: no second coupon ever — the
+ * coupon job, the once-ever enforcement's owner, is untouched).
+ */
+export function applyConfirmPromotionConsent(
+  state: PromotionCoordinatorState,
+  input: {
+    now: number;
+    tokenHash: string;
+    /** RD-D: consent-evidence fields for the reconsent event. */
+    evidence?: PromotionConsentEvidenceInput;
+  },
+): { state: PromotionCoordinatorState; changed: boolean; result: PromotionConfirmationResult } {
+  const pending = state.pendingConsent ?? null;
+  if (!pending) return { state, changed: false, result: "no_pending_request" };
+  if (pending.tokenHash !== input.tokenHash) {
+    return { state, changed: false, result: "superseded" };
+  }
+  if (pending.status === "confirmed") {
+    return { state, changed: false, result: "already_confirmed" };
+  }
+  if (pending.generation !== promotionGenerationOf(state)) {
+    return { state, changed: false, result: "superseded" };
+  }
+  if (input.now >= pending.tokenExpiresAt) {
+    return { state, changed: false, result: "expired" };
+  }
+  const generation = pending.generation + 1;
+  const suppressions = promotionSuppressionsOf(state);
+  const completed: PromotionCoordinatorState = {
+    ...state,
+    generation,
+    subscribedAt: input.now,
+    unsubscribedAt: null,
+    unsubscribeReason: null,
+    suppressions: {
+      ...suppressions,
+      // The stamp lands only when the record was actually set: a
+      // ceremony completing for an address that was never globally
+      // suppressed leaves the untouched record standing (its
+      // eventRef names the event that SET it, and none did).
+      global: suppressions.global.active
+        ? {
+            active: false,
+            setAt: suppressions.global.setAt,
+            generation,
+            eventRef: `reconsent_ceremony:${pending.requestId}`,
+          }
+        : suppressions.global,
+    },
+    pendingConsent: { ...pending, status: "confirmed", confirmedAt: input.now },
+    consentEvents: appendConsentEvent(
+      state,
+      buildConsentEvent({
+        kind: "reconsent",
+        generation,
+        now: input.now,
+        evidence: input.evidence,
+        fallbackSurface: "confirmation_link",
+        fallbackSource: "confirmation",
+        fallbackAction: "confirmation",
+      }),
+    ),
+    updatedAt: input.now,
+  };
+  return { state: withMaterializedWelcomeState(completed), changed: true, result: "confirmed" };
 }
 
 /* ------------------------------------------------------------------ */
@@ -1543,7 +2178,13 @@ export function applyCompletePromotionJob(
     ) {
       jobs.followup = createPendingJob(state.emailHash, input.followupPayload, input.now);
     }
-    return { state: { ...state, jobs, updatedAt: input.now }, changed: true };
+    // RD-D: an acceptance is the welcome's sent fact — materialize
+    // the derived welcomeState in the same committing transition so
+    // the once-ever record stands even if the job is later rearmed.
+    return {
+      state: withMaterializedWelcomeState({ ...state, jobs, updatedAt: input.now }),
+      changed: true,
+    };
   }
 
   if (outcome.type === "unconfigured") {
@@ -1842,10 +2483,16 @@ export function promotionStateView(state: PromotionCoordinatorState): PromotionE
 /** The P-2 purpose rows. The three commercial classes require
  *  commercial permission, suppression clearance, and quota/frequency
  *  treatment as commercial; transactional and service sends are the
- *  customer's own transactions and requests. */
+ *  customer's own transactions and requests. Confirmation mail
+ *  (AM-09) is its own row: the completion half of a user-initiated
+ *  ceremony — charged to quota under the TRANSACTIONAL class,
+ *  exempt from the commercial frequency account, and never blocked
+ *  by consent suppression (issuance to a live pending request is
+ *  not a marketing send; the pending request itself admits none). */
 export type PromotionPurposeClass =
   | "transactional"
   | "service"
+  | "confirmation"
   | "checkout_recovery_promotional"
   | "lifecycle_commercial"
   | "review_request";
@@ -1866,7 +2513,8 @@ export type PromotionPurposeFlow =
   | "service"
   | "checkout_recovery"
   | "lifecycle"
-  | "review";
+  | "review"
+  | "confirmation";
 
 /**
  * P-1 classification. A message containing promotional content
@@ -1894,6 +2542,13 @@ export function classifyPromotionPurpose(input: {
       return "lifecycle_commercial";
     case "review":
       return "review_request";
+    case "confirmation":
+      // AM-09: the confirmation is the ceremony's completion half —
+      // its content is the token link, never promotional material,
+      // so the class does not turn on the content flag. (A message
+      // carrying promotional content is not a confirmation at all;
+      // it classifies under its own flow.)
+      return "confirmation";
   }
 }
 
@@ -1915,6 +2570,10 @@ export type PromotionSuppressionGateDecision =
  *   suppression (P-5: a marketing unsubscribe never blocks the
  *   customer's own transactional or service mail; deliverability
  *   handling for essential mail is provider policy, not this gate).
+ * - confirmation mail is never blocked either (AM-09): it is the
+ *   completion half of the recipient's own ceremony, not a marketing
+ *   send — while every commercial class stays refused for as long
+ *   as a pending request stands (a pending request admits nothing).
  */
 export function evaluateSuppressionGate(input: {
   suppressions: PromotionSuppressions;

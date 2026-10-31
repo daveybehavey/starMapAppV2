@@ -15,6 +15,7 @@
  *     the review engine's promotions opt-out source). The projection
  *     is non-authoritative and rebuilt on every mutation.
  */
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { kv } from "@/lib/kv";
 import {
   createConsistencyCoordinatorClient,
@@ -26,9 +27,14 @@ import {
 import {
   promotionStateView,
   promotionTombstonesOf,
+  type PromotionConfirmationReissueOutcome,
+  type PromotionConfirmationResult,
+  type PromotionConsentEvidenceInput,
+  type PromotionConsentRequestOutcome,
   type PromotionCoordinatorState,
   type PromotionJobKind,
   type PromotionLegacyFacts,
+  type PromotionPendingConsent,
   type PromotionSendOutcome,
 } from "@/lib/consistencyCoordinatorState";
 import {
@@ -301,10 +307,40 @@ async function gatherTombstoneLookupFactsOrFailClosed(
   }
 }
 
+/**
+ * RD-D / R-8: the consent-event digest stamp for one address, from
+ * the digest-key register's CURRENT version — the same register the
+ * tombstone store stamps from (GM-7C(a)). Best-effort by design:
+ * the stamp is evidence decoration on the consent act, never a gate
+ * on it (an unprovisioned digest-key configuration must not disturb
+ * ordinary consent acts — the RD-C production-safety rule); when the
+ * register cannot be read or its current key is not provisioned,
+ * the event is recorded without a stamp.
+ */
+async function gatherConsentEventDigestStamp(
+  email: string,
+): Promise<{ keyedDigest: string; digestKeyVersion: number } | undefined> {
+  try {
+    const register = await readPromotionDigestKeyRegister(Date.now());
+    const key = resolvePromotionDigestKey(register.currentVersion);
+    if (key === null) return undefined;
+    return {
+      keyedDigest: computePromotionKeyedDigest(email, key),
+      digestKeyVersion: register.currentVersion,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
 export async function subscribePromotionFlow(input: {
   email: string;
   source: string;
   couponCode: string;
+  /** RD-D: consent-evidence fields for the subscribe event (the
+   *  surface supplies what it presented; the digest stamp is added
+   *  by this flow from the register). */
+  evidence?: PromotionConsentEvidenceInput;
 }): Promise<SubscribePromotionFlowResult> {
   const email = normalizePromotionEmail(input.email);
   const emailHash = coordinatorEmailHash(email);
@@ -314,11 +350,13 @@ export async function subscribePromotionFlow(input: {
   const facts = await gatherPromotionLegacyFacts(email);
   const now = Date.now();
   const tombstoneLookup = await gatherTombstoneLookupFactsOrFailClosed(email, now);
+  const digestStamp = await gatherConsentEventDigestStamp(email);
   const { isNewSubscriber, state, creationGate } = await client.subscribePromotion(name, {
     emailHash,
     source: input.source,
     now,
     facts,
+    evidence: { ...input.evidence, digestStamp },
     couponPayload: preparePromotionCouponPayload(email, input.couponCode),
     // Used only if the coupon is already accepted but its followup job
     // was never created (partial legacy state) — the recovery path.
@@ -375,6 +413,8 @@ export type UnsubscribePromotionFlowResult = {
 export async function unsubscribePromotionFlow(input: {
   email: string;
   reason: string;
+  /** RD-D: consent-evidence fields for the unsubscribe event. */
+  evidence?: PromotionConsentEvidenceInput;
 }): Promise<UnsubscribePromotionFlowResult> {
   const email = normalizePromotionEmail(input.email);
   const emailHash = coordinatorEmailHash(email);
@@ -382,11 +422,13 @@ export async function unsubscribePromotionFlow(input: {
   const client = createConsistencyCoordinatorClient();
 
   const facts = await gatherPromotionLegacyFacts(email);
+  const digestStamp = await gatherConsentEventDigestStamp(email);
   const result = await client.unsubscribePromotion(name, {
     emailHash,
     now: Date.now(),
     reason: input.reason,
     facts,
+    evidence: { ...input.evidence, digestStamp },
   });
   // Strict: the opt-out is committed in the coordinator, but the KV
   // projection is the only suppression source the review engine reads
@@ -739,4 +781,137 @@ export async function rekeyPromotionTombstoneSweepStep(input: {
     facts: factsBefore,
   }).outcome;
   return { disposition: "restamped", restamped, lookupBefore, lookupAfter, state };
+}
+
+/* ------------------------------------------------------------------ */
+/* RD-D flows: the re-consent ceremony (G-3/G-6, T-1).                 */
+/* Authority-side only: nothing here sends mail (the confirmation     */
+/* send is a later slice's act through the fenced transport, charged  */
+/* under the AM-09 classification), and nothing here is wired to a    */
+/* route — the public subscribe surface still completes immediately  */
+/* until RD-K/L-1 flips it to this ceremony. The raw confirmation    */
+/* token exists only in these flows' return values, so the caller    */
+/* that one day mails it is the only place it ever appears besides   */
+/* the recipient's inbox; the coordinator stores its hash alone.     */
+/* ------------------------------------------------------------------ */
+
+function mintPromotionConfirmationToken(): { token: string; tokenHash: string } {
+  const token = randomBytes(32).toString("base64url");
+  return { token, tokenHash: createHash("sha256").update(token).digest("hex") };
+}
+
+function hashPromotionConfirmationToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+export type RequestPromotionConsentFlowResult = {
+  outcome: PromotionConsentRequestOutcome;
+  /** The raw confirmation token — returned ONLY when a request was
+   *  created, for the caller to place in the confirmation email.
+   *  On a deduped repeat the original token is unrecoverable by
+   *  design (hash-only storage), and none is owed: G-6 dedupe means
+   *  the standing confirmation remains the one live send. */
+  token: string | null;
+  pendingConsent: PromotionPendingConsent | null;
+  state: PromotionCoordinatorState;
+};
+
+/**
+ * RD-D: open a pending consent request for one address — a fresh
+ * signup's double opt-in, or a suppressed address's explicit
+ * re-consent request (the ceremony's entry step; the request alone
+ * changes no consent fact). Creates the coordinator document with
+ * the standard legacy import when the identity is new to it.
+ */
+export async function requestPromotionConsentFlow(input: {
+  email: string;
+}): Promise<RequestPromotionConsentFlowResult> {
+  const email = normalizePromotionEmail(input.email);
+  const emailHash = coordinatorEmailHash(email);
+  const name = promotionCoordinatorName(emailHash);
+  const client = createConsistencyCoordinatorClient();
+
+  const facts = await gatherPromotionLegacyFacts(email);
+  const minted = mintPromotionConfirmationToken();
+  const result = await client.requestPromotionConsent(name, {
+    emailHash,
+    now: Date.now(),
+    facts,
+    requestId: randomUUID(),
+    tokenHash: minted.tokenHash,
+  });
+  return {
+    outcome: result.outcome,
+    token: result.outcome === "created" ? minted.token : null,
+    pendingConsent: result.pendingConsent,
+    state: result.state,
+  };
+}
+
+export type ReissuePromotionConfirmationFlowResult = {
+  outcome: PromotionConfirmationReissueOutcome;
+  /** The new raw token when the rotation committed; the prior
+   *  token is superseded from that commit on. */
+  token: string | null;
+  state: PromotionCoordinatorState | null;
+};
+
+/** RD-D / T-1 rotation: replace the standing request's token. */
+export async function reissuePromotionConfirmationFlow(input: {
+  email: string;
+}): Promise<ReissuePromotionConfirmationFlowResult> {
+  const email = normalizePromotionEmail(input.email);
+  const emailHash = coordinatorEmailHash(email);
+  const name = promotionCoordinatorName(emailHash);
+  const client = createConsistencyCoordinatorClient();
+
+  const minted = mintPromotionConfirmationToken();
+  const result = await client.reissuePromotionConfirmation(name, {
+    now: Date.now(),
+    tokenHash: minted.tokenHash,
+  });
+  return {
+    outcome: result.outcome,
+    token: result.outcome === "reissued" ? minted.token : null,
+    state: result.state,
+  };
+}
+
+export type ConfirmPromotionConsentFlowResult = {
+  result: PromotionConfirmationResult;
+  state: PromotionCoordinatorState | null;
+};
+
+/**
+ * RD-D: present a confirmation token. On completion the projection
+ * is republished STRICTLY, mirroring the unsubscribe flow's rule:
+ * the completion clears a suppression the review engine reads only
+ * from the projection, and a completion may be the last mutation
+ * this identity ever makes — a silently lost write would leave the
+ * re-consented identity suppressed for every legacy reader. The
+ * coordinator has already committed when this runs, so surfacing
+ * the failure is safe: a retry republishes from committed state
+ * (and the token's replay returns the recorded completion).
+ */
+export async function confirmPromotionConsentFlow(input: {
+  email: string;
+  token: string;
+  /** RD-D: consent-evidence fields for the reconsent event. */
+  evidence?: PromotionConsentEvidenceInput;
+}): Promise<ConfirmPromotionConsentFlowResult> {
+  const email = normalizePromotionEmail(input.email);
+  const emailHash = coordinatorEmailHash(email);
+  const name = promotionCoordinatorName(emailHash);
+  const client = createConsistencyCoordinatorClient();
+
+  const digestStamp = await gatherConsentEventDigestStamp(email);
+  const result = await client.confirmPromotionConsent(name, {
+    now: Date.now(),
+    tokenHash: hashPromotionConfirmationToken(input.token),
+    evidence: { ...input.evidence, digestStamp },
+  });
+  if (result.result === "confirmed" && result.state) {
+    await publishPromotionProjectionStrict(email, result.state);
+  }
+  return result;
 }
