@@ -643,6 +643,48 @@ export function readEditorDraft(
   return parseEditorDraft(raw);
 }
 
+export type SharedFirstDraftRestore =
+  /** A validated shared draft exists; it is the restore source. */
+  | { source: "shared"; data: EditorDraftData }
+  /**
+   * A shared draft exists but is invalid or unreadable. Restore
+   * NOTHING: falling back to an older private draft would
+   * resurrect it over the canonical shared state (and the next
+   * save would silently discard the shared draft entirely).
+   */
+  | { source: "shared-blocked"; status: "invalid" | "storage-unavailable" }
+  /** No shared draft exists; the legacy private draft may be used. */
+  | { source: "private-only" };
+
+/**
+ * Shared-first draft restore arbitration (S93-2 class 6).
+ *
+ * Two editors share the canonical draft key, but SimplifiedEditor
+ * also keeps a private key and used to restore from it alone:
+ * SimplifiedEditor saves design A to both keys, EditorExperience
+ * later saves design B to the shared key only, and a
+ * SimplifiedEditor remount restored the stale private A — whose
+ * next save then overwrote B in both keys. The private draft
+ * carries no timestamp, so recency arbitration is impossible;
+ * precedence is the only sound rule: the validated shared draft
+ * wins, a present-but-unreadable shared draft blocks restore, and
+ * the private draft is consulted only when no shared draft exists
+ * (the legacy migration path).
+ */
+export function resolveSharedFirstDraftRestore(
+  storage: Pick<EditorDraftStorage, "getItem">,
+  sharedKey = EDITOR_DRAFT_STORAGE_KEY
+): SharedFirstDraftRestore {
+  const shared = readEditorDraft(storage, sharedKey);
+  if (shared.status === "restored") {
+    return { source: "shared", data: shared.data };
+  }
+  if (shared.status === "empty") {
+    return { source: "private-only" };
+  }
+  return { source: "shared-blocked", status: shared.status };
+}
+
 export function readEditorDraftFromHost(
   host: EditorDraftStorageHost,
   key = EDITOR_DRAFT_STORAGE_KEY
