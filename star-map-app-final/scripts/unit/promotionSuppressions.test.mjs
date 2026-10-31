@@ -141,7 +141,11 @@ test("RD-B unsubscribe stamps the global record in the committing transition", (
   assert.deepEqual(state.suppressions.global, {
     active: true,
     setAt: at,
-    generation: 1,
+    // RD-D / G-1: a committed unsubscribe increments the generation
+    // counter, and the record is stamped with the generation the
+    // unsubscribe creates (was generation 1 under RD-B's interim
+    // counter-less stamping).
+    generation: 2,
     eventRef: "email_link",
   });
   assert.deepEqual(state.suppressions.reviewOnly, EMPTY_RECORD);
@@ -162,7 +166,9 @@ test("RD-B repeat unsubscribe leaves the original global stamp standing", () => 
   assert.deepEqual(again.state.suppressions.global, {
     active: true,
     setAt: NOW + 60_000,
-    generation: 1,
+    // RD-D: the first unsubscribe's stamp (the generation it
+    // created) stands; the repeat commits nothing.
+    generation: 2,
     eventRef: "email_link",
   });
 });
@@ -181,7 +187,10 @@ test("RD-B resubscribe clears only the global record's active flag; its history 
   assert.deepEqual(resub.suppressions.global, {
     active: false,
     setAt: NOW + 60_000,
-    generation: 1,
+    // RD-D: the record carries the generation the unsubscribe
+    // created (2); the shipped subscribe clears only the flag and
+    // never increments the counter.
+    generation: 2,
     eventRef: "email_link",
   });
 });

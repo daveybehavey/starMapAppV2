@@ -21,12 +21,15 @@ import {
   applyClaimPromotionJob,
   applyClearDeliverabilitySuppression,
   applyCompletePromotionJob,
+  applyConfirmPromotionConsent,
   applyConsumeMagicToken,
   applyErasePromotionIdentity,
   applyReadAccountSessions,
   applyRecordDeliverabilitySuppression,
   applyRegisterMagicToken,
+  applyReissuePromotionConfirmation,
   applyRekeyPromotionTombstones,
+  applyRequestPromotionConsent,
   applySubscribePromotion,
   applyUnsubscribePromotion,
   applyUpsertAccountSession,
@@ -36,11 +39,16 @@ import {
   type ConsumeMagicTokenResult,
   type LegacyMagicLinkRecord,
   type MagicTokenCoordinatorState,
+  type PromotionConfirmationReissueOutcome,
+  type PromotionConfirmationResult,
+  type PromotionConsentEvidenceInput,
+  type PromotionConsentRequestOutcome,
   type PromotionCoordinatorState,
   type PromotionCreationGateOutcome,
   type PromotionJobKind,
   type PromotionJobPayload,
   type PromotionLegacyFacts,
+  type PromotionPendingConsent,
   type PromotionSendOutcome,
 } from "@/lib/consistencyCoordinatorState";
 import type { PromotionTombstoneLookupFacts } from "@/lib/promotionTombstones";
@@ -110,6 +118,7 @@ type CoordinatorStub = {
     couponPayload: PromotionJobPayload;
     followupPayload?: PromotionJobPayload;
     tombstoneLookup: PromotionTombstoneLookupFacts;
+    evidence?: PromotionConsentEvidenceInput;
   }): Promise<{
     isNewSubscriber: boolean;
     state: PromotionCoordinatorState;
@@ -138,7 +147,34 @@ type CoordinatorStub = {
     now: number;
     reason: string;
     facts: PromotionLegacyFacts;
+    evidence?: PromotionConsentEvidenceInput;
   }): Promise<{ wasAlreadyUnsubscribed: boolean; state: PromotionCoordinatorState }>;
+  requestPromotionConsent(input: {
+    emailHash: string;
+    now: number;
+    facts: PromotionLegacyFacts;
+    requestId: string;
+    tokenHash: string;
+  }): Promise<{
+    state: PromotionCoordinatorState;
+    outcome: PromotionConsentRequestOutcome;
+    pendingConsent: PromotionPendingConsent | null;
+  }>;
+  reissuePromotionConfirmation(input: {
+    now: number;
+    tokenHash: string;
+  }): Promise<{
+    state: PromotionCoordinatorState | null;
+    outcome: PromotionConfirmationReissueOutcome;
+  }>;
+  confirmPromotionConsent(input: {
+    now: number;
+    tokenHash: string;
+    evidence?: PromotionConsentEvidenceInput;
+  }): Promise<{
+    state: PromotionCoordinatorState | null;
+    result: PromotionConfirmationResult;
+  }>;
   recordDeliverabilitySuppression(input: {
     emailHash: string;
     now: number;
@@ -205,6 +241,7 @@ export type ConsistencyCoordinatorClient = {
       couponPayload: PromotionJobPayload;
       followupPayload?: PromotionJobPayload;
       tombstoneLookup: PromotionTombstoneLookupFacts;
+      evidence?: PromotionConsentEvidenceInput;
     },
   ): Promise<{
     isNewSubscriber: boolean;
@@ -237,8 +274,41 @@ export type ConsistencyCoordinatorClient = {
       now: number;
       reason: string;
       facts: PromotionLegacyFacts;
+      evidence?: PromotionConsentEvidenceInput;
     },
   ): Promise<{ wasAlreadyUnsubscribed: boolean; state: PromotionCoordinatorState }>;
+  requestPromotionConsent(
+    name: string,
+    input: {
+      emailHash: string;
+      now: number;
+      facts: PromotionLegacyFacts;
+      requestId: string;
+      tokenHash: string;
+    },
+  ): Promise<{
+    state: PromotionCoordinatorState;
+    outcome: PromotionConsentRequestOutcome;
+    pendingConsent: PromotionPendingConsent | null;
+  }>;
+  reissuePromotionConfirmation(
+    name: string,
+    input: { now: number; tokenHash: string },
+  ): Promise<{
+    state: PromotionCoordinatorState | null;
+    outcome: PromotionConfirmationReissueOutcome;
+  }>;
+  confirmPromotionConsent(
+    name: string,
+    input: {
+      now: number;
+      tokenHash: string;
+      evidence?: PromotionConsentEvidenceInput;
+    },
+  ): Promise<{
+    state: PromotionCoordinatorState | null;
+    result: PromotionConfirmationResult;
+  }>;
   recordDeliverabilitySuppression(
     name: string,
     input: { emailHash: string; now: number; eventRef: string; facts: PromotionLegacyFacts },
@@ -392,6 +462,35 @@ function createMemoryClient(): ConsistencyCoordinatorClient {
         };
       });
     },
+    requestPromotionConsent(name, input) {
+      return withMemoryLock(name, () => {
+        const result = applyRequestPromotionConsent(memoryKind(name, "promotion"), input);
+        if (result.changed) memoryStores.set(name, result.state);
+        return {
+          state: result.state,
+          outcome: result.outcome,
+          pendingConsent: result.pendingConsent,
+        };
+      });
+    },
+    reissuePromotionConfirmation(name, input) {
+      return withMemoryLock(name, () => {
+        const current = memoryKind(name, "promotion");
+        if (!current) return { state: null, outcome: "no_pending_request" as const };
+        const result = applyReissuePromotionConfirmation(current, input);
+        if (result.changed) memoryStores.set(name, result.state);
+        return { state: result.state, outcome: result.outcome };
+      });
+    },
+    confirmPromotionConsent(name, input) {
+      return withMemoryLock(name, () => {
+        const current = memoryKind(name, "promotion");
+        if (!current) return { state: null, result: "no_pending_request" as const };
+        const result = applyConfirmPromotionConsent(current, input);
+        if (result.changed) memoryStores.set(name, result.state);
+        return { state: result.state, result: result.result };
+      });
+    },
     recordDeliverabilitySuppression(name, input) {
       return withMemoryLock(name, () => {
         const result = applyRecordDeliverabilitySuppression(
@@ -505,6 +604,18 @@ export function createConsistencyCoordinatorClient(
       ),
     unsubscribePromotion: (name, input) =>
       call(name, "unsubscribePromotion", input, () => memory.unsubscribePromotion(name, input)),
+    requestPromotionConsent: (name, input) =>
+      call(name, "requestPromotionConsent", input, () =>
+        memory.requestPromotionConsent(name, input),
+      ),
+    reissuePromotionConfirmation: (name, input) =>
+      call(name, "reissuePromotionConfirmation", input, () =>
+        memory.reissuePromotionConfirmation(name, input),
+      ),
+    confirmPromotionConsent: (name, input) =>
+      call(name, "confirmPromotionConsent", input, () =>
+        memory.confirmPromotionConsent(name, input),
+      ),
     recordDeliverabilitySuppression: (name, input) =>
       call(name, "recordDeliverabilitySuppression", input, () =>
         memory.recordDeliverabilitySuppression(name, input),
