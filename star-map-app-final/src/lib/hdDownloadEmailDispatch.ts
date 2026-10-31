@@ -13,7 +13,12 @@ import {
   buildHdArchiveDownloadUrl,
   hdArchiveObjectExists,
 } from "@/lib/downloadArchiveStorage";
-import { ENTITLEMENT_KV, withSettlementMetadata } from "@/lib/entitlementsStore";
+import {
+  ENTITLEMENT_KV,
+  SETTLEMENT_SCHEMA_VERSION,
+  withSettlementMetadata,
+  type HdEmailResultRecord,
+} from "@/lib/entitlementsStore";
 import { kv } from "@/lib/kv";
 
 const ACCESS_EMAIL_TTL_SECONDS = 45 * 24 * 60 * 60;
@@ -109,17 +114,28 @@ export async function trySendInitialHdPurchaseEmail(input: {
     variant: "initial",
   });
 
-  const sessionKey = ENTITLEMENT_KV.stripeSession(input.sessionId);
-  const current = await kv.get<AccountAccessSessionRecord>(sessionKey);
-  if (current) {
-    await kv.set(sessionKey, {
-      ...current,
-      accessEmailSentAt: result.delivered ? Date.now() : current.accessEmailSentAt,
-      accessEmailHadArchive: result.delivered ? Boolean(result.includedArchiveLink) : current.accessEmailHadArchive,
-      accessEmailProvider: result.provider,
-      accessEmailError: result.delivered ? undefined : result.error,
-    });
-  }
+  // S93-1 item 2 (W2): the outcome is recorded in the per-variant
+  // sidecar record — NEVER by replacing the session record. The old
+  // bookkeeping re-read the session and put a whole-record spread back;
+  // any settlement, consume, debit, or revocation landing between that
+  // read and the put was silently overwritten. There is no
+  // bookkeeping-only session re-read any more. A persistence failure
+  // propagates: the send happened, and an unrecorded outcome must
+  // surface rather than masquerade as recorded. (The dispatch dedupe
+  // counter above still bounds sends; an outcome lost after dispatch
+  // can suppress a later retry — the retained exactly-once residual in
+  // the S93-1 design.)
+  const resultRecord: HdEmailResultRecord = {
+    schemaVersion: SETTLEMENT_SCHEMA_VERSION,
+    sessionId: input.sessionId,
+    variant: "initial",
+    provider: result.provider,
+    error: result.delivered ? undefined : result.error,
+    deliveredAt: result.delivered ? Date.now() : undefined,
+    includedArchive: result.delivered ? Boolean(result.includedArchiveLink) : undefined,
+    recordedAt: Date.now(),
+  };
+  await kv.setDurable(ENTITLEMENT_KV.hdInitialEmailResult(input.sessionId), resultRecord);
 
   return result;
 }
@@ -137,15 +153,28 @@ export async function trySendHdArchiveReadyEmail(input: {
 
   // The customer email may have been completed into the settlement-
   // metadata sidecar (fix round 4, PR #447); this read uses the merged
-  // view. The bookkeeping writes below keep spreading the RAW record —
-  // that writer class is the named HD follow-up, deliberately unchanged.
+  // view. Outcome bookkeeping in this module is sidecar-only (S93-1
+  // item 2): nothing here writes the session record.
   const mergedRecord = await withSettlementMetadata(input.sessionId, record);
   const email = typeof mergedRecord.customerEmail === "string" ? mergedRecord.customerEmail.trim() : "";
   if (!email) {
     return { delivered: false, provider: "none", skipped: true, reason: "missing_customer_email" };
   }
 
-  if (record.accessEmailHadArchive) {
+  // "Archive already emailed" is decided by the legacy inline flag OR a
+  // successful archive-bearing outcome in either HD result sidecar
+  // (initial or archive-ready). The sidecar reads are error-preserving:
+  // an unreadable result must not be treated as absence, so a read
+  // failure propagates and no dispatch happens.
+  const [initialEmailResult, archiveEmailResult] = await Promise.all([
+    kv.getErrorPreserving<HdEmailResultRecord>(ENTITLEMENT_KV.hdInitialEmailResult(input.sessionId)),
+    kv.getErrorPreserving<HdEmailResultRecord>(ENTITLEMENT_KV.hdArchiveEmailResult(input.sessionId)),
+  ]);
+  const sidecarShowsArchiveEmailed = [initialEmailResult, archiveEmailResult].some(
+    (emailResult) =>
+      emailResult != null && emailResult.deliveredAt != null && emailResult.includedArchive === true,
+  );
+  if (record.accessEmailHadArchive || sidecarShowsArchiveEmailed) {
     return { delivered: false, provider: "none", skipped: true, reason: "archive_already_emailed" };
   }
 
@@ -169,21 +198,23 @@ export async function trySendHdArchiveReadyEmail(input: {
     variant: "archive_ready",
   });
 
-  if (result.delivered) {
-    await kv.set(sessionKey, {
-      ...record,
-      hdArchiveEmailSentAt: Date.now(),
-      accessEmailHadArchive: true,
-      accessEmailProvider: result.provider,
-      accessEmailError: undefined,
-    });
-  } else {
-    await kv.set(sessionKey, {
-      ...record,
-      accessEmailError: result.error,
-      accessEmailProvider: result.provider,
-    });
-  }
+  // S93-1 item 2 (W3/W4): delivered and failed outcomes alike are
+  // recorded in the archive-ready sidecar record. The old branches put
+  // whole-record spreads of the (by now long-held) `record` snapshot
+  // back onto the session key — a failed email could overwrite
+  // accounting or revocation state just as a delivered one could. A
+  // persistence failure propagates, as in the initial path.
+  const resultRecord: HdEmailResultRecord = {
+    schemaVersion: SETTLEMENT_SCHEMA_VERSION,
+    sessionId: input.sessionId,
+    variant: "archive_ready",
+    provider: result.provider,
+    error: result.delivered ? undefined : result.error,
+    deliveredAt: result.delivered ? Date.now() : undefined,
+    includedArchive: result.delivered ? Boolean(result.includedArchiveLink) : undefined,
+    recordedAt: Date.now(),
+  };
+  await kv.setDurable(ENTITLEMENT_KV.hdArchiveEmailResult(input.sessionId), resultRecord);
 
   return result;
 }
