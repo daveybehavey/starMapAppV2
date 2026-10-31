@@ -140,9 +140,11 @@ test("route: completed and async_payment_succeeded run the same fulfillment pass
 test("route: async settlement events defer dedupe until successful handling", () => {
   // Refund/dispute events defer too since DL-1 Slice 3 (a transiently
   // deferred referral reversal must be redeliverable — Codex P2, PR #367).
+  // Subscription events defer since S93-1 item 7 (a failed subscription
+  // handling must be redeliverable, never acknowledged by an incr).
   assert.match(
     webhookSource,
-    /const deferDedupeUntilSuccess =\s*isExpiredCheckoutEvent \|\|\s*isCompletedCheckoutEvent \|\|\s*isAsyncPaymentSucceededEvent \|\|\s*isAsyncPaymentFailedEvent \|\|\s*isReferralReversalEvent;/,
+    /const deferDedupeUntilSuccess =\s*isExpiredCheckoutEvent \|\|\s*isCompletedCheckoutEvent \|\|\s*isAsyncPaymentSucceededEvent \|\|\s*isAsyncPaymentFailedEvent \|\|\s*isReferralReversalEvent \|\|\s*isSubscriptionEvent;/,
   );
 });
 
@@ -158,9 +160,11 @@ test("route: async_payment_failed finalizes pending print records and submits no
 });
 
 test("route: entitlement grants keep their own payment gates (unchanged)", () => {
+  // S93-1 item 5: the two entry gates are unchanged; they now return
+  // the nonfulfillable outcome instead of a bare return.
   assert.match(
     webhookSource,
-    /async function markSessionPaid\(session: Stripe\.Checkout\.Session\) \{\s*if \(!session\.id\) return;\s*if \(!isFulfillableCheckoutPayment\(session\)\) return;/,
+    /async function markSessionPaid\(\s*session: Stripe\.Checkout\.Session,?\s*\): Promise<MarkSessionPaidOutcome> \{\s*if \(!session\.id\) return \{ kind: "nonfulfillable" \};\s*if \(!isFulfillableCheckoutPayment\(session\)\) return \{ kind: "nonfulfillable" \};/,
   );
   assert.match(
     webhookSource,

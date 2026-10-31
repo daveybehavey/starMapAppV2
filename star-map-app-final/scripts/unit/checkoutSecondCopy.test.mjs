@@ -352,7 +352,12 @@ test("entitlement fence: the entitlement grant keeps its pre-Lever-A shape", () 
   // parameter, and metadata.plan is never derived from it: a copy
   // order grants exactly the entitlement its single print purchase
   // already grants, nothing more (design §4, STOP 3).
-  assert.match(webhook, /async function markSessionPaid\(session: Stripe\.Checkout\.Session\)/);
+  // (S93-1 item 5 added the MarkSessionPaidOutcome return type; the
+  // single-parameter shape this pin protects is unchanged.)
+  assert.match(
+    webhook,
+    /async function markSessionPaid\(\s*session: Stripe\.Checkout\.Session,?\s*\): Promise<MarkSessionPaidOutcome>/,
+  );
 });
 
 test("UI wiring: all three surfaces render the toggle and thread the flag (source pins)", () => {
