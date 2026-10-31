@@ -352,3 +352,39 @@ test("legacy-only subscriber (KV state, no coordinator object) is permitted; leg
   const listDelivered = await promotionsLib.runPromotionAutomation(listEmail, "FIRST50");
   assert.equal(listDelivered.delivered, true);
 });
+
+test("legacy facts: an unreadable state record refuses as authority_unavailable even when the list read succeeds", async () => {
+  // Codex P2 on PR #454: kv.get degrades a failed read to `null`, so an
+  // unreadable suppression record was indistinguishable from an absent
+  // one and list membership could permit the send. The legacy facts are
+  // now read error-preserving: this state record is present but
+  // unreadable (corrupt in the local fallback store), the list read
+  // succeeds and contains the address — the dispatch must still refuse.
+  freshClient();
+  const email = "legacy-unreadable@example.com";
+  const list = (await kv.get(LEGACY_SUBSCRIPTION_KEY)) ?? [];
+  await kv.set(LEGACY_SUBSCRIPTION_KEY, [...list, email]);
+
+  const fs = await import("node:fs/promises");
+  const path = await import("node:path");
+  const kvDir =
+    process.env.STARMAP_KV_DIR?.trim() || path.join(process.cwd(), ".tmp", "kv-store");
+  await fs.mkdir(kvDir, { recursive: true });
+  const stateFile = path.join(
+    kvDir,
+    `${Buffer.from(emailStateKey(email), "utf8").toString("base64url")}.json`,
+  );
+  await fs.writeFile(stateFile, "{unreadable", "utf8");
+
+  const checker = guardLib.createPromotionDispatchPermissionChecker(freshClient());
+  assert.deepEqual(await checker(email), {
+    permitted: false,
+    reason: "authority_unavailable",
+  });
+
+  const calls = installFetchFake();
+  const refused = await promotionsLib.runPromotionAutomation(email, "FIRST50");
+  assert.equal(refused.delivered, false);
+  assert.equal(refused.error, "promotion_dispatch_refused:authority_unavailable");
+  assert.equal(calls.length, 0, "no provider leg may run when the state record is unreadable");
+});

@@ -93,9 +93,15 @@ async function readLegacyPermissionFacts(email: string): Promise<{
   legacyState: PromotionEmailState | null;
   legacyListMember: boolean;
 }> {
+  // Error-preserving reads (Codex P2 on PR #454): `kv.get` degrades a
+  // failed Cloudflare read to local fallback and can return `null` for a
+  // record that exists but is unreadable — indistinguishable from an
+  // absent suppression record, which would let list membership permit a
+  // send that must be refused. A failed read here throws and the checker
+  // maps it to `authority_unavailable`, whatever the other read says.
   const [state, list] = await Promise.all([
-    kv.get<PromotionEmailState>(emailStateKey(email)),
-    kv.get<string[]>(LEGACY_SUBSCRIPTION_KEY),
+    kv.getErrorPreserving<PromotionEmailState>(emailStateKey(email)),
+    kv.getErrorPreserving<string[]>(LEGACY_SUBSCRIPTION_KEY),
   ]);
   return {
     legacyState: state ?? null,

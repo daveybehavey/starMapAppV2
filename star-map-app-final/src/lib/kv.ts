@@ -59,6 +59,15 @@ export class KvSoftWriteError extends Error {
   }
 }
 
+/** Surfaces a durable Cloudflare KV read failure for error-preserving authority reads. */
+export class KvReadError extends Error {
+  readonly code = "kv_read_failed";
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options?.cause ? { cause: options.cause } : undefined);
+    this.name = "KvReadError";
+  }
+}
+
 /** True for strict durable put/delete failures that must not be swallowed as soft errors. */
 export function isDurableKvPersistenceError(error: unknown): boolean {
   return error instanceof KvDurableWriteError || error instanceof KvDurableDeleteError;
@@ -87,6 +96,27 @@ async function readFallbackValue<T>(key: string): Promise<T | null> {
     return JSON.parse(raw) as T;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Error-preserving variant of {@link readFallbackValue}: a missing file is
+ * an absent key (`null`), but an unreadable or unparseable file throws
+ * {@link KvReadError} instead of masquerading as absence.
+ */
+async function readFallbackValueErrorPreserving<T>(key: string): Promise<T | null> {
+  const filePath = fallbackFilePathForKey(key);
+  let raw: string;
+  try {
+    raw = await fs.readFile(filePath, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException | null)?.code === "ENOENT") return null;
+    throw new KvReadError("Local KV fallback read failed", { cause: error });
+  }
+  try {
+    return JSON.parse(raw) as T;
+  } catch (error) {
+    throw new KvReadError("Local KV fallback value is unreadable", { cause: error });
   }
 }
 
@@ -343,6 +373,37 @@ export const kv = {
       return memoryStore.get(key) as T;
     }
     const fallbackValue = await readFallbackValue<T>(key);
+    if (fallbackValue !== null) {
+      memoryStore.set(key, fallbackValue);
+    }
+    return fallbackValue;
+  },
+  /**
+   * Error-preserving read for authority facts (e.g. promotion permission /
+   * suppression records), where an unreadable record must never be
+   * indistinguishable from an absent one. Unlike {@link kv.get}: when a
+   * Cloudflare namespace is bound, its answer (value or genuine `null`) is
+   * authoritative and a read failure throws {@link KvReadError} instead of
+   * degrading to local fallback; when no namespace is bound, the local
+   * memory/file store answers, and an unreadable local record likewise
+   * throws. `null` therefore means only "read succeeded, key absent".
+   */
+  async getErrorPreserving<T>(key: string): Promise<T | null> {
+    if (MIRROR_KV_LOCAL_IN_CI && memoryStore.has(key)) {
+      return memoryStore.get(key) as T;
+    }
+    const cfKv = await getCloudflareKv();
+    if (cfKv) {
+      try {
+        return await cfKv.get<T>(key, "json");
+      } catch (error) {
+        throw new KvReadError("Cloudflare KV error-preserving read failed", { cause: error });
+      }
+    }
+    if (memoryStore.has(key)) {
+      return memoryStore.get(key) as T;
+    }
+    const fallbackValue = await readFallbackValueErrorPreserving<T>(key);
     if (fallbackValue !== null) {
       memoryStore.set(key, fallbackValue);
     }
