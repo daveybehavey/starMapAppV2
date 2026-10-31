@@ -2579,7 +2579,6 @@ export const __testUtils = {
   toRgba,
   adjustColor,
   toUTCDateFromLocal,
-  resolveTextCenterNormalized,
   parchmentRetentionFactor,
   minAlphaForContrast,
   parchmentBackingAt,
