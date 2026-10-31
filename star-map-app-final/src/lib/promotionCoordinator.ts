@@ -892,6 +892,19 @@ export type ConfirmPromotionConsentFlowResult = {
  * coordinator has already committed when this runs, so surfacing
  * the failure is safe: a retry republishes from committed state
  * (and the token's replay returns the recorded completion).
+ *
+ * The republication covers the replay result too: if the first
+ * strict write failed after the coordinator committed, the retry
+ * returns `already_confirmed` carrying that same committed state,
+ * and it is republished through the same strict path — otherwise
+ * the stale projection (still showing the pre-ceremony unsubscribe
+ * stamp) would never be repaired, and legacy readers would treat
+ * the re-consented identity as suppressed indefinitely. A
+ * republication failure on the retry surfaces exactly as the
+ * first attempt's does; it is never swallowed into a success that
+ * leaves the projection stale. Non-confirmed results (expired /
+ * superseded / no_pending_request) republish nothing: their T-1
+ * zero-mutation invariant is untouched.
  */
 export async function confirmPromotionConsentFlow(input: {
   email: string;
@@ -910,7 +923,10 @@ export async function confirmPromotionConsentFlow(input: {
     tokenHash: hashPromotionConfirmationToken(input.token),
     evidence: { ...input.evidence, digestStamp },
   });
-  if (result.result === "confirmed" && result.state) {
+  if (
+    (result.result === "confirmed" || result.result === "already_confirmed") &&
+    result.state
+  ) {
     await publishPromotionProjectionStrict(email, result.state);
   }
   return result;

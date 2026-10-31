@@ -67,6 +67,8 @@ const tombstoneLib = await import("../../src/lib/promotionTombstones.ts");
 const clientLib = await import("../../src/lib/consistencyCoordinator.ts");
 const flows = await import("../../src/lib/promotionCoordinator.ts");
 const guardLib = await import("../../src/lib/promotionDispatchGuard.ts");
+const { kv } = await import("../../src/lib/kv.ts");
+const subsLib = await import("../../src/lib/promotionSubscriptions.ts");
 
 const NOW = Date.UTC(2026, 9, 31, 17, 0, 0);
 const HASH = "hash-rdd";
@@ -707,6 +709,71 @@ test("RD-D flows: the raw token exists only in the flow result; the stored docum
 
   const replay = await flows.confirmPromotionConsentFlow({ email, token: asked.token });
   assert.equal(replay.result, "already_confirmed");
+});
+
+test("RD-D flows: an already_confirmed retry repairs the projection when the first strict write failed", async () => {
+  clientLib.__resetConsistencyCoordinatorMemoryForTests();
+  const email = "projection-repair@example.com";
+  const projectionKey = subsLib.emailStateKey(email);
+
+  // Stage the identity from the Codex P2 reproduction: subscribed,
+  // then unsubscribed, so the KV projection carries the unsubscribe
+  // stamp legacy readers (incl. the review engine) suppress on.
+  await flows.subscribePromotionFlow({ email, source: "homepage", couponCode: "FIRST50" });
+  await flows.unsubscribePromotionFlow({ email, reason: "email_link" });
+  const stale = await kv.get(projectionKey);
+  assert.equal(typeof stale?.unsubscribedAt, "number", "the projection holds the unsubscribe stamp");
+
+  const asked = await flows.requestPromotionConsentFlow({ email });
+  assert.equal(asked.outcome, "created");
+
+  // Inject the projection-write failure, scoped to this identity's
+  // projection key; every other KV write passes through untouched.
+  const originalSet = kv.set;
+  let failProjection = true;
+  kv.set = async (key, value, ...rest) => {
+    if (failProjection && key === projectionKey) {
+      throw new Error("injected projection write failure");
+    }
+    return originalSet(key, value, ...rest);
+  };
+  try {
+    // First presentation: the coordinator commits the ceremony, the
+    // strict republication fails, and the failure surfaces.
+    await assert.rejects(flows.confirmPromotionConsentFlow({ email, token: asked.token }));
+    // Nothing repaired the projection: it still shows the stale stamp.
+    const stillStale = await kv.get(projectionKey);
+    assert.equal(stillStale?.unsubscribedAt, stale.unsubscribedAt);
+
+    // A non-confirmed replay performs zero mutation even while the
+    // projection write is failing: it never reaches the projection
+    // path (T-1 invariant — republication is confirmed-state only).
+    const wrong = await flows.confirmPromotionConsentFlow({ email, token: "not-the-token" });
+    assert.equal(wrong.result, "superseded");
+    const untouched = await kv.get(projectionKey);
+    assert.equal(untouched?.unsubscribedAt, stale.unsubscribedAt);
+
+    // Retry with the same token while the write still fails: the
+    // recorded result is already_confirmed, and its republication
+    // failure surfaces exactly as the first attempt's did — never
+    // swallowed into a success that leaves the projection stale.
+    await assert.rejects(flows.confirmPromotionConsentFlow({ email, token: asked.token }));
+  } finally {
+    kv.set = originalSet;
+  }
+
+  // With the write healthy again, the same retry returns the
+  // recorded completion AND repairs the projection to the
+  // authoritative state: the unsubscribe stamp is gone.
+  const retry = await flows.confirmPromotionConsentFlow({ email, token: asked.token });
+  assert.equal(retry.result, "already_confirmed");
+  assert.equal(retry.state.unsubscribedAt, null);
+  const repaired = await kv.get(projectionKey);
+  assert.equal(
+    repaired?.unsubscribedAt,
+    undefined,
+    "the projection no longer suppresses the re-consented identity",
+  );
 });
 
 test("RD-D flows: re-issuance rotates the token end to end", async () => {
