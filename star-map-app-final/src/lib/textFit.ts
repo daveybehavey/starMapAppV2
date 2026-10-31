@@ -42,6 +42,43 @@ export function resolveFittedFontSize(
   return fontSize * resolveTextFitScale(textWidth, availableWidth, minScale);
 }
 
+/** The renderer's reference canvas width: configured text sizes are
+ * authored against a 1200px-wide canvas and scaled from it. */
+export const TEXT_REFERENCE_CANVAS_WIDTH = 1200;
+
+/** Smallest configured text size, in REFERENCE-canvas pixels. */
+export const REFERENCE_MIN_TEXT_SIZE_PX = 10;
+
+/** Configured size of a text box that carries none (the renderer's
+ * long-standing default). */
+export const DEFAULT_TEXT_BOX_SIZE_PX = 28;
+
+/**
+ * The base (unfitted) font size for a text box, in output pixels
+ * (S93-2 class 1). The configured size lives on the reference canvas,
+ * so the legibility minimum floors the CONFIGURED size before it is
+ * scaled — `max(10, size) * scale` — never the scaled result. The
+ * pre-fix form, `max(10, size * scale)`, let the absolute 10px floor
+ * override proportional scaling at small render sizes: a size-28 box
+ * rendered at 10px on a 300px preview (43% oversized relative to the
+ * canvas) but at the proportional 7px-equivalent on a 6000px export,
+ * so preview and print disagreed about the design's proportions.
+ *
+ * For configured sizes >= 10 at scales >= 1 (every paid render at
+ * 1200px and above whose floor did not bind) the result is
+ * numerically identical to the pre-fix expression; below that
+ * boundary the smaller, proportional size IS the fix.
+ */
+export function resolveBaseTextFontSizePx(
+  size: number | undefined,
+  scale: number,
+): number {
+  return (
+    Math.max(REFERENCE_MIN_TEXT_SIZE_PX, size ?? DEFAULT_TEXT_BOX_SIZE_PX) *
+    scale
+  );
+}
+
 /**
  * The rectangle frame's inset from the canvas edge, in pixels — one
  * calculation, shared by the frame stroke (drawBackground in

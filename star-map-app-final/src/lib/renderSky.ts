@@ -11,6 +11,7 @@ import type { AspectRatio, Shape } from "@/lib/types";
 import { FONT_STACKS } from "@/lib/fonts";
 import { adjustColor, parseHexColor, parseRgbColor, toRgba } from "@/lib/colorUtils";
 import {
+  resolveBaseTextFontSizePx,
   resolveFrameInsetPx,
   resolveShapeTextAvailableWidth,
   resolveTextFitScale,
@@ -1629,7 +1630,11 @@ function drawText(
     if (!box.text || box.text.trim() === "") return;
 
     const weight = box.fontWeight ?? 600;
-    const baseFontSize = Math.max(10, (box.size ?? 28) * scale);
+    // S93-2 class 1: the 10px legibility floor applies to the
+    // configured (reference-canvas) size, not the scaled result, so
+    // the box keeps the same proportion of the canvas at every
+    // render size.
+    const baseFontSize = resolveBaseTextFontSizePx(box.size, scale);
     const baseFont = `${weight} ${baseFontSize}px ${FONT_STACKS[box.fontFamily]}`;
     // Fit-to-width (P01): a line wider than the canvas shrinks to fit
     // instead of spilling symmetrically off both edges of the print. Lines
@@ -1992,12 +1997,16 @@ function drawConstellations(
 
   if (!showLabels) return;
 
+  // S93-2 class 1: the label minima are reference-canvas minima —
+  // they floor the unscaled tier size, then scale with the canvas
+  // (the pre-fix form floored the scaled size, inflating labels on
+  // small renders and distorting collision decisions there).
   const labelFontSize =
     mapLookTier === "minimal"
-      ? Math.max(7.5, 8 * scale)
+      ? Math.max(7.5, 8) * scale
       : mapLookTier === "polished"
-        ? Math.max(8.5, 9.5 * scale)
-        : Math.max(8, 9 * scale);
+        ? Math.max(8.5, 9.5) * scale
+        : Math.max(8, 9) * scale;
   const labelLetterSpacing =
     mapLookTier === "minimal" ? 0.2 * scale : mapLookTier === "polished" ? 0.15 * scale : 0.12 * scale;
   const collisionPadX = mapLookTier === "minimal" ? 6 * scale : 5 * scale;
