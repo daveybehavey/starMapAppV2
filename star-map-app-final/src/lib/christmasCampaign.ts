@@ -400,12 +400,22 @@ export function getChristmasLandingPromo(nowMs: number = Date.now()): ChristmasL
 
 /**
  * Landing-page FAQ answer for "Do Christmas discount codes apply to HD
- * digital?" — names the codes only while CHRISTMAS_PROMO_PUBLICITY is on;
- * otherwise keeps the prints-only rule without publicising either code.
+ * digital?" — while CHRISTMAS_PROMO_PUBLICITY is on, names only the code
+ * the banner/landing builders publicise in the phase the campaign clock
+ * resolves to (XMAS15 in the early, last-call and Boxing Day phases;
+ * BLACKFRIDAY25 in the Black Friday and Cyber Monday phases). In phases
+ * with no publicised code — and whenever publicity is off — keeps the
+ * prints-only rule without naming either code.
  */
-export function getChristmasPromoCodesFaqAnswer(): string {
+export function getChristmasPromoCodesFaqAnswer(nowMs: number = Date.now()): string {
   if (CHRISTMAS_PROMO_PUBLICITY) {
-    return `No. Seasonal codes such as ${CHRISTMAS_PROMO.xmas15.code} and ${CHRISTMAS_PROMO.blackFriday.code} apply to prints only. HD digital is excluded from those promotions.`;
+    const phase = resolveChristmasBannerPhase(nowMs);
+    if (phase === "xmas15_early" || phase === "xmas15_last_call" || phase === "boxing_day") {
+      return `No. Seasonal codes such as ${CHRISTMAS_PROMO.xmas15.code} apply to prints only. HD digital is excluded from those promotions.`;
+    }
+    if (phase === "black_friday" || phase === "cyber_monday") {
+      return `No. Seasonal codes such as ${CHRISTMAS_PROMO.blackFriday.code} apply to prints only. HD digital is excluded from those promotions.`;
+    }
   }
   return "No. Seasonal codes apply to prints only. HD digital is excluded from those promotions.";
 }

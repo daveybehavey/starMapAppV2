@@ -3,6 +3,7 @@
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -254,18 +255,121 @@ test("Christmas cyber monday and boxing day phases (boundaries + copy)", async (
   assert.equal(getChristmasBannerContent(at("2026-12-27"), "$9"), null);
 });
 
-test("Christmas promo publicity flag defaults on; FAQ answer names the codes", async () => {
-  const { CHRISTMAS_PROMO_PUBLICITY, getChristmasPromoCodesFaqAnswer } = await loadTs(
-    "src/lib/christmasCampaign.ts"
-  );
+test("Christmas promo publicity flag defaults on; FAQ answer names the phase's code only", async () => {
+  const { CHRISTMAS_PROMO, CHRISTMAS_PROMO_PUBLICITY, getChristmasPromoCodesFaqAnswer } =
+    await loadTs("src/lib/christmasCampaign.ts");
 
-  // Default reproduces today's behaviour: the codes are publicised, so the
-  // FAQ answer names them exactly as the landing page always has.
   assert.equal(CHRISTMAS_PROMO_PUBLICITY, true);
-  assert.equal(
-    getChristmasPromoCodesFaqAnswer(),
-    "No. Seasonal codes such as XMAS15 and BLACKFRIDAY25 apply to prints only. HD digital is excluded from those promotions."
+  // Source offer mapping the named codes derive from. The FAQ sentence
+  // itself carries no percentage; the depths live on the offers.
+  assert.deepEqual(CHRISTMAS_PROMO.xmas15, { code: "XMAS15", percent: 15 });
+  assert.deepEqual(CHRISTMAS_PROMO.blackFriday, { code: "BLACKFRIDAY25", percent: 25 });
+
+  const XMAS15_ANSWER =
+    "No. Seasonal codes such as XMAS15 apply to prints only. HD digital is excluded from those promotions.";
+  const BLACK_FRIDAY_ANSWER =
+    "No. Seasonal codes such as BLACKFRIDAY25 apply to prints only. HD digital is excluded from those promotions.";
+  const NO_CODE_ANSWER =
+    "No. Seasonal codes apply to prints only. HD digital is excluded from those promotions.";
+
+  // Explicit Pacific-date clocks (20:00Z is midday in America/Los_Angeles),
+  // never the real clock: the FAQ must name exactly the one code the
+  // banner/landing builders publicise in the resolved phase — never both
+  // codes, never the other phase's code.
+  const at = (ymd) => Date.parse(`${ymd}T20:00:00.000Z`);
+  const matrix = [
+    // xmas15_early: Nov 1–26
+    ["2026-11-01", XMAS15_ANSWER],
+    ["2026-11-15", XMAS15_ANSWER],
+    ["2026-11-26", XMAS15_ANSWER],
+    // black_friday: Nov 27–29
+    ["2026-11-27", BLACK_FRIDAY_ANSWER],
+    ["2026-11-28", BLACK_FRIDAY_ANSWER],
+    ["2026-11-29", BLACK_FRIDAY_ANSWER],
+    // cyber_monday, including its extension day: Nov 30–Dec 1
+    ["2026-11-30", BLACK_FRIDAY_ANSWER],
+    ["2026-12-01", BLACK_FRIDAY_ANSWER],
+    // xmas15_last_call: Dec 2–10
+    ["2026-12-02", XMAS15_ANSWER],
+    ["2026-12-05", XMAS15_ANSWER],
+    ["2026-12-09", XMAS15_ANSWER],
+    ["2026-12-10", XMAS15_ANSWER],
+    // boxing_day: Dec 26
+    ["2026-12-26", XMAS15_ANSWER],
+    // order_by: Oct 1–31
+    ["2026-10-01", NO_CODE_ANSWER],
+    ["2026-10-31", NO_CODE_ANSWER],
+    // digital_last_minute: Dec 11–25
+    ["2026-12-11", NO_CODE_ANSWER],
+    ["2026-12-25", NO_CODE_ANSWER],
+    // hidden: before Oct 1 and from Dec 27
+    ["2026-09-30", NO_CODE_ANSWER],
+    ["2026-12-27", NO_CODE_ANSWER],
+  ];
+  for (const [ymd, expected] of matrix) {
+    const answer = getChristmasPromoCodesFaqAnswer(at(ymd));
+    assert.equal(answer, expected, `FAQ answer at ${ymd}`);
+    if (expected === XMAS15_ANSWER) {
+      assert.equal(answer.includes("BLACKFRIDAY25"), false, `must not name BLACKFRIDAY25 at ${ymd}`);
+    }
+    if (expected === BLACK_FRIDAY_ANSWER) {
+      assert.equal(answer.includes("XMAS15"), false, `must not name XMAS15 at ${ymd}`);
+    }
+    if (expected === NO_CODE_ANSWER) {
+      assert.equal(/XMAS15|BLACKFRIDAY25/.test(answer), false, `must name neither code at ${ymd}`);
+    }
+  }
+});
+
+test("Christmas promo FAQ answer names no code in any phase while publicity is off", async () => {
+  // CHRISTMAS_PROMO_PUBLICITY is a shipped source constant, not a runtime
+  // toggle, so the OFF behaviour is exercised through an isolated variant
+  // of the module with the constant flipped. The shipped default is not
+  // changed and no production runtime toggle is introduced.
+  const source = fs.readFileSync(path.join(ROOT, "src/lib/christmasCampaign.ts"), "utf8");
+  assert.match(source, /export const CHRISTMAS_PROMO_PUBLICITY = true;/);
+  const variantDir = fs.mkdtempSync(path.join(os.tmpdir(), "christmas-campaign-publicity-off-"));
+  const variantPath = path.join(variantDir, "christmasCampaign.ts");
+  fs.writeFileSync(
+    variantPath,
+    source.replace(
+      "export const CHRISTMAS_PROMO_PUBLICITY = true;",
+      "export const CHRISTMAS_PROMO_PUBLICITY = false;"
+    )
   );
+  try {
+    const variant = await import(pathToFileURL(variantPath).href);
+    assert.equal(variant.CHRISTMAS_PROMO_PUBLICITY, false);
+    const NO_CODE_ANSWER =
+      "No. Seasonal codes apply to prints only. HD digital is excluded from those promotions.";
+    const at = (ymd) => Date.parse(`${ymd}T20:00:00.000Z`);
+    // Every phase — promo phases, Boxing Day, and both hidden windows —
+    // falls back to the code-free answer while publicity is off.
+    for (const ymd of [
+      "2026-09-30",
+      "2026-10-01",
+      "2026-10-31",
+      "2026-11-01",
+      "2026-11-15",
+      "2026-11-26",
+      "2026-11-27",
+      "2026-11-29",
+      "2026-11-30",
+      "2026-12-01",
+      "2026-12-02",
+      "2026-12-10",
+      "2026-12-11",
+      "2026-12-25",
+      "2026-12-26",
+      "2026-12-27",
+    ]) {
+      const answer = variant.getChristmasPromoCodesFaqAnswer(at(ymd));
+      assert.equal(answer, NO_CODE_ANSWER, `publicity-off FAQ answer at ${ymd}`);
+      assert.equal(/XMAS15|BLACKFRIDAY25/.test(answer), false, `must name no code at ${ymd}`);
+    }
+  } finally {
+    fs.rmSync(variantDir, { recursive: true, force: true });
+  }
 });
 
 test("Christmas order-by table rows derive from CHRISTMAS_ORDER_BY_DATES", async () => {
@@ -373,6 +477,14 @@ test("christmas order-by table wiring: page, component, footer and home links", 
   const page = fs.readFileSync(path.join(ROOT, "src/app/christmas-star-map-gift/page.tsx"), "utf8");
   assert.match(page, /ChristmasOrderByTable/);
   assert.match(page, /getChristmasPromoCodesFaqAnswer/);
+  // The FAQ getter receives the page's effective campaign clock — the
+  // same clockMs the landing promo builder gets — so the FAQ answer,
+  // promo box, URL overrides, and schema input resolve the same phase.
+  assert.match(page, /getChristmasPromoCodesFaqAnswer\(clockMs\)/);
+  // Visible FAQ rendering and the FaqSchema input are both fed by the one
+  // shared faqItems array, so both carry the same phase-correct answer.
+  assert.match(page, /\{faqItems\.map\(\(item\) => \(/);
+  assert.match(page, /<FaqSchema items=\{faqItems\.map\(/);
   // The landing page must not name the codes itself — they come from the
   // campaign lib so CHRISTMAS_PROMO_PUBLICITY gates every display surface.
   assert.equal(/XMAS15|BLACKFRIDAY25/.test(page), false);
