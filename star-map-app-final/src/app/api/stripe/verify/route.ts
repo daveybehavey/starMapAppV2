@@ -88,7 +88,22 @@ function normalizeShippingCountryCode(raw: string | null | undefined): string | 
 }
 
 async function loadPrintSummary(sessionId: string): Promise<PrintOrderSummary | null> {
-  const order = await kv.get<PrintOrderRecord>(printOrderKey(sessionId));
+  // Auxiliary display data only (S92-1, the #450 rule applied to the two
+  // branches #450 did not cover): every caller has already established
+  // the paid answer before reading the summary, so a storage rejection
+  // here degrades the summary to null — it must never reach the route's
+  // outer catch and convert a settled payment into a definitive
+  // { paid: false }.
+  let order: PrintOrderRecord | null;
+  try {
+    order = await kv.get<PrintOrderRecord>(printOrderKey(sessionId));
+  } catch (err) {
+    console.warn("Stripe verify print summary load failed", {
+      sessionId,
+      error: err,
+    });
+    return null;
+  }
   if (!order) {
     return {
       kvStatus: null,
