@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { evaluateClaimPaid, ENTITLEMENT_KV, type ClaimTokenRecord, type StripeSessionEntitlement } from "@/lib/entitlementsStore";
+import { evaluateClaimPaid, ENTITLEMENT_KV, type ClaimPointerRecord, type ClaimTokenRecord, type StripeSessionEntitlement } from "@/lib/entitlementsStore";
 import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 import { PREMIUM_COOKIE_NAME, PREMIUM_COOKIE_TTL_SECONDS } from "@/lib/premium";
@@ -25,7 +25,23 @@ export async function GET(req: NextRequest) {
   if (!record || record.revoked) {
     return NextResponse.json({ ok: false, error: "Access revoked" }, { status: 403 });
   }
-  if (record.claimToken && record.claimToken !== token) {
+  // Governing-token check (fix round 4, PR #447): only the session's
+  // governing token resolves; superseded tokens are rejected. The
+  // governing token lives in the claim pointer since round 4 (issuance no
+  // longer writes the session record). The record's inline `claimToken`
+  // remains the fallback for legacy sessions the pointer never adopted —
+  // it is read here as evidence and never written. A pointer whose claim
+  // record has expired no longer governs, so an older still-valid token
+  // is not locked out by a dangling pointer.
+  let governingToken = record.claimToken ?? null;
+  const pointer = await kv.get<ClaimPointerRecord>(ENTITLEMENT_KV.claimPointer(claim.sessionId));
+  if (pointer?.token) {
+    const pointerClaim = await kv.get<ClaimTokenRecord>(ENTITLEMENT_KV.claim(pointer.token));
+    if (pointerClaim?.sessionId === claim.sessionId) {
+      governingToken = pointer.token;
+    }
+  }
+  if (governingToken && governingToken !== token) {
     return NextResponse.json({ ok: false, error: "Invalid token" }, { status: 404 });
   }
 

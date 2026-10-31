@@ -18,6 +18,15 @@ import {
   isFulfillableCheckoutPayment,
   type CouponLookup,
 } from "@/lib/checkoutPromotions";
+import {
+  CARRY_NOT_SUPPORTED_INTERIM,
+  readSessionRevocationEvidence,
+  recordTransferRefusal,
+  sessionHoldsLiveEntitlement,
+  settleSessionPurchase,
+  type SettlementPurchaseTerms,
+  type SettlementReceipt,
+} from "@/lib/entitlementsStore";
 
 export const runtime = "nodejs";
 
@@ -40,6 +49,8 @@ function createStripeCouponLookup(client: Stripe): CouponLookup {
 
 type SessionRecord = {
   paid?: boolean;
+  /** Option B interim settlement receipt (see lib/entitlementsStore.ts). */
+  settlementReceipt?: SettlementReceipt;
   mapId?: string;
   revoked?: boolean;
   paymentIntentId?: string | null;
@@ -159,6 +170,44 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  // Option B: durable revocation evidence outside the session record (side
+  // record / PI tombstone) also denies the paid fast path — a stale session
+  // snapshot must not issue an active entitlement cookie after a refund.
+  const revocationEvidence = await readSessionRevocationEvidence(
+    sessionId,
+    record?.paymentIntentId ?? null,
+  );
+  if (revocationEvidence.revoked) {
+    return NextResponse.json(
+      { paid: false, revoked: true },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  // Option B: automatic cross-session carry-forward is disabled. When the
+  // request presents a DIFFERENT session's premium cookie, say so explicitly
+  // instead of silently implying a combined balance, and nothing is moved.
+  // The incoming cookie is preserved — not overwritten with the new
+  // session — only while the incoming session still holds live entitlement
+  // (paid, unrevoked, credits remaining or an active subscription): it is
+  // the browser's only handle on that entitlement, and stranding it would
+  // silently cut the buyer off from credits they already paid for. When
+  // the incoming session holds no live entitlement, a successful verify
+  // sets the new session's cookie exactly as usual.
+  const incomingSessionId = req.cookies.get(PREMIUM_COOKIE_NAME)?.value;
+  const carryRequested = Boolean(incomingSessionId && incomingSessionId !== sessionId);
+  const carryForwardField = carryRequested
+    ? {
+        carryForward: {
+          outcome: CARRY_NOT_SUPPORTED_INTERIM,
+          movedCredits: 0,
+        },
+      }
+    : {};
+  const preserveIncomingCookie = carryRequested
+    ? await sessionHoldsLiveEntitlement(incomingSessionId as string)
+    : false;
+
   if (record?.paid && !record.revoked) {
     const mapId = typeof record.mapId === "string" ? record.mapId : undefined;
     const orderType = record.orderType ?? "digital";
@@ -176,6 +225,7 @@ export async function GET(req: NextRequest) {
         printVariant: record.printVariant ?? null,
         includesDigitalAddOn: Boolean(record.includesDigitalAddOn),
         printSummary,
+        ...carryForwardField,
       },
       { headers: { "Cache-Control": "no-store" } },
     );
@@ -185,7 +235,7 @@ export async function GET(req: NextRequest) {
         : record.plan === "subscription"
           ? Boolean(record.subscriptionActive)
           : (record.creditsRemaining ?? 0) > 0 || Boolean(record.paid);
-    if (hasDigitalEntitlement) {
+    if (hasDigitalEntitlement && !preserveIncomingCookie) {
       response.cookies.set(PREMIUM_COOKIE_NAME, sessionId, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
@@ -249,16 +299,21 @@ export async function GET(req: NextRequest) {
       });
       return NextResponse.json({ paid: false }, { headers: { "Cache-Control": "no-store" } });
     }
-    let credits = getCredits(session, plan);
-    const existingSessionId = req.cookies.get(PREMIUM_COOKIE_NAME)?.value;
-    if (existingSessionId && existingSessionId !== sessionId && plan !== "subscription") {
-      const existing = await kv.get<SessionRecord>(sessionKey(existingSessionId));
-      if (existing && !existing.revoked && existing.plan !== "subscription") {
-        const existingCredits = existing.creditsRemaining ?? 0;
-        if (existingCredits > 0) {
-          credits += existingCredits;
-        }
-      }
+    const credits = getCredits(session, plan);
+    // Option B interim policy (S61-1 mapping of S54-3): automatic
+    // cross-session carry-forward is DISABLED. The pre-B code read session
+    // A's remaining balance here and added it into B's settlement totals
+    // (M1-02) with no source debit — A->B and A->C could both copy it. Under
+    // B there is no source-balance read for movement, no debit, no credit,
+    // and no retirement: B settles only its own purchase, and the refusal
+    // is explicit (audit record + response field). The one read of A's
+    // record (preserveIncomingCookie, computed before settlement) decides
+    // cookie preservation only — it never moves a balance.
+    if (carryRequested) {
+      await recordTransferRefusal({
+        sourceSessionId: incomingSessionId as string,
+        destinationSessionId: sessionId,
+      });
     }
     const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : null;
     const subscriptionId = typeof session.subscription === "string" ? session.subscription : null;
@@ -273,23 +328,107 @@ export async function GET(req: NextRequest) {
       }
     }
     const mapId = resolveCheckoutMapIdFromStripeSession(session);
-    await kv.set(sessionKey(sessionId), {
-      paid: true,
-      mapId,
-      revoked: false,
-      paymentIntentId,
+    // Option B shared settlement (S61-1 mapping of S54-3): observed replay
+    // performs no session write, legacy paid records are adopted untouched,
+    // and ambiguous persistence answers pending — never definitive-unpaid,
+    // never another purchase.
+    const purchaseTerms: SettlementPurchaseTerms = {
+      plan: plan ?? null,
+      purchasedCredits: credits,
+      orderType,
+      printVariant: printVariant ?? null,
+      includesDigitalAddOn: hasDigitalAddOn,
+      subscription: plan === "subscription",
       amountTotal: session.amount_total ?? null,
       currency: session.currency ?? null,
-      plan,
-      creditsRemaining: credits || undefined,
-      creditsTotal: credits || undefined,
-      subscriptionId: subscriptionId ?? undefined,
-      subscriptionActive: plan === "subscription" ? true : undefined,
-      customerId: customerId ?? undefined,
-      orderType,
-      printVariant,
-      includesDigitalAddOn: hasDigitalAddOn,
+      paymentIntentId,
+      subscriptionId,
+      customerId,
+    };
+    const outcome = await settleSessionPurchase({
+      sessionId,
+      paymentIntentId,
+      purchaseTerms,
+      buildInitialRecord: (receipt) => ({
+        paid: true,
+        settlementReceipt: receipt,
+        created: Date.now(),
+        mapId,
+        revoked: false,
+        paymentIntentId,
+        amountTotal: session.amount_total ?? null,
+        currency: session.currency ?? null,
+        plan,
+        creditsRemaining: credits || undefined,
+        creditsTotal: credits || undefined,
+        subscriptionId: subscriptionId ?? undefined,
+        subscriptionActive: plan === "subscription" ? true : undefined,
+        customerId: customerId ?? undefined,
+        orderType,
+        printVariant,
+        includesDigitalAddOn: hasDigitalAddOn,
+      }),
     });
+    if (outcome.kind === "revoked") {
+      return NextResponse.json(
+        { paid: false, revoked: true },
+        { headers: { "Cache-Control": "no-store" } },
+      );
+    }
+    if (outcome.kind === "reconciliation_required" || outcome.kind === "persistence_ambiguous") {
+      console.warn("Stripe verify settlement not finalizable yet", {
+        sessionId,
+        outcome: outcome.kind,
+        detail: outcome.detail,
+      });
+      return NextResponse.json(
+        { paid: false, pending: true, reason: outcome.kind },
+        {
+          status: 503,
+          headers: { "Cache-Control": "no-store", "Retry-After": "2" },
+        },
+      );
+    }
+    if (outcome.kind === "already_settled") {
+      // A concurrent settlement (webhook or a racing verify) already wrote
+      // the record; answer from it without any further writes.
+      const settled = outcome.record;
+      const settledOrderType = settled.orderType ?? "digital";
+      const settledResponse = NextResponse.json(
+        {
+          paid: true,
+          mapId: typeof settled.mapId === "string" ? settled.mapId : undefined,
+          amountTotal: settled.amountTotal ?? null,
+          currency: settled.currency ?? null,
+          plan: settled.plan ?? null,
+          creditsRemaining: settled.creditsRemaining ?? null,
+          subscriptionActive: settled.subscriptionActive ?? null,
+          orderType: settledOrderType,
+          printVariant: settled.printVariant ?? null,
+          includesDigitalAddOn: Boolean(settled.includesDigitalAddOn),
+          printSummary: settledOrderType === "print" ? await loadPrintSummary(sessionId) : undefined,
+          ...carryForwardField,
+        },
+        { headers: { "Cache-Control": "no-store" } },
+      );
+      const settledHasDigitalEntitlement =
+        settled.orderType === "print"
+          ? Boolean(settled.includesDigitalAddOn) &&
+            ((settled.creditsRemaining ?? 0) > 0 || Boolean(settled.paid))
+          : settled.plan === "subscription"
+            ? Boolean(settled.subscriptionActive)
+            : (settled.creditsRemaining ?? 0) > 0 || Boolean(settled.paid);
+      if (settledHasDigitalEntitlement && !preserveIncomingCookie) {
+        settledResponse.cookies.set(PREMIUM_COOKIE_NAME, sessionId, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          path: "/",
+          maxAge: PREMIUM_COOKIE_TTL_SECONDS,
+        });
+      }
+      return settledResponse;
+    }
     if (!alreadyPaid) {
       const skipProductionAnalytics = isQaStripeSession(session);
       await recordPaymentVerifiedOnce({
@@ -333,12 +472,13 @@ export async function GET(req: NextRequest) {
         includesDigitalAddOn: hasDigitalAddOn,
         isQa: isQaStripeSession(session),
         printSummary: orderType === "print" ? await loadPrintSummary(sessionId) : undefined,
+        ...carryForwardField,
       },
       { headers: { "Cache-Control": "no-store" } },
     );
     const hasDigitalEntitlement =
       orderType === "print" ? hasDigitalAddOn && credits > 0 : plan === "subscription" ? true : credits > 0;
-    if (hasDigitalEntitlement) {
+    if (hasDigitalEntitlement && !preserveIncomingCookie) {
       response.cookies.set(PREMIUM_COOKIE_NAME, sessionId, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",

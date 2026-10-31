@@ -78,6 +78,7 @@ const {
   classifyDigitalEntitlement,
   classifyPrintRecord,
   classifyReviewSendError,
+  createMergedEntitlementReader,
   createReviewDispatchEligibilityChecker,
   isReviewSuppressed,
   normalizeAnchorMs,
@@ -110,6 +111,7 @@ const { createReviewLedgerClient, __resetReviewLedgerMemoryForTests } = await im
 const { ReviewRequestSuppressionDO } = await import(
   "../../src/durable-objects/ReviewRequestSuppressionDO.ts"
 );
+const { ENTITLEMENT_KV } = await import("../../src/lib/entitlementsStore.ts");
 const {
   buildReviewOptOutUrl,
   buildReviewRequestEmail,
@@ -1100,6 +1102,72 @@ test("eligibility checker: physical asks cross-check the entitlement at dispatch
     status: "ineligible",
     reason: "branch_disabled",
   });
+});
+
+test("dispatch boundary: sidecar-only metadata is dispatch-eligible via the production merged reader (PR #447 round 6)", async () => {
+  // A verify-first purchase in the fix-round-4 shape: the raw session
+  // record carries NO gift flag and NO customer email — both live only in
+  // the settlement-metadata sidecar. The tick and the proof route read
+  // the merged view and accept this session; before round 6 the
+  // coordinator's eligibility reader read the RAW record, so the same
+  // session was rejected gift_uncertain at the final dispatch boundary
+  // (G-dot condition 1 on the #447 re-presentation).
+  const sessionId = "cs_live_sidecar1";
+  const kvData = new Map();
+  kvData.set(ENTITLEMENT_KV.stripeSession(sessionId), {
+    paid: true,
+    created: Math.floor((NOW - 4 * DAY) / 1000),
+    orderType: "digital",
+    plan: "single",
+    creditsRemaining: 1,
+    creditsTotal: 1,
+  });
+  const sidecar = {
+    schemaVersion: 1,
+    sessionId,
+    customerEmail: "buyer@example.com",
+    isGift: false,
+    recordedAt: NOW - 4 * DAY,
+    updatedAt: NOW - 4 * DAY,
+  };
+  kvData.set(ENTITLEMENT_KV.settlementMetadata(sessionId), sidecar);
+  const getJson = async (key) => (kvData.has(key) ? structuredClone(kvData.get(key)) : null);
+  // The exact reader the suppression DO wires into the checker.
+  const checker = createReviewDispatchEligibilityChecker({
+    getEntitlement: createMergedEntitlementReader(getJson),
+    getPrintRecord: async () => null,
+    physicalEnabled: false,
+  });
+  const state = {
+    sessionId,
+    kind: "digital",
+    email: "buyer@example.com",
+    payload: frozenPayload(sessionId),
+  };
+  const at = { sessionId, state, now: () => NOW };
+  assert.deepEqual(await checker(at), { status: "eligible" });
+
+  // End-to-end through the real dispatch coordinator: exactly one send.
+  const ledger = createFakeLedger();
+  await claimedRow(ledger, sessionId);
+  const sender = createFakeSender({ ok: true, id: "msg_sidecar" });
+  const outcome = await executeReviewDispatch(
+    { sessionId, claimId: "claim-1" },
+    { ledger, isSuppressed: async () => false, checkEligibility: checker, send: sender.send, now: () => NOW },
+  );
+  assert.equal(outcome.outcome, "sent");
+  assert.equal(sender.calls.length, 1);
+  assert.equal(ledger.rows.get(sessionId).status, "sent");
+
+  // The merge is real, not a bypass: a gift flag living only in the
+  // sidecar still excludes, with the gift reason.
+  kvData.set(ENTITLEMENT_KV.settlementMetadata(sessionId), { ...sidecar, isGift: true });
+  assert.deepEqual(await checker(at), { status: "ineligible", reason: "gift_order" });
+
+  // With no sidecar at all, the boundary still fails closed exactly as
+  // the raw read did — the fix widens nothing.
+  kvData.delete(ENTITLEMENT_KV.settlementMetadata(sessionId));
+  assert.deepEqual(await checker(at), { status: "ineligible", reason: "gift_uncertain" });
 });
 
 test("ledger: resolve_dispatch ineligible / eligibility_unavailable settle terminally with the strip", () => {

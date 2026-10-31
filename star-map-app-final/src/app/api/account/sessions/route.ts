@@ -3,6 +3,7 @@ import { kv } from "@/lib/kv";
 import { hasValidAdminToken, readAdminTokenFromHeaders } from "@/lib/adminAuth";
 import { getAccountLiteEmailSessions, normalizeAccountLiteEmail } from "@/lib/accountLite";
 import type { CheckoutOrderType, CheckoutPlan, PrintVariant } from "@/lib/pricing";
+import { withSettlementMetadata } from "@/lib/entitlementsStore";
 
 export const runtime = "nodejs";
 
@@ -59,7 +60,12 @@ export async function GET(req: NextRequest) {
 
   const sessions = await Promise.all(
     lookup.sessions.slice(0, limit).map(async (entry) => {
-      const current = await kv.get<SessionRecord>(sessionKey(entry.sessionId));
+      const rawCurrent = await kv.get<SessionRecord>(sessionKey(entry.sessionId));
+      // Merged consumer view: completed settlement metadata (email) may
+      // live in the sidecar since fix round 4 (PR #447).
+      const current = rawCurrent
+        ? await withSettlementMetadata(entry.sessionId, rawCurrent)
+        : rawCurrent;
       return {
         index: entry,
         current: current

@@ -365,6 +365,23 @@ export const kv = {
    * Strict durable write for recovery canonical-session success.
    * When Cloudflare KV is bound, put failures propagate and do not populate local fallback.
    * Local memory/file is used only when CF is intentionally absent (dev/CI/explicit allow).
+   *
+   * Actual guarantees of this KV surface (Option B settlement mapping,
+   * S61-1 over S54-3 — documented so no caller over-claims):
+   * - `set`/`setDurable` are UNCONDITIONAL puts. There is no compare-and-swap,
+   *   mutual exclusion, transaction, or atomic conditional update anywhere in
+   *   this API, and `incr` is a non-atomic read-then-put.
+   * - `setDurable` differs from `set` only in failure handling: persistence
+   *   failures propagate instead of degrading to local-only success. It does
+   *   NOT make a write conditional, atomic with any other write, or
+   *   immediately visible to other readers.
+   * - `get` exposes no linearizable read contract: after a remote read error
+   *   it can fall through to memory/file fallback, and the caller cannot tell
+   *   whether fallback supplied the result. Absence on a read therefore never
+   *   proves non-execution or non-existence.
+   * - Repeated reads, `incr`-based claims, and expiring-lock shapes assembled
+   *   from these operations are NOT exclusion primitives and must never be
+   *   presented as locks or transactions.
    */
   async setDurable<T>(key: string, value: T, options?: KvSetOptions): Promise<"OK"> {
     const cfKv = await getCloudflareKv();

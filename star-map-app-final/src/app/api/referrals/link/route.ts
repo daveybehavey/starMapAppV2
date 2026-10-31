@@ -3,6 +3,7 @@ import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 import { PREMIUM_COOKIE_NAME } from "@/lib/premium";
 import { createReferralCode, referralKey, type ReferralRecord } from "@/lib/referrals";
+import { withSettlementMetadata } from "@/lib/entitlementsStore";
 import { appendReferralEvent } from "@/lib/referralLedger";
 import type { CheckoutOrderType, CheckoutPlan } from "@/lib/pricing";
 
@@ -44,7 +45,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Digital access required" }, { status: 402 });
   }
 
-  const existingCode = record.referralCode?.trim().toUpperCase();
+  // The attribution code may have been completed into the settlement-
+  // metadata sidecar (fix round 4, PR #447): the existing-code decision
+  // reads the merged view, exactly as it read the inline field before.
+  // The generation write below keeps its pre-existing shape on the raw
+  // record (a named residual writer — see the PR #447 residual register).
+  const mergedRecord = await withSettlementMetadata(sessionId, record);
+  const existingCode = mergedRecord.referralCode?.trim().toUpperCase();
   if (existingCode) {
     const existing = await kv.get<ReferralRecord>(referralKey(existingCode));
     if (existing?.sessionId === sessionId) {

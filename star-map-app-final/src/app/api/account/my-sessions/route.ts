@@ -13,7 +13,7 @@ import {
   hasRecoverableAccess,
   type AccountAccessSessionRecord,
 } from "@/lib/accountAccessLinks";
-import { ENTITLEMENT_KV } from "@/lib/entitlementsStore";
+import { ENTITLEMENT_KV, withSettlementMetadata } from "@/lib/entitlementsStore";
 
 export const runtime = "nodejs";
 
@@ -72,8 +72,11 @@ export async function GET(req: NextRequest) {
   const items: SessionListItem[] = [];
   for (const indexed of lookup.sessions.slice(0, 20)) {
     if (!indexed?.sessionId) continue;
-    const current = await kv.get<AccountAccessSessionRecord>(stripeSessionKey(indexed.sessionId));
-    if (!current) continue;
+    const rawCurrent = await kv.get<AccountAccessSessionRecord>(stripeSessionKey(indexed.sessionId));
+    if (!rawCurrent) continue;
+    // Merged consumer view: completed settlement metadata (email) may
+    // live in the sidecar since fix round 4 (PR #447).
+    const current = await withSettlementMetadata(indexed.sessionId, rawCurrent);
     const currentEmail = normalizeAccountLiteEmail(current.customerEmail);
     if (currentEmail && currentEmail !== email) continue;
     const label = getOfferLabel(current, indexed.plan);

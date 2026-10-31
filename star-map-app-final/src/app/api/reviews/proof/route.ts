@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { hasValidAdminToken, readAdminTokenFromHeaders } from "@/lib/adminAuth";
-import { ENTITLEMENT_KV, type StripeSessionEntitlement } from "@/lib/entitlementsStore";
+import {
+  applySettlementMetadata,
+  ENTITLEMENT_KV,
+  type SettlementMetadataRecord,
+  type StripeSessionEntitlement,
+} from "@/lib/entitlementsStore";
 import { isResendConfigured } from "@/lib/resend";
 import { isValidPrintCheckoutSessionId, printOrderKey, type PrintOrderRecord } from "@/lib/printOrders";
 import { normalizePromotionEmail } from "@/lib/promotionSubscriptions";
@@ -91,9 +96,23 @@ export async function POST(req: NextRequest) {
   });
   const now = Date.now();
 
-  const entitlement = await store.getJson<StripeSessionEntitlement>(
+  // Completed settlement metadata (customer email, gift provenance) may
+  // live in the settlement-metadata sidecar since PR #447 fix round 4 —
+  // read the merged entitlement view, exactly as the review engine's own
+  // loader does (runReviewRequestTick), or verify-born records classify
+  // gift_uncertain / missing-email here forever while the engine
+  // considers them due and sends (Codex P2, fix round 5).
+  const rawEntitlement = await store.getJson<StripeSessionEntitlement>(
     ENTITLEMENT_KV.stripeSession(sessionId),
   );
+  const settlementMetadata = rawEntitlement
+    ? await store
+        .getJson<SettlementMetadataRecord>(ENTITLEMENT_KV.settlementMetadata(sessionId))
+        .catch(() => null)
+    : null;
+  const entitlement = rawEntitlement
+    ? applySettlementMetadata(rawEntitlement, settlementMetadata)
+    : rawEntitlement;
   const printRecord = await store.getJson<PrintOrderRecord>(printOrderKey(sessionId));
 
   const digital = classifyDigitalEntitlement(entitlement, now);

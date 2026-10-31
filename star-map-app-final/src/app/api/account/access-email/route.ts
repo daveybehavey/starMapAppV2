@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { sendPostPurchaseAccessEmail } from "@/lib/accountAccessDelivery";
 import { hasRecoverableAccess, type AccountAccessSessionRecord } from "@/lib/accountAccessLinks";
 import { isAccountAccessEmailConfigured } from "@/lib/accountAccessAlerts";
-import { ENTITLEMENT_KV } from "@/lib/entitlementsStore";
+import { ENTITLEMENT_KV, withSettlementMetadata } from "@/lib/entitlementsStore";
 import { normalizeAccountLiteEmail } from "@/lib/accountLite";
 import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
@@ -41,10 +41,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
-  const record = await kv.get<AccountAccessSessionRecord>(ENTITLEMENT_KV.stripeSession(sessionId));
-  if (!record || !hasRecoverableAccess(record)) {
+  const rawRecord = await kv.get<AccountAccessSessionRecord>(ENTITLEMENT_KV.stripeSession(sessionId));
+  if (!rawRecord || !hasRecoverableAccess(rawRecord)) {
     return NextResponse.json({ ok: false, error: "No active access" }, { status: 403 });
   }
+  // Completed settlement metadata (the customer email this route exists
+  // to serve) may live in the sidecar since fix round 4 — merged view.
+  const record = await withSettlementMetadata(sessionId, rawRecord);
 
   const email = normalizeAccountLiteEmail(record.customerEmail);
   if (!email) {
