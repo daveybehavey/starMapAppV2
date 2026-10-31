@@ -73,6 +73,10 @@ const noFacts = {
   inLegacyFollowupList: null,
 };
 
+/** RD-C: creation-gate lookup facts for documents that carry no
+ *  tombstones (the gate consults them only when a tombstone exists). */
+const noTombstoneLookup = { digestsByVersion: {}, nonRetiredVersions: [1], resolvableVersions: [] };
+
 function freshClient() {
   clientLib.__resetConsistencyCoordinatorMemoryForTests();
   return clientLib.createConsistencyCoordinatorClient();
@@ -82,6 +86,7 @@ async function subscribeViaClient(client, email) {
   const emailHash = clientLib.coordinatorEmailHash(email);
   const name = clientLib.promotionCoordinatorName(emailHash);
   const result = await client.subscribePromotion(name, {
+    tombstoneLookup: noTombstoneLookup,
     emailHash,
     source: "test",
     now: Date.now(),

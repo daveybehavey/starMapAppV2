@@ -416,6 +416,10 @@ const noFacts = {
   inLegacyFollowupList: null,
 };
 
+/** RD-C: creation-gate lookup facts for documents that carry no
+ *  tombstones (the gate consults them only when a tombstone exists). */
+const noTombstoneLookup = { digestsByVersion: {}, nonRetiredVersions: [1], resolvableVersions: [] };
+
 function freshClient() {
   clientLib.__resetConsistencyCoordinatorMemoryForTests();
   return clientLib.createConsistencyCoordinatorClient();
@@ -425,6 +429,7 @@ async function subscribeViaClient(client, email, over = {}) {
   const emailHash = clientLib.coordinatorEmailHash(email);
   const name = clientLib.promotionCoordinatorName(emailHash);
   const result = await client.subscribePromotion(name, {
+    tombstoneLookup: noTombstoneLookup,
     emailHash,
     source: "test",
     now: Date.now(),
@@ -603,6 +608,7 @@ test("A2-3 legacy sent markers suppress both sends", async () => {
   const emailHash = clientLib.coordinatorEmailHash(email);
   const name = clientLib.promotionCoordinatorName(emailHash);
   await client.subscribePromotion(name, {
+    tombstoneLookup: noTombstoneLookup,
     emailHash,
     source: "test",
     now: Date.now(),
@@ -688,6 +694,7 @@ test("A2-3 DO alarm recovers a job whose driver crashed before the send", async 
   const coord = newCoordinator(sql, name);
   const emailHash = "hash-alarm";
   await coord.subscribePromotion({
+    tombstoneLookup: noTombstoneLookup,
     emailHash,
     source: "test",
     now: NOW,
@@ -717,6 +724,7 @@ test("A2-3 DO alarm recovers a job whose driver crashed before the send", async 
   const sql2 = new FakeSqlStorage();
   const coord2 = newCoordinator(sql2, "promotion:v1:hash-alarm2");
   await coord2.subscribePromotion({
+    tombstoneLookup: noTombstoneLookup,
     emailHash: "hash-alarm2",
     source: "test",
     now: Date.now(),
@@ -773,6 +781,7 @@ function setProviderEnv({ resend = false, sendgrid = false, webhook = false }) {
 
 function subscribedState(emailHash, now) {
   return stateLib.applySubscribePromotion(null, {
+    tombstoneLookup: noTombstoneLookup,
     emailHash,
     source: "test",
     now,
@@ -879,6 +888,7 @@ test("A2-3 DO claim stamps the selected provider; the reclaim honours its guaran
     setProviderEnv({ sendgrid: true });
     const coordSg = newCoordinator(new FakeSqlStorage(), "promotion:v1:hash-stamp-sg");
     await coordSg.subscribePromotion({
+      tombstoneLookup: noTombstoneLookup,
       emailHash: "hash-stamp-sg",
       source: "test",
       now: NOW,
@@ -901,6 +911,7 @@ test("A2-3 DO claim stamps the selected provider; the reclaim honours its guaran
     setProviderEnv({ resend: true });
     const coordRs = newCoordinator(new FakeSqlStorage(), "promotion:v1:hash-stamp-rs");
     await coordRs.subscribePromotion({
+      tombstoneLookup: noTombstoneLookup,
       emailHash: "hash-stamp-rs",
       source: "test",
       now: NOW,
@@ -1008,6 +1019,7 @@ test("A2-3 imported coupon acceptance without a followup marker recovers the fol
   const name = clientLib.promotionCoordinatorName(emailHash);
   const now = Date.now();
   const { state } = await client.subscribePromotion(name, {
+    tombstoneLookup: noTombstoneLookup,
     emailHash,
     source: "test",
     now,
@@ -1051,6 +1063,7 @@ test("A2-3 legacy sent-list membership without a followup marker recovers the fo
   const name = clientLib.promotionCoordinatorName(emailHash);
   const now = Date.now();
   const { state } = await client.subscribePromotion(name, {
+    tombstoneLookup: noTombstoneLookup,
     emailHash,
     source: "test",
     now,
@@ -1096,6 +1109,7 @@ test("A2-3 DO alarm completion cannot erase a concurrent unsubscribe", async () 
   const name = "promotion:v1:hash-race";
   const coord = newCoordinator(sql, name);
   await coord.subscribePromotion({
+    tombstoneLookup: noTombstoneLookup,
     emailHash: "hash-race",
     source: "test",
     now: Date.now(),
@@ -1171,6 +1185,7 @@ test("A2-3 stale claim after an unsubscribe is cancelled by the alarm, never cla
   assert.equal(reclaim.claim, null, "a cancelled job is never claimable");
   // Only an explicit resubscribe re-arms the job, under the same job id.
   const re = stateLib.applySubscribePromotion(alarmed.state, {
+    tombstoneLookup: noTombstoneLookup,
     emailHash: "hash-r2-unsub-stale",
     source: "test",
     now: t0 + stateLib.PROMOTION_JOB_ATTEMPT_STALE_MS + 4000,
@@ -1208,6 +1223,7 @@ test("A2-3 DO alarm never sends to a subscriber who opted out during a crashed a
   // and claimed ~15 minutes ago, unsubscribed while attempting.
   const tPast = Date.now() - stateLib.PROMOTION_JOB_ATTEMPT_STALE_MS - 5000;
   let seed = stateLib.applySubscribePromotion(null, {
+    tombstoneLookup: noTombstoneLookup,
     emailHash,
     source: "test",
     now: tPast,
@@ -1461,6 +1477,7 @@ test("A2-3 an uncertain cancellation without a guarantee rearms to blocked, neve
   // Renewed consent does not prove the original attempt was not
   // accepted: the resubscribe rearms the job to blocked, not pending.
   const re = stateLib.applySubscribePromotion(state, {
+    tombstoneLookup: noTombstoneLookup,
     emailHash: "hash-r3-unsub-ambiguous-sg",
     source: "test",
     now: t0 + 3000,
@@ -1520,6 +1537,7 @@ test("A2-3 an uncertain cancellation under a live guarantee rearms to pending an
   });
   // Inside the guarantee window, the resubscribe rearms to pending…
   const re = stateLib.applySubscribePromotion(state, {
+    tombstoneLookup: noTombstoneLookup,
     emailHash: "hash-r3-unsub-ambiguous-rs",
     source: "test",
     now: t0 + 3000,
@@ -1575,6 +1593,7 @@ test("A2-3 an uncertain cancellation whose guarantee window lapsed rearms to blo
   // lapsed: the same-key retry is no longer dedupe-safe, so the job
   // rearms to blocked for an operator instead of pending.
   const re = stateLib.applySubscribePromotion(state, {
+    tombstoneLookup: noTombstoneLookup,
     emailHash: "hash-r3-unsub-ambiguous-expired",
     source: "test",
     now: t0 + stateLib.PROVIDER_IDEMPOTENCY_WINDOW_MS + 1000,
@@ -1616,6 +1635,7 @@ test("A2-3 a stale claim cancelled by the alarm without a guarantee rearms to bl
     "the alarm's cancellation records the stale claim's uncertainty from its stamp",
   );
   const re = stateLib.applySubscribePromotion(state, {
+    tombstoneLookup: noTombstoneLookup,
     emailHash: "hash-r3-alarm-unsub-sg",
     source: "test",
     now: t0 + stateLib.PROMOTION_JOB_ATTEMPT_STALE_MS + 3000,
@@ -1815,6 +1835,7 @@ test("A2-3 a definitively rejected first attempt rearms with a fresh retry windo
   // the rejected attempt would otherwise still be anchoring.
   const t1 = t0 + 25 * HOUR;
   const re = stateLib.applySubscribePromotion(state, {
+    tombstoneLookup: noTombstoneLookup,
     emailHash: "hash-r4-definitive-window",
     source: "test",
     now: t1,
@@ -1868,6 +1889,7 @@ test("A2-3 a definitively rejected only attempt releases the provider pin", () =
   // be claimable under the newly configured provider.
   const t1 = t0 + 2 * HOUR;
   const re = stateLib.applySubscribePromotion(state, {
+    tombstoneLookup: noTombstoneLookup,
     emailHash: "hash-r4-definitive-pin",
     source: "test",
     now: t1,
@@ -1942,6 +1964,7 @@ test("A2-3 a definitive rejection after an uncertain attempt keeps the provider 
   // provider is still refused: attempt 1 may already have been
   // accepted at Resend, and SendGrid cannot dedupe it.
   const re = stateLib.applySubscribePromotion(state, {
+    tombstoneLookup: noTombstoneLookup,
     emailHash: "hash-r4-uncertain-pin-control",
     source: "test",
     now: retryAt + 2 * HOUR,

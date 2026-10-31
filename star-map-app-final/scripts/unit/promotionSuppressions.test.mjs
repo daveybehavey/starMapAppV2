@@ -58,6 +58,9 @@ const NO_FACTS = {
   inLegacySentList: null,
   inLegacyFollowupList: null,
 };
+/** RD-C: creation-gate lookup facts for documents that carry no
+ *  tombstones (the gate consults them only when a tombstone exists). */
+const NO_TOMBSTONE_LOOKUP = { digestsByVersion: {}, nonRetiredVersions: [1], resolvableVersions: [] };
 const EMPTY_RECORD = { active: false, setAt: null, generation: 1, eventRef: null };
 
 function couponPayload(email = EMAIL) {
@@ -73,6 +76,7 @@ function couponPayload(email = EMAIL) {
 
 function subscribedState(now = NOW) {
   return stateLib.applySubscribePromotion(null, {
+    tombstoneLookup: NO_TOMBSTONE_LOOKUP,
     emailHash: HASH,
     source: "homepage",
     now,
@@ -166,6 +170,7 @@ test("RD-B repeat unsubscribe leaves the original global stamp standing", () => 
 test("RD-B resubscribe clears only the global record's active flag; its history stands", () => {
   const unsub = unsubscribedState(NOW + 60_000);
   const resub = stateLib.applySubscribePromotion(unsub, {
+    tombstoneLookup: NO_TOMBSTONE_LOOKUP,
     emailHash: HASH,
     source: "homepage",
     now: NOW + 120_000,
@@ -579,6 +584,7 @@ test("RD-B fence: a deliverability-suppressed drive makes zero provider calls", 
   const name = clientLib.promotionCoordinatorName(emailHash);
 
   await client.subscribePromotion(name, {
+    tombstoneLookup: NO_TOMBSTONE_LOOKUP,
     emailHash,
     source: "homepage",
     now: NOW,

@@ -31,10 +31,12 @@ import {
   applyClearDeliverabilitySuppression,
   applyCompletePromotionJob,
   applyConsumeMagicToken,
+  applyErasePromotionIdentity,
   applyPromotionAlarm,
   applyReadAccountSessions,
   applyRecordDeliverabilitySuppression,
   applyRegisterMagicToken,
+  applyRekeyPromotionTombstones,
   applySubscribePromotion,
   applyUnsubscribePromotion,
   applyUpsertAccountSession,
@@ -49,11 +51,13 @@ import {
   type LegacyMagicLinkRecord,
   type MagicTokenCoordinatorState,
   type PromotionCoordinatorState,
+  type PromotionCreationGateOutcome,
   type PromotionJobKind,
   type PromotionJobPayload,
   type PromotionLegacyFacts,
   type PromotionSendOutcome,
 } from "../lib/consistencyCoordinatorState";
+import type { PromotionTombstoneLookupFacts } from "../lib/promotionTombstones";
 import type { AccountLiteSessionIndexItem } from "../lib/accountLite";
 import { evaluatePromotionDispatchPermission } from "../lib/promotionDispatchGuard";
 import {
@@ -231,12 +235,63 @@ export class ConsistencyCoordinatorDO extends DurableObject {
     facts: PromotionLegacyFacts;
     couponPayload: PromotionJobPayload;
     followupPayload?: PromotionJobPayload;
-  }): Promise<{ isNewSubscriber: boolean; state: PromotionCoordinatorState }> {
+    tombstoneLookup: PromotionTombstoneLookupFacts;
+  }): Promise<{
+    isNewSubscriber: boolean;
+    state: PromotionCoordinatorState;
+    creationGate: PromotionCreationGateOutcome;
+  }> {
     const current = this.readKind("promotion");
     const result = applySubscribePromotion(current, input);
     if (result.changed) this.writeDocument(result.state);
     await this.syncAlarm(result.state);
-    return { isNewSubscriber: result.isNewSubscriber, state: result.state };
+    return {
+      isNewSubscriber: result.isNewSubscriber,
+      state: result.state,
+      creationGate: result.creationGate,
+    };
+  }
+
+  /** RD-C / GM-7B(c): the erasure transition. Runs inside this
+   *  object's serialization, the same side of AT-13 as the creation
+   *  gate in subscribePromotion: an erasure and a creation for this
+   *  identity can never interleave. The reduced document has no jobs,
+   *  so the alarm sync below simply disarms. */
+  async erasePromotionIdentity(input: {
+    emailHash: string;
+    now: number;
+    facts: PromotionLegacyFacts;
+    keyedDigest: string;
+    digestKeyVersion: number;
+    authorityId: string;
+  }): Promise<{
+    state: PromotionCoordinatorState;
+    alreadyErased: boolean;
+    erasureRefused?: string;
+  }> {
+    const current = this.readKind("promotion");
+    const result = applyErasePromotionIdentity(current, input);
+    if (result.changed) this.writeDocument(result.state);
+    await this.syncAlarm(result.state);
+    return {
+      state: result.state,
+      alreadyErased: result.alreadyErased,
+      erasureRefused: result.erasureRefused,
+    };
+  }
+
+  /** RD-C / GM-7C: this identity's step of the re-keying sweep. */
+  async rekeyPromotionTombstones(input: {
+    fromVersion: number;
+    toVersion: number;
+    newKeyedDigest: string;
+    now: number;
+  }): Promise<{ state: PromotionCoordinatorState | null; restamped: number }> {
+    const current = this.readKind("promotion");
+    if (!current) return { state: null, restamped: 0 };
+    const result = applyRekeyPromotionTombstones(current, input);
+    if (result.changed) this.writeDocument(result.state);
+    return { state: result.state, restamped: result.restamped };
   }
 
   async unsubscribePromotion(input: {

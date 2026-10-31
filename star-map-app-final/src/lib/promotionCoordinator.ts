@@ -20,15 +20,28 @@ import {
   createConsistencyCoordinatorClient,
   promotionCoordinatorName,
   coordinatorEmailHash,
+  ConsistencyCoordinatorUnavailableError,
   type ConsistencyCoordinatorClient,
 } from "@/lib/consistencyCoordinator";
 import {
   promotionStateView,
+  promotionTombstonesOf,
   type PromotionCoordinatorState,
   type PromotionJobKind,
   type PromotionLegacyFacts,
   type PromotionSendOutcome,
 } from "@/lib/consistencyCoordinatorState";
+import {
+  computePromotionKeyedDigest,
+  evaluatePromotionTombstoneLookup,
+  gatherPromotionTombstoneLookupFacts,
+  gatherPromotionTombstoneLookupFactsSync,
+  nonRetiredDigestKeyVersions,
+  readPromotionDigestKeyRegister,
+  resolvePromotionDigestKey,
+  type PromotionTombstone,
+  type PromotionTombstoneLookupFacts,
+} from "@/lib/promotionTombstones";
 import {
   emailStateKey,
   LEGACY_FOLLOWUP_KEY,
@@ -254,7 +267,39 @@ export type SubscribePromotionFlowResult = {
   emailDelivered: boolean;
   deliveryProvider: string;
   state: PromotionCoordinatorState;
+  /** RD-C / GM-7D: set when the creation gate found the identity's
+   *  tombstone and created it already-suppressed instead. The flow
+   *  result is deliberately shaped like an ordinary subscribe result
+   *  (no delivery, not a new subscriber): callers must not be able to
+   *  distinguish a tombstoned identity from any other non-delivered
+   *  subscribe by the response contract. */
+  tombstoneHit?: boolean;
 };
+
+/**
+ * RD-C / GM-7D: gather the creation gate's lookup facts for one
+ * address. A register that cannot be read means coverage is UNKNOWN,
+ * and unknown coverage fails the creation closed (a retryable
+ * coordinator-unavailable error) — it never degrades into "no
+ * tombstones exist" (the #454 lesson: an unreadable authority is not
+ * an empty one). Note the asymmetry the gate relies on: an identity
+ * carrying NO tombstone record is unaffected by coverage (there is
+ * nowhere else a tombstone for it could live), so an unprovisioned
+ * digest-key configuration does not disturb ordinary subscribes.
+ */
+async function gatherTombstoneLookupFactsOrFailClosed(
+  email: string,
+  now: number,
+): Promise<PromotionTombstoneLookupFacts> {
+  try {
+    return await gatherPromotionTombstoneLookupFacts({ normalizedEmail: email, now });
+  } catch (error) {
+    throw new ConsistencyCoordinatorUnavailableError(
+      "promotion tombstone lookup coverage could not be established",
+      { cause: error },
+    );
+  }
+}
 
 export async function subscribePromotionFlow(input: {
   email: string;
@@ -268,7 +313,8 @@ export async function subscribePromotionFlow(input: {
 
   const facts = await gatherPromotionLegacyFacts(email);
   const now = Date.now();
-  const { isNewSubscriber, state } = await client.subscribePromotion(name, {
+  const tombstoneLookup = await gatherTombstoneLookupFactsOrFailClosed(email, now);
+  const { isNewSubscriber, state, creationGate } = await client.subscribePromotion(name, {
     emailHash,
     source: input.source,
     now,
@@ -281,7 +327,33 @@ export async function subscribePromotionFlow(input: {
       input.couponCode,
       new Date(now + getPromotionFollowupDelaySeconds() * 1000).toISOString(),
     ),
+    tombstoneLookup,
   });
+  if (creationGate === "refused_indeterminate") {
+    // GM-7D + AC-17: the stored tombstone evidence could not be
+    // resolved (a live digest-key version is unavailable, or a stored
+    // record cannot be accounted for). NOTHING was created or
+    // imported. Fail closed with the retryable error: the subscribe
+    // route answers 503, and no eligible identity exists.
+    throw new ConsistencyCoordinatorUnavailableError(
+      "promotion creation refused: tombstone lookup indeterminate",
+    );
+  }
+  if (creationGate === "tombstone_hit") {
+    // The identity was created already-suppressed at tombstone
+    // generation + 1. There are no jobs to drive. The projection is
+    // published STRICTLY, like the unsubscribe flow's: this
+    // suppression may be the last mutation the identity ever makes,
+    // and the review engine reads only the projection.
+    await publishPromotionProjectionStrict(email, state);
+    return {
+      isNewSubscriber: false,
+      emailDelivered: false,
+      deliveryProvider: "none",
+      state,
+      tombstoneHit: true,
+    };
+  }
   await publishPromotionProjection(email, state);
 
   const drive = await drivePromotionJobs(client, name, email);
@@ -323,4 +395,243 @@ export async function unsubscribePromotionFlow(input: {
   // an unsubscribe whose suppression record never landed.
   await publishPromotionProjectionStrict(email, result.state);
   return { wasAlreadyUnsubscribed: result.wasAlreadyUnsubscribed, state: result.state };
+}
+
+/* ------------------------------------------------------------------ */
+/* RD-C flows: erasure, suppression proof, re-key sweep (GM-7).        */
+/* These are operator/privacy surfaces, not routes: nothing in this    */
+/* build wires them to an HTTP endpoint, and no caller may use the     */
+/* proof lookup for anything but suppression enforcement,              */
+/* reconstruction prevention, or audit of those two (AC-20).           */
+/* ------------------------------------------------------------------ */
+
+/** Remove one address from the legacy address-bearing lists (the
+ *  transition-side address deletion of GM-7B(b): the lists are this
+ *  system's own records, and the erased address leaves them in the
+ *  same flow that commits the tombstone). Idempotent. */
+async function removeFromLegacyLists(email: string): Promise<void> {
+  for (const listKey of [LEGACY_SUBSCRIPTION_KEY, LEGACY_SENT_KEY, LEGACY_FOLLOWUP_KEY]) {
+    const list = await kv.get<string[]>(listKey);
+    if (Array.isArray(list) && list.includes(email)) {
+      await kv.set(
+        listKey,
+        list.filter((entry) => entry !== email),
+      );
+    }
+  }
+}
+
+export type ErasePromotionIdentityFlowResult = {
+  state: PromotionCoordinatorState;
+  alreadyErased: boolean;
+};
+
+/**
+ * RD-C / GM-7B(b)+(c): erase one identity. The coordinator transition
+ * commits the reduction to the GM-7A tombstone; this flow then does
+ * the transition-side deletions the transition cannot reach: the
+ * address leaves the legacy lists, and the KV projection is rewritten
+ * STRICTLY with the tombstone-derived view (derived suppression stays
+ * visible to legacy readers). Erasure COMPLETES, per GM-7B(b), only
+ * when the projection repair sweep (PR-2, RD-E) has converged — the
+ * address-named projection KEY is retired by that sweep, not here;
+ * until then the address exists only as that key's name and inside
+ * this flow's own working values.
+ *
+ * The tombstone digest is computed under the register's CURRENT
+ * version. If that version's key material is not provisioned, the
+ * erasure refuses (fail-closed, retryable): an erasure that cannot
+ * write a verifiable tombstone must not erase at all. Provisioning
+ * digest keys is an operator act outside this build.
+ */
+export async function erasePromotionIdentityFlow(input: {
+  email: string;
+}): Promise<ErasePromotionIdentityFlowResult> {
+  const email = normalizePromotionEmail(input.email);
+  const emailHash = coordinatorEmailHash(email);
+  const name = promotionCoordinatorName(emailHash);
+  const client = createConsistencyCoordinatorClient();
+  const now = Date.now();
+
+  let register;
+  try {
+    register = await readPromotionDigestKeyRegister(now);
+  } catch (error) {
+    throw new ConsistencyCoordinatorUnavailableError(
+      "promotion erasure unavailable: digest-key register could not be read",
+      { cause: error },
+    );
+  }
+  const currentKey = resolvePromotionDigestKey(register.currentVersion);
+  if (currentKey === null) {
+    throw new ConsistencyCoordinatorUnavailableError(
+      `promotion erasure unavailable: digest key v${register.currentVersion} is not provisioned`,
+    );
+  }
+  const keyedDigest = computePromotionKeyedDigest(email, currentKey);
+  const facts = await gatherPromotionLegacyFacts(email);
+  const result = await client.erasePromotionIdentity(name, {
+    emailHash,
+    now,
+    facts,
+    keyedDigest,
+    digestKeyVersion: register.currentVersion,
+    // The coordinator object identity that commits the event (GM-7A).
+    authorityId: name,
+  });
+  if (result.erasureRefused) {
+    throw new ConsistencyCoordinatorUnavailableError(
+      `promotion erasure refused by the coordinator: ${result.erasureRefused}`,
+    );
+  }
+  await removeFromLegacyLists(email);
+  // Strict: an erasure may be the last mutation this identity ever
+  // makes; a lost projection write would leave the pre-erasure view
+  // (possibly "subscribed") standing for legacy readers.
+  await publishPromotionProjectionStrict(email, result.state);
+  return { state: result.state, alreadyErased: result.alreadyErased };
+}
+
+export type PromotionTombstoneProof = {
+  outcome: "hit" | "no_hit" | "indeterminate";
+  reason?: string;
+  tombstone?: PromotionTombstone;
+  state: PromotionCoordinatorState | null;
+};
+
+/**
+ * RD-C / GM-7C(b): the suppression-proof lookup. Permitted purposes
+ * ONLY (AC-20): suppression enforcement, reconstruction prevention,
+ * and audit of those two. It returns the lookup OUTCOME and, on a
+ * hit, the tombstone itself — never an address (the store holds
+ * none) and never material usable for targeting or enrichment.
+ */
+export async function lookupPromotionTombstoneProof(input: {
+  email: string;
+}): Promise<PromotionTombstoneProof> {
+  const email = normalizePromotionEmail(input.email);
+  const emailHash = coordinatorEmailHash(email);
+  const name = promotionCoordinatorName(emailHash);
+  const client = createConsistencyCoordinatorClient();
+  const now = Date.now();
+  const state = await client.getPromotionState(name);
+  if (!state) return { outcome: "no_hit", state: null };
+  let facts;
+  try {
+    facts = await gatherPromotionTombstoneLookupFacts({ normalizedEmail: email, now });
+  } catch (error) {
+    throw new ConsistencyCoordinatorUnavailableError(
+      "promotion tombstone proof unavailable: lookup coverage could not be established",
+      { cause: error },
+    );
+  }
+  const outcome = evaluatePromotionTombstoneLookup({
+    tombstones: promotionTombstonesOf(state),
+    facts,
+  });
+  if (outcome.outcome === "hit") {
+    return { outcome: "hit", tombstone: outcome.tombstone, state };
+  }
+  if (outcome.outcome === "indeterminate") {
+    return { outcome: "indeterminate", reason: outcome.reason, state };
+  }
+  return { outcome: "no_hit", state };
+}
+
+export type RekeyPromotionTombstoneSweepResult = {
+  disposition: "restamped" | "no_records_under_version" | "no_state";
+  restamped: number;
+  /** Lookup outcome for this identity before the re-stamp. */
+  lookupBefore: "hit" | "no_hit" | "indeterminate" | null;
+  /** Lookup outcome after the re-stamp; when the identity was a hit
+   *  before, equivalence requires a hit after (AC-16) — the caller
+   *  must treat any other result as a failed sweep step and NOT
+   *  close the version's dependency on it. */
+  lookupAfter: "hit" | "no_hit" | "indeterminate" | null;
+  state: PromotionCoordinatorState | null;
+};
+
+/**
+ * RD-C / GM-7C: ONE identity's step of the re-keying sweep (the sweep
+ * as a whole is an operator run over identities whose addresses are
+ * legitimately available; this step is its per-identity atom). The
+ * caller supplies the address — which is the entire access rule: the
+ * sweep can only ever visit identities whose addresses ordinary
+ * records still hold, and an erased address can never be supplied
+ * from a tombstone (the digest is one-way), so reacquisition of an
+ * erased address is structurally impossible, not merely refused.
+ * The step re-stamps, then re-evaluates the lookup so the caller can
+ * verify equivalent suppression lookup after migration before
+ * counting this identity's dependency as migrated (AC-16).
+ */
+export async function rekeyPromotionTombstoneSweepStep(input: {
+  email: string;
+  fromVersion: number;
+  toVersion: number;
+}): Promise<RekeyPromotionTombstoneSweepResult> {
+  const email = normalizePromotionEmail(input.email);
+  const emailHash = coordinatorEmailHash(email);
+  const name = promotionCoordinatorName(emailHash);
+  const client = createConsistencyCoordinatorClient();
+  const now = Date.now();
+
+  const before = await client.getPromotionState(name);
+  if (!before) {
+    return {
+      disposition: "no_state",
+      restamped: 0,
+      lookupBefore: null,
+      lookupAfter: null,
+      state: null,
+    };
+  }
+  let register;
+  try {
+    register = await readPromotionDigestKeyRegister(now);
+  } catch (error) {
+    throw new ConsistencyCoordinatorUnavailableError(
+      "promotion re-key sweep unavailable: digest-key register could not be read",
+      { cause: error },
+    );
+  }
+  if (!nonRetiredDigestKeyVersions(register).includes(input.toVersion)) {
+    throw new ConsistencyCoordinatorUnavailableError(
+      `promotion re-key sweep refused: target version v${input.toVersion} is not a live lookup version`,
+    );
+  }
+  const factsBefore = gatherPromotionTombstoneLookupFactsSync({
+    normalizedEmail: email,
+    register,
+  });
+  const lookupBefore = evaluatePromotionTombstoneLookup({
+    tombstones: promotionTombstonesOf(before),
+    facts: factsBefore,
+  }).outcome;
+  const toKey = resolvePromotionDigestKey(input.toVersion);
+  if (toKey === null) {
+    throw new ConsistencyCoordinatorUnavailableError(
+      `promotion re-key sweep unavailable: digest key v${input.toVersion} is not provisioned`,
+    );
+  }
+  const newKeyedDigest = computePromotionKeyedDigest(email, toKey);
+  const { state, restamped } = await client.rekeyPromotionTombstones(name, {
+    fromVersion: input.fromVersion,
+    toVersion: input.toVersion,
+    newKeyedDigest,
+    now,
+  });
+  if (restamped === 0 || !state) {
+    return {
+      disposition: "no_records_under_version",
+      restamped: 0,
+      lookupBefore,
+      lookupAfter: lookupBefore,
+      state,
+    };
+  }
+  const lookupAfter = evaluatePromotionTombstoneLookup({
+    tombstones: promotionTombstonesOf(state),
+    facts: factsBefore,
+  }).outcome;
+  return { disposition: "restamped", restamped, lookupBefore, lookupAfter, state };
 }
