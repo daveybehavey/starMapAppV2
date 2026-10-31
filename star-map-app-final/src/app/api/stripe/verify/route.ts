@@ -430,18 +430,40 @@ export async function GET(req: NextRequest) {
       return settledResponse;
     }
     if (!alreadyPaid) {
-      const skipProductionAnalytics = isQaStripeSession(session);
-      await recordPaymentVerifiedOnce({
-        sessionId,
-        amountTotal: typeof session.amount_total === "number" ? session.amount_total : null,
-        source: orderType === "print" ? "stripe_verify_print" : "stripe_verify_digital",
-        plan: plan ?? undefined,
-        skipProductionAnalytics,
-        ga4Purchase: buildGa4PurchaseFromStripeSession(session),
-      });
+      // Auxiliary analytics only: settlement above has already authorized
+      // the paid response, so a soft-write failure inside the funnel
+      // (dedupe / counter kv.incr) degrades analytics — it must never
+      // reach the outer catch and convert a settled payment into a
+      // definitive { paid: false }.
+      try {
+        const skipProductionAnalytics = isQaStripeSession(session);
+        await recordPaymentVerifiedOnce({
+          sessionId,
+          amountTotal: typeof session.amount_total === "number" ? session.amount_total : null,
+          source: orderType === "print" ? "stripe_verify_print" : "stripe_verify_digital",
+          plan: plan ?? undefined,
+          skipProductionAnalytics,
+          ga4Purchase: buildGa4PurchaseFromStripeSession(session),
+        });
+      } catch (err) {
+        console.warn("Stripe verify payment analytics recording failed", {
+          sessionId,
+          error: err,
+        });
+      }
     }
     if (paymentIntentId) {
-      await kv.set(paymentIntentKey(paymentIntentId), sessionId);
+      // Auxiliary association only (same rule as analytics): a failed
+      // mapping write leaves the association incomplete, never unpaid.
+      try {
+        await kv.set(paymentIntentKey(paymentIntentId), sessionId);
+      } catch (err) {
+        console.warn("Stripe verify payment-intent mapping write failed", {
+          sessionId,
+          paymentIntentId,
+          error: err,
+        });
+      }
       try {
         const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
         const latestCharge = paymentIntent && typeof paymentIntent.latest_charge === "string"
@@ -455,7 +477,17 @@ export async function GET(req: NextRequest) {
       }
     }
     if (subscriptionId) {
-      await kv.set(subscriptionKey(subscriptionId), sessionId);
+      // Auxiliary association only (same rule as above): a failed mapping
+      // write leaves the association incomplete, never unpaid.
+      try {
+        await kv.set(subscriptionKey(subscriptionId), sessionId);
+      } catch (err) {
+        console.warn("Stripe verify subscription mapping write failed", {
+          sessionId,
+          subscriptionId,
+          error: err,
+        });
+      }
     }
 
     const response = NextResponse.json(
