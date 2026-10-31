@@ -527,7 +527,10 @@ test("webhook and verify routes wire the shared fulfillment discount gate", () =
   assert.match(webhook, /completedCheckoutRetryable = true/);
   assert.match(webhook, /skipPrintOrder/);
   assert.match(webhook, /Skipping paid entitlement grants and print queue/);
-  assert.match(webhook, /if \(!skipEntitlementGrants\) \{\s*await markSessionPaid/);
+  // S93-1 item 5: the guarded call now captures the settlement outcome
+  // (a revoked outcome raises skipEntitlementGrants for the referral
+  // application below); the discount-gate fence itself is unchanged.
+  assert.match(webhook, /if \(!skipEntitlementGrants\) \{\s*const paidOutcome = await markSessionPaid/);
   assert.match(webhook, /if \(!skipPrintOrder && paymentFulfillable\) \{\s*await queuePrintOrder\(fulfilledSession\)/);
   assert.match(webhook, /if \(!skipEntitlementGrants\) \{\s*await applyReferralReward/);
 

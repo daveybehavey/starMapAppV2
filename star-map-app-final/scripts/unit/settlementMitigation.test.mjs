@@ -413,13 +413,20 @@ test("PASS carry refusal records zero movement and touches no balances (M1-02 na
   assert.equal(data.has(sessionKey(b)), false, "no destination record is created by a refusal");
 });
 
-test("PASS refusal evidence failure never causes movement", async () => {
+test("PASS refusal evidence failure propagates and never causes movement (S93-1 item 8)", async () => {
   const a = "cs_source_a2";
   const b = "cs_dest_b2";
   failDurableKeys.add(ENTITLEMENT_KV.transferRefused(a, b));
-  const refusal = await recordTransferRefusal({ sourceSessionId: a, destinationSessionId: b });
-  assert.equal(refusal.movedCredits, 0);
+  // S93-1 item 8: the durable-write failure is no longer swallowed —
+  // a returned record must mean the put resolved, so the failure
+  // rejects and the caller owns the response policy. (On the pre-fix
+  // helper this call RESOLVED with a record whose write had failed.)
+  await assert.rejects(
+    () => recordTransferRefusal({ sourceSessionId: a, destinationSessionId: b }),
+    /injected durable failure/,
+  );
   assert.equal(putLog.filter((entry) => entry.key === sessionKey(a) || entry.key === sessionKey(b)).length, 0);
+  assert.equal(data.has(ENTITLEMENT_KV.transferRefused(a, b)), false);
 });
 
 // ---------------------------------------------------------------------------
