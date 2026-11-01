@@ -137,6 +137,10 @@ const sessionPuts = (id) =>
   putLog.filter((entry) => entry.key === sessionKey(id) && (entry.op === "set" || entry.op === "setDurable"));
 const eventMarkerKey = (eventId) => ENTITLEMENT_KV.stripeWebhookEvent(eventId);
 const piRevokedKey = (piId) => `stripe:pi:revoked:${piId}`;
+const referralEventsFor = (sessionId, type) =>
+  (data.get(`referral:events:${REFERRAL_CODE}`) ?? []).filter(
+    (event) => event.type === type && event.details?.checkoutSessionId === sessionId,
+  );
 
 /* ---------------- fetch double (Resend + Stripe API) ---------------- */
 
@@ -822,7 +826,7 @@ test("item 4: a grant_confirmed state resumes at bookkeeping — the grant seam 
   }
 });
 
-test("item 4: outcome-put failure after grant confirmation replays bookkeeping only — no double aggregate", async () => {
+test("item 4: terminal-put failure after the bookkeeping effects replays bookkeeping only — no double aggregate, no duplicate events", async () => {
   installFakeKv();
   installFetchDouble();
   process.env.DL1_AUTHORITY_ROUTING_ENABLED = "1";
@@ -847,9 +851,16 @@ test("item 4: outcome-put failure after grant confirmation replays bookkeeping o
       times: 1,
     });
     const first = await postEvent(completedEvent("evt_outcome_fail_1", session));
-    assert.equal(first.status, 503, "outcome persistence failure is retryable");
+    assert.equal(first.status, 503, "terminal persistence failure is retryable");
+    // Fix round (Codex P2): the effects land BEFORE the terminal
+    // write, so the failed delivery leaves them recorded exactly
+    // once — evidenced by the aggregate marker — with the record
+    // still resumable rather than terminally marked.
     assert.equal(data.get(referralRewardedKey(session.id)).phase, "grant_confirmed");
-    assert.equal(data.get(referralKey(REFERRAL_CODE)).conversions, 0);
+    assert.equal(data.get(referralKey(REFERRAL_CODE)).conversions, 1, "aggregate delta landed before the terminal write");
+    assert.deepEqual(data.get(referralKey(REFERRAL_CODE)).recentConversionSessionIds, [session.id]);
+    assert.equal(referralEventsFor(session.id, "conversion_recorded").length, 1);
+    assert.equal(referralEventsFor(session.id, "reward_granted").length, 1);
 
     const second = await postEvent(completedEvent("evt_outcome_fail_2", session));
     assert.equal(second.status, 200);
@@ -858,6 +869,227 @@ test("item 4: outcome-put failure after grant confirmation replays bookkeeping o
     assert.equal(state.rewardGranted, 1);
     assert.equal(data.get(referralKey(REFERRAL_CODE)).conversions, 1, "aggregate applied exactly once");
     assert.equal(data.get(referralKey(REFERRAL_CODE)).rewardsGranted, 1);
+    assert.equal(referralEventsFor(session.id, "conversion_recorded").length, 1, "no duplicate conversion_recorded event");
+    assert.equal(referralEventsFor(session.id, "reward_granted").length, 1, "no duplicate reward_granted event (cap count stays exact)");
+  } finally {
+    restoreKv();
+  }
+});
+
+test("item 4 (fix round): aggregate-write failure during a grant_confirmed resume stays resumable — the retry completes bookkeeping exactly once", async () => {
+  installFakeKv();
+  installFetchDouble();
+  process.env.DL1_AUTHORITY_ROUTING_ENABLED = "1";
+  try {
+    seedPaidSession(REFERRER_ID);
+    seedReferralRecord();
+    const session = checkoutSessionFixture({
+      metadata: { plan: "pack3", credits: "3", qa_run: "true", ...referralMetadata() },
+    });
+    data.set(referralRewardedKey(session.id), {
+      referralCode: REFERRAL_CODE,
+      referrerSessionId: REFERRER_ID,
+      phase: "grant_confirmed",
+      rewardGranted: 1,
+      conversionRecorded: false,
+      createdAt: 9,
+    });
+    // Codex P2-1 reproduction: the aggregate write itself fails on
+    // the first resume delivery.
+    failRules.push({
+      op: "set",
+      match: (key) => key === referralKey(REFERRAL_CODE),
+      times: 1,
+      error: new KvDurableWriteError("injected aggregate write failure"),
+    });
+    const first = await postEvent(completedEvent("evt_aggregate_fail_1", session));
+    assert.equal(first.status, 503, "aggregate persistence failure is retryable");
+    assert.equal(
+      data.get(referralRewardedKey(session.id)).phase,
+      "grant_confirmed",
+      "the conversion stays resumable — never terminally marked before its effects",
+    );
+    assert.equal(data.get(referralKey(REFERRAL_CODE)).conversions, 0, "the failed delta left nothing behind");
+    assert.equal(data.get(referralKey(REFERRAL_CODE)).recentConversionSessionIds, undefined);
+
+    const second = await postEvent(completedEvent("evt_aggregate_fail_2", session));
+    assert.equal(second.status, 200, `retry completes bookkeeping: ${JSON.stringify(second.body)}`);
+    const state = data.get(referralRewardedKey(session.id));
+    assert.equal(state.phase, "completed");
+    assert.equal(state.conversionRecorded, true);
+    assert.equal(state.aggregateApplied, true);
+    const referral = data.get(referralKey(REFERRAL_CODE));
+    assert.equal(referral.conversions, 1, "aggregate applied exactly once after the retry");
+    assert.equal(referral.rewardsGranted, 1);
+    assert.deepEqual(referral.recentConversionSessionIds, [session.id]);
+    // The reward_granted event is what countRecentReferralRewards
+    // counts toward the reward caps — it must exist exactly once.
+    assert.equal(referralEventsFor(session.id, "conversion_recorded").length, 1);
+    assert.equal(referralEventsFor(session.id, "reward_granted").length, 1, "cap counting sees the grant exactly once");
+
+    const third = await postEvent(completedEvent("evt_aggregate_fail_3", session));
+    assert.equal(third.status, 200);
+    assert.equal(data.get(referralKey(REFERRAL_CODE)).conversions, 1, "a further replay is a no-op");
+    assert.equal(referralEventsFor(session.id, "reward_granted").length, 1);
+  } finally {
+    restoreKv();
+  }
+});
+
+/* ======== Item 4 (fix round) — reversal aggregate gating ======== */
+
+function refundEvent(eventId, piId, chargeId) {
+  return {
+    id: eventId,
+    object: "event",
+    type: "charge.refunded",
+    data: {
+      object: {
+        id: chargeId,
+        object: "charge",
+        amount_refunded: 2900,
+        refunded: true,
+        payment_intent: piId,
+        customer: "cus_buyer",
+      },
+    },
+  };
+}
+
+function seedCountedReferralRecord(overrides = {}) {
+  data.set(referralKey(REFERRAL_CODE), {
+    code: REFERRAL_CODE,
+    sessionId: REFERRER_ID,
+    createdAt: 1,
+    visits: 0,
+    conversions: 5,
+    rewardsGranted: 5,
+    ...overrides,
+  });
+}
+
+test("item 4 (fix round): reversal of an uncounted confirmed grant keeps other conversions' aggregate intact while the credit clawback lands", async () => {
+  installFakeKv();
+  installFetchDouble();
+  try {
+    seedPaidSession(REFERRER_ID);
+    // Five previously counted rewards from OTHER conversions.
+    seedCountedReferralRecord();
+    const buyerId = "cs_buyer_uncounted";
+    data.set(ENTITLEMENT_KV.stripePaymentIntent("pi_buyer_uncounted"), buyerId);
+    data.set(referralRewardedKey(buyerId), {
+      referralCode: REFERRAL_CODE,
+      referrerSessionId: REFERRER_ID,
+      phase: "grant_confirmed",
+      rewardGranted: 1,
+      conversionRecorded: false,
+      createdAt: 7,
+    });
+    const res = await postEvent(refundEvent("evt_reversal_uncounted", "pi_buyer_uncounted", "ch_uncounted"));
+    assert.equal(res.status, 200);
+    const state = data.get(referralRewardedKey(buyerId));
+    assert.equal(state.conversionReversed, true, "the confirmed grant is still reversed (credit clawback path)");
+    assert.equal(data.get(sessionKey(REFERRER_ID)).creditsRemaining, 2, "credit clawback applied once");
+    const referral = data.get(referralKey(REFERRAL_CODE));
+    assert.equal(referral.rewardsGranted, 5, "an uncounted grant must not subtract other conversions' rewards");
+    assert.equal(referral.conversions, 5, "an uncounted conversion must not decrement the conversion counter");
+  } finally {
+    restoreKv();
+  }
+});
+
+test("item 4 (fix round): reversal of a counted completed grant decrements the aggregate by exactly one (control)", async () => {
+  installFakeKv();
+  installFetchDouble();
+  try {
+    seedPaidSession(REFERRER_ID);
+    // Five other counted conversions plus this one.
+    seedCountedReferralRecord({ conversions: 6, rewardsGranted: 6 });
+    const buyerId = "cs_buyer_counted";
+    data.set(ENTITLEMENT_KV.stripePaymentIntent("pi_buyer_counted"), buyerId);
+    data.set(referralRewardedKey(buyerId), {
+      referralCode: REFERRAL_CODE,
+      referrerSessionId: REFERRER_ID,
+      phase: "completed",
+      rewardGranted: 1,
+      conversionRecorded: true,
+      aggregateApplied: true,
+      rewarded: true,
+      createdAt: 7,
+    });
+    const res = await postEvent(refundEvent("evt_reversal_counted", "pi_buyer_counted", "ch_counted"));
+    assert.equal(res.status, 200);
+    const state = data.get(referralRewardedKey(buyerId));
+    assert.equal(state.conversionReversed, true);
+    assert.equal(data.get(sessionKey(REFERRER_ID)).creditsRemaining, 2, "credit clawback applied once");
+    const referral = data.get(referralKey(REFERRAL_CODE));
+    assert.equal(referral.conversions, 5, "counted conversion decremented exactly once");
+    assert.equal(referral.rewardsGranted, 5, "counted reward decremented exactly once");
+  } finally {
+    restoreKv();
+  }
+});
+
+test("item 4 (fix round): reversal of a mid-bookkeeping grant (aggregate marker landed, terminal outstanding) decrements by exactly one", async () => {
+  installFakeKv();
+  installFetchDouble();
+  try {
+    seedPaidSession(REFERRER_ID);
+    const buyerId = "cs_buyer_midbook";
+    // The aggregate delta for THIS conversion already landed — the
+    // ReferralRecord marker is the evidence — but its terminal
+    // outcome write is still outstanding.
+    seedCountedReferralRecord({
+      conversions: 6,
+      rewardsGranted: 6,
+      recentConversionSessionIds: [buyerId],
+    });
+    data.set(ENTITLEMENT_KV.stripePaymentIntent("pi_buyer_midbook"), buyerId);
+    data.set(referralRewardedKey(buyerId), {
+      referralCode: REFERRAL_CODE,
+      referrerSessionId: REFERRER_ID,
+      phase: "grant_confirmed",
+      rewardGranted: 1,
+      conversionRecorded: false,
+      createdAt: 7,
+    });
+    const res = await postEvent(refundEvent("evt_reversal_midbook", "pi_buyer_midbook", "ch_midbook"));
+    assert.equal(res.status, 200);
+    const state = data.get(referralRewardedKey(buyerId));
+    assert.equal(state.conversionReversed, true);
+    assert.equal(data.get(sessionKey(REFERRER_ID)).creditsRemaining, 2, "credit clawback applied once");
+    const referral = data.get(referralKey(REFERRAL_CODE));
+    assert.equal(referral.conversions, 5, "the landed conversion is un-counted exactly once");
+    assert.equal(referral.rewardsGranted, 5, "the landed reward is un-counted exactly once");
+  } finally {
+    restoreKv();
+  }
+});
+
+test("item 4 (fix round): reversal of a finished legacy decision (no phase, conversionRecorded) still decrements the aggregate (control)", async () => {
+  installFakeKv();
+  installFetchDouble();
+  try {
+    seedPaidSession(REFERRER_ID);
+    seedCountedReferralRecord({ conversions: 6, rewardsGranted: 6 });
+    const buyerId = "cs_buyer_legacy_counted";
+    data.set(ENTITLEMENT_KV.stripePaymentIntent("pi_buyer_legacy_counted"), buyerId);
+    data.set(referralRewardedKey(buyerId), {
+      referralCode: REFERRAL_CODE,
+      referrerSessionId: REFERRER_ID,
+      rewarded: true,
+      rewardGranted: 1,
+      conversionRecorded: true,
+      createdAt: 7,
+    });
+    const res = await postEvent(refundEvent("evt_reversal_legacy", "pi_buyer_legacy_counted", "ch_legacy"));
+    assert.equal(res.status, 200);
+    const state = data.get(referralRewardedKey(buyerId));
+    assert.equal(state.conversionReversed, true);
+    assert.equal(data.get(sessionKey(REFERRER_ID)).creditsRemaining, 2, "credit clawback applied once");
+    const referral = data.get(referralKey(REFERRAL_CODE));
+    assert.equal(referral.conversions, 5, "legacy counted conversion decremented exactly once");
+    assert.equal(referral.rewardsGranted, 5, "legacy counted reward decremented exactly once");
   } finally {
     restoreKv();
   }

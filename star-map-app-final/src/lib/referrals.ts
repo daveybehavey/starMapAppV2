@@ -9,6 +9,17 @@ export type ReferralRecord = {
   conversions: number;
   rewardsGranted: number;
   lastConvertedAt?: number;
+  /**
+   * S93-1 item 4 (fix round): checkout session ids whose aggregate
+   * delta is already included in `conversions`/`rewardsGranted`,
+   * recorded in the SAME write that applies the delta — the
+   * application and its evidence are atomic, so a bookkeeping resume
+   * observes the marker and never applies the delta twice. Bounded
+   * to the most recent entries; only in-flight bookkeeping resumes
+   * (and reversals of them) consult it — terminal records
+   * short-circuit before bookkeeping.
+   */
+  recentConversionSessionIds?: string[];
 };
 
 export function normalizeReferralCode(raw: unknown): string | null {

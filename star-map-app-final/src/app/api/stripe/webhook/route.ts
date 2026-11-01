@@ -200,9 +200,12 @@ type ReferralConversionState = {
   phase?: ReferralConversionPhase;
   /** The decision that closed this conversion (skip outcomes). */
   decisionReason?: string;
-  /** Bookkeeping progress: the per-checkout outcome write that precedes
-   *  the aggregate delta has landed with the delta applied (or, on a
-   *  replay that observes it, already applied — never applied twice). */
+  /** Bookkeeping completion evidence: set on the terminal outcome
+   *  record once the aggregate delta has been applied. While
+   *  bookkeeping is still in flight the delta's evidence is the
+   *  ReferralRecord's applied-session marker instead — the outcome
+   *  record is written last and never claims an effect that has not
+   *  landed. */
   aggregateApplied?: boolean;
   /** A legacy `rewarded: true` record whose outcome fields are missing:
    *  ambiguous, never regranted and never reinterpreted as granted. */
@@ -229,6 +232,9 @@ type ReferralConversionState = {
   reversalReason?: string;
   rewardReclaimed?: number;
 };
+
+/** Bound for ReferralRecord.recentConversionSessionIds (see referrals.ts). */
+const REFERRAL_AGGREGATE_SESSION_MARKER_LIMIT = 50;
 
 const sessionKey = (id: string) => `stripe:session:${id}`;
 const paymentIntentKey = (id: string) => `stripe:pi:${id}`;
@@ -1007,41 +1013,46 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
   }
 
   // Final bookkeeping (fresh decisions and grant_confirmed resumes
-  // alike). The per-checkout outcome record — with aggregateApplied —
-  // is persisted BEFORE the aggregate delta is applied, and terminal
-  // states refuse re-entry at the disposition above, so a replay never
-  // applies the delta twice; the ReferralRecord counters themselves
-  // are legacy aggregates from here on. Outcome persistence precedes
-  // the telemetry appends, whose failure must not cause another credit
-  // effect (there is none left to cause — the grant seam is behind us).
-  await kv.setDurable(rewardStateKey, {
-    ...stateBase,
-    phase: rewardGranted > 0 ? "completed" : "terminal_skip",
-    decisionReason: rewardGranted > 0 ? undefined : rewardSkipReason ?? "not_eligible",
-    rewardGranted,
-    rewardSkipReason: rewardGranted > 0 ? undefined : rewardSkipReason ?? "not_eligible",
-    conversionRecorded: true,
-    aggregateApplied: true,
-    rewarded: true,
-  });
-
-  if (existingRewardState?.aggregateApplied !== true) {
-    if (!referralRecord) {
-      referralRecord = await kv.get<ReferralRecord>(referralKey(referralCode));
-    }
-    if (referralRecord) {
-      await kv.set(referralKey(referralCode), {
-        ...referralRecord,
-        conversions: (referralRecord.conversions ?? 0) + 1,
-        rewardsGranted: (referralRecord.rewardsGranted ?? 0) + rewardGranted,
-        lastConvertedAt: timestamp,
-      });
-    }
+  // alike). Fix round (Codex P2, PR #471): the terminal outcome
+  // record is written LAST, after the effects it claims. Until it
+  // lands, the record stays in a resumable phase (grant_confirmed /
+  // pending), so a failure in any effect below leaves the conversion
+  // resumable instead of terminally marked with its bookkeeping
+  // lost. Each effect is replay-safe on its own:
+  // - the aggregate delta records this checkout session id in the
+  //   ReferralRecord IN THE SAME WRITE as the counters, so the
+  //   application and its evidence are atomic: a failed delta write
+  //   leaves neither behind, and a resume that observes the marker
+  //   (or the outcome record's aggregateApplied) never applies the
+  //   delta twice;
+  // - the ledger appends carry deterministic event ids, which
+  //   appendReferralEvent dedupes by id — a replayed append replaces
+  //   rather than duplicates (reward caps count reward_granted
+  //   events, so a duplicate would inflate the count).
+  if (!referralRecord) {
+    referralRecord = await kv.get<ReferralRecord>(referralKey(referralCode));
+  }
+  const aggregateAlreadyApplied =
+    existingRewardState?.aggregateApplied === true ||
+    (referralRecord?.recentConversionSessionIds?.includes(session.id) ?? false);
+  if (!aggregateAlreadyApplied && referralRecord) {
+    const appliedSessionIds = [
+      ...(referralRecord.recentConversionSessionIds ?? []).filter((id) => id !== session.id),
+      session.id,
+    ].slice(-REFERRAL_AGGREGATE_SESSION_MARKER_LIMIT);
+    await kv.set(referralKey(referralCode), {
+      ...referralRecord,
+      conversions: (referralRecord.conversions ?? 0) + 1,
+      rewardsGranted: (referralRecord.rewardsGranted ?? 0) + rewardGranted,
+      lastConvertedAt: timestamp,
+      recentConversionSessionIds: appliedSessionIds,
+    });
   }
 
   await appendReferralEvent({
     code: referralCode,
     type: "conversion_recorded",
+    eventId: `conversion_recorded:${session.id}`,
     createdAt: timestamp,
     details: {
       checkoutSessionId: session.id,
@@ -1060,6 +1071,7 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
     await appendReferralEvent({
       code: referralCode,
       type: "reward_granted",
+      eventId: `reward_granted:${session.id}`,
       createdAt: timestamp,
       details: {
         checkoutSessionId: session.id,
@@ -1075,6 +1087,7 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
     await appendReferralEvent({
       code: referralCode,
       type: "reward_skipped",
+      eventId: `reward_skipped:${session.id}`,
       createdAt: timestamp,
       details: {
         checkoutSessionId: session.id,
@@ -1087,6 +1100,22 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
       },
     });
   }
+
+  // Terminal outcome — written only once every bookkeeping effect
+  // above is recorded (the aggregate delta is evidenced by the
+  // marker in the ReferralRecord, the appends by their deterministic
+  // ids). Terminal states refuse re-entry at the disposition above,
+  // so a replay of a completed conversion is a no-op.
+  await kv.setDurable(rewardStateKey, {
+    ...stateBase,
+    phase: rewardGranted > 0 ? "completed" : "terminal_skip",
+    decisionReason: rewardGranted > 0 ? undefined : rewardSkipReason ?? "not_eligible",
+    rewardGranted,
+    rewardSkipReason: rewardGranted > 0 ? undefined : rewardSkipReason ?? "not_eligible",
+    conversionRecorded: true,
+    aggregateApplied: true,
+    rewarded: true,
+  });
 }
 
 /**
@@ -1110,8 +1139,9 @@ async function reverseReferralReward(
   // S93-1 item 4: a CONFIRMED grant is reversible even when conversion
   // bookkeeping never completed (grant_confirmed phase, or a record
   // carrying rewardGranted > 0) — conversionRecorded must never hide a
-  // confirmed grant from reversal. It still gates the aggregate
-  // decrement below: only a recorded conversion can be un-recorded.
+  // confirmed grant from reversal. Whether the aggregate counters may
+  // be decremented is decided separately below, on evidence that
+  // this conversion's aggregate increment actually landed.
   const confirmedGrant =
     rewardState.phase === "grant_confirmed" ||
     rewardState.phase === "completed" ||
@@ -1198,14 +1228,31 @@ async function reverseReferralReward(
     }
   }
 
+  // Fix round (Codex P2, PR #471): both aggregate decrements may
+  // only undo an increment that actually landed for THIS conversion.
+  // Evidence: the outcome record's aggregateApplied (set only once
+  // bookkeeping's delta is in), a pre-protocol record with
+  // conversionRecorded: true (the legacy flow recorded only after
+  // its aggregate write), or the ReferralRecord's own applied-session
+  // marker (the delta landed mid-bookkeeping and the terminal
+  // outcome write is still outstanding). A grant_confirmed record
+  // whose bookkeeping never applied the delta carries none of these
+  // — decrementing it would subtract rewards belonging to other
+  // conversions. The credit clawback below is NOT gated on this: a
+  // confirmed grant's credits are reclaimable regardless.
+  const aggregateCounted =
+    rewardState.aggregateApplied === true ||
+    (rewardState.phase === undefined && rewardState.conversionRecorded === true) ||
+    (referralRecord.recentConversionSessionIds?.includes(sessionId) ?? false);
+
   const nextReferralRecord: ReferralRecord = {
     ...referralRecord,
     conversions:
-      conversionAlreadyReversed || rewardState.conversionRecorded !== true
+      conversionAlreadyReversed || !aggregateCounted
         ? referralRecord.conversions ?? 0
         : Math.max(0, (referralRecord.conversions ?? 0) - 1),
     rewardsGranted:
-      rewardAlreadyReversed || rewardGranted <= 0
+      rewardAlreadyReversed || rewardGranted <= 0 || !aggregateCounted
         ? referralRecord.rewardsGranted ?? 0
         : Math.max(0, (referralRecord.rewardsGranted ?? 0) - rewardGranted),
   };
