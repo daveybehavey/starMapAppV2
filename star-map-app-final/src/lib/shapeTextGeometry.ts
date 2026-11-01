@@ -85,6 +85,19 @@ export interface ShapeTextProfile {
     halfWidth: number,
   ): Array<readonly [number, number]>;
   /**
+   * The interior intervals that persist across a whole vertical
+   * span: the intersection, over the span's sample rows, of each
+   * row's interior interval set — the x-ranges inside the mask at
+   * EVERY row of the span (S93-2 class 3). Disjoint intervals stay
+   * disjoint: a span crossing the heart's cleft returns the two
+   * lobe intervals, never a bridged envelope, so a consumer fitting
+   * text against these intervals can never span the gap.
+   */
+  interiorIntervalsAcrossSpan(
+    vTop: number,
+    vBottom: number,
+  ): ShapeInteriorInterval[];
+  /**
    * Whether the whole glyph rectangle (centre + half extents, all
    * mask-normalized) lies inside the mask — segment containment at
    * every sample row of its vertical span.
@@ -294,6 +307,16 @@ export function buildShapeTextProfile(
       }
       return valid ?? [];
     },
+    interiorIntervalsAcrossSpan(
+      vTop: number,
+      vBottom: number,
+    ): ShapeInteriorInterval[] {
+      // The persistent intervals are exactly the valid centres for a
+      // zero-width segment: per row every interior interval is a
+      // valid placement for a point, and the span's set is the
+      // intersection over the span's sample rows.
+      return profile.validCenterIntervalsAcrossSpan(vTop, vBottom, 0);
+    },
     rectContainedAt(cx: number, cy: number, halfWidth: number, halfHeight: number): boolean {
       const lo = cx - halfWidth;
       const hi = cx + halfWidth;
@@ -371,4 +394,19 @@ export function resolveValidCenterIntervalsAcrossSpan(
   halfWidth: number,
 ): Array<readonly [number, number]> {
   return profile.validCenterIntervalsAcrossSpan(vTop, vBottom, halfWidth);
+}
+
+/**
+ * The interior intervals that persist across a whole vertical span
+ * (the intersection of the per-row interval sets over the span's
+ * sample rows). Delegates to the profile method of the same name;
+ * this free form exists for callers (tests, proof harnesses) that
+ * hold a profile directly.
+ */
+export function resolveInteriorIntervalsAcrossSpan(
+  profile: ShapeTextProfile,
+  vTop: number,
+  vBottom: number,
+): ShapeInteriorInterval[] {
+  return profile.interiorIntervalsAcrossSpan(vTop, vBottom);
 }

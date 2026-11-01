@@ -50,6 +50,7 @@ import {
 } from "@/lib/checkoutSkyGuard";
 import { checkoutUrlErrorMessage, redirectToStripeCheckout } from "@/lib/stripeCheckoutNavigation";
 import { syncSampleDesignTextBoxes } from "@/lib/sampleDesignTextSync";
+import { resolveSharedFirstDraftRestore } from "@/lib/editorDraft";
 
 // Lazy load the canvas for better initial load
 const PreviewCanvas = dynamic(() => import("@/components/PreviewCanvas"), {
@@ -217,6 +218,38 @@ export function SimplifiedEditor() {
     if (draftLoadedRef.current) return;
     draftLoadedRef.current = true;
     try {
+      // S93-2 class 6: the shared draft is canonical. This editor
+      // used to restore from its private key alone, so a stale
+      // private draft (written before the full editor saved a
+      // newer design to the shared key) was resurrected on remount
+      // and its next save silently discarded the newer design.
+      const sharedFirst = resolveSharedFirstDraftRestore(localStorage);
+      if (sharedFirst.source === "shared") {
+        const draft = sharedFirst.data;
+        setDateTime(draft.datetimeISO);
+        setLocation(draft.location);
+        setTextBoxes(draft.textBoxes);
+        setStyle(draft.selectedStyle);
+        setAspectRatio(draft.aspectRatio);
+        setShape(draft.shape);
+        setRenderOptions({
+          ...renderOptions,
+          ...draft.renderOptions,
+          // #406: explicit, as in EditorExperience — a saved design
+          // without a version restores as legacy, never converted
+          // by the merge against the fresh-session stamp.
+          shapeLayoutVersion: draft.renderOptions.shapeLayoutVersion,
+        });
+        useStore.getState().setSampleDesignLastAutoSynced(draft.sampleDesignLastAutoSynced);
+        setMode("customizing");
+        return;
+      }
+      if (sharedFirst.source === "shared-blocked") {
+        // A shared draft exists but cannot be trusted; restoring
+        // the private copy over it would destroy it. Start fresh.
+        return;
+      }
+      // No shared draft: the legacy private-only restore below.
       const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
       if (!raw) return;
       const parsed = JSON.parse(raw) as {

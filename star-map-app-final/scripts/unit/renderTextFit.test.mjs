@@ -61,8 +61,12 @@ test("wiring: drawText fits each box against the shape-aware available width", (
   const source = read("src/lib/renderSky.ts");
   assert.match(source, /from "\.\/textFit"/);
   // Wave D (U06/U14): the fit bound is no longer the raw canvas width —
-  // it is resolveShapeTextAvailableWidth (frame inset / diamond mask),
-  // asserted behaviourally in personaSweepWaveD.test.mjs.
-  assert.match(source, /resolveTextFitScale\(measuredWidth, availableWidth\)/);
-  assert.match(source, /resolveShapeTextAvailableWidth\(\{/);
+  // it is the shape-aware bound (frame inset / diamond mask), asserted
+  // behaviourally in personaSweepWaveD.test.mjs. S93-2 (classes 2+3):
+  // the bound is now resolved per line by resolveTextLineLayout from
+  // the box's own anchor and alignment (the centred-only
+  // resolveShapeTextAvailableWidth call is superseded in the render
+  // path; the helper itself remains for the drag-clamp model and is
+  // asserted in textDragClamp / shapeTextRows407).
+  assert.match(source, /resolveTextLineLayout\(\{/);
 });
