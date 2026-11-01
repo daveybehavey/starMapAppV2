@@ -176,6 +176,49 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  // Option B (S93-1 item 8): automatic cross-session carry-forward is
+  // DISABLED. When the request presents a DIFFERENT session's premium
+  // cookie, the refusal is recorded durably BEFORE any session read or
+  // entitlement response, so every accepted carry request attempts the
+  // write — the pre-S93-1 code attempted it only inside Stripe retrieval
+  // processing (after the discount gate), leaving most carry
+  // presentations with no evidence at all. The helper's durable-write
+  // failure is caught LOCALLY here, outside the route's Stripe catch:
+  // an unrecorded refusal answers 503 pending (clients already poll
+  // verify) — it never asserts paid:false, never sets or clears the
+  // premium cookie, and settles nothing.
+  const incomingSessionId = req.cookies.get(PREMIUM_COOKIE_NAME)?.value;
+  const carryRequested = Boolean(incomingSessionId && incomingSessionId !== sessionId);
+  const carryForwardField = carryRequested
+    ? {
+        carryForward: {
+          outcome: CARRY_NOT_SUPPORTED_INTERIM,
+          movedCredits: 0,
+        },
+      }
+    : {};
+  if (carryRequested) {
+    try {
+      await recordTransferRefusal({
+        sourceSessionId: incomingSessionId as string,
+        destinationSessionId: sessionId,
+      });
+    } catch (err) {
+      console.warn("Stripe verify carry refusal persistence pending", {
+        sessionId,
+        sourceSessionId: incomingSessionId,
+        error: err,
+      });
+      return NextResponse.json(
+        { pending: true, reason: "carry_refusal_persistence_pending", ...carryForwardField },
+        {
+          status: 503,
+          headers: { "Cache-Control": "no-store", "Retry-After": "2" },
+        },
+      );
+    }
+  }
+
   const record = await kv.get<SessionRecord>(sessionKey(sessionId));
   const alreadyPaid = Boolean(record?.paid);
   if (record?.revoked) {
@@ -199,26 +242,17 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // Option B: automatic cross-session carry-forward is disabled. When the
-  // request presents a DIFFERENT session's premium cookie, say so explicitly
-  // instead of silently implying a combined balance, and nothing is moved.
-  // The incoming cookie is preserved — not overwritten with the new
-  // session — only while the incoming session still holds live entitlement
-  // (paid, unrevoked, credits remaining or an active subscription): it is
-  // the browser's only handle on that entitlement, and stranding it would
-  // silently cut the buyer off from credits they already paid for. When
-  // the incoming session holds no live entitlement, a successful verify
-  // sets the new session's cookie exactly as usual.
-  const incomingSessionId = req.cookies.get(PREMIUM_COOKIE_NAME)?.value;
-  const carryRequested = Boolean(incomingSessionId && incomingSessionId !== sessionId);
-  const carryForwardField = carryRequested
-    ? {
-        carryForward: {
-          outcome: CARRY_NOT_SUPPORTED_INTERIM,
-          movedCredits: 0,
-        },
-      }
-    : {};
+  // (Carry derivation and the durable refusal attempt happen at handler
+  // entry, above — S93-1 item 8.) The response still states the refusal
+  // explicitly via carryForwardField instead of silently implying a
+  // combined balance, and nothing is moved. The incoming cookie is
+  // preserved — not overwritten with the new session —
+  // only while the incoming session still holds live entitlement
+  // (paid, unrevoked, credits remaining or an active subscription):
+  // it is the browser's only handle on that entitlement, and stranding
+  // it would silently cut the buyer off from credits they already paid
+  // for. When the incoming session holds no live entitlement, a
+  // successful verify sets the new session's cookie exactly as usual.
   const preserveIncomingCookie = carryRequested
     ? await sessionHoldsLiveEntitlement(incomingSessionId as string)
     : false;
@@ -321,15 +355,11 @@ export async function GET(req: NextRequest) {
     // (M1-02) with no source debit — A->B and A->C could both copy it. Under
     // B there is no source-balance read for movement, no debit, no credit,
     // and no retirement: B settles only its own purchase, and the refusal
-    // is explicit (audit record + response field). The one read of A's
-    // record (preserveIncomingCookie, computed before settlement) decides
+    // is explicit (audit record + response field). The audit record is
+    // written at handler entry (S93-1 item 8) — there is deliberately no
+    // second attempt here. The one read of A's record
+    // (preserveIncomingCookie, computed before settlement) decides
     // cookie preservation only — it never moves a balance.
-    if (carryRequested) {
-      await recordTransferRefusal({
-        sourceSessionId: incomingSessionId as string,
-        destinationSessionId: sessionId,
-      });
-    }
     const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : null;
     const subscriptionId = typeof session.subscription === "string" ? session.subscription : null;
     const customerId = typeof session.customer === "string" ? session.customer : null;

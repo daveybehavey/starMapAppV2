@@ -9,6 +9,26 @@ export type ReferralRecord = {
   conversions: number;
   rewardsGranted: number;
   lastConvertedAt?: number;
+  /**
+   * S93-1 item 4 (fix round): checkout session ids whose aggregate
+   * delta is already included in `conversions`/`rewardsGranted`,
+   * recorded in the SAME write that applies the delta — the
+   * application and its evidence are atomic, so a bookkeeping resume
+   * observes the marker and never applies the delta twice. Only
+   * in-flight bookkeeping resumes (and reversals of them) consult
+   * it — terminal records short-circuit before bookkeeping.
+   *
+   * Fix round 2 (Codex P2, PR #471): the list is deliberately NOT
+   * truncated. The single-write atomicity above is the only
+   * atomicity this store offers, so the evidence must live exactly
+   * as long as the counters it protects; the earlier 50-entry bound
+   * evicted the marker of a conversion whose terminal write was
+   * still outstanding, and its retry applied the delta a second
+   * time. The cost is one session id (~35 bytes) per conversion on
+   * this record for the life of the referral code — far under the
+   * KV value ceiling for any single code's plausible total.
+   */
+  recentConversionSessionIds?: string[];
 };
 
 export function normalizeReferralCode(raw: unknown): string | null {

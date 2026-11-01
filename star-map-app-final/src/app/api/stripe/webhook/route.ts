@@ -77,6 +77,7 @@ import {
 } from "@/lib/commerceAnalytics";
 import {
   ENTITLEMENT_KV,
+  readSessionRevocationEvidenceStrict,
   refreshEntitledMapRecipeTtl,
   settleSessionPurchase,
   withSettlementMetadata,
@@ -181,7 +182,37 @@ type SessionRecord = {
   accessEmailError?: string;
 };
 
+/**
+ * S93-1 item 4: the conversion state's explicit processing phase.
+ * Absent on records written before this protocol — the entry
+ * disposition in applyReferralReward defines how those are read.
+ * - pending: checkpoint written before grant processing; a replay
+ *   checkpoint, NOT an exclusion and NOT a claim of reward.
+ * - grant_confirmed: the authority accepted the grant; bookkeeping
+ *   (aggregate + ledger) is still outstanding.
+ * - terminal_skip: a recorded no-grant decision. Only terminal states
+ *   (this and completed) short-circuit re-entry.
+ * - completed: a grant decision with bookkeeping fully recorded.
+ */
+type ReferralConversionPhase = "pending" | "grant_confirmed" | "terminal_skip" | "completed";
+
 type ReferralConversionState = {
+  phase?: ReferralConversionPhase;
+  /** The decision that closed this conversion (skip outcomes). */
+  decisionReason?: string;
+  /** Bookkeeping completion evidence: set on the terminal outcome
+   *  record once the aggregate delta has been applied. While
+   *  bookkeeping is still in flight the delta's evidence is the
+   *  ReferralRecord's applied-session marker instead — the outcome
+   *  record is written last and never claims an effect that has not
+   *  landed. A terminal record for a conversion reversed BEFORE its
+   *  bookkeeping ran carries `false`: the delta never landed (the
+   *  reversal gated its decrements on that same evidence), and the
+   *  stored reversal fields record the disposition. */
+  aggregateApplied?: boolean;
+  /** A legacy `rewarded: true` record whose outcome fields are missing:
+   *  ambiguous, never regranted and never reinterpreted as granted. */
+  reconciliationRequired?: boolean;
   rewarded?: boolean;
   createdAt?: number;
   checkoutSessionId?: string;
@@ -217,13 +248,19 @@ const WEBHOOK_EVENT_DEDUPE_TTL_SECONDS = 7 * 24 * 60 * 60;
 /**
  * Persist Stripe event dedupe as a terminal "do not re-enter" marker.
  * Returns false when the write fails — callers must not claim successful finalize.
+ *
+ * S93-1 item 7: the write is DURABLE (setDurable). The ordinary kv.set
+ * could degrade to local-only success during a Cloudflare outage and
+ * report a terminal marker that no other isolate can see; a durable
+ * failure now returns false and every caller leaves its event
+ * Stripe-retryable instead of finalizing on an invisible marker.
  */
 async function persistWebhookEventDedupe(
   eventDedupeKey: string,
   meta?: { reason?: string },
 ): Promise<boolean> {
   try {
-    await kv.set(
+    await kv.setDurable(
       eventDedupeKey,
       { received: true, ...(meta?.reason ? { reason: meta.reason } : {}) },
       { ex: WEBHOOK_EVENT_DEDUPE_TTL_SECONDS },
@@ -233,6 +270,15 @@ async function persistWebhookEventDedupe(
     console.error("Webhook event dedupe persistence failed", { eventDedupeKey, error });
     return false;
   }
+}
+
+/** A persisted terminal dedupe marker (vs a legacy numeric incr counter). */
+function isWebhookTerminalDedupeMarker(value: unknown): boolean {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (value as { received?: unknown }).received === true
+  );
 }
 
 function normalizeEmail(raw: unknown) {
@@ -356,12 +402,27 @@ function getCredits(session: Stripe.Checkout.Session, plan: CheckoutPlan | undef
   return plan === "pack3" ? 3 : 1;
 }
 
-async function markSessionPaid(session: Stripe.Checkout.Session) {
-  if (!session.id) return;
-  if (!isFulfillableCheckoutPayment(session)) return;
+/**
+ * S93-1 item 5: settlement reports an explicit outcome so the
+ * fulfillment pass can distinguish a revoked purchase from a settled
+ * one — the pre-fix void return let processCheckoutFulfillment run
+ * the referral application after a revocation it had just converged.
+ */
+type MarkSessionPaidOutcome =
+  | { kind: "settled" }
+  | { kind: "revoked"; reason: string }
+  | { kind: "nonfulfillable" };
+
+async function markSessionPaid(
+  session: Stripe.Checkout.Session,
+): Promise<MarkSessionPaidOutcome> {
+  if (!session.id) return { kind: "nonfulfillable" };
+  if (!isFulfillableCheckoutPayment(session)) return { kind: "nonfulfillable" };
 
   const existing = await kv.get<SessionRecord>(sessionKey(session.id));
-  if (existing?.revoked) return;
+  if (existing?.revoked) {
+    return { kind: "revoked", reason: existing.reason ?? "revoked" };
+  }
 
   const orderType = getOrderType(session);
   const printVariant = getPrintVariant(session);
@@ -383,7 +444,7 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
     );
     if (revokedRecord?.revoked) {
       await markSessionRevoked(session.id, revokedRecord.reason ?? "refund");
-      return;
+      return { kind: "revoked", reason: revokedRecord.reason ?? "refund" };
     }
   }
 
@@ -440,7 +501,7 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
   });
   if (outcome.kind === "revoked") {
     await markSessionRevoked(session.id, outcome.reason);
-    return;
+    return { kind: "revoked", reason: outcome.reason };
   }
   if (outcome.kind === "reconciliation_required") {
     console.error("Settlement reconciliation required; leaving event retryable", {
@@ -554,6 +615,8 @@ async function markSessionPaid(session: Stripe.Checkout.Session) {
       }
     }
   }
+
+  return { kind: "settled" };
 }
 
 async function markSessionRevoked(sessionId: string, reason: string) {
@@ -635,6 +698,42 @@ async function resolvePaymentIntentIdFromCharge(chargeId?: string | null) {
   }
 }
 
+/** The Stripe payload's payment-intent identity, string or expanded object. */
+function checkoutPaymentIntentId(session: Stripe.Checkout.Session): string | null {
+  const paymentIntent = session.payment_intent;
+  if (typeof paymentIntent === "string") return paymentIntent || null;
+  if (
+    paymentIntent &&
+    typeof paymentIntent === "object" &&
+    typeof paymentIntent.id === "string"
+  ) {
+    return paymentIntent.id;
+  }
+  return null;
+}
+
+/**
+ * S93-1 item 5: strict purchaser-revocation check for the referral
+ * grant path — the purchaser's mutable record flag plus the durable
+ * session evidence and PI tombstone, read error-preserving. A read
+ * failure is converted to a retryable referral outcome: unreadable
+ * evidence must never read as "not revoked" in front of a grant.
+ */
+async function purchaserRevokedForReferral(session: Stripe.Checkout.Session): Promise<boolean> {
+  if (!session.id) return false;
+  const record = await kv.get<SessionRecord>(sessionKey(session.id));
+  if (record?.revoked) return true;
+  try {
+    const evidence = await readSessionRevocationEvidenceStrict(
+      session.id,
+      checkoutPaymentIntentId(session),
+    );
+    return evidence.revoked;
+  } catch {
+    throw new ReferralGrantTransientError("purchaser_revocation_evidence_unreadable");
+  }
+}
+
 async function applyReferralReward(session: Stripe.Checkout.Session) {
   if (!session.id) return;
   if (!isFulfillableCheckoutPayment(session)) return;
@@ -647,7 +746,38 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
 
   const rewardStateKey = referralRewardedKey(session.id);
   const existingRewardState = await kv.get<ReferralConversionState>(rewardStateKey);
-  if (existingRewardState?.rewarded) return;
+
+  // S93-1 item 4: phase disposition. Only terminal decisions
+  // (completed / terminal_skip) short-circuit. `pending` is a replay
+  // checkpoint — validation and the grant seam re-run. `grant_confirmed`
+  // resumes at bookkeeping without re-invoking the grant seam.
+  if (
+    existingRewardState?.phase === "completed" ||
+    existingRewardState?.phase === "terminal_skip"
+  ) {
+    return;
+  }
+  const resumedGrant =
+    existingRewardState?.phase === "grant_confirmed" ? existingRewardState : null;
+  if (!resumedGrant && !existingRewardState?.phase && existingRewardState?.rewarded) {
+    // Pre-protocol record. One carrying its outcome fields is a finished
+    // legacy decision and stands. One without them is AMBIGUOUS: the old
+    // protocol wrote `rewarded: true` BEFORE the grant, so the claim
+    // alone proves neither a grant nor a skip. Never regrant and never
+    // reinterpret as granted — mark reconciliation-required and keep
+    // the event retryable.
+    if (
+      existingRewardState.conversionRecorded === true ||
+      typeof existingRewardState.rewardSkipReason === "string"
+    ) {
+      return;
+    }
+    await kv.setDurable(rewardStateKey, {
+      ...existingRewardState,
+      reconciliationRequired: true,
+    });
+    throw new ReferralGrantTransientError("legacy_reward_state_reconciliation_required");
+  }
 
   const orderType = getOrderType(session);
   const hasDigitalAddOn = includesDigitalAddOn(session);
@@ -659,8 +789,7 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
   const referralOfferVariant = getReferralOfferVariant(session);
   const rewardEligible = (orderType === "digital" || hasDigitalAddOn) && amountTotal > 0;
   const stateBase: ReferralConversionState = {
-    rewarded: true,
-    createdAt: Date.now(),
+    createdAt: existingRewardState?.createdAt ?? Date.now(),
     checkoutSessionId: session.id,
     referralCode,
     referrerSessionId,
@@ -672,214 +801,329 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
     content: referralContent,
     offerVariant: referralOfferVariant,
   };
-  await kv.set(rewardStateKey, stateBase);
-
-  const referralRecord = await kv.get<ReferralRecord>(referralKey(referralCode));
-  if (!referralRecord || referralRecord.sessionId !== referrerSessionId) {
-    await appendReferralEvent({
-      code: referralCode,
-      type: "reward_skipped",
-      details: {
-        reason: "code_mismatch_or_missing",
-        checkoutSessionId: session.id,
-        offerVariant: referralOfferVariant,
-      },
-    });
-    await kv.set(rewardStateKey, {
-      ...stateBase,
-      rewardSkipReason: "code_mismatch_or_missing",
-      rewardGranted: 0,
-      conversionRecorded: false,
-    });
-    return;
-  }
-
-  let rewardGranted = 0;
-  const checkoutCustomerId = typeof session.customer === "string" ? session.customer.trim() : "";
-  const checkoutCustomerEmail = normalizeEmail(session.customer_details?.email ?? session.customer_email);
-  const referrer = await kv.get<SessionRecord>(sessionKey(referrerSessionId));
-  if (!referrer || referrer.revoked) {
-    await appendReferralEvent({
-      code: referralCode,
-      type: "reward_skipped",
-      details: {
-        reason: "referrer_inactive",
-        checkoutSessionId: session.id,
-        offerVariant: referralOfferVariant,
-      },
-    });
-    await kv.set(rewardStateKey, {
-      ...stateBase,
-      rewardSkipReason: "referrer_inactive",
-      rewardGranted: 0,
-      conversionRecorded: false,
-    });
-    return;
-  }
-
-  const sameCustomerId = Boolean(referrer.customerId && checkoutCustomerId && referrer.customerId === checkoutCustomerId);
-  // The referrer's email may have been completed into the settlement-
-  // metadata sidecar (fix round 4, PR #447) — the self-referral check
-  // reads the merged view, as it read the completed inline field before.
-  const referrerMerged = await withSettlementMetadata(referrerSessionId, referrer);
-  const referrerEmail = normalizeEmail(referrerMerged.customerEmail);
-  const sameEmail = Boolean(referrerEmail && checkoutCustomerEmail && referrerEmail === checkoutCustomerEmail);
-  if (sameCustomerId || sameEmail) {
-    await appendReferralEvent({
-      code: referralCode,
-      type: "reward_skipped",
-      details: {
-        reason: "self_referral",
-        checkoutSessionId: session.id,
-        offerVariant: referralOfferVariant,
-      },
-    });
-    await kv.set(rewardStateKey, {
-      ...stateBase,
-      rewardSkipReason: "self_referral",
-      rewardGranted: 0,
-      conversionRecorded: false,
-    });
-    return;
-  }
-
   const timestamp = Date.now();
+
+  // Validation-style terminal skip: no aggregate bookkeeping and
+  // conversionRecorded stays false — the legacy shape for decisions
+  // reached before final bookkeeping. The `rewarded: true` on terminal
+  // records is the legacy decision marker (readers keyed to it keep
+  // working); unlike the old protocol it is written only WITH a
+  // decision, never before one.
+  const recordValidationSkip = async (reason: string) => {
+    await appendReferralEvent({
+      code: referralCode,
+      type: "reward_skipped",
+      details: {
+        reason,
+        checkoutSessionId: session.id,
+        offerVariant: referralOfferVariant,
+      },
+    });
+    await kv.setDurable(rewardStateKey, {
+      ...stateBase,
+      phase: "terminal_skip",
+      decisionReason: reason,
+      rewardSkipReason: reason,
+      rewardGranted: 0,
+      conversionRecorded: false,
+      rewarded: true,
+    });
+  };
+
+  let referralRecord: ReferralRecord | null = null;
+  let rewardGranted = resumedGrant
+    ? Math.max(0, Math.floor(resumedGrant.rewardGranted ?? 0))
+    : 0;
   let rewardSkipReason: string | undefined;
-  if (rewardEligible) {
-    if (referrer.plan !== "subscription") {
-      if (referralMaxRewardsPerReferrer24h > 0) {
-        const recentRewardCount24h = await countRecentReferralRewards(
-          referralCode,
-          REFERRAL_REWARD_CAP_WINDOW_24H_MS,
-          timestamp,
-        );
-        if (recentRewardCount24h >= referralMaxRewardsPerReferrer24h) {
-          rewardSkipReason = "reward_cap_24h_reached";
-        }
-      }
-      if (!rewardSkipReason && referralMaxRewardsPerReferrer30d > 0) {
-        const recentRewardCount30d = await countRecentReferralRewards(
-          referralCode,
-          REFERRAL_REWARD_CAP_WINDOW_30D_MS,
-          timestamp,
-        );
-        if (recentRewardCount30d >= referralMaxRewardsPerReferrer30d) {
-          rewardSkipReason = "reward_cap_30d_reached";
-        }
-      }
-      if (!rewardSkipReason) {
-        if (isEntitlementAuthorityRoutingEnabled()) {
-          // DL-1 Slice 3 (R1-A): the reward lands in the entitlement
-          // authority's separate reward bucket — never in the combined KV
-          // balance, where a later clawback could reach purchased credits.
-          // The grant migrates the referrer first (lazy trigger) and is
-          // idempotent on this checkout session id. If the referrer's
-          // legacy record cannot be baselined, the grant is skipped
-          // (fail closed) rather than written behind the authority's back.
-          const grantResult = await grantReferralRewardViaAuthority(
-            createEntitlementAuthorityClient(),
-            referrerSessionId,
-            session.id,
-            referralRewardCredits,
-            async () =>
-              (await kv.get<SessionRecord>(sessionKey(referrerSessionId))) as
-                | StripeSessionEntitlement
-                | null,
+
+  if (!resumedGrant) {
+    // S93-1 item 5: purchaser revocation forbids the grant, checked
+    // BEFORE any conversion-state write. Observed revocation is a
+    // deterministic terminal outcome with zero grant.
+    if (await purchaserRevokedForReferral(session)) {
+      await recordValidationSkip("purchaser_revoked");
+      return;
+    }
+
+    // S93-1 item 4: the pending checkpoint is written durably BEFORE
+    // grant processing. A transient failure from here on leaves it in
+    // place — no snapshot restore, no delete — for the redelivery.
+    await kv.setDurable(rewardStateKey, { ...stateBase, phase: "pending" });
+
+    referralRecord = await kv.get<ReferralRecord>(referralKey(referralCode));
+    if (!referralRecord || referralRecord.sessionId !== referrerSessionId) {
+      await recordValidationSkip("code_mismatch_or_missing");
+      return;
+    }
+
+    const checkoutCustomerId = typeof session.customer === "string" ? session.customer.trim() : "";
+    const checkoutCustomerEmail = normalizeEmail(session.customer_details?.email ?? session.customer_email);
+    const referrer = await kv.get<SessionRecord>(sessionKey(referrerSessionId));
+    if (!referrer || referrer.revoked) {
+      await recordValidationSkip("referrer_inactive");
+      return;
+    }
+
+    const sameCustomerId = Boolean(referrer.customerId && checkoutCustomerId && referrer.customerId === checkoutCustomerId);
+    // The referrer's email may have been completed into the settlement-
+    // metadata sidecar (fix round 4, PR #447) — the self-referral check
+    // reads the merged view, as it read the completed inline field before.
+    const referrerMerged = await withSettlementMetadata(referrerSessionId, referrer);
+    const referrerEmail = normalizeEmail(referrerMerged.customerEmail);
+    const sameEmail = Boolean(referrerEmail && checkoutCustomerEmail && referrerEmail === checkoutCustomerEmail);
+    if (sameCustomerId || sameEmail) {
+      await recordValidationSkip("self_referral");
+      return;
+    }
+
+    if (rewardEligible) {
+      if (referrer.plan !== "subscription") {
+        if (referralMaxRewardsPerReferrer24h > 0) {
+          const recentRewardCount24h = await countRecentReferralRewards(
+            referralCode,
+            REFERRAL_REWARD_CAP_WINDOW_24H_MS,
             timestamp,
-            {
-              // DL-1 v3.8 §5: the discovery registration leg runs
-              // inside the grant (before any fold effect). The
-              // classification evidence is presented with NO witness
-              // (the grant-time claim is not a finalized witness, so
-              // the wrapper presents "absent"): the machine decides
-              // on the provenance forms alone, and P-b's fencing
-              // timestamp arrives with the activation record at the
-              // Slice 6 cutover.
-              discoveryClient: createReferralDiscoveryClient(),
-              sessionCreatedAt: (session.created ?? 0) * 1000,
-              fencingCompletedAt: null,
-            },
           );
-          if (grantResult.status === "granted" || grantResult.status === "already_granted") {
-            rewardGranted = referralRewardCredits;
-          } else if (isTransientReferralGrantReason(grantResult.reason)) {
-            // Transient contention/outage (Codex P2, PR #367): recording
-            // this as a settled skip would lose an eligible reward for
-            // good — the claim above already persisted `rewarded: true`
-            // and the entry guard would refuse every redelivery. Roll
-            // the claim back and signal retryable instead, so Stripe
-            // redelivery re-runs the grant once the authority clears.
-            if (existingRewardState) {
-              await kv.set(rewardStateKey, existingRewardState);
-            } else {
-              await kv.deleteDurable(rewardStateKey);
-            }
-            throw new ReferralGrantTransientError(grantResult.reason);
-          } else {
-            rewardSkipReason = `authority_${grantResult.reason}`;
+          if (recentRewardCount24h >= referralMaxRewardsPerReferrer24h) {
+            rewardSkipReason = "reward_cap_24h_reached";
           }
-        } else {
-          // Authority routing is GATED OFF (Codex P1, PR #367 — see
-          // referralRewardAuthority.ts): migrating a referrer today would
-          // fence their legacy consume while the download flow still has
-          // no authority debit path, leaving their downloads undebited.
-          // Until the owner enables the routing at the Slice 6 cutover,
-          // the grant takes its credit effect in the legacy KV counter,
-          // exactly as it did before this slice.
-          const nextCredits = Math.max(0, referrer.creditsRemaining ?? 0) + referralRewardCredits;
-          await kv.set(sessionKey(referrerSessionId), {
-            ...referrer,
-            paid: true,
-            creditsRemaining: nextCredits,
-            creditsTotal: Math.max(nextCredits, referrer.creditsTotal ?? 0),
-          });
-          rewardGranted = referralRewardCredits;
         }
+        if (!rewardSkipReason && referralMaxRewardsPerReferrer30d > 0) {
+          const recentRewardCount30d = await countRecentReferralRewards(
+            referralCode,
+            REFERRAL_REWARD_CAP_WINDOW_30D_MS,
+            timestamp,
+          );
+          if (recentRewardCount30d >= referralMaxRewardsPerReferrer30d) {
+            rewardSkipReason = "reward_cap_30d_reached";
+          }
+        }
+        if (!rewardSkipReason) {
+          // S93-1 item 5: recheck purchaser revocation immediately
+          // before the grant seam — evidence can land between the
+          // entry check and here.
+          if (await purchaserRevokedForReferral(session)) {
+            await recordValidationSkip("purchaser_revoked");
+            return;
+          }
+          // S93-1 item 3: before an authority grant is invoked, the
+          // referrer's CURRENT revocation state — mutable flag plus
+          // strict external evidence via its known PI identity — must
+          // not show revocation. A read error stays retryable; an
+          // observed revocation is a terminal inactive-referrer
+          // decision.
+          const freshReferrer = await kv.get<SessionRecord>(sessionKey(referrerSessionId));
+          let referrerRevoked = !freshReferrer || freshReferrer.revoked === true;
+          if (freshReferrer && !referrerRevoked) {
+            let referrerEvidence;
+            try {
+              referrerEvidence = await readSessionRevocationEvidenceStrict(
+                referrerSessionId,
+                freshReferrer.paymentIntentId ?? null,
+              );
+            } catch {
+              throw new ReferralGrantTransientError("referrer_revocation_evidence_unreadable");
+            }
+            referrerRevoked = referrerEvidence.revoked;
+          }
+          if (referrerRevoked) {
+            await recordValidationSkip("referrer_inactive");
+            return;
+          }
+          if (isEntitlementAuthorityRoutingEnabled()) {
+            // DL-1 Slice 3 (R1-A): the reward lands in the entitlement
+            // authority's separate reward bucket — never in the combined KV
+            // balance, where a later clawback could reach purchased credits.
+            // The grant migrates the referrer first (lazy trigger) and is
+            // idempotent on this checkout session id. If the referrer's
+            // legacy record cannot be baselined, the grant is skipped
+            // (fail closed) rather than written behind the authority's back.
+            const grantResult = await grantReferralRewardViaAuthority(
+              createEntitlementAuthorityClient(),
+              referrerSessionId,
+              session.id,
+              referralRewardCredits,
+              async () =>
+                (await kv.get<SessionRecord>(sessionKey(referrerSessionId))) as
+                  | StripeSessionEntitlement
+                  | null,
+              timestamp,
+              {
+                // DL-1 v3.8 §5: the discovery registration leg runs
+                // inside the grant (before any fold effect). The
+                // classification evidence is presented with NO witness
+                // (the grant-time claim is not a finalized witness, so
+                // the wrapper presents "absent"): the machine decides
+                // on the provenance forms alone, and P-b's fencing
+                // timestamp arrives with the activation record at the
+                // Slice 6 cutover.
+                discoveryClient: createReferralDiscoveryClient(),
+                sessionCreatedAt: (session.created ?? 0) * 1000,
+                fencingCompletedAt: null,
+              },
+            );
+            if (grantResult.status === "granted" || grantResult.status === "already_granted") {
+              rewardGranted = referralRewardCredits;
+            } else if (isTransientReferralGrantReason(grantResult.reason)) {
+              // Transient contention/outage (Codex P2, PR #367): recording
+              // this as a settled skip would lose an eligible reward for
+              // good. Under the S93-1 protocol there is nothing to roll
+              // back — the pending checkpoint simply stays, and the
+              // redelivery resumes and retries the wrapper with the same
+              // checkout identity once the authority clears.
+              throw new ReferralGrantTransientError(grantResult.reason);
+            } else {
+              rewardSkipReason = `authority_${grantResult.reason}`;
+            }
+          } else {
+            // S93-1 item 3: the routing-disabled legacy session grant is
+            // REMOVED. It spread a previously read referrer snapshot,
+            // set paid: true, and wrote combined credits with no durable
+            // revocation recheck — a debit or revocation landing between
+            // the read and the write was silently restored, and KV
+            // offers no conditional update that could make a concurrent
+            // increment safe (re-reading immediately before the write
+            // does not close the race). Eligible grants defer to the
+            // authority cutover instead: the conversion stays pending,
+            // nothing terminal is recorded, no referral aggregates move,
+            // the webhook event does not finalize, and the redelivery
+            // retries. Do NOT enable authority routing from this lane —
+            // the cutover is a separately approved act.
+            throw new ReferralGrantTransientError("legacy_referral_grant_requires_authority");
+          }
+        }
+      } else {
+        rewardSkipReason = "subscription_referrer";
       }
     } else {
-      rewardSkipReason = "subscription_referrer";
+      rewardSkipReason = "ineligible_order";
     }
-  } else {
-    rewardSkipReason = "ineligible_order";
+
+    if (rewardGranted > 0) {
+      // S93-1 item 4: persist the confirmation BEFORE bookkeeping.
+      // After this write, a replay resumes at bookkeeping (see the
+      // entry disposition) and never re-invokes the grant seam.
+      await kv.setDurable(rewardStateKey, {
+        ...stateBase,
+        phase: "grant_confirmed",
+        rewardGranted,
+        conversionRecorded: false,
+      });
+    }
   }
 
-  await kv.set(referralKey(referralCode), {
-    ...referralRecord,
-    conversions: (referralRecord.conversions ?? 0) + 1,
-    rewardsGranted: (referralRecord.rewardsGranted ?? 0) + rewardGranted,
-    lastConvertedAt: timestamp,
-  });
-  await kv.set(rewardStateKey, {
-    ...stateBase,
-    rewardGranted,
-    rewardSkipReason: rewardGranted > 0 ? undefined : rewardSkipReason ?? "not_eligible",
-    conversionRecorded: true,
-  });
+  // Final bookkeeping (fresh decisions and grant_confirmed resumes
+  // alike). Fix round (Codex P2, PR #471): the terminal outcome
+  // record is written LAST, after the effects it claims. Until it
+  // lands, the record stays in a resumable phase (grant_confirmed /
+  // pending), so a failure in any effect below leaves the conversion
+  // resumable instead of terminally marked with its bookkeeping
+  // lost. Each effect is replay-safe on its own:
+  // - the aggregate delta records this checkout session id in the
+  //   ReferralRecord IN THE SAME WRITE as the counters, so the
+  //   application and its evidence are atomic: a failed delta write
+  //   leaves neither behind, and a resume that observes the marker
+  //   (or the outcome record's aggregateApplied) never applies the
+  //   delta twice;
+  // - the ledger appends carry deterministic event ids, which
+  //   appendReferralEvent dedupes by id — a replayed append replaces
+  //   rather than duplicates (reward caps count reward_granted
+  //   events, so a duplicate would inflate the count).
+  //
+  // Fix round 2 (Codex P2, PR #471): both aggregate-state reads in
+  // this block are ERROR-PRESERVING. Plain kv.get degrades to local
+  // fallback storage on a remote read failure and can answer null
+  // for a record that exists; the previous shape then skipped the
+  // aggregate delta yet still wrote a terminal outcome claiming
+  // aggregateApplied — permanently losing the counters. A
+  // bookkeeping pass proceeds only from records it actually read:
+  // an unreadable or absent aggregate/outcome record leaves the
+  // conversion in its resumable phase and the event retryable.
+  if (!referralRecord) {
+    let freshReferralRecord: ReferralRecord | null = null;
+    try {
+      freshReferralRecord = await kv.getErrorPreserving<ReferralRecord>(
+        referralKey(referralCode),
+      );
+    } catch {
+      freshReferralRecord = null;
+    }
+    if (!freshReferralRecord) {
+      throw new ReferralGrantTransientError("referral_record_unreadable");
+    }
+    referralRecord = freshReferralRecord;
+  }
+  let latestRewardState: ReferralConversionState | null = null;
+  try {
+    latestRewardState =
+      await kv.getErrorPreserving<ReferralConversionState>(rewardStateKey);
+  } catch {
+    latestRewardState = null;
+  }
+  if (!latestRewardState) {
+    throw new ReferralGrantTransientError("referral_conversion_state_unreadable");
+  }
 
-  await appendReferralEvent({
-    code: referralCode,
-    type: "conversion_recorded",
-    createdAt: timestamp,
-    details: {
-      checkoutSessionId: session.id,
-      orderType,
-      amountTotal,
-      rewardGranted,
-      source: referralSource,
-      medium: referralMedium,
-      campaign: referralCampaign,
-      content: referralContent,
-      offerVariant: referralOfferVariant,
-    },
-  });
+  // A reversal can land while this conversion's bookkeeping is in
+  // flight (refund/dispute deliveries interleave with the checkout
+  // redelivery across invocations): reverseReferralReward persists
+  // its flags on the outcome record and gates its aggregate
+  // decrements on the counted-ness evidence at THAT time. This pass
+  // defers to that disposition:
+  // - the aggregate delta is never applied for a reversed
+  //   conversion (if it had landed, the evidence below already
+  //   shows it and the reversal already decremented it; if it had
+  //   not, applying it now would leak counters the reversal
+  //   deliberately left untouched);
+  // - the grant-side ledger appends are skipped (the reversal's
+  //   own events are the closing ledger entries for the conversion);
+  // - the terminal write below carries the stored reversal fields
+  //   over instead of erasing them, so a later reversal attempt
+  //   still sees the conversion as already reversed.
+  const reversalState =
+    latestRewardState.conversionReversed === true ||
+    latestRewardState.rewardReversed === true
+      ? latestRewardState
+      : null;
 
-  if (rewardGranted > 0) {
+  const aggregateAlreadyApplied =
+    existingRewardState?.aggregateApplied === true ||
+    latestRewardState.aggregateApplied === true ||
+    (referralRecord.recentConversionSessionIds?.includes(session.id) ?? false);
+  let aggregateApplied = aggregateAlreadyApplied;
+  if (!aggregateAlreadyApplied && !reversalState) {
+    // Fix round 2 (Codex P2, PR #471): the applied-session marker
+    // list is NOT truncated. The delta and its evidence are this
+    // single write — the only atomicity the store offers — so the
+    // evidence must live exactly as long as the counters it
+    // protects. The previous 50-entry bound evicted the marker of
+    // a conversion whose terminal write was still outstanding
+    // after 50 later conversions for the same code, and its retry
+    // then applied the delta a second time.
+    const appliedSessionIds = [
+      ...(referralRecord.recentConversionSessionIds ?? []).filter((id) => id !== session.id),
+      session.id,
+    ];
+    await kv.set(referralKey(referralCode), {
+      ...referralRecord,
+      conversions: (referralRecord.conversions ?? 0) + 1,
+      rewardsGranted: (referralRecord.rewardsGranted ?? 0) + rewardGranted,
+      lastConvertedAt: timestamp,
+      recentConversionSessionIds: appliedSessionIds,
+    });
+    aggregateApplied = true;
+  }
+
+  if (!reversalState) {
     await appendReferralEvent({
       code: referralCode,
-      type: "reward_granted",
+      type: "conversion_recorded",
+      eventId: `conversion_recorded:${session.id}`,
       createdAt: timestamp,
       details: {
         checkoutSessionId: session.id,
+        orderType,
+        amountTotal,
         rewardGranted,
         source: referralSource,
         medium: referralMedium,
@@ -888,22 +1132,95 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
         offerVariant: referralOfferVariant,
       },
     });
-  } else {
-    await appendReferralEvent({
-      code: referralCode,
-      type: "reward_skipped",
-      createdAt: timestamp,
-      details: {
-        checkoutSessionId: session.id,
-        reason: rewardSkipReason ?? "not_eligible",
-        source: referralSource,
-        medium: referralMedium,
-        campaign: referralCampaign,
-        content: referralContent,
-        offerVariant: referralOfferVariant,
-      },
-    });
+
+    if (rewardGranted > 0) {
+      await appendReferralEvent({
+        code: referralCode,
+        type: "reward_granted",
+        eventId: `reward_granted:${session.id}`,
+        createdAt: timestamp,
+        details: {
+          checkoutSessionId: session.id,
+          rewardGranted,
+          source: referralSource,
+          medium: referralMedium,
+          campaign: referralCampaign,
+          content: referralContent,
+          offerVariant: referralOfferVariant,
+        },
+      });
+    } else {
+      await appendReferralEvent({
+        code: referralCode,
+        type: "reward_skipped",
+        eventId: `reward_skipped:${session.id}`,
+        createdAt: timestamp,
+        details: {
+          checkoutSessionId: session.id,
+          reason: rewardSkipReason ?? "not_eligible",
+          source: referralSource,
+          medium: referralMedium,
+          campaign: referralCampaign,
+          content: referralContent,
+          offerVariant: referralOfferVariant,
+        },
+      });
+    }
   }
+
+  // Terminal outcome — written only once every bookkeeping effect
+  // above is recorded (the aggregate delta is evidenced by the
+  // marker in the ReferralRecord, the appends by their deterministic
+  // ids). Terminal states refuse re-entry at the disposition above,
+  // so a replay of a completed conversion is a no-op.
+  // aggregateApplied states what actually landed — never asserted
+  // for a delta this pass (or an earlier one) did not apply, which
+  // is exactly the reversed-before-bookkeeping case above, whose
+  // stored reversal fields are carried over verbatim.
+  //
+  // The outcome record is re-read once more, error-preserving,
+  // immediately before this write: a reversal landing DURING this
+  // pass (after the decision read above — e.g. between the delta
+  // write and here) persists its flags on the stored record, and
+  // the terminal write must carry them over rather than erase them
+  // with the pass's stale snapshot. An unreadable record at this
+  // point leaves the event retryable; the effects above are all
+  // evidenced idempotently, so the resume re-enters safely.
+  let terminalRewardState: ReferralConversionState | null = null;
+  try {
+    terminalRewardState =
+      await kv.getErrorPreserving<ReferralConversionState>(rewardStateKey);
+  } catch {
+    terminalRewardState = null;
+  }
+  if (!terminalRewardState) {
+    throw new ReferralGrantTransientError("referral_conversion_state_unreadable");
+  }
+  const terminalReversalState =
+    terminalRewardState.conversionReversed === true ||
+    terminalRewardState.rewardReversed === true
+      ? terminalRewardState
+      : reversalState;
+  await kv.setDurable(rewardStateKey, {
+    ...stateBase,
+    phase: rewardGranted > 0 ? "completed" : "terminal_skip",
+    decisionReason: rewardGranted > 0 ? undefined : rewardSkipReason ?? "not_eligible",
+    rewardGranted,
+    rewardSkipReason: rewardGranted > 0 ? undefined : rewardSkipReason ?? "not_eligible",
+    conversionRecorded: true,
+    aggregateApplied,
+    rewarded: true,
+    ...(terminalReversalState
+      ? {
+          conversionReversed: terminalReversalState.conversionReversed,
+          conversionReversedAt: terminalReversalState.conversionReversedAt,
+          rewardReversed: terminalReversalState.rewardReversed,
+          rewardReversedAt: terminalReversalState.rewardReversedAt,
+          reversalReason: terminalReversalState.reversalReason,
+          rewardReclaimed: terminalReversalState.rewardReclaimed,
+        }
+      : {}),
+  });
 }
 
 /**
@@ -922,9 +1239,20 @@ async function reverseReferralReward(
 
   const rewardStateKey = referralRewardedKey(sessionId);
   const rewardState = await kv.get<ReferralConversionState>(rewardStateKey);
-  if (!rewardState?.rewarded) return { deferred: false };
+  if (!rewardState) return { deferred: false };
   if (!rewardState.referralCode || !rewardState.referrerSessionId) return { deferred: false };
-  if (rewardState.conversionRecorded !== true) return { deferred: false };
+  // S93-1 item 4: a CONFIRMED grant is reversible even when conversion
+  // bookkeeping never completed (grant_confirmed phase, or a record
+  // carrying rewardGranted > 0) — conversionRecorded must never hide a
+  // confirmed grant from reversal. Whether the aggregate counters may
+  // be decremented is decided separately below, on evidence that
+  // this conversion's aggregate increment actually landed.
+  const confirmedGrant =
+    rewardState.phase === "grant_confirmed" ||
+    rewardState.phase === "completed" ||
+    (rewardState.rewardGranted ?? 0) > 0;
+  if (rewardState.rewarded !== true && !confirmedGrant) return { deferred: false };
+  if (!confirmedGrant && rewardState.conversionRecorded !== true) return { deferred: false };
 
   const referralCode = normalizeReferralCode(rewardState.referralCode);
   if (!referralCode) return { deferred: false };
@@ -1005,14 +1333,31 @@ async function reverseReferralReward(
     }
   }
 
+  // Fix round (Codex P2, PR #471): both aggregate decrements may
+  // only undo an increment that actually landed for THIS conversion.
+  // Evidence: the outcome record's aggregateApplied (set only once
+  // bookkeeping's delta is in), a pre-protocol record with
+  // conversionRecorded: true (the legacy flow recorded only after
+  // its aggregate write), or the ReferralRecord's own applied-session
+  // marker (the delta landed mid-bookkeeping and the terminal
+  // outcome write is still outstanding). A grant_confirmed record
+  // whose bookkeeping never applied the delta carries none of these
+  // — decrementing it would subtract rewards belonging to other
+  // conversions. The credit clawback below is NOT gated on this: a
+  // confirmed grant's credits are reclaimable regardless.
+  const aggregateCounted =
+    rewardState.aggregateApplied === true ||
+    (rewardState.phase === undefined && rewardState.conversionRecorded === true) ||
+    (referralRecord.recentConversionSessionIds?.includes(sessionId) ?? false);
+
   const nextReferralRecord: ReferralRecord = {
     ...referralRecord,
     conversions:
-      conversionAlreadyReversed || rewardState.conversionRecorded !== true
+      conversionAlreadyReversed || !aggregateCounted
         ? referralRecord.conversions ?? 0
         : Math.max(0, (referralRecord.conversions ?? 0) - 1),
     rewardsGranted:
-      rewardAlreadyReversed || rewardGranted <= 0
+      rewardAlreadyReversed || rewardGranted <= 0 || !aggregateCounted
         ? referralRecord.rewardsGranted ?? 0
         : Math.max(0, (referralRecord.rewardsGranted ?? 0) - rewardGranted),
   };
@@ -1769,7 +2114,15 @@ async function processCheckoutFulfillment(
     }
     const paymentFulfillable = isFulfillableCheckoutPayment(fulfilledSession);
     if (!skipEntitlementGrants) {
-      await markSessionPaid(fulfilledSession);
+      const paidOutcome = await markSessionPaid(fulfilledSession);
+      if (paidOutcome.kind === "revoked") {
+        // S93-1 item 5: settlement observed revocation (e.g. a PI
+        // tombstone persisted before the session association existed).
+        // The referral application for this pass is suppressed;
+        // applyReferralReward also re-checks the evidence itself
+        // before any grant, to cover evidence arriving later.
+        skipEntitlementGrants = true;
+      }
     }
     if (!skipPrintOrder && paymentFulfillable) {
       await queuePrintOrder(fulfilledSession);
@@ -1858,6 +2211,140 @@ async function finalizeAsyncPaymentFailed(session: Stripe.Checkout.Session) {
   );
 }
 
+/**
+ * S93-1 item 6 outcome. `applied` and `refused_activation` are terminal
+ * handlings (the caller finalizes event dedupe); `retryable` leaves the
+ * event unfinalized so Stripe redelivers.
+ */
+type SubscriptionEventOutcome =
+  | { kind: "applied" }
+  | { kind: "refused_activation"; reason: string }
+  | { kind: "retryable"; reason: string };
+
+/**
+ * Apply a customer.subscription.updated/deleted event to the mapped
+ * entitlement session (S93-1 item 6, bounded interim mitigation).
+ *
+ * The pre-fix branch replaced the session unconditionally: an
+ * active/trialing event set paid: true and cleared revocation fields
+ * even over a refund revocation, republishing whatever stale snapshot
+ * it had read. This handler instead:
+ * - requires a present session whose subscriptionId matches the event
+ *   subscription (missing/mismatched association is retryable — never
+ *   a partial entitlement constructed from an empty spread);
+ * - reads revocation evidence through the strict reader (item 5)
+ *   before applying status — observed external revocation means NO
+ *   activation and NO session replacement, and an unreadable evidence
+ *   state throws (the caller leaves the event retryable);
+ * - refuses activation when the mutable revocation reason is anything
+ *   other than "subscription_inactive" — an active event may clear
+ *   only that one reason;
+ * - re-reads the session and the evidence immediately before a
+ *   permitted put, builds the write from that re-read, and writes
+ *   durably;
+ * - re-checks evidence after an activation put: revocation landing
+ *   during the put converges through markSessionRevoked and the event
+ *   stays retryable — an activation is never finalized as successful
+ *   after observed revocation.
+ * Inactive events preserve an existing refund/dispute reason and
+ * timestamp. This mitigates visible revocation conflicts only; the
+ * check-then-put race and stale-accounting republication are retained
+ * residuals (full closure needs the entitlement authority to own
+ * subscription status — deliberately not invented here).
+ */
+async function applySubscriptionEvent(
+  subscription: Stripe.Subscription,
+): Promise<SubscriptionEventOutcome> {
+  if (!subscription.id) return { kind: "retryable", reason: "subscription_id_missing" };
+  const sessionId = await kv.get<string>(subscriptionKey(subscription.id));
+  if (!sessionId) return { kind: "retryable", reason: "subscription_mapping_missing" };
+  const key = sessionKey(sessionId);
+  const existing = await kv.get<SessionRecord>(key);
+  if (!existing) return { kind: "retryable", reason: "subscription_session_missing" };
+  if (existing.subscriptionId !== subscription.id) {
+    return { kind: "retryable", reason: "subscription_mapping_mismatch" };
+  }
+  const active = subscription.status === "active" || subscription.status === "trialing";
+
+  const evidence = await readSessionRevocationEvidenceStrict(
+    sessionId,
+    existing.paymentIntentId ?? null,
+  );
+  if (evidence.revoked) {
+    return { kind: "refused_activation", reason: evidence.reason ?? "refund" };
+  }
+
+  if (!active) {
+    const fresh = await kv.get<SessionRecord>(key);
+    if (!fresh || fresh.subscriptionId !== subscription.id) {
+      return { kind: "retryable", reason: "subscription_session_changed" };
+    }
+    const freshEvidence = await readSessionRevocationEvidenceStrict(
+      sessionId,
+      fresh.paymentIntentId ?? null,
+    );
+    if (freshEvidence.revoked) {
+      return { kind: "refused_activation", reason: freshEvidence.reason ?? "refund" };
+    }
+    if (fresh.revoked && fresh.reason && fresh.reason !== "subscription_inactive") {
+      // Preserve the refund/dispute reason and timestamp exactly; only
+      // the subscription activity flags move.
+      await kv.setDurable(key, {
+        ...fresh,
+        paid: false,
+        revoked: true,
+        subscriptionActive: false,
+      });
+      return { kind: "applied" };
+    }
+    await kv.setDurable(key, {
+      ...fresh,
+      paid: false,
+      revoked: true,
+      subscriptionActive: false,
+      revokedAt: Date.now(),
+      reason: "subscription_inactive",
+    });
+    return { kind: "applied" };
+  }
+
+  // Active/trialing may clear only a subscription_inactive revocation.
+  if (existing.revoked && existing.reason !== "subscription_inactive") {
+    return { kind: "refused_activation", reason: existing.reason ?? "revoked" };
+  }
+  const fresh = await kv.get<SessionRecord>(key);
+  if (!fresh || fresh.subscriptionId !== subscription.id) {
+    return { kind: "retryable", reason: "subscription_session_changed" };
+  }
+  if (fresh.revoked && fresh.reason !== "subscription_inactive") {
+    return { kind: "refused_activation", reason: fresh.reason ?? "revoked" };
+  }
+  const freshEvidence = await readSessionRevocationEvidenceStrict(
+    sessionId,
+    fresh.paymentIntentId ?? null,
+  );
+  if (freshEvidence.revoked) {
+    return { kind: "refused_activation", reason: freshEvidence.reason ?? "refund" };
+  }
+  await kv.setDurable(key, {
+    ...fresh,
+    paid: true,
+    revoked: false,
+    subscriptionActive: true,
+    revokedAt: undefined,
+    reason: undefined,
+  });
+  const postEvidence = await readSessionRevocationEvidenceStrict(
+    sessionId,
+    fresh.paymentIntentId ?? null,
+  );
+  if (postEvidence.revoked) {
+    await markSessionRevoked(sessionId, postEvidence.reason ?? "refund");
+    return { kind: "retryable", reason: "revocation_observed_after_activation" };
+  }
+  return { kind: "applied" };
+}
+
 export async function POST(req: Request) {
   if (!stripe || !webhookSecret) {
     return NextResponse.json({ error: "Stripe webhook not configured" }, { status: 500 });
@@ -1891,6 +2378,13 @@ export async function POST(req: Request) {
     event.type === "charge.refunded" ||
     event.type === "charge.dispute.created" ||
     event.type === "charge.dispute.funds_withdrawn";
+  // S93-1 item 7: subscription events defer dedupe too. The pre-fix
+  // pre-processing kv.incr acknowledged the event before handling, so a
+  // session-write failure after a successful increment was permanently
+  // acked on replay (duplicate: true) and the update was lost.
+  const isSubscriptionEvent =
+    event.type === "customer.subscription.updated" ||
+    event.type === "customer.subscription.deleted";
   // Defer dedupe finalization for events whose critical side effects must remain
   // Stripe-retryable when durable persistence fails mid-handling.
   const deferDedupeUntilSuccess =
@@ -1898,7 +2392,8 @@ export async function POST(req: Request) {
     isCompletedCheckoutEvent ||
     isAsyncPaymentSucceededEvent ||
     isAsyncPaymentFailedEvent ||
-    isReferralReversalEvent;
+    isReferralReversalEvent ||
+    isSubscriptionEvent;
 
   // Unrelated Stripe event types keep pre-processing dedupe.
   // checkout.session.expired / checkout.session.completed / the async-payment
@@ -1913,7 +2408,14 @@ export async function POST(req: Request) {
     }
   } else {
     const existingEvent = await kv.get(eventDedupeKey);
-    if (existingEvent) {
+    // For subscription events only a validated terminal marker object
+    // means duplicate: numeric counters left by the old pre-processing
+    // incr do not establish application success and must re-enter
+    // processing (S93-1 item 7).
+    const isDuplicate = isSubscriptionEvent
+      ? isWebhookTerminalDedupeMarker(existingEvent)
+      : Boolean(existingEvent);
+    if (isDuplicate) {
       return NextResponse.json({ received: true, duplicate: true });
     }
   }
@@ -1922,6 +2424,7 @@ export async function POST(req: Request) {
   let completedCheckoutRetryable = false;
   let asyncPaymentFailedRetryable = false;
   let referralReversalRetryable = false;
+  let subscriptionRetryable = false;
 
   switch (event.type) {
     case "checkout.session.completed": {
@@ -1973,19 +2476,25 @@ export async function POST(req: Request) {
     case "customer.subscription.updated":
     case "customer.subscription.deleted": {
       const subscription = event.data.object as Stripe.Subscription;
-      if (!subscription.id) break;
-      const sessionId = await kv.get<string>(subscriptionKey(subscription.id));
-      if (!sessionId) break;
-      const existing = await kv.get<SessionRecord>(sessionKey(sessionId));
-      const active = subscription.status === "active" || subscription.status === "trialing";
-      await kv.set(sessionKey(sessionId), {
-        ...existing,
-        paid: active,
-        revoked: !active,
-        subscriptionActive: active,
-        revokedAt: active ? undefined : Date.now(),
-        reason: active ? undefined : "subscription_inactive",
-      });
+      // S93-1 item 7: the handler runs inside explicit retryable error
+      // handling — any failure (including unreadable revocation
+      // evidence) leaves the event unfinalized for redelivery.
+      try {
+        const outcome = await applySubscriptionEvent(subscription);
+        if (outcome.kind === "retryable") {
+          console.error("Subscription event handling retryable", {
+            eventId: event.id,
+            reason: outcome.reason,
+          });
+          subscriptionRetryable = true;
+        }
+      } catch (error) {
+        console.error("Subscription event handling failed; leaving event retryable", {
+          eventId: event.id,
+          error,
+        });
+        subscriptionRetryable = true;
+      }
       break;
     }
     case "charge.refunded": {
@@ -2066,11 +2575,20 @@ export async function POST(req: Request) {
     if (!deduped) referralReversalRetryable = true;
   }
 
+  // S93-1 item 7: subscription events likewise finalize dedupe only
+  // after an applied or deliberately refused activation completes;
+  // a failed terminal-marker write is itself retryable.
+  if (isSubscriptionEvent && !subscriptionRetryable) {
+    const deduped = await persistWebhookEventDedupe(eventDedupeKey);
+    if (!deduped) subscriptionRetryable = true;
+  }
+
   if (
     expiredRecoveryRetryable ||
     completedCheckoutRetryable ||
     asyncPaymentFailedRetryable ||
-    referralReversalRetryable
+    referralReversalRetryable ||
+    subscriptionRetryable
   ) {
     return NextResponse.json(
       {
@@ -2080,7 +2598,9 @@ export async function POST(req: Request) {
             ? "async_payment_failed_finalize_retryable"
             : referralReversalRetryable
               ? "referral_reversal_retryable"
-              : "checkout_recovery_retryable",
+              : subscriptionRetryable
+                ? "subscription_event_retryable"
+                : "checkout_recovery_retryable",
       },
       { status: 503 },
     );
