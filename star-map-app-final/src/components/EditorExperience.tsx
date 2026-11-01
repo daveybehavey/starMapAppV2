@@ -126,7 +126,10 @@ import {
   type HydratableMapRecipe,
 } from "@/lib/mapRecipeHydration";
 import { parseMapIdParam } from "@/lib/mapId";
-import { shouldApplyHydratedMapRecipe } from "@/lib/editorHydrationGuard";
+import {
+  shouldApplyHydratedMapRecipe,
+  shouldStartMapHydration,
+} from "@/lib/editorHydrationGuard";
 import {
   readEditorDraftFromHost,
   resolveRestoredCustomOccasion,
@@ -261,10 +264,18 @@ export function EditorExperience({
   // Loading state callback for visual options
   const [isUpdating, setIsUpdating] = useState(false);
   const [canvasReady, setCanvasReady] = useState(false);
+  // S93-2 class 5, fix round 1: the first visual-options
+  // application is the editor's automatic initialization (the
+  // hook's ~150 ms mount timer), not a user edit. Saved-map
+  // hydration must not start until it has landed — otherwise the
+  // initialization write itself cancels the pending hydration
+  // (see shouldStartMapHydration).
+  const [visualOptionsInitialized, setVisualOptionsInitialized] = useState(false);
 
   const onVisualOptionsApplied = useCallback(() => {
     setIsUpdating(true);
     setCanvasReady(false);
+    setVisualOptionsInitialized(true);
   }, []);
 
   // Use shared editor logic hook
@@ -1061,9 +1072,25 @@ export function EditorExperience({
   }, [dateTime, location, textBoxes, selectedStyle, aspectRatio, shape, renderOptions, selectedOccasion]);
 
   useEffect(() => {
-    if (!restored || mapFromUrlHandledRef.current || !mapIdFromQuery) return;
-    mapFromUrlHandledRef.current = true;
+    // Start only once the draft is restored AND the automatic
+    // visual-options initialization has landed, so the generation
+    // captured below already includes the initialization write —
+    // a slow /api/maps response is then defeated only by changes
+    // made after the fetch started (user edits), never by the
+    // editor initializing itself (Codex P1, fix round 1).
     const requestedMapId = mapIdFromQuery;
+    if (
+      !requestedMapId ||
+      !shouldStartMapHydration({
+        restored,
+        visualOptionsInitialized,
+        alreadyHandled: mapFromUrlHandledRef.current,
+        mapId: requestedMapId,
+      })
+    ) {
+      return;
+    }
+    mapFromUrlHandledRef.current = true;
     const generationAtFetchStart = editGenerationRef.current;
     let cancelled = false;
 
@@ -1090,7 +1117,7 @@ export function EditorExperience({
 
         draftWritesBlockedRef.current = false;
         applyHydratedMapRecipe(data);
-        loadedMapIdRef.current = mapIdFromQuery;
+        loadedMapIdRef.current = requestedMapId;
         loadedMapFingerprintRef.current = stableMapRecipeFingerprint(
           buildRecipeFromState({
             dateTime: data.datetimeISO,
@@ -1104,7 +1131,7 @@ export function EditorExperience({
         );
 
         try {
-          localStorage.setItem(CHECKOUT_MAP_KEY, mapIdFromQuery);
+          localStorage.setItem(CHECKOUT_MAP_KEY, requestedMapId);
         } catch {
           // ignore storage errors
         }
@@ -1122,7 +1149,7 @@ export function EditorExperience({
     return () => {
       cancelled = true;
     };
-  }, [applyHydratedMapRecipe, aspectRatio, mapIdFromQuery, renderOptions, restored, selectedStyle, shape]);
+  }, [applyHydratedMapRecipe, aspectRatio, mapIdFromQuery, renderOptions, restored, selectedStyle, shape, visualOptionsInitialized]);
 
   useEffect(() => {
     if (!restored || !revealed || paid || digitalIntentHandledRef.current) return;
