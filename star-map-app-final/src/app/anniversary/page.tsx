@@ -9,6 +9,7 @@ import FramedProofSection from "@/components/FramedProofSection";
 import OccasionLinks from "@/components/OccasionLinks";
 import OccasionStorySection from "@/components/OccasionStorySection";
 import MoneyPagePriceAtGlance from "@/components/MoneyPagePriceAtGlance";
+import ChristmasOrderByTable from "@/components/ChristmasOrderByTable";
 import ProductSchema from "@/components/ProductSchema";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
@@ -28,6 +29,7 @@ import {
   getFramedHdGiftCtaLine,
   getGiftLadderIntro,
 } from "@/lib/moneyPageGiftCheckout";
+import { getChristmasLandingPromo, getChristmasOrderBySummaryLines } from "@/lib/christmasCampaign";
 import { getPricingTiers, getPrintPricingTiers } from "@/lib/pricing";
 import type { Metadata } from "next";
 
@@ -107,6 +109,8 @@ export default function AnniversaryPage() {
   const bundlePriceLine = getFramedHdBundlePriceLine();
   const framedHdHref = buildFramedHdCheckoutHref("anniversary-hero-framed-hd");
   const previewIntents = buildStandardGiftPreviewIntents("anniversary");
+  const christmasLandingPromo = getChristmasLandingPromo();
+  const orderByLines = getChristmasOrderBySummaryLines();
   const tiers = getPricingTiers();
   const printTiers = getPrintPricingTiers();
   const printCheckoutEnabled = /^(1|true|yes)$/i.test(
@@ -363,6 +367,18 @@ export default function AnniversaryPage() {
         intro="Decisions get clearer once the wording, frame plan, and whether you want the finished framed route are already clear."
       />
       <OccasionLinks />
+
+      {christmasLandingPromo.showOrderBy ? (
+        <section className="mt-6 space-y-3 rounded-3xl border border-amber-200/40 bg-amber-50/90 p-6 shadow-xl shadow-black/10">
+          <h2 className="text-midnight text-lg font-semibold">Christmas order-by dates</h2>
+          <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
+            {orderByLines.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+          <ChristmasOrderByTable />
+        </section>
+      ) : null}
 
       <section className="mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-midnight text-lg font-semibold">Anniversary star map FAQ</h2>

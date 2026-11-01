@@ -7,7 +7,9 @@ import FramedProofSection from "@/components/FramedProofSection";
 import InstantHdHeroExtras from "@/components/InstantHdHeroExtras";
 import GiftFormatLadder from "@/components/GiftFormatLadder";
 import OccasionLinks from "@/components/OccasionLinks";
+import ChristmasOrderByTable from "@/components/ChristmasOrderByTable";
 import MoneyPagePriceAtGlance from "@/components/MoneyPagePriceAtGlance";
+import ProductSchema from "@/components/ProductSchema";
 import PreviewStartForm from "@/components/PreviewStartForm";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import RevenueTrustModule from "@/components/RevenueTrustModule";
@@ -23,13 +25,17 @@ import {
   getInstantHdHeroHref,
   getInstantHdPriceLine,
 } from "@/lib/digitalGiftCheckout";
+import { getChristmasLandingPromo, getChristmasOrderBySummaryLines } from "@/lib/christmasCampaign";
 import { buildFramedHdCheckoutHref, getGiftLadderIntro } from "@/lib/moneyPageGiftCheckout";
+import { getPricingTiers, getPrintPricingTiers } from "@/lib/pricing";
 import type { Metadata } from "next";
 
 export const revalidate = 86400; // refresh once per day
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
-const ogImage = `${siteUrl}/custom-star-map-anniversary.webp`;
+// Birthday-specific social image (the birthday Noir example, 1200×1200) —
+// this page previously reused the anniversary page's og:image.
+const ogImage = `${siteUrl}/examples/example-birthday-noir.webp`;
 const breadcrumbs = [
   { href: "/", label: "Home" },
   { href: "/birthday", label: "Birthday" },
@@ -45,7 +51,7 @@ export const metadata: Metadata = {
     description:
       "Create a birthday star map gift from a birth date or special birthday celebration and its location. Free preview, then framed print, unframed print, or HD digital.",
     url: `${siteUrl}/birthday`,
-    images: [{ url: ogImage, width: 1200, height: 630 }],
+    images: [{ url: ogImage, width: 1200, height: 1200 }],
     type: "website",
   },
   twitter: { card: "summary_large_image", images: [ogImage] },
@@ -59,6 +65,38 @@ export default function BirthdayPage() {
   const instantHref = getInstantHdHeroHref("birthday-hero-instant");
   const instantPrice = getInstantHdPriceLine();
   const previewIntents = buildInstantHdPreviewIntents("birthday");
+  const christmasLandingPromo = getChristmasLandingPromo();
+  const orderByLines = getChristmasOrderBySummaryLines();
+  const tiers = getPricingTiers();
+  const printTiers = getPrintPricingTiers();
+  const printCheckoutEnabled = /^(1|true|yes)$/i.test(
+    (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim()
+  );
+  const schemaCurrency = (tiers.single.currency || "USD").toUpperCase();
+  const productOffers = [
+    {
+      name: "HD digital download",
+      price: (tiers.single.amountCents / 100).toFixed(2),
+      priceCurrency: schemaCurrency,
+      url: `${siteUrl}/editor?mode=quick&source=birthday-schema-digital`,
+    },
+    ...(printCheckoutEnabled
+      ? [
+          {
+            name: "Unframed print",
+            price: (printTiers.poster_unframed.amountCents / 100).toFixed(2),
+            priceCurrency: (printTiers.poster_unframed.currency || "USD").toUpperCase(),
+            url: `${siteUrl}/editor?mode=quick&source=birthday-schema-print-unframed&checkout=print&print_variant=poster_unframed`,
+          },
+          {
+            name: "Framed print",
+            price: (printTiers.poster_framed.amountCents / 100).toFixed(2),
+            priceCurrency: (printTiers.poster_framed.currency || "USD").toUpperCase(),
+            url: `${siteUrl}/editor?mode=quick&source=birthday-schema-print-framed&checkout=print&print_variant=poster_framed`,
+          },
+        ]
+      : []),
+  ];
 
   return (
     <main className="mx-auto max-w-4xl px-4 pt-10 pb-12 sm:pt-14">
@@ -237,6 +275,18 @@ export default function BirthdayPage() {
 
       <OccasionLinks />
 
+      {christmasLandingPromo.showOrderBy ? (
+        <section className="mt-6 space-y-3 rounded-3xl border border-amber-200/40 bg-amber-50/90 p-6 shadow-xl shadow-black/10">
+          <h2 className="text-midnight text-lg font-semibold">Christmas order-by dates</h2>
+          <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
+            {orderByLines.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+          <ChristmasOrderByTable />
+        </section>
+      ) : null}
+
       <section className="mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-midnight text-lg font-semibold">Birthday star map FAQ</h2>
         <div className="space-y-4 text-sm text-neutral-800 sm:text-base">
@@ -248,6 +298,12 @@ export default function BirthdayPage() {
           ))}
         </div>
       </section>
+      <ProductSchema
+        name="Birthday Star Map"
+        description="Personalized birthday star map showing the exact night sky from a birth date and location. Order a framed print, unframed poster, or HD digital download."
+        imageUrl={ogImage}
+        offers={productOffers}
+      />
       <FaqSchema items={BIRTHDAY_FAQ_ITEMS} />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>

@@ -67,7 +67,7 @@ export default function MoneyPagePriceAtGlance({
               framed from <span className="font-semibold text-amber-50">{framedPrice}</span>
               {" · "}
             </span>
-            unframed from <span className="font-semibold text-amber-50">{unframedPrice}</span>
+            unframed 16×16 from <span className="font-semibold text-amber-50">{unframedPrice}</span>
             <span data-digital-offer>
               {" · "}
               HD only <span className="font-semibold text-amber-50">{digitalPrice}</span>
@@ -79,7 +79,7 @@ export default function MoneyPagePriceAtGlance({
               HD from <span className="font-semibold text-amber-50">{digitalPrice}</span>
               {" · "}
             </span>
-            unframed from <span className="font-semibold text-amber-50">{unframedPrice}</span>
+            unframed 16×16 from <span className="font-semibold text-amber-50">{unframedPrice}</span>
             {" · "}
             framed from <span className="font-semibold text-amber-50">{framedPrice}</span>
           </>
