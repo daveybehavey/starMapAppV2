@@ -8,6 +8,12 @@
  * figure with the display currency, the trap this fix removes.
  * Behaviour pins only: threshold parsing/defaults and the waive logic
  * are pinned by printFreeShipping.test.mjs and stay untouched.
+ *
+ * B3 correction (2026-11-01): the original B3 pin encoded a duplicated
+ * currency code — "$89.00 USD+ USD subtotal" — because the short-tag
+ * template appended "USD" to a threshold label that already ends with
+ * it (formatPrice appends the code exactly once). The pin now matches
+ * the corrected single-USD tag.
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -35,7 +41,7 @@ function withEnv(vars, fn) {
 
 const B2_DEFAULT =
   "Free standard shipping when your print order's USD merchandise subtotal is $89.00 USD or more. Eligibility uses USD item values in both markets and excludes shipping.";
-const B3_DEFAULT = "Free standard shipping · $89.00 USD+ USD subtotal";
+const B3_DEFAULT = "Free standard shipping · $89.00 USD+ subtotal";
 
 test("B1 default: $89.00 USD in both markets — CAD calls never relabel as CAD", () => {
   withEnv({}, () => {
@@ -64,7 +70,7 @@ test("configured threshold 12345 renders $123.45 USD in B1-B3, both markets", ()
     );
     assert.equal(
       freeShipping.getPrintFreeShippingShortTag("usd"),
-      "Free standard shipping · $123.45 USD+ USD subtotal",
+      "Free standard shipping · $123.45 USD+ subtotal",
     );
   });
 });

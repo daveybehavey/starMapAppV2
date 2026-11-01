@@ -86,7 +86,9 @@ export function getPrintFreeShippingOfferLine(currency = "usd"): string | null {
 export function getPrintFreeShippingShortTag(currency = "usd"): string | null {
   const thresholdLabel = formatPrintFreeShippingThresholdLabel(currency);
   if (!thresholdLabel) return null;
-  return `Free standard shipping · ${thresholdLabel}+ USD subtotal`;
+  // The threshold label already names the currency (formatPrice appends
+  // the code exactly once) — the tag must not add a second "USD" after it.
+  return `Free standard shipping · ${thresholdLabel}+ subtotal`;
 }
 
 /**
