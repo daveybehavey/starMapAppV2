@@ -870,11 +870,10 @@ export async function settleSessionPurchase<T extends StripeSessionEntitlement>(
  * in, zero transfers out) — but the evidence write is NOT swallowed
  * (S93-1 item 8): a returned record means the durable put resolved, and
  * a persistence failure throws (KvDurableWriteError) so the caller owns
- * the response policy for an unrecorded refusal. The verify route's
- * companion change (catch the failure locally, outside its Stripe
- * catch, and answer 503 pending) is sequenced with the lane that owns
- * that route — until it lands, this propagation is the contract the
- * gate must sequence against.
+ * the response policy for an unrecorded refusal. The verify route is
+ * that caller: it attempts the refusal at handler entry (before any
+ * session read) and catches a persistence failure locally, outside its
+ * Stripe catch, answering 503 carry_refusal_persistence_pending.
  */
 export async function recordTransferRefusal(input: {
   sourceSessionId: string;
