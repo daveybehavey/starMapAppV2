@@ -205,7 +205,10 @@ type ReferralConversionState = {
    *  bookkeeping is still in flight the delta's evidence is the
    *  ReferralRecord's applied-session marker instead — the outcome
    *  record is written last and never claims an effect that has not
-   *  landed. */
+   *  landed. A terminal record for a conversion reversed BEFORE its
+   *  bookkeeping ran carries `false`: the delta never landed (the
+   *  reversal gated its decrements on that same evidence), and the
+   *  stored reversal fields record the disposition. */
   aggregateApplied?: boolean;
   /** A legacy `rewarded: true` record whose outcome fields are missing:
    *  ambiguous, never regranted and never reinterpreted as granted. */
@@ -232,9 +235,6 @@ type ReferralConversionState = {
   reversalReason?: string;
   rewardReclaimed?: number;
 };
-
-/** Bound for ReferralRecord.recentConversionSessionIds (see referrals.ts). */
-const REFERRAL_AGGREGATE_SESSION_MARKER_LIMIT = 50;
 
 const sessionKey = (id: string) => `stripe:session:${id}`;
 const paymentIntentKey = (id: string) => `stripe:pi:${id}`;
@@ -1029,17 +1029,81 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
   //   appendReferralEvent dedupes by id — a replayed append replaces
   //   rather than duplicates (reward caps count reward_granted
   //   events, so a duplicate would inflate the count).
+  //
+  // Fix round 2 (Codex P2, PR #471): both aggregate-state reads in
+  // this block are ERROR-PRESERVING. Plain kv.get degrades to local
+  // fallback storage on a remote read failure and can answer null
+  // for a record that exists; the previous shape then skipped the
+  // aggregate delta yet still wrote a terminal outcome claiming
+  // aggregateApplied — permanently losing the counters. A
+  // bookkeeping pass proceeds only from records it actually read:
+  // an unreadable or absent aggregate/outcome record leaves the
+  // conversion in its resumable phase and the event retryable.
   if (!referralRecord) {
-    referralRecord = await kv.get<ReferralRecord>(referralKey(referralCode));
+    let freshReferralRecord: ReferralRecord | null = null;
+    try {
+      freshReferralRecord = await kv.getErrorPreserving<ReferralRecord>(
+        referralKey(referralCode),
+      );
+    } catch {
+      freshReferralRecord = null;
+    }
+    if (!freshReferralRecord) {
+      throw new ReferralGrantTransientError("referral_record_unreadable");
+    }
+    referralRecord = freshReferralRecord;
   }
+  let latestRewardState: ReferralConversionState | null = null;
+  try {
+    latestRewardState =
+      await kv.getErrorPreserving<ReferralConversionState>(rewardStateKey);
+  } catch {
+    latestRewardState = null;
+  }
+  if (!latestRewardState) {
+    throw new ReferralGrantTransientError("referral_conversion_state_unreadable");
+  }
+
+  // A reversal can land while this conversion's bookkeeping is in
+  // flight (refund/dispute deliveries interleave with the checkout
+  // redelivery across invocations): reverseReferralReward persists
+  // its flags on the outcome record and gates its aggregate
+  // decrements on the counted-ness evidence at THAT time. This pass
+  // defers to that disposition:
+  // - the aggregate delta is never applied for a reversed
+  //   conversion (if it had landed, the evidence below already
+  //   shows it and the reversal already decremented it; if it had
+  //   not, applying it now would leak counters the reversal
+  //   deliberately left untouched);
+  // - the grant-side ledger appends are skipped (the reversal's
+  //   own events are the closing ledger entries for the conversion);
+  // - the terminal write below carries the stored reversal fields
+  //   over instead of erasing them, so a later reversal attempt
+  //   still sees the conversion as already reversed.
+  const reversalState =
+    latestRewardState.conversionReversed === true ||
+    latestRewardState.rewardReversed === true
+      ? latestRewardState
+      : null;
+
   const aggregateAlreadyApplied =
     existingRewardState?.aggregateApplied === true ||
-    (referralRecord?.recentConversionSessionIds?.includes(session.id) ?? false);
-  if (!aggregateAlreadyApplied && referralRecord) {
+    latestRewardState.aggregateApplied === true ||
+    (referralRecord.recentConversionSessionIds?.includes(session.id) ?? false);
+  let aggregateApplied = aggregateAlreadyApplied;
+  if (!aggregateAlreadyApplied && !reversalState) {
+    // Fix round 2 (Codex P2, PR #471): the applied-session marker
+    // list is NOT truncated. The delta and its evidence are this
+    // single write — the only atomicity the store offers — so the
+    // evidence must live exactly as long as the counters it
+    // protects. The previous 50-entry bound evicted the marker of
+    // a conversion whose terminal write was still outstanding
+    // after 50 later conversions for the same code, and its retry
+    // then applied the delta a second time.
     const appliedSessionIds = [
       ...(referralRecord.recentConversionSessionIds ?? []).filter((id) => id !== session.id),
       session.id,
-    ].slice(-REFERRAL_AGGREGATE_SESSION_MARKER_LIMIT);
+    ];
     await kv.set(referralKey(referralCode), {
       ...referralRecord,
       conversions: (referralRecord.conversions ?? 0) + 1,
@@ -1047,34 +1111,19 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
       lastConvertedAt: timestamp,
       recentConversionSessionIds: appliedSessionIds,
     });
+    aggregateApplied = true;
   }
 
-  await appendReferralEvent({
-    code: referralCode,
-    type: "conversion_recorded",
-    eventId: `conversion_recorded:${session.id}`,
-    createdAt: timestamp,
-    details: {
-      checkoutSessionId: session.id,
-      orderType,
-      amountTotal,
-      rewardGranted,
-      source: referralSource,
-      medium: referralMedium,
-      campaign: referralCampaign,
-      content: referralContent,
-      offerVariant: referralOfferVariant,
-    },
-  });
-
-  if (rewardGranted > 0) {
+  if (!reversalState) {
     await appendReferralEvent({
       code: referralCode,
-      type: "reward_granted",
-      eventId: `reward_granted:${session.id}`,
+      type: "conversion_recorded",
+      eventId: `conversion_recorded:${session.id}`,
       createdAt: timestamp,
       details: {
         checkoutSessionId: session.id,
+        orderType,
+        amountTotal,
         rewardGranted,
         source: referralSource,
         medium: referralMedium,
@@ -1083,22 +1132,40 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
         offerVariant: referralOfferVariant,
       },
     });
-  } else {
-    await appendReferralEvent({
-      code: referralCode,
-      type: "reward_skipped",
-      eventId: `reward_skipped:${session.id}`,
-      createdAt: timestamp,
-      details: {
-        checkoutSessionId: session.id,
-        reason: rewardSkipReason ?? "not_eligible",
-        source: referralSource,
-        medium: referralMedium,
-        campaign: referralCampaign,
-        content: referralContent,
-        offerVariant: referralOfferVariant,
-      },
-    });
+
+    if (rewardGranted > 0) {
+      await appendReferralEvent({
+        code: referralCode,
+        type: "reward_granted",
+        eventId: `reward_granted:${session.id}`,
+        createdAt: timestamp,
+        details: {
+          checkoutSessionId: session.id,
+          rewardGranted,
+          source: referralSource,
+          medium: referralMedium,
+          campaign: referralCampaign,
+          content: referralContent,
+          offerVariant: referralOfferVariant,
+        },
+      });
+    } else {
+      await appendReferralEvent({
+        code: referralCode,
+        type: "reward_skipped",
+        eventId: `reward_skipped:${session.id}`,
+        createdAt: timestamp,
+        details: {
+          checkoutSessionId: session.id,
+          reason: rewardSkipReason ?? "not_eligible",
+          source: referralSource,
+          medium: referralMedium,
+          campaign: referralCampaign,
+          content: referralContent,
+          offerVariant: referralOfferVariant,
+        },
+      });
+    }
   }
 
   // Terminal outcome — written only once every bookkeeping effect
@@ -1106,6 +1173,34 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
   // marker in the ReferralRecord, the appends by their deterministic
   // ids). Terminal states refuse re-entry at the disposition above,
   // so a replay of a completed conversion is a no-op.
+  // aggregateApplied states what actually landed — never asserted
+  // for a delta this pass (or an earlier one) did not apply, which
+  // is exactly the reversed-before-bookkeeping case above, whose
+  // stored reversal fields are carried over verbatim.
+  //
+  // The outcome record is re-read once more, error-preserving,
+  // immediately before this write: a reversal landing DURING this
+  // pass (after the decision read above — e.g. between the delta
+  // write and here) persists its flags on the stored record, and
+  // the terminal write must carry them over rather than erase them
+  // with the pass's stale snapshot. An unreadable record at this
+  // point leaves the event retryable; the effects above are all
+  // evidenced idempotently, so the resume re-enters safely.
+  let terminalRewardState: ReferralConversionState | null = null;
+  try {
+    terminalRewardState =
+      await kv.getErrorPreserving<ReferralConversionState>(rewardStateKey);
+  } catch {
+    terminalRewardState = null;
+  }
+  if (!terminalRewardState) {
+    throw new ReferralGrantTransientError("referral_conversion_state_unreadable");
+  }
+  const terminalReversalState =
+    terminalRewardState.conversionReversed === true ||
+    terminalRewardState.rewardReversed === true
+      ? terminalRewardState
+      : reversalState;
   await kv.setDurable(rewardStateKey, {
     ...stateBase,
     phase: rewardGranted > 0 ? "completed" : "terminal_skip",
@@ -1113,8 +1208,18 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
     rewardGranted,
     rewardSkipReason: rewardGranted > 0 ? undefined : rewardSkipReason ?? "not_eligible",
     conversionRecorded: true,
-    aggregateApplied: true,
+    aggregateApplied,
     rewarded: true,
+    ...(terminalReversalState
+      ? {
+          conversionReversed: terminalReversalState.conversionReversed,
+          conversionReversedAt: terminalReversalState.conversionReversedAt,
+          rewardReversed: terminalReversalState.rewardReversed,
+          rewardReversedAt: terminalReversalState.rewardReversedAt,
+          reversalReason: terminalReversalState.reversalReason,
+          rewardReclaimed: terminalReversalState.rewardReclaimed,
+        }
+      : {}),
   });
 }
 
