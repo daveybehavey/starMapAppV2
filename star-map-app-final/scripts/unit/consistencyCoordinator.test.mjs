@@ -36,6 +36,11 @@ process.env.STARMAP_CONSISTENCY_COORDINATOR_LOCAL = "1";
 process.env.STARMAP_KV_ALLOW_LOCAL = "1";
 process.env.RESEND_API_KEY = "test-resend-key";
 process.env.PROMOTION_EMAIL_FROM = "StarMapCo <promo@starmapco.com>";
+// S93-5 Part 1: a compliant promotion send now requires the CASL
+// compliance facts at preparation + dispatch (signing secret for the
+// unsubscribe URL, business mailing address). Synthetic test values.
+process.env.PROMOTION_UNSUBSCRIBE_SECRET = "test-only-unsubscribe-secret";
+process.env.COMMERCIAL_EMAIL_MAILING_ADDRESS = "1191 Test Lane, Victoria, BC, Canada";
 delete process.env.SENDGRID_API_KEY;
 delete process.env.PROMOTION_AUTOMATION_WEBHOOK_URL;
 
@@ -804,10 +809,10 @@ test("A2-3 provider selection mirrors the delivery chain order and guarantees", 
       idempotencyGuaranteed: false,
     });
     setProviderEnv({ webhook: true });
-    assert.deepEqual(selectPromotionProvider(), {
-      provider: "webhook",
-      idempotencyGuaranteed: false,
-    });
+    // S93-5 Part 1: the webhook is never selected — it cannot carry
+    // the frozen compliant content, so a webhook-only deployment has
+    // no compliant provider to stamp on a claim.
+    assert.equal(selectPromotionProvider(), null);
     setProviderEnv({});
     assert.equal(selectPromotionProvider(), null);
   } finally {

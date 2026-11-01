@@ -124,6 +124,174 @@ export function renderTransactionalFooter(siteUrl: string, supportEmail: string)
     </tr>`;
 }
 
+/* ------------------------------------------------------------------ */
+/* CASL send alignment (S93-5 Part 1)                                  */
+/*                                                                     */
+/* Shared List-Unsubscribe header + identification-footer builders     */
+/* for the three commercial send classes (promotion transport,         */
+/* review requests, checkout recovery). These helpers are pure          */
+/* presentation: they FORMAT facts a caller resolved from its own       */
+/* consent mechanism — they never sign tokens, choose a consent         */
+/* scope, or read configuration. The mechanisms stay deliberately       */
+/* separate (promotion HMAC over the email vs review HMAC over          */
+/* `opt-out:${email}`, different routes and secrets); sharing a         */
+/* formatter confers no permission to share consent authority.          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Resolve the business mailing address for commercial email from an
+ * environment record. The send-agnostic binding
+ * (COMMERCIAL_EMAIL_MAILING_ADDRESS) wins; the review engine's
+ * original binding (REVIEW_REQUEST_MAILING_ADDRESS) remains as a
+ * deprecated fallback so already-provisioned environments keep
+ * resolving during the migration. Deterministic over the supplied
+ * record — this resolver never reads process.env itself; callers pass
+ * the environment they already snapshot.
+ */
+export function resolveCommercialEmailMailingAddress(
+  env: Record<string, string | undefined>,
+): string | null {
+  const current = env.COMMERCIAL_EMAIL_MAILING_ADDRESS?.trim();
+  if (current) return current;
+  const legacy = env.REVIEW_REQUEST_MAILING_ADDRESS?.trim();
+  if (legacy) return legacy;
+  return null;
+}
+
+function requireHeaderSafeValue(value: string, field: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new Error(`CASL ${field} is required and must not be blank.`);
+  }
+  if (/[\r\n]/.test(trimmed)) {
+    throw new Error(`CASL ${field} must not contain line breaks.`);
+  }
+  return trimmed;
+}
+
+/**
+ * Build the List-Unsubscribe message headers for a send whose
+ * unsubscribe URL the CALLER already resolved from its own mechanism.
+ *
+ * `oneClick` asserts the destination implements an RFC 8058 one-click
+ * POST that commits the opt-out without further interaction — a signed
+ * clickable URL alone does NOT establish that, so callers must only
+ * pass true for destinations verified to handle POST (the review
+ * opt-out route does; the promotion /unsubscribe page does not — it is
+ * a GET surface — so promotion and recovery sends omit the Post
+ * header until that surface implements one-click).
+ *
+ * Output preserves the review engine's long-standing header bytes:
+ * `List-Unsubscribe: <url>[, <mailto:address?subject=unsubscribe>]`
+ * plus `List-Unsubscribe-Post: List-Unsubscribe=One-Click`.
+ */
+export function buildListUnsubscribeHeaders(input: {
+  unsubscribeUrl: string;
+  mailtoAddress?: string | null;
+  oneClick: boolean;
+}): Record<string, string> {
+  const url = requireHeaderSafeValue(input.unsubscribeUrl, "unsubscribe URL");
+  const parts = [`<${url}>`];
+  const mailto = input.mailtoAddress?.trim();
+  if (mailto) {
+    parts.push(`<mailto:${requireHeaderSafeValue(mailto, "mailto address")}?subject=unsubscribe>`);
+  }
+  const headers: Record<string, string> = {
+    "List-Unsubscribe": parts.join(", "),
+  };
+  if (input.oneClick) {
+    headers["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click";
+  }
+  return headers;
+}
+
+/**
+ * The finite set of footer presentations — one per send class, matching
+ * the styles those classes already render. Never arbitrary caller HTML.
+ *  - "dark": the transactional document footer tone (review requests)
+ *  - "lightMuted": the recovery card's muted footer tone
+ *  - "promoPlain": the promotion copy's plain sign-off footer tone
+ */
+export type CaslFooterPresentation = "dark" | "lightMuted" | "promoPlain";
+
+const CASL_FOOTER_STYLES: Record<
+  CaslFooterPresentation,
+  { htmlOpen: string; linkStyle: string }
+> = {
+  dark: {
+    htmlOpen: `<p style="margin:24px 0 0;font-size:12px;line-height:1.6;color:#94a3b8;">`,
+    linkStyle: "color:#94a3b8;text-decoration:underline;",
+  },
+  lightMuted: {
+    htmlOpen: `<p style="font-size: 12px; line-height: 1.6; color: #5f6677; margin: 14px 0 0;">`,
+    linkStyle: "color: #5f6677; text-decoration: underline;",
+  },
+  promoPlain: {
+    htmlOpen: `<p style="font-size: 12px; color: #6b7280;">`,
+    linkStyle: "color: #6b7280;",
+  },
+};
+
+/**
+ * Render the CASL identification fragment shared by every commercial
+ * send: sender identity · mailing address, an optional receiving-reason
+ * line, and the unsubscribe link. Generates ONLY the fragment — each
+ * class keeps its own surrounding layout and wording.
+ *
+ * The reason is supplied separately for HTML and text so a class can
+ * keep a reason in one rendering only (the review engine's reason
+ * appears in HTML but not in its plain text). Blank identity/address/
+ * URL facts throw: callers convert that into their existing no-send
+ * outcome — a commercial send without identification or a working
+ * unsubscribe mechanism does not go out. The FACTS (identity, address,
+ * URL) are HTML-escaped, including the URL; the receiving reason is
+ * authored class copy (a code literal, never configuration or user
+ * input) and is inserted as written, preserving the classes'
+ * long-standing rendered bytes.
+ */
+export function buildCaslIdentificationFooter(input: {
+  senderIdentity: string;
+  mailingAddress: string;
+  unsubscribeUrl: string;
+  unsubscribeLabel: string;
+  receivingReasonHtmlText?: string;
+  receivingReasonText?: string;
+  presentation: CaslFooterPresentation;
+}): { html: string; text: string } {
+  const senderIdentity = input.senderIdentity.trim();
+  if (!senderIdentity) {
+    throw new Error("CASL sender identity is required and must not be blank.");
+  }
+  const mailingAddress = input.mailingAddress.trim();
+  if (!mailingAddress) {
+    throw new Error("A business mailing address is required for CASL.");
+  }
+  const unsubscribeUrl = input.unsubscribeUrl.trim();
+  if (!unsubscribeUrl) {
+    throw new Error("CASL unsubscribe URL is required and must not be blank.");
+  }
+  const unsubscribeLabel = input.unsubscribeLabel.trim();
+  if (!unsubscribeLabel) {
+    throw new Error("CASL unsubscribe label is required and must not be blank.");
+  }
+
+  const style = CASL_FOOTER_STYLES[input.presentation];
+  const reasonHtml = input.receivingReasonHtmlText?.trim();
+  const html =
+    `${style.htmlOpen}${escapeHtml(senderIdentity)} · ${escapeHtml(mailingAddress)}<br/>` +
+    (reasonHtml ? `${reasonHtml} ` : "") +
+    `<a href="${escapeHtml(unsubscribeUrl)}" style="${style.linkStyle}">${escapeHtml(unsubscribeLabel)}</a></p>`;
+
+  const reasonText = input.receivingReasonText?.trim();
+  const text = [
+    `${senderIdentity} · ${mailingAddress}`,
+    ...(reasonText ? [reasonText] : []),
+    `${unsubscribeLabel}: ${unsubscribeUrl}`,
+  ].join("\n");
+
+  return { html, text };
+}
+
 export type TransactionalEmailDocumentInput = {
   siteUrl: string;
   supportEmail: string;

@@ -113,6 +113,10 @@ function envRecordFromBindings(env: unknown): Record<string, string | undefined>
   for (const key of [
     "REVIEW_REQUESTS_ENABLED",
     "REVIEW_REQUESTS_PHYSICAL_ENABLED",
+    // Send-agnostic mailing-address binding first in precedence; the
+    // review engine's original binding stays collected as the
+    // deprecated fallback (S93-5 Part 1 binding migration).
+    "COMMERCIAL_EMAIL_MAILING_ADDRESS",
     "REVIEW_REQUEST_MAILING_ADDRESS",
     "REVIEW_OPTOUT_SIGNING_SECRET",
     "PROMOTION_UNSUBSCRIBE_SECRET",
