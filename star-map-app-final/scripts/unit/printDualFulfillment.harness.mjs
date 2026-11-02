@@ -13,8 +13,13 @@
  *   accepted, reported failure, bind conflict/unread, post-accept
  *   unretainable, or a crash at the former fallthrough point.
  * - The alternate POST remains reachable when v1 is unconfigured.
- * - The merch branch never reaches the alternate POST (including the
- *   existing no-submission case when only the alternate URL is set).
+ * - Merch selects Printful V2 when V2 is configured, and ONLY V2.
+ *   When V2 is unconfigured but the alternate URL is set, merch falls
+ *   through to the alternate POST (v1 is never a merch destination) —
+ *   changed 2026-11-02: the previous "merch never reaches the
+ *   alternate POST" rule stranded paid merch orders at pending in
+ *   exactly that configuration, because merch sellability is gated
+ *   by catalog flags, not by V2 configuration.
  * - Webhook re-entry with a visible `sent` record makes no manufacturing
  *   POST; confirmation retry stays possible.
  * - Concurrent invocations before `sent` is visible may both call v1 —
@@ -133,10 +138,6 @@ export async function simulateQueuePrintOrder(env, { sessionId = "cs_test_m104",
   }
 
   if (merch) {
-    if (!env.printfulV2Configured && !env.alternateUrl) {
-      env.problemRecords.push({ ...payload, status: "failed", error: "fulfillment_not_configured" });
-      return { outcome: "fulfillment_not_configured" };
-    }
     if (env.printfulV2Configured) {
       env.counters.printfulV2Post += 1;
       const sentRecord = { ...payload, status: "sent", printfulOrderId: 8001 };
@@ -146,8 +147,26 @@ export async function simulateQueuePrintOrder(env, { sessionId = "cs_test_m104",
       env.confirmationDispatched += 1;
       return { outcome: "merch_v2_sent" };
     }
-    // V2 unconfigured, alternate configured: existing no-submission case.
-    return { outcome: "merch_no_submission" };
+    if (!env.alternateUrl) {
+      env.problemRecords.push({ ...payload, status: "failed", error: "fulfillment_not_configured" });
+      env.record = { ...payload, status: "failed", error: "fulfillment_not_configured" };
+      return { outcome: "fulfillment_not_configured" };
+    }
+    // Merch fall-through (2026-11-02): V2 unconfigured + alternate URL
+    // set — the alternate webhook is the destination, and v1 Printful
+    // is skipped for merch even when configured. (Pre-fix this was
+    // the "merch_no_submission" case: the branch returned and a paid
+    // merch order stranded at pending.) The marker discipline on
+    // this destination is modelled by the real-route S94 tests, not
+    // here — this harness mirrors destination SELECTION only.
+    env.counters.alternatePost += 1;
+    if (env.alternateStatus < 200 || env.alternateStatus >= 300) {
+      env.problemRecords.push({ ...payload, status: "failed", error: `Webhook ${env.alternateStatus}` });
+      env.record = { ...payload, status: "failed", error: `Webhook ${env.alternateStatus}` };
+      return { outcome: "merch_alternate_failed" };
+    }
+    env.record = { ...payload, status: "sent", webhookStatus: env.alternateStatus };
+    return { outcome: "merch_alternate_sent" };
   }
 
   if (!env.printfulConfigured && !env.alternateUrl) {
