@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { applyHdCreditConsume } from "@/lib/entitlementConsume.mjs";
-import { ENTITLEMENT_KV, isPrintOnlyOrder, type StripeSessionEntitlement } from "@/lib/entitlementsStore";
+import {
+  ENTITLEMENT_KV,
+  isPrintOnlyOrder,
+  sessionIsRevokedForWriter,
+  type StripeSessionEntitlement,
+} from "@/lib/entitlementsStore";
 import { kv } from "@/lib/kv";
 import { createEntitlementAuthorityClient } from "@/lib/entitlementAuthority";
 import {
@@ -88,6 +93,24 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: false, error: "accounting_lease_lost" }, { status: 503 });
       }
 
+      // Gate fix round 1 (Codex P1-A, S94-1 F3): the seal proves
+      // lease ownership, not revocation freshness. If a revocation
+      // completed through markSessionRevoked's unleased authority-
+      // outage fallback while this request was paused after sealing,
+      // the write below would republish this request's pre-revocation
+      // snapshot and resurrect the entitlement. Re-check revocation
+      // strictly after the seal; a landed revocation refuses the
+      // debit, and an unreadable revocation state fails closed.
+      let revokedAfterSeal: boolean;
+      try {
+        revokedAfterSeal = await sessionIsRevokedForWriter(sessionId);
+      } catch {
+        return NextResponse.json({ ok: false, error: "revocation_state_unreadable" }, { status: 503 });
+      }
+      if (revokedAfterSeal) {
+        return NextResponse.json({ ok: false, error: "No active entitlement" }, { status: 403 });
+      }
+
       // The .mjs helper's ok variant always carries the mutated record,
       // though its inferred typing does not express that discriminant.
       const updatedRecord = result.record as StripeSessionEntitlement;
@@ -110,7 +133,17 @@ export async function POST(req: NextRequest) {
             return current ? legacyAccountingFingerprint(current) : null;
           },
           restorePre: async () => {
-            await kv.set(ENTITLEMENT_KV.stripeSession(sessionId), record);
+            // Gate fix round 1 (Codex P1-A): never restore the
+            // pre-image over a revocation that landed after this
+            // route's write — the restore republishes the
+            // pre-revocation record just like the stale write it
+            // backs out. An unreadable revocation state also skips
+            // the restore (fail closed; the reconcile outcome fails
+            // the request either way).
+            const revoked = await sessionIsRevokedForWriter(sessionId).catch(() => true);
+            if (!revoked) {
+              await kv.set(ENTITLEMENT_KV.stripeSession(sessionId), record);
+            }
           },
         });
         if (reconciled === "authority_unavailable") {

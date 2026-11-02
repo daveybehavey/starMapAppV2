@@ -6,6 +6,71 @@ import { kv } from "@/lib/kv";
 /** Explicit provider terminal provenance on a KV failure mirror (AG-086). */
 export type PrintOrderTerminalEventType = "order_failed" | "order_canceled";
 
+/**
+ * S94-1 F9: dispatch marker for the alternate (generic webhook)
+ * fulfilment destination. That destination has no provider-side
+ * idempotency or order identity to bind the way Printful's externalId
+ * + authority bind does, so the dispatch itself is made replay-safe
+ * here: the marker is persisted in state "attempted" BEFORE the
+ * outbound call, and any later pass that finds "attempted" must refuse
+ * to dispatch again (the receiver may already hold the order — an
+ * operator reconciles). "accepted" records the 2xx outcome.
+ * "rejected" is a legacy state from the original classification,
+ * which treated any non-2xx answer as proof the receiver did not
+ * accept; gate fix round 1 (Codex P1-C on PR #477) no longer writes
+ * it — a non-2xx answer does not prove rejection (the receiver may
+ * have created the order before failing, or an intermediary may
+ * have answered after acceptance, and the receiver's contract
+ * defines no provably-rejecting status), so a non-2xx outcome now
+ * stays "attempted" with the response facts recorded on the marker.
+ * Gate fix round 2 (PR #477): records already carrying "rejected"
+ * are governed by the same doctrine — the state encodes exactly an
+ * ambiguous response, so it is never read as licence to redispatch:
+ * both dispatch sites refuse on it exactly like "attempted" (see
+ * alternateDispatchBlocksRedispatch) and an operator reconciles.
+ * Gate fix round 3 (PR #477): the guard fails closed on ANY
+ * present marker — including a persisted marker whose state is
+ * missing or unrecognized, which the round-2 string comparison
+ * let fall through to redispatch; see the helper's doc.
+ * The dispatchId is stable per session and is sent as the payload's
+ * dispatchId and the request's Idempotency-Key header so a
+ * receiver that does honour idempotency can dedupe as well.
+ */
+export type AlternateFulfillmentDispatch = {
+  dispatchId: string;
+  state: "attempted" | "rejected" | "accepted";
+  attemptedAt: number;
+  respondedAt?: number;
+  httpStatus?: number;
+};
+
+export function alternateFulfillmentDispatchId(sessionId: string) {
+  return `alt-fulfillment:${sessionId}`;
+}
+
+/**
+ * Fail closed (gate fix round 3, PR #477): a PRESENT marker blocks
+ * any further dispatch until an operator reconciles, in EVERY
+ * state — "attempted" (an outcome that was never durably
+ * resolved), the legacy "rejected" (an ambiguous non-2xx answer,
+ * which under the round-1 doctrine does not prove the receiver
+ * refused the order), and "accepted" (which matches round 0's
+ * design: when the post-acceptance "sent" write failed, the next
+ * attempt must refuse, not redispatch — the "sent" early returns
+ * at both sites handle the consistent accepted+sent records
+ * before this guard is reached). The marker's state is never
+ * trusted as licence to dispatch: persisted KV data is not
+ * runtime-validated against the type above, so a marker whose
+ * state is missing or unrecognized blocks identically. Outbound
+ * dispatch is permitted only when NO marker exists — the
+ * first-dispatch case.
+ */
+export function alternateDispatchBlocksRedispatch(
+  dispatch?: AlternateFulfillmentDispatch | null,
+): boolean {
+  return dispatch != null;
+}
+
 export type PrintOrderRecord = {
   status: "pending" | "sent" | "failed";
   sessionId: string;
@@ -84,6 +149,8 @@ export type PrintOrderRecord = {
   shippingNotificationMessageId?: string;
   shippingNotificationError?: string;
   error?: string;
+  /** S94-1 F9: alternate-destination dispatch marker (see the type). */
+  alternateDispatch?: AlternateFulfillmentDispatch;
   /**
    * Explicit failure provenance for authority seed (AG-086). Never infer from `error`.
    * - `"order_failed"` / `"order_canceled"`: true Printful terminal webhook
@@ -412,6 +479,9 @@ export function buildAlternateFulfillmentWebhookPayload(
   delete (recipientWithoutPhone as { phone?: string }).phone;
   return {
     ...orderWithoutPhoneFlag,
+    // S94-1 F9: the stable per-session dispatch identity, so a
+    // receiver that tracks submissions can recognise a replay.
+    dispatchId: alternateFulfillmentDispatchId(record.sessionId),
     ...(extras.printAssetUrl ? { printAssetUrl: extras.printAssetUrl } : {}),
     ...(extras.cardPrintAssetUrl ? { cardPrintAssetUrl: extras.cardPrintAssetUrl } : {}),
     recipient: recipientWithoutPhone,

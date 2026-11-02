@@ -99,6 +99,16 @@ export const ENTITLEMENT_KV = {
    */
   settlementMetadata: (sessionId: string) => `stripe:session-metadata:v1:${sessionId}`,
   /**
+   * S94-1 F2: the billing portal's Stripe customer-id lookup cache. The
+   * portal used to cache the looked-up id by rewriting the session
+   * record — a whole-record write from a stale snapshot that could
+   * republish pre-revocation/pre-debit state. The cache now lives in
+   * its own record (deliberately outside the `stripe:session:` prefix,
+   * like the settlement records above); the session record's own
+   * customerId, when settlement wrote one, still takes precedence.
+   */
+  sessionCustomerId: (sessionId: string) => `stripe:session-customer:v1:${sessionId}`,
+  /**
    * Fix round 4: the governing claim token for a session (the token the
    * claim route honors). The session record's inline `claimToken` field is
    * legacy evidence only — nothing writes it any more.
@@ -413,6 +423,37 @@ export async function readSessionRevocationEvidenceStrict(
     }
   }
   return { revoked: false };
+}
+
+/**
+ * Write-side revocation guard for the legacy whole-record accounting
+ * writers (consume / compensate), gate fix round 1 (Codex P1-A on
+ * PR #477, S94-1 F3). Those writers hold the authority accounting
+ * lease across load→mutate→write and seal immediately before their
+ * KV write — but the seal proves only lease ownership, not
+ * revocation freshness. A writer that sealed BEFORE an authority
+ * outage is not excluded by markSessionRevoked's unleased outage
+ * fallback: the revocation completes while the writer is paused,
+ * and the writer's stale snapshot would resurrect the entitlement
+ * (markSessionRevoked's "seals fail closed during an outage"
+ * reasoning reaches only writers that have not yet sealed). The
+ * guard re-reads the revocation state — the durable evidence and
+ * the record's own flag — strictly, after the seal and immediately
+ * before the write, so a completed revocation aborts the write.
+ * Read failures THROW (fail closed): an unreadable revocation state
+ * must never read as "not revoked" to a writer about to republish
+ * the whole record.
+ */
+export async function sessionIsRevokedForWriter(sessionId: string): Promise<boolean> {
+  const current = await kv.getErrorPreserving<
+    StripeSessionEntitlement & { paymentIntentId?: string | null }
+  >(ENTITLEMENT_KV.stripeSession(sessionId));
+  if (current?.revoked === true) return true;
+  const evidence = await readSessionRevocationEvidenceStrict(
+    sessionId,
+    current?.paymentIntentId ?? null,
+  );
+  return evidence.revoked;
 }
 
 /**
