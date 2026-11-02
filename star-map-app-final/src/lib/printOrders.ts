@@ -406,6 +406,39 @@ export function resolvePrintOrderCreatedAt(
   return existing.createdAt as number;
 }
 
+/**
+ * Carry a recorded provider hold from the LATEST stored record onto a
+ * pending whole-record write built from an older snapshot. Hold state is
+ * written by the Printful webhook handler on its own timeline; any other
+ * writer whose snapshot predates the hold (post-submit review persists,
+ * delayed problem writes) would otherwise erase it silently, and the
+ * aging sweep would lose the hold forever. Writers that deliberately
+ * END a hold (terminal failure, operator resolve, shipment) do not use
+ * this helper — they author the clearing write themselves. A `next`
+ * record carrying a DIFFERENT hold episode is left untouched (its own
+ * timeline is newer); the same episode takes the latest stamps.
+ */
+export function preserveLatestHoldAnnotations(
+  next: PrintOrderRecord,
+  latest: PrintOrderRecord | null | undefined,
+): PrintOrderRecord {
+  if (!latest?.providerHoldAt) return next;
+  if (next.providerHoldAt && next.providerHoldAt !== latest.providerHoldAt) {
+    return next;
+  }
+  return {
+    ...next,
+    providerHoldAt: latest.providerHoldAt,
+    providerHoldReason: latest.providerHoldReason,
+    providerHoldOrderStatus: latest.providerHoldOrderStatus,
+    operatorHoldAlertedAt: latest.operatorHoldAlertedAt,
+    operatorHoldAlertProvider: latest.operatorHoldAlertProvider,
+    operatorHoldAlertError: latest.operatorHoldAlertError,
+    operatorHoldEscalatedAt: latest.operatorHoldEscalatedAt,
+    operatorHoldEscalationAlertError: latest.operatorHoldEscalationAlertError,
+  };
+}
+
 export async function persistPrintOrderRecord(
   sessionId: string,
   record: PrintOrderRecord,

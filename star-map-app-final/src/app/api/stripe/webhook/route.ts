@@ -2180,12 +2180,12 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     // the marker write, this pass must WIN the atomic claim in the
     // print-order authority (serialized by the DO): exactly one
     // concurrent caller proceeds. Seed first so a pre-claim KV marker
-    // also stands as a claim. The claim loser never dispatches and
-    // never writes: the winner owns the record (a loser problem write
-    // could land after the winner's `sent` write and regress a
-    // fulfilled order to `failed`). A genuinely stuck winner is
-    // surfaced by its standing claim + attempted marker and is
-    // reconciled by a later pass under the found-marker doctrine.
+    // also stands as a claim. The claim loser never dispatches. It
+    // writes only in the stranded-claim case (the claim holder died
+    // before its marker write), and then only under a final re-read
+    // proving the order is still unmarked and uncompleted — a loser
+    // problem write must never land after a winner's `sent` write and
+    // regress a fulfilled order to `failed`.
     await seedPrintOrderAuthorityFromKv(session.id, existing);
     const claim = await claimAlternateFulfillmentDispatch(session.id, dispatchId);
     if (!claim.ok) {
@@ -2204,19 +2204,61 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       throw new PrintOrderAuthorityClaimError(claim.reason);
     }
     if (!claim.claimAcquired) {
-      // Gate fix (bot P2): the loser writes NOTHING. The winner is
-      // mid-dispatch or already complete and owns the record; a
-      // whole-record problem write from the loser — which first awaits
-      // an operator alert email — could land after the winner's `sent`
-      // write and regress a fulfilled order to `failed` with a stale
-      // marker. If the winner's dispatch is genuinely stuck, the
-      // standing claim plus the attempted marker surface it, and the
-      // NEXT pass, which can observe the final state, applies the
-      // found-marker reconciliation doctrine above.
-      console.warn("Alternate dispatch claim lost to a concurrent pass; standing down", {
-        sessionId: session.id,
-        dispatchId,
-      });
+      // Gate rounds 1+5 (bot P2s): losing the claim has two causes
+      // that must not be handled alike.
+      //  - The winner completed, or holds an attempted marker (mid-
+      //    dispatch, or stuck AFTER marking): stand down and write
+      //    nothing. A stuck-after-marking winner is surfaced by the
+      //    next pass under the found-marker doctrine above, and any
+      //    write here could still race the winner's completion.
+      //  - NEITHER (stranded claim): the claim holder died between
+      //    winning the claim and writing its marker — e.g. its marker
+      //    persist failed transiently, its delivery correctly 503'd,
+      //    and every redelivery now loses the permanent claim.
+      //    Standing down silently would finalize a paid order as
+      //    pending forever: no marker, no problem record, no alert.
+      //    Surface it for reconciliation exactly like a found marker —
+      //    but the write is guarded: alert first (mirroring
+      //    persistProblemPrintOrder), then re-read, and persist only
+      //    if the order is STILL unmarked and uncompleted, so a
+      //    winner that was merely in the claim→marker gap is never
+      //    regressed by the surfacing write.
+      const fresh = await kv.get<PrintOrderRecord>(printOrderKey(session.id));
+      if (fresh?.status === "sent" || fresh?.alternateDispatch) {
+        console.warn("Alternate dispatch claim lost to a concurrent pass; standing down", {
+          sessionId: session.id,
+          dispatchId,
+        });
+        return;
+      }
+      const strandedRecord: PrintOrderRecord = {
+        ...payload,
+        printAssetUrl,
+        status: "failed",
+        error: "alternate_dispatch_reconciliation_required",
+        alternateDispatch: existingAlternateDispatch,
+        terminalEventType: null,
+      };
+      if (!strandedRecord.operatorFailureAlertedAt) {
+        const alertResult = await sendPrintOrderFailureAlert(strandedRecord);
+        if (alertResult.delivered) {
+          strandedRecord.operatorFailureAlertedAt = Date.now();
+          strandedRecord.operatorFailureAlertProvider = alertResult.provider;
+          strandedRecord.operatorFailureAlertError = undefined;
+        } else {
+          strandedRecord.operatorFailureAlertProvider = alertResult.provider;
+          strandedRecord.operatorFailureAlertError = alertResult.error;
+        }
+      }
+      const freshest = await kv.get<PrintOrderRecord>(printOrderKey(session.id));
+      if (freshest?.status === "sent" || freshest?.alternateDispatch) {
+        console.warn(
+          "Stranded-claim surfacing stood down: the claim holder progressed during the alert",
+          { sessionId: session.id, dispatchId },
+        );
+        return;
+      }
+      assertPrintOrderRetained(await persistPrintOrderRecord(session.id, strandedRecord));
       return;
     }
     payload = {

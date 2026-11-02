@@ -52,6 +52,25 @@ export function resolvePrintOrderKvWrite({ createdAt, now = Date.now(), env = pr
  * Brand-new print orders get `now`. Prior records keep createdAt exactly
  * (including malformed) so retention can fail closed.
  */
+/** Mirror of preserveLatestHoldAnnotations in src/lib/printOrders.ts */
+export function preserveLatestHoldAnnotations(next, latest) {
+  if (!latest?.providerHoldAt) return next;
+  if (next.providerHoldAt && next.providerHoldAt !== latest.providerHoldAt) {
+    return next;
+  }
+  return {
+    ...next,
+    providerHoldAt: latest.providerHoldAt,
+    providerHoldReason: latest.providerHoldReason,
+    providerHoldOrderStatus: latest.providerHoldOrderStatus,
+    operatorHoldAlertedAt: latest.operatorHoldAlertedAt,
+    operatorHoldAlertProvider: latest.operatorHoldAlertProvider,
+    operatorHoldAlertError: latest.operatorHoldAlertError,
+    operatorHoldEscalatedAt: latest.operatorHoldEscalatedAt,
+    operatorHoldEscalationAlertError: latest.operatorHoldEscalationAlertError,
+  };
+}
+
 export function resolvePrintOrderCreatedAt(existing, now = Date.now()) {
   if (!existing) return now;
   return existing.createdAt;
