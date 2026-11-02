@@ -3,22 +3,24 @@ import type { TextBox, TextStyleBinding } from "./store";
 /**
  * Ownership of a text box's typography (issue #408).
  *
- * Each typography property (colour, font) is independently either
+ * Each typography property (colour, font, weight) is independently either
  * "automatic" — it follows template style defaults and tier typography —
  * or "explicit" — the user (or a preset) authored it and automatic layers
  * must never overwrite it. A missing or malformed binding resolves to
  * explicit/explicit: provenance is never guessed, so legacy designs keep
- * exactly the colours and fonts they were saved with.
+ * exactly the colours, fonts and weights they were saved with.
  */
 
 export const AUTOMATIC_TEXT_STYLE_BINDING: TextStyleBinding = {
   color: "automatic",
   fontFamily: "automatic",
+  fontWeight: "automatic",
 };
 
 export const EXPLICIT_TEXT_STYLE_BINDING: TextStyleBinding = {
   color: "explicit",
   fontFamily: "explicit",
+  fontWeight: "explicit",
 };
 
 /**
@@ -33,10 +35,26 @@ export function normalizeTextStyleBinding(value: unknown): TextStyleBinding {
     return { ...EXPLICIT_TEXT_STYLE_BINDING };
   }
   const record = value as Record<string, unknown>;
-  return {
-    color: record.color === "automatic" ? "automatic" : "explicit",
-    fontFamily: record.fontFamily === "automatic" ? "automatic" : "explicit",
-  };
+  const color = record.color === "automatic" ? "automatic" : "explicit";
+  const fontFamily = record.fontFamily === "automatic" ? "automatic" : "explicit";
+  // fontWeight joined the binding with the editor weight control (#481).
+  // Bindings written before then carry no fontWeight key at all, and no
+  // user surface could set a weight, so a machinery-shaped legacy record
+  // (at least one valid ownership literal among colour/font) resolves its
+  // missing weight ownership to automatic — pre-#481 weights always
+  // followed tier typography, whatever the colour/font ownership was.
+  // A present-but-invalid fontWeight value is malformed provenance and
+  // resolves explicit, never automatic.
+  const machineryShaped =
+    record.color === "automatic" ||
+    record.color === "explicit" ||
+    record.fontFamily === "automatic" ||
+    record.fontFamily === "explicit";
+  const hasWeightKey = Object.prototype.hasOwnProperty.call(record, "fontWeight");
+  let fontWeight: "automatic" | "explicit" = "explicit";
+  if (record.fontWeight === "automatic") fontWeight = "automatic";
+  else if (!hasWeightKey && machineryShaped) fontWeight = "automatic";
+  return { color, fontFamily, fontWeight };
 }
 
 /**

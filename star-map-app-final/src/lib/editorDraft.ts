@@ -287,13 +287,29 @@ function textBoxFallback(index: number): TextBox {
  */
 function normalizeDraftTextStyleBinding(value: unknown): TextStyleBinding {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return { color: "explicit", fontFamily: "explicit" };
+    return { color: "explicit", fontFamily: "explicit", fontWeight: "explicit" };
   }
   const record = value as Record<string, unknown>;
-  return {
-    color: record.color === "automatic" ? "automatic" : "explicit",
-    fontFamily: record.fontFamily === "automatic" ? "automatic" : "explicit",
-  };
+  const color = record.color === "automatic" ? "automatic" : "explicit";
+  const fontFamily = record.fontFamily === "automatic" ? "automatic" : "explicit";
+  // fontWeight joined the binding with the editor weight control (#481).
+  // Bindings written before then carry no fontWeight key at all, and no
+  // user surface could set a weight, so a machinery-shaped legacy record
+  // (at least one valid ownership literal among colour/font) resolves its
+  // missing weight ownership to automatic — pre-#481 weights always
+  // followed tier typography, whatever the colour/font ownership was.
+  // A present-but-invalid fontWeight value is malformed provenance and
+  // resolves explicit, never automatic.
+  const machineryShaped =
+    record.color === "automatic" ||
+    record.color === "explicit" ||
+    record.fontFamily === "automatic" ||
+    record.fontFamily === "explicit";
+  const hasWeightKey = Object.prototype.hasOwnProperty.call(record, "fontWeight");
+  let fontWeight: "automatic" | "explicit" = "explicit";
+  if (record.fontWeight === "automatic") fontWeight = "automatic";
+  else if (!hasWeightKey && machineryShaped) fontWeight = "automatic";
+  return { color, fontFamily, fontWeight };
 }
 
 function normalizeTextBoxes(value: unknown): ValidationResult<TextBox[]> {

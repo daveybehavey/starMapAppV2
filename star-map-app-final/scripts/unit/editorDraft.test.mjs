@@ -89,7 +89,7 @@ test("valid current draft writes a versioned envelope and round-trips", () => {
     ...makeDraft(),
     textBoxes: makeDraft().textBoxes.map((box) => ({
       ...box,
-      textStyleBinding: { color: "explicit", fontFamily: "explicit" },
+      textStyleBinding: { color: "explicit", fontFamily: "explicit", fontWeight: "explicit" },
     })),
   });
 });
