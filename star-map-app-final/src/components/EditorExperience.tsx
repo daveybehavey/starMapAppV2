@@ -2919,6 +2919,42 @@ export function EditorExperience({
                                                     </select>
                                                   </div>
                                                 </div>
+                                                <div className="space-y-1">
+                                                  <label className="text-[10px] text-neutral-300">
+                                                    Weight
+                                                  </label>
+                                                  <div className="grid grid-cols-4 gap-1">
+                                                    {(
+                                                      [
+                                                        { value: 400, label: "Regular" },
+                                                        { value: 500, label: "Medium" },
+                                                        { value: 600, label: "Semi-bold" },
+                                                        { value: 700, label: "Bold" },
+                                                      ] as const
+                                                    ).map((option) => {
+                                                      const effectiveWeight = box.fontWeight ?? 600;
+                                                      return (
+                                                        <button
+                                                          key={option.value}
+                                                          type="button"
+                                                          onClick={() =>
+                                                            updateTextBox(box.id, {
+                                                              fontWeight: option.value,
+                                                            })
+                                                          }
+                                                          aria-pressed={effectiveWeight === option.value}
+                                                          className={`rounded-md border px-1 py-1.5 text-[10px] font-semibold transition ${
+                                                            effectiveWeight === option.value
+                                                              ? "!text-midnight border-amber-300 bg-amber-100"
+                                                              : "border-white/15 bg-white/10 text-white"
+                                                          }`}
+                                                        >
+                                                          {option.label}
+                                                        </button>
+                                                      );
+                                                    })}
+                                                  </div>
+                                                </div>
                                                 <div className="flex gap-2">
                                                   <button
                                                     type="button"
