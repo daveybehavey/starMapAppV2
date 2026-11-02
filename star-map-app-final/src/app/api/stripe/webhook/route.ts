@@ -10,8 +10,18 @@ import {
   referralRewardedKey,
   type ReferralRecord,
 } from "@/lib/referrals";
-import { appendReferralEvent, getReferralEvents, type ReferralEvent } from "@/lib/referralLedger";
+import {
+  appendReferralEvent,
+  appendReferralRewardGrant,
+  countRecentReferralRewardGrants,
+  type ReferralEvent,
+} from "@/lib/referralLedger";
 import { createEntitlementAuthorityClient } from "@/lib/entitlementAuthority";
+import {
+  acquireAccountingLease,
+  releaseAccountingLease,
+  sealAccountingLease,
+} from "@/lib/entitlementMigration";
 import {
   ReferralGrantTransientError,
   grantReferralRewardViaAuthority,
@@ -26,6 +36,7 @@ import { isPrintfulConfigured, submitPrintfulOrder } from "@/lib/printful";
 import { isPrintfulV2Configured, submitPrintfulV2CatalogOrder } from "@/lib/printfulV2Orders";
 import { PRINT_ASSET_ID_REGEX } from "@/lib/printAssets";
 import {
+  alternateFulfillmentDispatchId,
   assertPrintOrderRetained,
   buildAlternateFulfillmentWebhookPayload,
   buildPrintAssetUrl,
@@ -371,13 +382,13 @@ function getReferralOfferVariant(session: Stripe.Checkout.Session) {
 }
 
 async function countRecentReferralRewards(code: string, windowMs: number, now = Date.now()) {
-  const events = await getReferralEvents(code, 200);
-  const windowStart = now - windowMs;
-  return events.reduce((count, event) => {
-    if (event.type !== "reward_granted") return count;
-    if (event.createdAt < windowStart) return count;
-    return count + 1;
-  }, 0);
+  // S94-1 F7: count from the union of the raw feed storage and the
+  // dedicated reward-grant ledger. The previous read went through
+  // getReferralEvents, whose 50-entry clamp let high feed volume push
+  // in-window grants out of the counted slice and under-enforce the
+  // cap; feed entries already evicted from storage by the 200-entry
+  // bound before this fix are covered going forward by the ledger.
+  return countRecentReferralRewardGrants(code, windowMs, now);
 }
 
 function getRecoveryUrl(session: Stripe.Checkout.Session): string | null {
@@ -635,30 +646,69 @@ async function markSessionPaid(
 }
 
 async function markSessionRevoked(sessionId: string, reason: string) {
-  const existing = await kv.get<SessionRecord>(sessionKey(sessionId));
-  await kv.set(sessionKey(sessionId), {
-    ...existing,
-    paid: false,
-    revoked: true,
-    revokedAt: Date.now(),
-    reason,
-    subscriptionActive: false,
+  // S94-1 F3: this read→write rewrites the WHOLE session record, so it
+  // must exclude the other whole-record accounting writers. Consume and
+  // compensation hold the authority's accounting lease across their
+  // load→mutate→write; this writer took no lease, so a revocation
+  // landing mid-consume was erased by the consume's stale write (and a
+  // consume's debit could equally be erased here). Take the same lease:
+  // - acquired: hold it across the read, both writes, with the
+  //   seal-before-write the other holders use;
+  // - busy: another accounting writer is mid-flight — throw, leaving
+  //   the caller's event Stripe-retryable (its dedupe is not finalized)
+  //   until the lease clears (15s TTL) and a redelivery lands the
+  //   revocation whole;
+  // - fenced: a baseline exists, so no legacy accounting writer can be
+  //   mid-flight (capture itself needed this lease, and later legacy
+  //   writers fence at acquire) — proceed unleased;
+  // - authority_unavailable: no legacy writer can COMMIT during an
+  //   authority outage (their seals fail closed), and a revocation —
+  //   the safety-direction write — must not be blocked by the outage —
+  //   proceed unleased.
+  const authorityClient = createEntitlementAuthorityClient();
+  const lease = await acquireAccountingLease(authorityClient, sessionId, "legacy_write", {
+    retryDeadlineMs: 1500,
   });
-  // Option B: durable side evidence, separate from the mutable session
-  // snapshot, so a later stale session replacement cannot silently erase
-  // the only record of revocation. A failure here propagates: the caller's
-  // event stays retryable with incomplete revocation work rather than
-  // finalizing on partial evidence. (Reader enforcement of this evidence is
-  // partial — verify checks it; see the retained residuals in the PR body.)
-  const evidence: SessionRevocationEvidence = {
-    schemaVersion: SETTLEMENT_SCHEMA_VERSION,
-    sessionId,
-    revoked: true,
-    reason,
-    paymentIntentId: existing?.paymentIntentId ?? null,
-    revokedAt: Date.now(),
-  };
-  await kv.setDurable(ENTITLEMENT_KV.sessionRevoked(sessionId), evidence);
+  if (lease.status === "busy") {
+    throw new Error("revocation_accounting_busy");
+  }
+  const leased = lease.status === "acquired";
+  try {
+    const existing = await kv.get<SessionRecord>(sessionKey(sessionId));
+    if (leased) {
+      const seal = await sealAccountingLease(authorityClient, sessionId, lease.leaseId);
+      if (seal.status !== "sealed") {
+        throw new Error("revocation_accounting_lease_lost");
+      }
+    }
+    await kv.set(sessionKey(sessionId), {
+      ...existing,
+      paid: false,
+      revoked: true,
+      revokedAt: Date.now(),
+      reason,
+      subscriptionActive: false,
+    });
+    // Option B: durable side evidence, separate from the mutable session
+    // snapshot, so a later stale session replacement cannot silently erase
+    // the only record of revocation. A failure here propagates: the caller's
+    // event stays retryable with incomplete revocation work rather than
+    // finalizing on partial evidence. (Reader enforcement of this evidence is
+    // partial — verify checks it; see the retained residuals in the PR body.)
+    const evidence: SessionRevocationEvidence = {
+      schemaVersion: SETTLEMENT_SCHEMA_VERSION,
+      sessionId,
+      revoked: true,
+      reason,
+      paymentIntentId: existing?.paymentIntentId ?? null,
+      revokedAt: Date.now(),
+    };
+    await kv.setDurable(ENTITLEMENT_KV.sessionRevoked(sessionId), evidence);
+  } finally {
+    if (leased) {
+      await releaseAccountingLease(authorityClient, sessionId, lease.leaseId);
+    }
+  }
 }
 
 async function markPaymentIntentRevoked(paymentIntentId: string, reason: string) {
@@ -1179,6 +1229,18 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
           offerVariant: referralOfferVariant,
         },
       });
+      // S94-1 F7: the same grant is recorded in the dedicated cap
+      // ledger (same deterministic id), which feed volume and the
+      // feed's storage bound cannot evict within the cap windows.
+      await appendReferralRewardGrant({
+        code: referralCode,
+        eventId: `reward_granted:${session.id}`,
+        createdAt: timestamp,
+        details: {
+          checkoutSessionId: session.id,
+          rewardGranted,
+        },
+      });
     } else {
       await appendReferralEvent({
         code: referralCode,
@@ -1231,6 +1293,38 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
     terminalRewardState.rewardReversed === true
       ? terminalRewardState
       : reversalState;
+  if (!terminalReversalState && rewardGranted > 0) {
+    // S94-1 F5: the reread above closes the window only up to the
+    // read. A reversal whose FIRST durable act lands after it —
+    // markSessionRevoked persists the session's revocation evidence
+    // before reverseReferralReward writes any outcome-record flag —
+    // would still be erased by the terminal write below, after which
+    // the reversal's counted-ness consult reads the terminal record,
+    // finds no flags, and treats the grant as never counted (the
+    // referrer keeps reward credits for a refunded purchase). Consult
+    // the revocation evidence — written strictly before the flags in
+    // both reversal handlers — immediately before the terminal write:
+    // a revoked session defers this pass (the record stays in its
+    // resumable phase; the reversal completes; the redelivery then
+    // carries its flags), and unreadable evidence leaves the event
+    // retryable rather than finalising blind. Zero-grant outcomes
+    // need no consult: a reversal cannot have written flags before
+    // observing a terminal record, and a not-yet-terminal zero-grant
+    // record sits in a guarded phase the reversal defers on.
+    let terminalRevocationRevoked = false;
+    try {
+      const evidence = await readSessionRevocationEvidenceStrict(
+        session.id,
+        checkoutPaymentIntentId(session),
+      );
+      terminalRevocationRevoked = evidence.revoked;
+    } catch {
+      throw new ReferralGrantTransientError("referral_reversal_evidence_unreadable");
+    }
+    if (terminalRevocationRevoked) {
+      throw new ReferralGrantTransientError("referral_reversal_in_flight");
+    }
+  }
   await kv.setDurable(rewardStateKey, {
     ...stateBase,
     phase: rewardGranted > 0 ? "completed" : "terminal_skip",
@@ -1970,11 +2064,39 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
 
   if (!printFulfillmentWebhookUrl) return;
 
+  // S94-1 F9: replay-safe dispatch to the alternate destination (see
+  // AlternateFulfillmentDispatch in printOrders), applied exactly where
+  // the alternate webhook is the fulfiller (the same condition as the
+  // problem/sent persists below). A prior attempt whose outcome was
+  // never durably resolved refuses redispatch — the receiver may
+  // already hold this order; an operator reconciles.
+  const alternateIsFulfiller = !isPrintfulConfigured();
+  const dispatchId = alternateFulfillmentDispatchId(session.id);
+  if (alternateIsFulfiller && existing?.alternateDispatch?.state === "attempted") {
+    await persistProblemPrintOrder({
+      ...payload,
+      printAssetUrl,
+      status: "failed",
+      error: "alternate_dispatch_reconciliation_required",
+      alternateDispatch: existing.alternateDispatch,
+    });
+    return;
+  }
+  if (alternateIsFulfiller) {
+    payload = {
+      ...payload,
+      alternateDispatch: { dispatchId, state: "attempted", attemptedAt: Date.now() },
+    };
+    // The attempt marker must be durable BEFORE the outbound side
+    // effect; if it cannot be retained, fail closed and never dispatch.
+    assertPrintOrderRetained(await persistPrintOrderRecord(session.id, payload));
+  }
+
   let webhookResponse: Response;
   try {
     webhookResponse = await fetch(printFulfillmentWebhookUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "Idempotency-Key": dispatchId },
       body: JSON.stringify(
         buildAlternateFulfillmentWebhookPayload(payload, {
           printAssetUrl,
@@ -1983,19 +2105,41 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
         }),
       ),
     });
-    if (!webhookResponse.ok) {
-      const body = await webhookResponse.text().catch(() => "");
-      throw new Error(`Webhook ${webhookResponse.status}: ${body.slice(0, 280)}`);
-    }
   } catch (error) {
     // Outbound fulfillment failures only — durable persistence errors must not land here.
     if (isDurableKvPersistenceError(error)) throw error;
     if (!isPrintfulConfigured()) {
+      // The dispatch outcome is unknown (no response): the marker in
+      // payload stays "attempted", so a later pass refuses instead of
+      // redispatching.
       await persistProblemPrintOrder({
         ...payload,
         printAssetUrl,
         status: "failed",
         error: error instanceof Error ? error.message.slice(0, 320) : "webhook_failed",
+      });
+    }
+    return;
+  }
+
+  if (!webhookResponse.ok) {
+    // The receiver answered and did NOT accept the order: the dispatch
+    // is definitively rejected, and a later pass may dispatch again
+    // under the same dispatch identity.
+    const body = await webhookResponse.text().catch(() => "");
+    if (!isPrintfulConfigured()) {
+      await persistProblemPrintOrder({
+        ...payload,
+        printAssetUrl,
+        status: "failed",
+        alternateDispatch: {
+          dispatchId,
+          state: "rejected",
+          attemptedAt: payload.alternateDispatch?.attemptedAt ?? Date.now(),
+          respondedAt: Date.now(),
+          httpStatus: webhookResponse.status,
+        },
+        error: `Webhook ${webhookResponse.status}: ${body.slice(0, 280)}`.slice(0, 320),
       });
     }
     return;
@@ -2012,6 +2156,13 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       sentAt: Date.now(),
       error: undefined,
       terminalEventType: null,
+      alternateDispatch: {
+        dispatchId,
+        state: "accepted",
+        attemptedAt: payload.alternateDispatch?.attemptedAt ?? Date.now(),
+        respondedAt: Date.now(),
+        httpStatus: webhookResponse.status,
+      },
     });
     if (sentPersist.outcome === "deleted_unretainable") {
       console.error("Alternate fulfillment webhook succeeded but durable record unretainable", {

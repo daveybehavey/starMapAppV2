@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 import { PREMIUM_COOKIE_NAME } from "@/lib/premium";
-import { referralKey, type ReferralRecord } from "@/lib/referrals";
+import {
+  referralKey,
+  referralSessionCodeKey,
+  type ReferralRecord,
+  type ReferralSessionCodeRecord,
+} from "@/lib/referrals";
 import { getReferralEvents, type ReferralEvent } from "@/lib/referralLedger";
 import type { CheckoutOrderType, CheckoutPlan } from "@/lib/pricing";
 import { withSettlementMetadata } from "@/lib/entitlementsStore";
@@ -109,10 +114,21 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Digital access required" }, { status: 402 });
   }
 
+  // S94-1 F2: the session's own generated code lives in its dedicated
+  // record (see referralSessionCodeKey) and takes precedence; the
+  // ownership check on the referral record below validates it exactly
+  // like the legacy path.
+  const ownCodeRecord = await kv.get<ReferralSessionCodeRecord>(
+    referralSessionCodeKey(sessionId),
+  );
+  const ownCode = ownCodeRecord?.code?.trim().toUpperCase() || "";
+
   // The attribution code may have been completed into the settlement-
   // metadata sidecar (fix round 4, PR #447) — read the merged view.
+  // This path also resolves codes written inline on the session record
+  // before the dedicated record existed.
   const mergedSession = await withSettlementMetadata(sessionId, session);
-  const code = mergedSession.referralCode?.trim().toUpperCase() || "";
+  const code = ownCode || mergedSession.referralCode?.trim().toUpperCase() || "";
   if (!code) {
     return NextResponse.json({
       ok: true,

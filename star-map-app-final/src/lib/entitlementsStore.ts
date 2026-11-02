@@ -99,6 +99,16 @@ export const ENTITLEMENT_KV = {
    */
   settlementMetadata: (sessionId: string) => `stripe:session-metadata:v1:${sessionId}`,
   /**
+   * S94-1 F2: the billing portal's Stripe customer-id lookup cache. The
+   * portal used to cache the looked-up id by rewriting the session
+   * record — a whole-record write from a stale snapshot that could
+   * republish pre-revocation/pre-debit state. The cache now lives in
+   * its own record (deliberately outside the `stripe:session:` prefix,
+   * like the settlement records above); the session record's own
+   * customerId, when settlement wrote one, still takes precedence.
+   */
+  sessionCustomerId: (sessionId: string) => `stripe:session-customer:v1:${sessionId}`,
+  /**
    * Fix round 4: the governing claim token for a session (the token the
    * claim route honors). The session record's inline `claimToken` field is
    * legacy evidence only — nothing writes it any more.

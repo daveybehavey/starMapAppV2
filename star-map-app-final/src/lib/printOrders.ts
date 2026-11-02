@@ -6,6 +6,33 @@ import { kv } from "@/lib/kv";
 /** Explicit provider terminal provenance on a KV failure mirror (AG-086). */
 export type PrintOrderTerminalEventType = "order_failed" | "order_canceled";
 
+/**
+ * S94-1 F9: dispatch marker for the alternate (generic webhook)
+ * fulfilment destination. That destination has no provider-side
+ * idempotency or order identity to bind the way Printful's externalId
+ * + authority bind does, so the dispatch itself is made replay-safe
+ * here: the marker is persisted in state "attempted" BEFORE the
+ * outbound call, and any later pass that finds "attempted" must refuse
+ * to dispatch again (the receiver may already hold the order — an
+ * operator reconciles). "rejected" means the receiver answered with a
+ * non-2xx status (it did not accept; a retry may dispatch again);
+ * "accepted" records the 2xx outcome. The dispatchId is stable per
+ * session and is sent as the payload's dispatchId and the request's
+ * Idempotency-Key header so a receiver that does honour idempotency
+ * can dedupe as well.
+ */
+export type AlternateFulfillmentDispatch = {
+  dispatchId: string;
+  state: "attempted" | "rejected" | "accepted";
+  attemptedAt: number;
+  respondedAt?: number;
+  httpStatus?: number;
+};
+
+export function alternateFulfillmentDispatchId(sessionId: string) {
+  return `alt-fulfillment:${sessionId}`;
+}
+
 export type PrintOrderRecord = {
   status: "pending" | "sent" | "failed";
   sessionId: string;
@@ -84,6 +111,8 @@ export type PrintOrderRecord = {
   shippingNotificationMessageId?: string;
   shippingNotificationError?: string;
   error?: string;
+  /** S94-1 F9: alternate-destination dispatch marker (see the type). */
+  alternateDispatch?: AlternateFulfillmentDispatch;
   /**
    * Explicit failure provenance for authority seed (AG-086). Never infer from `error`.
    * - `"order_failed"` / `"order_canceled"`: true Printful terminal webhook
@@ -412,6 +441,9 @@ export function buildAlternateFulfillmentWebhookPayload(
   delete (recipientWithoutPhone as { phone?: string }).phone;
   return {
     ...orderWithoutPhoneFlag,
+    // S94-1 F9: the stable per-session dispatch identity, so a
+    // receiver that tracks submissions can recognise a replay.
+    dispatchId: alternateFulfillmentDispatchId(record.sessionId),
     ...(extras.printAssetUrl ? { printAssetUrl: extras.printAssetUrl } : {}),
     ...(extras.cardPrintAssetUrl ? { cardPrintAssetUrl: extras.cardPrintAssetUrl } : {}),
     recipient: recipientWithoutPhone,

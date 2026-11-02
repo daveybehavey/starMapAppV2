@@ -54,6 +54,27 @@ export function referralRewardedKey(sessionId: string) {
   return `referral:rewarded:${sessionId}`;
 }
 
+/**
+ * S94-1 F2: the session's OWN generated referral code (the code this
+ * buyer shares), stored in its own record. The link route used to
+ * persist the generated code by rewriting the session record from a
+ * stale snapshot — a whole-record write that could republish
+ * pre-revocation/pre-debit state. This key is deliberately separate
+ * from the settlement-metadata sidecar: that record's referralCode is
+ * the ATTRIBUTION code (the code this buyer used at checkout), a
+ * different field with different semantics, and the two must never be
+ * merged into one another. Legacy codes written inline on the session
+ * record before this change keep resolving through the merged view.
+ */
+export function referralSessionCodeKey(sessionId: string) {
+  return `referral:session-code:v1:${sessionId}`;
+}
+
+export type ReferralSessionCodeRecord = {
+  code: string;
+  createdAt: number;
+};
+
 type StoredReferralCode = {
   code: string;
   capturedAt: number;

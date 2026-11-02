@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { kv } from "@/lib/kv";
+import { ENTITLEMENT_KV } from "@/lib/entitlementsStore";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 import { PREMIUM_COOKIE_NAME } from "@/lib/premium";
 import type { CheckoutPlan } from "@/lib/pricing";
@@ -64,14 +65,34 @@ export async function POST(req: NextRequest) {
     : null;
 
   if (!customerId) {
+    // S94-1 F2: the lookup cache lives in its own record. This route
+    // used to cache by rewriting the session record from its stale
+    // snapshot — a whole-record write that could republish
+    // pre-revocation or pre-debit entitlement state over a concurrent
+    // writer's update. The session record is never written here.
+    const cached = await kv.get<{ customerId?: string | null }>(
+      ENTITLEMENT_KV.sessionCustomerId(sessionId),
+    );
+    if (typeof cached?.customerId === "string" && cached.customerId.trim()) {
+      customerId = cached.customerId.trim();
+    }
+  }
+
+  if (!customerId) {
     try {
       const checkoutSession = await stripe.checkout.sessions.retrieve(sessionId);
       customerId = typeof checkoutSession.customer === "string" ? checkoutSession.customer : null;
       if (customerId) {
-        await kv.set(sessionKey(sessionId), {
-          ...record,
-          customerId,
-        });
+        try {
+          await kv.set(ENTITLEMENT_KV.sessionCustomerId(sessionId), {
+            customerId,
+            recordedAt: Date.now(),
+          });
+        } catch (cacheErr) {
+          // A failed cache write must not fail the portal request —
+          // the looked-up id is already in hand.
+          console.error("Stripe portal customer cache write failed", cacheErr);
+        }
       }
     } catch (err) {
       console.error("Stripe portal customer lookup failed", err);

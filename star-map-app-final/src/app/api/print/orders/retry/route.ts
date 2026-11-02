@@ -5,6 +5,7 @@ import { hasValidAdminToken, readAdminTokenFromHeaders } from "@/lib/adminAuth";
 import { isPrintfulConfigured, submitPrintfulOrder } from "@/lib/printful";
 import { evaluatePrintMarginForPaidOrder } from "@/lib/printMargin";
 import {
+  alternateFulfillmentDispatchId,
   assertPrintOrderRetained,
   buildAlternateFulfillmentWebhookPayload,
   buildPrintAssetUrl,
@@ -486,28 +487,47 @@ async function postRetryPrintOrder(req: NextRequest) {
     return NextResponse.json({ ok: true, status: "sent", order: sanitizePrintOrderForOperatorResponse(sent) });
   }
 
+  // S94-1 F9: replay-safe dispatch to the alternate destination (see
+  // AlternateFulfillmentDispatch in printOrders). A prior attempt whose
+  // outcome was never durably resolved refuses redispatch outright —
+  // the receiver may already hold this order.
+  const dispatchId = alternateFulfillmentDispatchId(sessionId);
+  if (hydrated.alternateDispatch?.state === "attempted") {
+    return NextResponse.json(
+      { ok: false, error: "alternate_dispatch_reconciliation_required", dispatchId },
+      { status: 409 },
+    );
+  }
+  const dispatchAttempted: PrintOrderRecord = {
+    ...hydrated,
+    attempts,
+    printAssetUrl,
+    alternateDispatch: { dispatchId, state: "attempted", attemptedAt: now },
+  };
+  // The attempt marker must be durable BEFORE the outbound side effect;
+  // if it cannot be retained, fail closed and never dispatch.
+  assertPrintOrderRetained(await persistPrintOrderRecord(sessionId, dispatchAttempted));
+
   let webhookResponse: Response;
   try {
     webhookResponse = await fetch(printFulfillmentWebhookUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "Idempotency-Key": dispatchId },
       body: JSON.stringify(
-        buildAlternateFulfillmentWebhookPayload(hydrated, {
+        buildAlternateFulfillmentWebhookPayload(dispatchAttempted, {
           printAssetUrl,
           cardPrintAssetUrl,
           recipient,
         }),
       ),
     });
-    if (!webhookResponse.ok) {
-      const body = await webhookResponse.text().catch(() => "");
-      throw new Error(`Webhook ${webhookResponse.status}: ${body.slice(0, 280)}`);
-    }
   } catch (error) {
     // Restrict this catch to outbound fulfillment failures only.
     if (isDurableKvPersistenceError(error) || isPrintOrderUnretainableError(error)) throw error;
+    // The dispatch outcome is unknown (no response): the marker stays
+    // "attempted", so the next retry refuses instead of redispatching.
     const failed = await persistFailedPrintOrder({
-      ...hydrated,
+      ...dispatchAttempted,
       attempts,
       printAssetUrl,
       error: error instanceof Error ? error.message.slice(0, 320) : "webhook_failed",
@@ -515,8 +535,30 @@ async function postRetryPrintOrder(req: NextRequest) {
     return NextResponse.json({ ok: false, error: failed.error, order: sanitizePrintOrderForOperatorResponse(failed) }, { status: 502 });
   }
 
+  if (!webhookResponse.ok) {
+    // The receiver answered and did NOT accept the order: the dispatch
+    // is definitively rejected, and a later retry may dispatch again
+    // under the same dispatch identity.
+    const body = await webhookResponse.text().catch(() => "");
+    const failed = await persistFailedPrintOrder({
+      ...dispatchAttempted,
+      attempts,
+      printAssetUrl,
+      webhookStatus: webhookResponse.status,
+      alternateDispatch: {
+        dispatchId,
+        state: "rejected",
+        attemptedAt: now,
+        respondedAt: Date.now(),
+        httpStatus: webhookResponse.status,
+      },
+      error: `Webhook ${webhookResponse.status}: ${body.slice(0, 280)}`.slice(0, 320),
+    });
+    return NextResponse.json({ ok: false, error: failed.error, order: sanitizePrintOrderForOperatorResponse(failed) }, { status: 502 });
+  }
+
   const sent = {
-    ...hydrated,
+    ...dispatchAttempted,
     status: "sent" as const,
     attempts,
     printAssetUrl,
@@ -524,6 +566,13 @@ async function postRetryPrintOrder(req: NextRequest) {
     sentAt: now,
     error: undefined,
     terminalEventType: null,
+    alternateDispatch: {
+      dispatchId,
+      state: "accepted" as const,
+      attemptedAt: now,
+      respondedAt: Date.now(),
+      httpStatus: webhookResponse.status,
+    },
   };
   // Successful external side effect: durable state write stays outside the outbound
   // catch so KV failures cannot be rewritten as webhook failures.
