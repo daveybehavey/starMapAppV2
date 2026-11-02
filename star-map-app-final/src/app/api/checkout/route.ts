@@ -55,6 +55,10 @@ import {
   type CheckoutPriceComponent,
 } from "@/lib/checkoutPricingIdentity";
 import {
+  decodeCachedCheckoutHandoff,
+  type CachedCheckoutHandoff,
+} from "@/lib/checkoutIdempotencyCache";
+import {
   MerchCheckoutError,
   applyMerchCheckoutMetadata,
   buildMerchCheckoutLineItem,
@@ -2385,17 +2389,19 @@ export async function POST(req: NextRequest) {
       pricingIdentity,
     });
     if (idempotencyKey) {
-      const existingUrl = await kv.get<string>(idempotencyKey);
-      const cached = resolveStripeCheckoutHandoffUrl(
-        typeof existingUrl === "string" ? existingUrl : null,
-      );
-      if (cached.url) {
+      // S95-2 N1: replay the stored discount outcome with the URL — a
+      // cache hit must warn exactly like the fresh response did.
+      const cachedRecord = decodeCachedCheckoutHandoff(await kv.get<unknown>(idempotencyKey));
+      const cached = resolveStripeCheckoutHandoffUrl(cachedRecord?.url ?? null);
+      if (cachedRecord && cached.url) {
         return NextResponse.json({
           url: cached.url,
-          promoApplied: false,
-          referralOfferApplied: false,
-          referralOfferVariant: null,
-          promoLookupFailed: false,
+          promoApplied: cachedRecord.promoApplied,
+          discountRejected: cachedRecord.discountRejected || undefined,
+          promoInvalidDropped: cachedRecord.promoInvalidDropped || undefined,
+          referralOfferApplied: cachedRecord.referralOfferApplied,
+          referralOfferVariant: cachedRecord.referralOfferVariant,
+          promoLookupFailed: cachedRecord.promoLookupFailed,
           recoveredCheckoutUrl: cached.recovered || undefined,
         });
       }
@@ -2460,12 +2466,23 @@ export async function POST(req: NextRequest) {
     }
     if (session.discountRejected) {
       // Stripe rejected auto-applied referral discount. Still return checkout without the discount.
-      if (idempotencyKey && typeof session.url === "string" && session.url.trim()) {
+      // S95-2 N1: this one record drives both the cache write and the
+      // response below, so a retry replays the warning instead of dropping it.
+      const rejectedHandoff: CachedCheckoutHandoff = {
+        url: typeof session.url === "string" ? session.url.trim() : "",
+        promoApplied: false,
+        discountRejected: true,
+        promoInvalidDropped,
+        referralOfferApplied: false,
+        referralOfferVariant: null,
+        promoLookupFailed: promotion.lookupFailed,
+      };
+      if (idempotencyKey && rejectedHandoff.url) {
         await bestEffortCheckoutSideEffect({
           correlationId,
           stage: "idempotency_cache_set_discount_rejected",
           run: async () => {
-            await kv.set(idempotencyKey, session.url!.trim(), { ex: CHECKOUT_IDEMPOTENCY_TTL_SECONDS });
+            await kv.set(idempotencyKey, rejectedHandoff, { ex: CHECKOUT_IDEMPOTENCY_TTL_SECONDS });
           },
         });
       }
@@ -2496,21 +2513,39 @@ export async function POST(req: NextRequest) {
       }
       return NextResponse.json({
         url: rejectedResolved.url,
-        promoApplied: false,
+        promoApplied: rejectedHandoff.promoApplied,
         discountRejected: true,
-        promoInvalidDropped: promoInvalidDropped || undefined,
-        referralOfferApplied: false,
-        referralOfferVariant: null,
-        promoLookupFailed: promotion.lookupFailed,
+        promoInvalidDropped: rejectedHandoff.promoInvalidDropped || undefined,
+        referralOfferApplied: rejectedHandoff.referralOfferApplied,
+        referralOfferVariant: rejectedHandoff.referralOfferVariant,
+        promoLookupFailed: rejectedHandoff.promoLookupFailed,
         recoveredCheckoutUrl: rejectedResolved.recovered || undefined,
       });
     }
+    // S95-2 N1: one flag set drives both the idempotency record and the
+    // fresh response at the end of this handler, so a cache hit can never
+    // drift from what a fresh request would have returned.
+    const handoffFlags = {
+      promoApplied: selectedPromotion.source === "manual" && !session.discountRejected,
+      referralOfferApplied: selectedPromotion.source === "referral_auto" && !session.discountRejected,
+      referralOfferVariant:
+        selectedPromotion.source === "referral_auto" && !session.discountRejected
+          ? (referralAutoOffer.variant ?? null)
+          : null,
+      discountRejected: session.discountRejected,
+      promoInvalidDropped,
+      promoLookupFailed: promoCode ? promotion.lookupFailed : false,
+    };
     if (idempotencyKey && typeof session.url === "string" && session.url.trim()) {
       await bestEffortCheckoutSideEffect({
         correlationId,
         stage: "idempotency_cache_set",
         run: async () => {
-          await kv.set(idempotencyKey, session.url!.trim(), { ex: CHECKOUT_IDEMPOTENCY_TTL_SECONDS });
+          await kv.set(
+            idempotencyKey,
+            { url: session.url!.trim(), ...handoffFlags },
+            { ex: CHECKOUT_IDEMPOTENCY_TTL_SECONDS },
+          );
         },
       });
     }
@@ -2566,14 +2601,12 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       url: checkoutResolved.url,
-      promoApplied: selectedPromotion.source === "manual" && !session.discountRejected,
-      referralOfferApplied: selectedPromotion.source === "referral_auto" && !session.discountRejected,
-      referralOfferVariant:
-        selectedPromotion.source === "referral_auto" && !session.discountRejected
-          ? (referralAutoOffer.variant ?? null)
-          : null,
-      promoInvalidDropped: promoInvalidDropped || undefined,
-      promoLookupFailed: promoCode ? promotion.lookupFailed : false,
+      promoApplied: handoffFlags.promoApplied,
+      referralOfferApplied: handoffFlags.referralOfferApplied,
+      referralOfferVariant: handoffFlags.referralOfferVariant,
+      discountRejected: handoffFlags.discountRejected || undefined,
+      promoInvalidDropped: handoffFlags.promoInvalidDropped || undefined,
+      promoLookupFailed: handoffFlags.promoLookupFailed,
       recoveredCheckoutUrl: checkoutResolved.recovered || undefined,
     });
   } catch (err) {
