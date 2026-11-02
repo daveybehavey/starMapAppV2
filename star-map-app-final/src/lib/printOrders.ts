@@ -122,6 +122,24 @@ export type PrintOrderRecord = {
   operatorFailureAlertedAt?: number;
   operatorFailureAlertProvider?: string;
   operatorFailureAlertError?: string;
+  /**
+   * S96-1 F1: Printful placed this order on hold (`order_put_hold`).
+   * The record stays `sent` — the order was submitted, but Printful
+   * will not produce it until the hold is resolved there. First hold
+   * wins for `providerHoldAt`; the reason/status track the latest hold
+   * event. The hold fields are cleared when the order terminally
+   * fails, ships, or an operator resolves it. The scheduled hold sweep
+   * (printOrderHoldSweep.ts) retries a failed hold alert and escalates
+   * holds that age past the configured threshold.
+   */
+  providerHoldAt?: number;
+  providerHoldReason?: string;
+  providerHoldOrderStatus?: string;
+  operatorHoldAlertedAt?: number;
+  operatorHoldAlertProvider?: string;
+  operatorHoldAlertError?: string;
+  operatorHoldEscalatedAt?: number;
+  operatorHoldEscalationAlertError?: string;
   operatorResolvedAt?: number;
   operatorResolvedProvider?: "manual_printful" | "manual_other";
   operatorResolvedNote?: string;

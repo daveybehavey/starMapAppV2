@@ -389,3 +389,135 @@ test("AG-074: mark_terminal_failed captures provider id when unbound; conflict r
   assert.equal(conflict.ok, false);
   assert.equal(conflict.reason, "conflicting_provider_id");
 });
+
+/* ================= S96-1 F2 — atomic alternate-dispatch claim ================= */
+
+const CLAIM_SESSION = "cs_test_s961_claim";
+
+test("S96-1 F2: the first claim wins; later claims observe the standing claim and acquire nothing", () => {
+  const initial = createUnboundAuthorityState(CLAIM_SESSION, 1);
+  const first = applyPrintOrderAuthorityOp(initial, {
+    type: "claim_alternate_dispatch",
+    dispatchId: `alt-fulfillment:${CLAIM_SESSION}`,
+    now: 2,
+  });
+  assert.equal(first.ok, true);
+  assert.equal(first.claimAcquired, true);
+  assert.equal(first.changed, true);
+  assert.deepEqual(first.state.alternateDispatchClaim, {
+    dispatchId: `alt-fulfillment:${CLAIM_SESSION}`,
+    claimedAt: 2,
+  });
+
+  // The losing caller is told the standing claim — same or different
+  // dispatch id makes no difference: a claim is a claim.
+  for (const dispatchId of [`alt-fulfillment:${CLAIM_SESSION}`, "alt-fulfillment:other"]) {
+    const second = applyPrintOrderAuthorityOp(first.state, {
+      type: "claim_alternate_dispatch",
+      dispatchId,
+      now: 3,
+    });
+    assert.equal(second.ok, true);
+    assert.equal(second.claimAcquired, false);
+    assert.equal(second.changed, false);
+    assert.equal(second.reason, "already_claimed");
+    assert.deepEqual(second.alternateDispatchClaim, first.state.alternateDispatchClaim);
+    assert.equal(second.state.revision, first.state.revision, "a refused claim mutates nothing");
+  }
+});
+
+test("S96-1 F2: interleaved concurrent claims acquire exactly once", () => {
+  const ops = Array.from({ length: 6 }, (_, i) => ({
+    type: "claim_alternate_dispatch",
+    dispatchId: `alt-fulfillment:${CLAIM_SESSION}`,
+    now: 10 + i,
+  }));
+  const { final, results } = applyPrintOrderAuthorityInterleaving(
+    createUnboundAuthorityState(CLAIM_SESSION, 1),
+    ops,
+  );
+  assert.equal(results.filter((r) => r.claimAcquired).length, 1, "exactly one winner");
+  assert.equal(final.alternateDispatchClaim?.claimedAt, 10, "the first serialized apply holds the claim");
+});
+
+test("S96-1 F2: concurrent claims through the serialized store acquire exactly once", async () => {
+  const store = createSerializedAuthorityStore();
+  const results = await Promise.all(
+    Array.from({ length: 8 }, () =>
+      store.apply(CLAIM_SESSION, {
+        type: "claim_alternate_dispatch",
+        dispatchId: `alt-fulfillment:${CLAIM_SESSION}`,
+      }),
+    ),
+  );
+  assert.equal(results.filter((r) => r.claimAcquired).length, 1, "exactly one of 8 concurrent claims wins");
+  const state = await store.get(CLAIM_SESSION);
+  assert.ok(state.alternateDispatchClaim, "the claim stands for every later caller");
+});
+
+test("S96-1 F2: a terminal failure blocks the claim; an empty dispatch id is invalid", () => {
+  let state = createUnboundAuthorityState(CLAIM_SESSION, 1);
+  state = applyPrintOrderAuthorityOp(state, {
+    type: "mark_terminal_failed",
+    eventType: "order_failed",
+    now: 2,
+  }).state;
+  const blocked = applyPrintOrderAuthorityOp(state, {
+    type: "claim_alternate_dispatch",
+    dispatchId: `alt-fulfillment:${CLAIM_SESSION}`,
+    now: 3,
+  });
+  assert.equal(blocked.ok, false);
+  assert.equal(blocked.reason, "terminal_blocks_claim");
+  assert.equal(blocked.state.alternateDispatchClaim, null);
+
+  const invalid = applyPrintOrderAuthorityOp(createUnboundAuthorityState(CLAIM_SESSION, 1), {
+    type: "claim_alternate_dispatch",
+    dispatchId: "   ",
+    now: 2,
+  });
+  assert.equal(invalid.ok, false);
+  assert.equal(invalid.reason, "invalid_dispatch_id");
+});
+
+test("S96-1 F2: seed_from_kv carries a pre-claim KV marker into the claim", () => {
+  const seeded = applyPrintOrderAuthorityOp(createUnboundAuthorityState(CLAIM_SESSION, 1), {
+    type: "seed_from_kv",
+    kvStatus: "failed",
+    terminalEventType: null,
+    alternateDispatch: { dispatchId: `alt-fulfillment:${CLAIM_SESSION}`, attemptedAt: 42 },
+    now: 5,
+  });
+  assert.equal(seeded.ok, true);
+  assert.deepEqual(seeded.state.alternateDispatchClaim, {
+    dispatchId: `alt-fulfillment:${CLAIM_SESSION}`,
+    claimedAt: 42,
+  });
+  const claim = applyPrintOrderAuthorityOp(seeded.state, {
+    type: "claim_alternate_dispatch",
+    dispatchId: `alt-fulfillment:${CLAIM_SESSION}`,
+    now: 6,
+  });
+  assert.equal(claim.claimAcquired, false, "a legacy marker keeps blocking after the gate deploys");
+
+  // A markerless seed leaves the claim open for the first real dispatch.
+  const unmarked = applyPrintOrderAuthorityOp(createUnboundAuthorityState(CLAIM_SESSION, 1), {
+    type: "seed_from_kv",
+    kvStatus: "failed",
+    terminalEventType: null,
+    now: 5,
+  });
+  assert.equal(unmarked.state.alternateDispatchClaim, null);
+});
+
+test("S96-1 F2: claim wiring is pinned in the TS sources", () => {
+  assert.match(stateSource, /claim_alternate_dispatch/);
+  assert.match(stateSource, /alternateDispatchClaim/);
+  assert.match(stateSource, /terminal_blocks_claim/);
+  assert.match(doSource, /alt_dispatch_id/);
+  assert.match(doSource, /alt_dispatch_claimed_at/);
+  assert.match(doSource, /ADD COLUMN/, "existing DO tables migrate in place");
+  const clientSource = fs.readFileSync(path.join(appRoot, "src/lib/printOrderAuthority.ts"), "utf8");
+  assert.match(clientSource, /claimAlternateFulfillmentDispatch/);
+  assert.match(clientSource, /PrintOrderAuthorityClaimError/);
+});

@@ -58,8 +58,12 @@ import { sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
 import { extendPrintAssetTtlForFulfillment } from "@/lib/printAssetFulfillment";
 import { bindAcceptedPrintfulIdentityThenReview } from "@/lib/printFulfillmentPostSubmit";
 import {
+  claimAlternateFulfillmentDispatch,
   isPrintOrderAuthorityBindError,
+  isPrintOrderAuthorityClaimError,
   PrintOrderAuthorityBindError,
+  PrintOrderAuthorityClaimError,
+  seedPrintOrderAuthorityFromKv,
 } from "@/lib/printOrderAuthority";
 import { sendPrintOrderConfirmation } from "@/lib/printOrderConfirmation";
 import {
@@ -2157,6 +2161,47 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     return;
   }
   if (alternateIsFulfiller) {
+    // S96-1 F2: the marker check above is check-then-write — two
+    // concurrent deliveries (or a delivery racing an admin retry) can
+    // both read the marker absent from KV and both dispatch. Before
+    // the marker write, this pass must WIN the atomic claim in the
+    // print-order authority (serialized by the DO): exactly one
+    // concurrent caller proceeds. Seed first so a pre-claim KV marker
+    // also stands as a claim. The claim loser never dispatches: if
+    // the winner already completed end-to-end it stands down silently;
+    // otherwise it takes the same reconciliation path as a found marker.
+    await seedPrintOrderAuthorityFromKv(session.id, existing);
+    const claim = await claimAlternateFulfillmentDispatch(session.id, dispatchId);
+    if (!claim.ok) {
+      if (claim.reason === "terminal_blocks_claim") {
+        await persistProblemPrintOrder({
+          ...payload,
+          printAssetUrl,
+          status: "failed",
+          error: "alternate_dispatch_blocked_terminal_failure",
+          alternateDispatch: existingAlternateDispatch,
+        });
+        return;
+      }
+      // Authority unread (or the claim otherwise unresolvable): fail
+      // closed — nothing was dispatched, so the event stays retryable.
+      throw new PrintOrderAuthorityClaimError(claim.reason);
+    }
+    if (!claim.claimAcquired) {
+      const fresh = await kv.get<PrintOrderRecord>(printOrderKey(session.id));
+      if (fresh?.status === "sent" && fresh.alternateDispatch?.state === "accepted") {
+        // The concurrent winner completed end-to-end; nothing to reconcile.
+        return;
+      }
+      await persistProblemPrintOrder({
+        ...payload,
+        printAssetUrl,
+        status: "failed",
+        error: "alternate_dispatch_reconciliation_required",
+        alternateDispatch: fresh?.alternateDispatch ?? existingAlternateDispatch,
+      });
+      return;
+    }
     payload = {
       ...payload,
       alternateDispatch: { dispatchId, state: "attempted", attemptedAt: Date.now() },
@@ -2551,6 +2596,15 @@ async function processCheckoutFulfillment(
     if (isPrintOrderAuthorityBindError(error)) {
       // Provider accepted but DO bind unread/conflicted — Stripe must retry; do not finalize dedupe.
       console.error("Print order authority bind failed after provider accept; Stripe event remains retryable", {
+        sessionId: session.id,
+        reason: error.reason,
+      });
+      return { retryable: true };
+    }
+    if (isPrintOrderAuthorityClaimError(error)) {
+      // S96-1 F2: the alternate-dispatch claim was unresolvable and
+      // nothing was dispatched — Stripe must retry; do not finalize dedupe.
+      console.error("Print order alternate dispatch claim failed; Stripe event remains retryable", {
         sessionId: session.id,
         reason: error.reason,
       });

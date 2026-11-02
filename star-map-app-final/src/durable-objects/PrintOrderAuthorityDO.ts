@@ -1,6 +1,7 @@
 /**
  * Thin per-logical-order SQLite Durable Object.
- * Authoritative for: bind provider id, monotonic terminal failure, operator recover.
+ * Authoritative for: bind provider id, monotonic terminal failure, operator recover,
+ * and the atomic alternate-dispatch claim (S96-1 F2).
  * Alerts / file review / shipping stay outside (hard cut vs rejected #244 coordinator).
  */
 import { DurableObject } from "cloudflare:workers";
@@ -20,6 +21,8 @@ type AuthorityRow = {
   revision: number;
   updated_at: number;
   seeded_from_kv: number;
+  alt_dispatch_id: string | null;
+  alt_dispatch_claimed_at: number | null;
 };
 
 function rowToState(row: AuthorityRow): PrintOrderAuthorityState {
@@ -32,6 +35,9 @@ function rowToState(row: AuthorityRow): PrintOrderAuthorityState {
     revision: row.revision,
     updatedAt: row.updated_at,
     seededFromKv: row.seeded_from_kv === 1,
+    alternateDispatchClaim: row.alt_dispatch_id
+      ? { dispatchId: row.alt_dispatch_id, claimedAt: row.alt_dispatch_claimed_at ?? 0 }
+      : null,
   };
 }
 
@@ -51,6 +57,22 @@ export class PrintOrderAuthorityDO extends DurableObject {
           seeded_from_kv INTEGER NOT NULL DEFAULT 0
         )
       `);
+      // S96-1 F2: alternate-dispatch claim columns, added after the initial
+      // deploy — migrate existing tables in place (idempotent).
+      const columns = this.ctx.storage.sql
+        .exec<{ name: string }>("PRAGMA table_info(print_order_authority)")
+        .toArray();
+      const columnNames = new Set(columns.map((column) => column.name));
+      if (!columnNames.has("alt_dispatch_id")) {
+        this.ctx.storage.sql.exec(
+          "ALTER TABLE print_order_authority ADD COLUMN alt_dispatch_id TEXT",
+        );
+      }
+      if (!columnNames.has("alt_dispatch_claimed_at")) {
+        this.ctx.storage.sql.exec(
+          "ALTER TABLE print_order_authority ADD COLUMN alt_dispatch_claimed_at INTEGER",
+        );
+      }
     });
   }
 
@@ -69,8 +91,8 @@ export class PrintOrderAuthorityDO extends DurableObject {
     this.ctx.storage.sql.exec(
       `INSERT INTO print_order_authority (
           session_id, printful_order_id, lifecycle, terminal_reason, terminal_event_type,
-          revision, updated_at, seeded_from_kv
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          revision, updated_at, seeded_from_kv, alt_dispatch_id, alt_dispatch_claimed_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(session_id) DO UPDATE SET
           printful_order_id = excluded.printful_order_id,
           lifecycle = excluded.lifecycle,
@@ -78,7 +100,9 @@ export class PrintOrderAuthorityDO extends DurableObject {
           terminal_event_type = excluded.terminal_event_type,
           revision = excluded.revision,
           updated_at = excluded.updated_at,
-          seeded_from_kv = excluded.seeded_from_kv
+          seeded_from_kv = excluded.seeded_from_kv,
+          alt_dispatch_id = excluded.alt_dispatch_id,
+          alt_dispatch_claimed_at = excluded.alt_dispatch_claimed_at
       `,
       state.sessionId,
       state.printfulOrderId,
@@ -88,6 +112,8 @@ export class PrintOrderAuthorityDO extends DurableObject {
       state.revision,
       state.updatedAt,
       state.seededFromKv ? 1 : 0,
+      state.alternateDispatchClaim?.dispatchId ?? null,
+      state.alternateDispatchClaim?.claimedAt ?? null,
     );
   }
 
@@ -106,6 +132,10 @@ export class PrintOrderAuthorityDO extends DurableObject {
 
   async bindProviderOrderId(sessionId: string, printfulOrderId: string | number) {
     return this.apply(sessionId, { type: "bind_provider_order_id", printfulOrderId });
+  }
+
+  async claimAlternateDispatch(sessionId: string, dispatchId: string) {
+    return this.apply(sessionId, { type: "claim_alternate_dispatch", dispatchId });
   }
 
   async markTerminalFailed(
@@ -146,6 +176,10 @@ export class PrintOrderAuthorityDO extends DurableObject {
       kvStatus?: "pending" | "sent" | "failed" | null;
       printfulOrderId?: string | number | null;
       terminalEventType?: string | null;
+      alternateDispatch?: {
+        dispatchId?: string | null;
+        attemptedAt?: number | null;
+      } | null;
     },
   ) {
     return this.apply(sessionId, {
@@ -153,6 +187,7 @@ export class PrintOrderAuthorityDO extends DurableObject {
       kvStatus: input.kvStatus ?? null,
       printfulOrderId: input.printfulOrderId ?? null,
       terminalEventType: input.terminalEventType ?? null,
+      alternateDispatch: input.alternateDispatch ?? null,
     });
   }
 }

@@ -4,7 +4,9 @@ import { normalizePrintfulOrderId } from "@/lib/printFulfillmentIndex";
 import { sendShippingNotification } from "@/lib/shippingNotifications";
 import {
   applyPrintfulOrderFailureFromWebhook,
+  applyPrintfulOrderHoldFromWebhook,
   isPrintfulOrderFailureWebhookType,
+  isPrintfulOrderHoldWebhookType,
   resolvePrintfulWebhookOrderSessionId,
   type PrintfulOrderWebhookPayload,
 } from "@/lib/printfulWebhookOrderEvents";
@@ -249,6 +251,115 @@ async function handleOrderFailure(payload: PrintfulOrderWebhookPayload, eventTyp
   });
 }
 
+async function handleOrderHold(payload: PrintfulOrderWebhookPayload, eventType: string) {
+  const printfulOrderId = payload?.data?.order?.id ?? null;
+  const externalId = payload?.data?.order?.external_id?.trim() || "";
+  const result = await applyPrintfulOrderHoldFromWebhook({
+    eventType,
+    printfulOrderId,
+    externalId,
+    reason: payload?.data?.reason ?? null,
+    orderStatus: payload?.data?.order?.status ?? null,
+  });
+
+  if (result.status === "ignored") {
+    console.warn("Printful order hold webhook ignored", {
+      eventType,
+      printfulOrderId: normalizePrintfulOrderId(printfulOrderId),
+      externalId: externalId.slice(0, 64),
+      reason: result.reason,
+    });
+    return NextResponse.json({
+      ok: true,
+      status: "ignored",
+      event: eventType,
+      reason: result.reason,
+    });
+  }
+
+  // S96-1 F1: an unresolvable session must not ACK the hold away — the
+  // same AG-081 retryable posture as terminal failure events.
+  if (result.status === "unresolved_session") {
+    console.warn("Printful order hold session unresolved (retryable)", {
+      eventType,
+      printfulOrderId: normalizePrintfulOrderId(printfulOrderId),
+      externalId: externalId.slice(0, 64),
+      reason: result.reason,
+    });
+    return NextResponse.json(
+      {
+        ok: false,
+        status: "session_unresolved",
+        event: eventType,
+        reason: result.reason ?? "session_unresolved",
+      },
+      { status: 503 },
+    );
+  }
+
+  if (result.status === "authority_unread") {
+    console.warn("Printful order hold authority unread", {
+      eventType,
+      sessionId: result.sessionId,
+      reason: result.reason,
+    });
+    return NextResponse.json(
+      {
+        ok: false,
+        status: "authority_unread",
+        event: eventType,
+        sessionId: result.sessionId,
+        reason: result.reason ?? "authority_unread",
+      },
+      { status: 503 },
+    );
+  }
+
+  if (result.status === "alert_failed") {
+    console.warn("Printful order hold alert failed", {
+      eventType,
+      sessionId: result.sessionId,
+      error: result.error,
+    });
+    return NextResponse.json(
+      {
+        ok: false,
+        status: "alert_failed",
+        event: eventType,
+        sessionId: result.sessionId,
+        error: result.error,
+      },
+      { status: 502 },
+    );
+  }
+
+  // Hold recorded nowhere durable (KV projection missing) — ACK with an
+  // explicit reconciliation signal, mirroring the failure path.
+  if (result.status === "projection_missing") {
+    console.warn("Printful order hold projection missing", {
+      eventType,
+      sessionId: result.sessionId,
+      reason: result.reason,
+    });
+    return NextResponse.json({
+      ok: true,
+      status: "projection_missing",
+      event: eventType,
+      sessionId: result.sessionId,
+      reason: result.reason ?? "reconciliation_needed",
+      reconciliationNeeded: true,
+      authority: result.authority ?? null,
+    });
+  }
+
+  return NextResponse.json({
+    ok: true,
+    status: "updated",
+    event: eventType,
+    sessionId: result.sessionId,
+  });
+}
+
 export async function POST(req: NextRequest) {
   if (!verifyWebhookToken(req)) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
@@ -268,6 +379,10 @@ export async function POST(req: NextRequest) {
 
   if (isPrintfulOrderFailureWebhookType(eventType)) {
     return handleOrderFailure(payload, eventType);
+  }
+
+  if (isPrintfulOrderHoldWebhookType(eventType)) {
+    return handleOrderHold(payload, eventType);
   }
 
   return NextResponse.json({ ok: true, status: "ignored", event: eventType || "unknown" });

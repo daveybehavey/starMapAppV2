@@ -137,7 +137,19 @@ export async function sendShippingNotification(
   // reshipment with a new tracking number never resets the clock.
   let record = loadedRecord;
   if (!record.shippedAt) {
-    const anchored: ExtendedPrintOrderRecord = { ...record, shippedAt: Date.now() };
+    // S96-1 F1: shipment ends any recorded Printful hold — the order moved.
+    const anchored: ExtendedPrintOrderRecord = {
+      ...record,
+      shippedAt: Date.now(),
+      providerHoldAt: undefined,
+      providerHoldReason: undefined,
+      providerHoldOrderStatus: undefined,
+      operatorHoldAlertedAt: undefined,
+      operatorHoldAlertProvider: undefined,
+      operatorHoldAlertError: undefined,
+      operatorHoldEscalatedAt: undefined,
+      operatorHoldEscalationAlertError: undefined,
+    };
     const anchorResult = await persistPrintOrderRecord(sessionId, anchored);
     if (anchorResult.outcome !== "persisted") {
       // Fail closed before any email side effect, per the record-retention

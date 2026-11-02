@@ -29,6 +29,7 @@ import { evaluatePrintRetryPaymentGate } from "@/lib/checkoutPromotions";
 import { extendPrintAssetTtlForFulfillment } from "@/lib/printAssetFulfillment";
 import { sendPrintOrderConfirmation } from "@/lib/printOrderConfirmation";
 import {
+  claimAlternateFulfillmentDispatch,
   getPrintOrderAuthorityState,
   projectPrintOrderWithAuthority,
   seedPrintOrderAuthorityFromKv,
@@ -499,6 +500,32 @@ async function postRetryPrintOrder(req: NextRequest) {
   // dispatch happens only when no marker exists.
   const dispatchId = alternateFulfillmentDispatchId(sessionId);
   if (alternateDispatchBlocksRedispatch(hydrated.alternateDispatch)) {
+    return NextResponse.json(
+      { ok: false, error: "alternate_dispatch_reconciliation_required", dispatchId },
+      { status: 409 },
+    );
+  }
+  // S96-1 F2: the marker check above is check-then-write — a concurrent
+  // webhook delivery that read the same markerless record would also
+  // pass it. Win the atomic claim in the print-order authority first
+  // (authority was seeded from the stored record above, so a pre-claim
+  // KV marker already stands as a claim): exactly one concurrent
+  // caller dispatches; the loser reconciles. Authority unread fails
+  // closed — no claim, no dispatch.
+  const claim = await claimAlternateFulfillmentDispatch(sessionId, dispatchId);
+  if (!claim.ok) {
+    if (claim.reason === "terminal_blocks_claim") {
+      return NextResponse.json(
+        { ok: false, error: "terminal_failed_requires_operator_recover", dispatchId },
+        { status: 409 },
+      );
+    }
+    return NextResponse.json(
+      { ok: false, error: "print_order_authority_unread", dispatchId },
+      { status: 503 },
+    );
+  }
+  if (!claim.claimAcquired) {
     return NextResponse.json(
       { ok: false, error: "alternate_dispatch_reconciliation_required", dispatchId },
       { status: 409 },

@@ -5,6 +5,12 @@ export function isPrintfulOrderFailureWebhookType(eventType) {
   return PRINTFUL_ORDER_FAILURE_WEBHOOK_TYPES.has(eventType.trim());
 }
 
+export const PRINTFUL_ORDER_HOLD_WEBHOOK_TYPE = "order_put_hold";
+
+export function isPrintfulOrderHoldWebhookType(eventType) {
+  return eventType.trim() === PRINTFUL_ORDER_HOLD_WEBHOOK_TYPE;
+}
+
 export function buildPrintfulWebhookFailureError(eventType, reason, orderStatus) {
   const normalizedType = eventType.trim() || "order_event";
   const parts = [`printful_${normalizedType}`];
