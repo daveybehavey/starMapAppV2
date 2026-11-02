@@ -14,8 +14,10 @@
 //
 // No caption is produced when the data is absent: the placeholder
 // location sentinel (latitude 0 AND longitude 0 — the same sentinel the
-// store's isInitialPlaceholderLocation and checkoutSkyGuard use) or an
-// unparseable date both yield null, and the editor offers no button.
+// store's isInitialPlaceholderLocation and checkoutSkyGuard use), an
+// unparseable date, or an empty/unrecognised timezone (the date could
+// not be stated as it was at the location) all yield null, and the
+// editor offers no button.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { getStyleTextDefaults } from "./styleDefaults";
@@ -43,24 +45,22 @@ function formatCoordinates(latitude: number, longitude: number): string {
 function formatCaptionDate(dateTimeISO: string, timezone: string): string | null {
   const date = new Date(dateTimeISO);
   if (!Number.isFinite(date.getTime())) return null;
-  const format = (timeZone: string) =>
-    new Intl.DateTimeFormat("en-US", {
-      timeZone,
+  // The caption states the date AS IT WAS at the location, so it may
+  // only be rendered in the location's own timezone. An empty or
+  // unrecognised timezone makes that date unstatable — a silent UTC
+  // fallback could print the neighbouring day as the occasion date —
+  // so the honest outcome is no caption at all.
+  const zone = (timezone ?? "").trim();
+  if (!zone) return null;
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      timeZone: zone,
       year: "numeric",
       month: "long",
       day: "numeric",
     }).format(date);
-  try {
-    return format(timezone || "UTC");
   } catch {
-    // An unrecognised timezone must not kill the caption; the date in
-    // UTC is the honest fallback (the store only writes IANA names or
-    // the browser's zone, so this is a defensive path).
-    try {
-      return format("UTC");
-    } catch {
-      return null;
-    }
+    return null;
   }
 }
 

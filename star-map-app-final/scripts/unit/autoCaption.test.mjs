@@ -88,6 +88,14 @@ test("the date renders in the location's timezone, not the viewer's", () => {
   );
 });
 
+test("an empty or unrecognised timezone yields no caption, never a UTC-shifted date", () => {
+  const instant = "2024-06-15T01:30:00.000Z"; // Jun 15 in UTC, Jun 14 in New York
+  const base = { locationName: "New York, NY", latitude: 40.7128, longitude: -74.006, dateTimeISO: instant };
+  assert.equal(buildAutoCaption({ ...base, timezone: "" }), null);
+  assert.equal(buildAutoCaption({ ...base, timezone: "   " }), null);
+  assert.equal(buildAutoCaption({ ...base, timezone: "Not/AZone" }), null);
+});
+
 test("a missing location name yields a coords + date caption", () => {
   assert.equal(
     buildAutoCaption({ ...paris, locationName: "   " }),
