@@ -117,6 +117,7 @@ export type PrintOrderAuthorityApplyResult =
         | "invalid_provider_id"
         | "invalid_dispatch_id"
         | "operator_recover_not_terminal"
+        | "provider_identity_required"
         | "invalid_session";
     };
 

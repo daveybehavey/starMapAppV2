@@ -425,7 +425,7 @@ async function postRetryPrintOrder(req: NextRequest) {
     const family = hydrated.merchFamily ? getMerchFamily(hydrated.merchFamily) : null;
     const printfulV2 = await submitPrintfulV2CatalogOrder({
       externalId: sessionId,
-      catalogVariantId: hydrated.merchCatalogVariantId as string,
+      catalogVariantId: hydrated.merchCatalogVariantId as number,
       fileUrl: printAssetUrl,
       recipient,
       placement: family?.placement ?? "default",
