@@ -4,6 +4,7 @@ import GiftFormatLadder from "@/components/GiftFormatLadder";
 import FramedProofSection from "@/components/FramedProofSection";
 import GoogleRatingsTrust from "@/components/GoogleRatingsTrust";
 import PreviewStartForm from "@/components/PreviewStartForm";
+import ProductSchema from "@/components/ProductSchema";
 import PurchaseTrustPanel from "@/components/PurchaseTrustPanel";
 import ResilientImage from "@/components/ResilientImage";
 import StickyCtaBar from "@/components/StickyCtaBar";
@@ -292,6 +293,38 @@ export default function ShopPage() {
     // below (the canonical merch home) — they are deliberately not repeated
     // in this print/digital grid (persona sweep U18).
   ] as const;
+
+  // Product/Offer JSON-LD (S95-7): mirror the occasion pages — one Product
+  // whose offers come only from the canonical pricing tiers above, with
+  // print offers emitted only while print checkout is enabled. No review
+  // or rating data: public review counts stay off the site by policy.
+  const printSchemaVariants = [
+    "poster_framed",
+    "poster_unframed",
+    "poster_unframed_16x16",
+    "canvas_wrap",
+    "mug_11oz",
+    "card_4x6",
+  ] as const satisfies readonly PrintVariant[];
+  const productOffers = [
+    {
+      name: "HD digital download",
+      price: (digitals.single.amountCents / 100).toFixed(2),
+      priceCurrency: (digitals.single.currency || "USD").toUpperCase(),
+      url: `${siteUrl}/editor?mode=quick&source=shop-schema-digital`,
+    },
+    ...(printCheckoutEnabled
+      ? printSchemaVariants.map((variant) => {
+          const tier = printTiers[variant];
+          return {
+            name: tier.label,
+            price: (tier.amountCents / 100).toFixed(2),
+            priceCurrency: (tier.currency || "USD").toUpperCase(),
+            url: `${siteUrl}/editor?mode=quick&source=shop-schema-${variant}&checkout=print&print_variant=${variant}`,
+          };
+        })
+      : []),
+  ];
 
   return (
     <main className="mx-auto min-h-[60vh] w-full max-w-5xl px-4 py-10 text-neutral-900 sm:px-6 lg:py-14">
@@ -593,6 +626,16 @@ export default function ShopPage() {
         secondaryButtonLabel="Custom stickers"
         secondaryHref="/editor?mode=quick&source=sticky-shop-sticker&merch_family=sticker_kisscut"
         secondaryPlan="merch_sticker"
+      />
+      <ProductSchema
+        name="Personalized Star Map"
+        description={
+          printCheckoutEnabled
+            ? "Personalized star map showing the exact night sky from a meaningful date and location. Order a framed print, unframed poster, canvas wrap, mug, keepsake card, or HD digital download."
+            : "Personalized star map showing the exact night sky from a meaningful date and location. Order an HD digital download."
+        }
+        imageUrl={`${siteUrl}/custom-star-map-anniversary.webp`}
+        offers={productOffers}
       />
     </main>
   );
