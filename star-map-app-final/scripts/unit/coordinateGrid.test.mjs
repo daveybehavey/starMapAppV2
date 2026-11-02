@@ -13,7 +13,9 @@
  *   altitude a → radius ((90 − a)/90) × R;
  *   azimuth θ → (cx + R·sinθ, cy − R·cosθ)  (north up, east right).
  * These pins lock that correspondence numerically so the grid can
- * never drift away from the stars it charts.
+ * never drift away from the stars it charts. Endpoint comparisons use
+ * a 1e-6 tolerance: sin/cos of the cardinal azimuths carry ~1e-16
+ * floating-point residue that exact equality would trip on.
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -27,6 +29,9 @@ const { computeCoordinateGridGeometry } = await import("../../src/lib/renderSky.
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), "utf8");
 const renderSky = read("../../src/lib/renderSky.ts");
 const panel = read("../../src/components/AdvancedPanel.tsx");
+
+const EPS = 1e-6;
+const near = (actual, expected) => Math.abs(actual - expected) < EPS;
 
 test("grid geometry for a square canvas matches the star projection", () => {
   const geo = computeCoordinateGridGeometry(1200, 1200);
@@ -42,10 +47,14 @@ test("azimuth spokes point north/east/south/west in screen space", () => {
   const geo = computeCoordinateGridGeometry(1200, 1200);
   assert.equal(geo.azimuthSpokes.length, 12);
   const byAzimuth = Object.fromEntries(geo.azimuthSpokes.map((s) => [s.azimuthDeg, s]));
-  assert.deepEqual([byAzimuth[0].endX, byAzimuth[0].endY], [600, 60]); // north = top
-  assert.deepEqual([byAzimuth[90].endX, byAzimuth[90].endY], [1140, 600]); // east = right
-  assert.deepEqual([byAzimuth[180].endX, byAzimuth[180].endY], [600, 1140]); // south = bottom
-  assert.deepEqual([byAzimuth[270].endX, byAzimuth[270].endY], [60, 600]); // west = left
+  const expectSpoke = (azimuth, x, y) => {
+    assert.ok(near(byAzimuth[azimuth].endX, x), `az ${azimuth} endX ${byAzimuth[azimuth].endX} != ${x}`);
+    assert.ok(near(byAzimuth[azimuth].endY, y), `az ${azimuth} endY ${byAzimuth[azimuth].endY} != ${y}`);
+  };
+  expectSpoke(0, 600, 60); // north = top
+  expectSpoke(90, 1140, 600); // east = right
+  expectSpoke(180, 600, 1140); // south = bottom
+  expectSpoke(270, 60, 600); // west = left
 });
 
 test("grid geometry uses the smaller dimension for non-square canvases", () => {
