@@ -1363,6 +1363,15 @@ function drawSky(
   // radius (stars use density retention instead — see drawStarLayer).
   // Background, warm wash, frame, shape outline, text and watermark
   // stay outside the fade, as does an explicitly enabled technical ring.
+  // Coordinate grid (PROD-SM W1-3): RenderOptions.showGrid was plumbed
+  // through the store, presets, drafts and API validation for a long
+  // time but never drawn. It renders first — under constellations,
+  // stars and planets — and, like the technical ring, stays outside the
+  // parchment radial fade (it is a chart overlay, not sky content).
+  if (renderOptions?.showGrid) {
+    drawCoordinateGrid(ctx, width, height, palette.accent, scale);
+  }
+
   const drawConstellations = (target: CanvasRenderingContext2D) =>
     drawConstellationLayer(
       target,
@@ -2046,6 +2055,79 @@ function drawConstellations(
     ctx.fillText(label, labelX, labelY);
   }
 
+  ctx.restore();
+}
+
+export type CoordinateGridGeometry = {
+  centerX: number;
+  centerY: number;
+  radius: number;
+  altitudeCircles: { altitudeDeg: number; radius: number }[];
+  azimuthSpokes: { azimuthDeg: number; endX: number; endY: number }[];
+};
+
+const GRID_ALTITUDE_STEPS_DEG = [15, 30, 45, 60, 75] as const;
+const GRID_AZIMUTH_STEP_DEG = 30;
+
+/**
+ * Alt-az grid geometry in the renderer's own polar projection
+ * (astronomy.computeVisibleStars: centre = canvas centre, radius =
+ * min(w,h) × PROJECTION_RADIUS_FACTOR, a star at altitude a sits at
+ * ((90 − a) / 90) × radius from centre, azimuth measured from north
+ * clockwise: x = cx + r·sin(θ), y = cy − r·cos(θ)). The grid is the
+ * exact inverse image of that mapping, so grid lines pass through the
+ * stars at the named altitudes/azimuths by construction.
+ */
+export function computeCoordinateGridGeometry(
+  width: number,
+  height: number,
+): CoordinateGridGeometry {
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const radius = Math.min(width, height) * PROJECTION_RADIUS_FACTOR;
+  const altitudeCircles = GRID_ALTITUDE_STEPS_DEG.map((altitudeDeg) => ({
+    altitudeDeg,
+    radius: ((90 - altitudeDeg) / 90) * radius,
+  }));
+  const azimuthSpokes: CoordinateGridGeometry["azimuthSpokes"] = [];
+  for (let azimuthDeg = 0; azimuthDeg < 360; azimuthDeg += GRID_AZIMUTH_STEP_DEG) {
+    const angle = (azimuthDeg * Math.PI) / 180;
+    azimuthSpokes.push({
+      azimuthDeg,
+      endX: centerX + Math.sin(angle) * radius,
+      endY: centerY - Math.cos(angle) * radius,
+    });
+  }
+  return { centerX, centerY, radius, altitudeCircles, azimuthSpokes };
+}
+
+function drawCoordinateGrid(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  accentColor: string,
+  scale: number,
+) {
+  const geometry = computeCoordinateGridGeometry(width, height);
+  if (!(geometry.radius > 0)) return;
+
+  ctx.save();
+  ctx.strokeStyle = toRgba(accentColor, 0.16);
+  ctx.lineWidth = Math.max(0.5, 0.75 * scale);
+  for (const circleRadius of [
+    geometry.radius,
+    ...geometry.altitudeCircles.map((circle) => circle.radius),
+  ]) {
+    ctx.beginPath();
+    ctx.arc(geometry.centerX, geometry.centerY, circleRadius, 0, TWO_PI);
+    ctx.stroke();
+  }
+  ctx.beginPath();
+  for (const spoke of geometry.azimuthSpokes) {
+    ctx.moveTo(geometry.centerX, geometry.centerY);
+    ctx.lineTo(spoke.endX, spoke.endY);
+  }
+  ctx.stroke();
   ctx.restore();
 }
 

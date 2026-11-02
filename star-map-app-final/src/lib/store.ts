@@ -31,11 +31,12 @@ export type TextAlign = "left" | "center" | "right";
  * Per-property ownership of a text box's typography (issue #408).
  * "automatic" follows style defaults / tier typography; "explicit" is
  * user- or preset-authored and automatic layers must not overwrite it.
- * A missing binding resolves to explicit/explicit (see textStyleBinding.ts).
+ * A missing binding resolves to explicit per property (see textStyleBinding.ts).
  */
 export interface TextStyleBinding {
   color: "automatic" | "explicit";
   fontFamily: "automatic" | "explicit";
+  fontWeight: "automatic" | "explicit";
 }
 
 export interface TextBox {
@@ -291,6 +292,9 @@ const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) =
         }
         if (Object.prototype.hasOwnProperty.call(payload, "fontFamily")) {
           binding.fontFamily = "explicit";
+        }
+        if (Object.prototype.hasOwnProperty.call(payload, "fontWeight")) {
+          binding.fontWeight = "explicit";
         }
         const nextPayload: Partial<TextBox> = { ...payload };
         delete nextPayload.textStyleBinding;

@@ -1172,6 +1172,20 @@ export function MobileCreate({
                               </select>
                             </div>
                           </div>
+                          <div className="space-y-1">
+                            <label htmlFor={`weight-select-${box.id}`} className="text-[10px] text-neutral-300">Weight</label>
+                            <select
+                              id={`weight-select-${box.id}`}
+                              value={box.fontWeight ?? 600}
+                              onChange={(e) => updateTextBox(box.id, { fontWeight: Number(e.target.value) })}
+                              className="w-full rounded-md border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"
+                            >
+                              <option value={400}>Regular</option>
+                              <option value={500}>Medium</option>
+                              <option value={600}>Semi-bold</option>
+                              <option value={700}>Bold</option>
+                            </select>
+                          </div>
                           <div className="flex gap-2">
                             <button
                               type="button"

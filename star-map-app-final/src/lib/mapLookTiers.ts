@@ -312,8 +312,8 @@ export function applyTierTypography(
 
 /**
  * Ownership-aware tier typography (#408): runs the raw tier transformation,
- * then restores any explicit colour/font from the input boxes (matched by
- * ID). All other tier effects (size, weight, position, glow, shadow) apply
+ * then restores any explicit colour/font/weight from the input boxes (matched by
+ * ID). All other tier effects (size, position, glow, shadow) apply
  * to automatic and explicit boxes alike, and each box's binding is
  * preserved. Boxes with no binding resolve explicit, so legacy designs keep
  * their authored typography. Custom is an identity operation. All editor
@@ -337,6 +337,13 @@ export function applyTierTypographyProtected(
       ...box,
       color: binding.color === "explicit" ? input.color : box.color,
       fontFamily: binding.fontFamily === "explicit" ? input.fontFamily : box.fontFamily,
+      // An explicit weight is restored only when the input actually carries
+      // one: ownership protects an authored value, and a box with no weight
+      // value has nothing to restore (the tier patch stands).
+      fontWeight:
+        binding.fontWeight === "explicit" && input.fontWeight !== undefined
+          ? input.fontWeight
+          : box.fontWeight,
     };
   });
 }
