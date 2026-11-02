@@ -15,6 +15,7 @@ import { ASPECT_OPTIONS } from "@/lib/aspectOptions";
 import { ShapeIcon } from "@/components/ShapeIcon";
 
 import { buildStarMapDownloadFilename } from "@/lib/downloadFilename";
+import { buildAutoCaption, upsertAutoCaptionBox } from "@/lib/autoCaption";
 import {
   createCheckoutHandoffToken,
   track,
@@ -321,6 +322,24 @@ export function EditorExperience({
     applyPreset: hookApplyPreset,
     applyProPreset,
   } = useEditorLogic({ variant, onVisualOptionsApplied });
+
+  // PROD-SM W2-4 (#490): the occasion caption is generated from the
+  // design's existing location/date data; null when that data is
+  // absent (placeholder location or invalid date), in which case no
+  // caption button is offered. The caption row itself is an ordinary
+  // text box (see @/lib/autoCaption).
+  const autoCaption = buildAutoCaption({
+    locationName: location.name,
+    latitude: location.latitude,
+    longitude: location.longitude,
+    dateTimeISO: dateTime,
+    timezone: location.timezone,
+  });
+  const handleAddCaption = () => {
+    if (!autoCaption) return;
+    const next = upsertAutoCaptionBox(textBoxes, autoCaption, selectedStyle);
+    if (next !== textBoxes) setTextBoxes(next);
+  };
 
   useEffect(() => {
     if (process.env.NODE_ENV !== "production") {
@@ -2959,6 +2978,15 @@ export function EditorExperience({
                                       >
                                         + Add Text Line
                                       </button>
+                                      {autoCaption && (
+                                        <button
+                                          type="button"
+                                          onClick={handleAddCaption}
+                                          className="w-full rounded-md border border-dashed border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10"
+                                        >
+                                          + Add Caption
+                                        </button>
+                                      )}
                                     </div>
                                   )}
                                 </section>
