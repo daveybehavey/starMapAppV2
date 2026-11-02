@@ -1777,12 +1777,20 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     assertPrintOrderRetained(await persistPrintOrderRecord(session.id, nextRecord));
     // S96-1 F9: the problem state is durable, but if this pass attempted
     // the operator failure alert and it was not delivered, the event
-    // must NOT finalize — the alert is the only discovery channel for a
-    // failed order (no failure sweep exists). Throwing keeps the Stripe
-    // event dedupe unfinalized; redelivery retries the alert from the
-    // persisted stamps (operatorFailureAlertedAt still unset), exactly
-    // as the Printful webhook's 502-on-alert-failure path intends.
-    if (failureAlertUndelivered) {
+    // must NOT finalize — for an ordinary failed order the alert is the
+    // only discovery channel (no failure sweep exists). Throwing keeps
+    // the Stripe event dedupe unfinalized; redelivery retries the alert
+    // from the persisted stamps (operatorFailureAlertedAt still unset),
+    // exactly as the Printful webhook's 502-on-alert-failure path
+    // intends. The one exception is a record carrying a standing
+    // alternate-dispatch marker: that marker is itself a discovery and
+    // refusal surface — it blocks every later dispatch at both sites
+    // and the admin retry answers 409
+    // alternate_dispatch_reconciliation_required — so the order cannot
+    // silently vanish, and the S94-1 gate rounds pinned event
+    // finalization for exactly those records. The alert is still
+    // attempted and its failure still recorded either way.
+    if (failureAlertUndelivered && !nextRecord.alternateDispatch) {
       throw new PrintOrderFailureAlertError(
         nextRecord.operatorFailureAlertError ?? "print_alert_failed",
       );
@@ -2279,8 +2287,10 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       assertPrintOrderRetained(await persistPrintOrderRecord(session.id, strandedRecord));
       // S96-1 F9: same rule as persistProblemPrintOrder — the surfaced
       // failure is durable, but an undelivered operator alert must keep
-      // the Stripe event retryable rather than ACK into invisibility.
-      if (strandedAlertUndelivered) {
+      // the Stripe event retryable rather than ACK into invisibility,
+      // unless the record carries the dispatch marker (which refuses
+      // every later dispatch and surfaces on the admin retry).
+      if (strandedAlertUndelivered && !strandedRecord.alternateDispatch) {
         throw new PrintOrderFailureAlertError(
           strandedRecord.operatorFailureAlertError ?? "print_alert_failed",
         );
