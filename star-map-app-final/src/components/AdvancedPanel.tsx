@@ -134,6 +134,22 @@ export function AdvancedPanel({
           ) : null}
         </div>
         <div className="flex items-center justify-between gap-2">
+          <span className="text-[11px] text-neutral-200">Coordinate grid (altitude/azimuth)</span>
+          <button
+            type="button"
+            onClick={() =>
+              applyCustomRenderOptions({ showGrid: !renderOptions.showGrid })
+            }
+            className={`rounded-md border px-2 py-1 text-[10px] font-semibold transition ${
+              renderOptions.showGrid
+                ? "!text-midnight border-amber-300 bg-amber-100"
+                : "border-white/15 bg-white/10 text-white"
+            }`}
+          >
+            {renderOptions.showGrid ? "On" : "Off"}
+          </button>
+        </div>
+        <div className="flex items-center justify-between gap-2">
           <span className="text-[11px] text-neutral-200">Technical ring (date/location arc)</span>
           <button
             type="button"
