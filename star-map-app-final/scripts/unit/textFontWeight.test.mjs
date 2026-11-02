@@ -64,7 +64,7 @@ test("mobile editor offers the same four weights (parity)", () => {
     [600, "Semi-bold"],
     [700, "Bold"],
   ]) {
-    assert.match(mobile, new RegExp(`<option value={${value}}>${label}</option>`), `mobile weight option ${value}/${label}`);
+    assert.match(mobile, new RegExp(`<option value=\\{${value}\\}>${label}</option>`), `mobile weight option ${value}/${label}`);
   }
   assert.match(mobile, /box\.fontWeight \?\? 600/);
 });
