@@ -59,9 +59,16 @@ for (const style of ["navyGold", "midnightMinimal", "parchmentScroll", "vintageE
 }
 
 test("default drawing matches the pre-control main revision", () => {
-  const hash = createHash("sha256").update(JSON.stringify(render(undefined).commands)).digest("hex");
+  const round = (value) => Math.round(value * 1e6) / 1e6;
+  const hash = createHash("sha256").update(JSON.stringify(render(undefined).commands, (_key, value) => {
+    if (typeof value === "number") return round(value);
+    // Gradient colors also contain calculated floating-point alpha values.
+    if (typeof value === "string") return value.replace(/\d+\.\d+/g, (number) => String(round(Number(number))));
+    return value;
+  })).digest("hex");
+  // Ignore sub-micro-pixel floating-point differences between Node/V8 versions.
   // Captured from main 54c8f533 before the Bortle control.
-  assert.equal(hash, "258cb2b492803e53fa52d90a00bdf6a7aa49dc6a8a4689f0b23a18ea4966cb6a");
+  assert.equal(hash, "42edc4b4a83e98551a39cfff4c409ae445a7a7f1e3a085b52f59ae804c3ffe90");
 });
 
 test("recipe rebuild preserves Bortle class", () => {
