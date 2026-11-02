@@ -77,23 +77,47 @@ async function hydrateOrderRecipientData(existing: PrintOrderRecord): Promise<Pr
   if (!stripe) return existing;
   try {
     const session = await stripe.checkout.sessions.retrieve(existing.sessionId);
+    // S96 follow-up F-1: the Stripe retrieve above is a long await — an
+    // operator resolve (or another completion) can land while it is in
+    // flight. Persisting the handler-start snapshot here would revert
+    // that resolve in KV (status, provider ID, and resolve stamps
+    // erased) inside the very pass that is about to re-check authority.
+    // Apply the #497 pattern instead: re-read the latest record, merge
+    // ONLY the recipient fields this function owns onto it (the latest
+    // record owns every other field, hold annotations included — the
+    // bidirectional-sync lesson of PR #497 R5b), and refuse the persist
+    // entirely when the record has advanced past the snapshot (resolve,
+    // sent, or a newly bound provider ID). On refusal the latest record
+    // is returned untouched and the caller's pre-dispatch authority
+    // re-read stands the pass down before any provider submission.
+    const latest = await kv.get<PrintOrderRecord>(printOrderKey(existing.sessionId));
+    if (!latest) return existing;
+    const advancedPastSnapshot =
+      Boolean(latest.operatorResolvedAt) ||
+      latest.status === "sent" ||
+      latest.status !== existing.status ||
+      Boolean(
+        latest.printfulOrderId &&
+          String(latest.printfulOrderId) !== String(existing.printfulOrderId ?? ""),
+      );
+    if (advancedPastSnapshot) return latest;
     const updated: PrintOrderRecord = {
-      ...existing,
+      ...latest,
       amountTotal:
         typeof session.amount_total === "number" && Number.isFinite(session.amount_total)
           ? session.amount_total
-          : existing.amountTotal ?? null,
-      currency: session.currency ?? existing.currency ?? null,
-      customerEmail: session.customer_details?.email ?? session.customer_email ?? existing.customerEmail ?? null,
-      customerName: session.customer_details?.name ?? existing.customerName ?? null,
-      customerPhone: extractCheckoutPhoneFromStripeSession(session) ?? existing.customerPhone ?? null,
-      shippingDetails: extractShippingDetails(session) ?? existing.shippingDetails ?? null,
+          : latest.amountTotal ?? null,
+      currency: session.currency ?? latest.currency ?? null,
+      customerEmail: session.customer_details?.email ?? session.customer_email ?? latest.customerEmail ?? null,
+      customerName: session.customer_details?.name ?? latest.customerName ?? null,
+      customerPhone: extractCheckoutPhoneFromStripeSession(session) ?? latest.customerPhone ?? null,
+      shippingDetails: extractShippingDetails(session) ?? latest.shippingDetails ?? null,
     };
     if (
-      updated.customerEmail !== existing.customerEmail ||
-      updated.customerName !== existing.customerName ||
-      updated.customerPhone !== existing.customerPhone ||
-      JSON.stringify(updated.shippingDetails) !== JSON.stringify(existing.shippingDetails)
+      updated.customerEmail !== latest.customerEmail ||
+      updated.customerName !== latest.customerName ||
+      updated.customerPhone !== latest.customerPhone ||
+      JSON.stringify(updated.shippingDetails) !== JSON.stringify(latest.shippingDetails)
     ) {
       assertPrintOrderRetained(await persistPrintOrderRecord(existing.sessionId, updated));
     }
@@ -208,6 +232,12 @@ async function postRetryPrintOrder(req: NextRequest) {
     );
   }
 
+  // S96 follow-up F-1: the lifecycle snapshot this pass was admitted on.
+  // The payment gate and recipient hydration below suspend on long
+  // awaits, so admission-time checks cannot speak for dispatch time —
+  // standDownIfFulfillmentMoved re-reads against this baseline.
+  const passStartedClaim = authority.alternateDispatchClaim ?? null;
+
   if (!existing) {
     if (authority.revision > 0 || authority.lifecycle !== "unbound") {
       return NextResponse.json(
@@ -279,6 +309,134 @@ async function postRetryPrintOrder(req: NextRequest) {
     return NextResponse.json({ ok: true, status: "already_sent", order: sanitizePrintOrderForOperatorResponse(existing) });
   }
 
+  // S96 follow-up F-1: re-read the authority AND the KV record before
+  // any dispatch decision is acted on. The checks at the top of this
+  // handler all ran before the long awaits below (Stripe payment gate,
+  // recipient hydration); an operator resolve landing during those
+  // awaits moves the authority to bound/operator_recovered (or writes
+  // the resolved KV mirror — a resolve with no provider ID can leave
+  // the authority lifecycle unbound, so the KV mirror must be checked
+  // too) and the resolve route never calls Printful, so Printful-side
+  // idempotency (external_id = sessionId) cannot reconcile the manual
+  // order: submitting anyway would create a SECOND confirmed physical
+  // order. Stand down with this route's existing postures: bound
+  // repair for a bound/recovered authority carrying a provider ID,
+  // the terminal 409, otherwise a reconciliation 409. A null return
+  // means nothing fulfilment-relevant moved and the pass may proceed.
+  // This narrows the window to the accepted final-read doctrine; it
+  // does not claim an atomic guarantee against a resolve landing
+  // between this re-read and the provider call itself.
+  const standDownIfFulfillmentMoved = async (): Promise<NextResponse | null> => {
+    const freshAuthority = await getPrintOrderAuthorityState(sessionId);
+    if (!freshAuthority) {
+      return NextResponse.json(
+        { ok: false, error: "print_order_authority_unread" },
+        { status: 503 },
+      );
+    }
+    const freshExisting = await kv.get<PrintOrderRecord>(printOrderKey(sessionId));
+    const freshClaim = freshAuthority.alternateDispatchClaim ?? null;
+    const claimMoved = Boolean(
+      freshClaim &&
+        (!passStartedClaim ||
+          freshClaim.dispatchId !== passStartedClaim.dispatchId ||
+          freshClaim.claimedAt !== passStartedClaim.claimedAt),
+    );
+    // Cycle-2 evidence: passStartedClaim is not a reliable admission
+    // baseline in every interleave. When this pass's FIRST KV read (of
+    // `existing`, above) is parked mid-read, the authority seeding
+    // re-read that follows its resume already carries a concurrent
+    // winner's claim, so the fresh claim ends up compared against
+    // itself and claimMoved stays false even though the winner claimed
+    // during this pass. The admission KV snapshot does predate the
+    // winner — its value was computed before the parked read resumed:
+    // a fresh alternateDispatch marker in the "accepted" state that
+    // the admission snapshot does not carry (or carries with a
+    // different identity/state) can only have been written by the
+    // alternate dispatch that won during this pass.
+    const freshAlternateDispatch = freshExisting?.alternateDispatch ?? null;
+    const admissionAlternateDispatch = existing.alternateDispatch ?? null;
+    const alternateDispatchMoved = Boolean(
+      freshAlternateDispatch &&
+        freshAlternateDispatch.state === "accepted" &&
+        (!admissionAlternateDispatch ||
+          admissionAlternateDispatch.dispatchId !== freshAlternateDispatch.dispatchId ||
+          admissionAlternateDispatch.state !== freshAlternateDispatch.state),
+    );
+    const lifecycleMoved =
+      freshAuthority.lifecycle === "terminal_failed" ||
+      freshAuthority.lifecycle === "bound" ||
+      freshAuthority.lifecycle === "operator_recovered" ||
+      Boolean(freshAuthority.printfulOrderId);
+    const kvMoved = Boolean(
+      freshExisting &&
+        (freshExisting.operatorResolvedAt ||
+          freshExisting.status === "sent" ||
+          (freshExisting.printfulOrderId &&
+            String(freshExisting.printfulOrderId) !== String(existing.printfulOrderId ?? ""))),
+    );
+    if (!lifecycleMoved && !kvMoved && !claimMoved && !alternateDispatchMoved) return null;
+
+    const latestRecord = freshExisting ?? existing;
+    if (freshAuthority.lifecycle === "terminal_failed") {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "terminal_failed_requires_operator_recover",
+          order: sanitizePrintOrderForOperatorResponse(
+            projectPrintOrderWithAuthority(latestRecord, freshAuthority),
+          ),
+        },
+        { status: 409 },
+      );
+    }
+    if (
+      (freshAuthority.lifecycle === "bound" ||
+        freshAuthority.lifecycle === "operator_recovered") &&
+      freshAuthority.printfulOrderId &&
+      freshExisting
+    ) {
+      // Same bound-repair posture as the admission-time check, but
+      // projected onto the FRESH record so the repair cannot revert
+      // the resolve (or anything else) that landed mid-pass.
+      const boundOrder = projectPrintOrderWithAuthority(freshExisting, freshAuthority);
+      assertPrintOrderRetained(
+        await persistPrintOrderRecord(sessionId, boundOrder, { allowClearTerminalFailure: true }),
+      );
+      await setPrintFulfillmentIndex(freshAuthority.printfulOrderId, sessionId);
+      void sendPrintOrderConfirmation(sessionId).catch((error) => {
+        console.warn("Print confirmation email failed on moved-authority retry stand-down", { sessionId, error });
+      });
+      return NextResponse.json({
+        ok: true,
+        status: "already_bound",
+        order: sanitizePrintOrderForOperatorResponse(boundOrder),
+      });
+    }
+    if (claimMoved || alternateDispatchMoved) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "alternate_dispatch_reconciliation_required",
+          reason: "alternate_dispatch_claimed_during_retry",
+          dispatchId: alternateFulfillmentDispatchId(sessionId),
+        },
+        { status: 409 },
+      );
+    }
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "reconciliation_required",
+        reason: claimMoved
+          ? "alternate_dispatch_claimed_during_retry"
+          : "operator_resolved_during_retry",
+        order: sanitizePrintOrderForOperatorResponse(latestRecord),
+      },
+      { status: 409 },
+    );
+  };
+
   // Payment gate (parity with the webhook fulfillment pass): this path must
   // never submit an order whose checkout payment failed or never settled.
   // The persisted record carries no payment state, and a record finalized by
@@ -318,6 +476,12 @@ async function postRetryPrintOrder(req: NextRequest) {
   }
 
   const hydrated = await hydrateOrderRecipientData(existing);
+
+  // F-1: a resolve that landed during the payment gate or hydration
+  // stands the pass down here, before any failure persist or dispatch
+  // below can act on (or overwrite) the stale snapshot.
+  const movedAfterHydration = await standDownIfFulfillmentMoved();
+  if (movedAfterHydration) return movedAfterHydration;
 
   const printAssetId = hydrated.printAssetId?.trim();
   if (!printAssetId) {
@@ -399,6 +563,13 @@ async function postRetryPrintOrder(req: NextRequest) {
   if (retainPlan.action === "delete") {
     assertPrintOrderRetained(await persistPrintOrderRecord(sessionId, hydrated));
   }
+
+  // F-1: final authority/KV re-read immediately before the provider
+  // submission — this is the read that decides dispatch. A resolve
+  // landing at any earlier point of this pass (payment gate, hydration,
+  // TTL extends) aborts the dispatch instead of duplicating the order.
+  const movedBeforeDispatch = await standDownIfFulfillmentMoved();
+  if (movedBeforeDispatch) return movedBeforeDispatch;
 
   const attempts = (hydrated.attempts ?? 0) + 1;
   const now = Date.now();
