@@ -61,7 +61,7 @@ satisfy the requirement (per S49-6's coverage cross-check and B1 §5).
 | Requirement | Governing passage | Owner |
 |---|---|---|
 | Generation increments only on committed unsubscribe or completed re-consent; artefacts of older generations are inert | A1 G-1/G-2; INV-2 | RD-D |
-| Confirmation (double opt-in) mail: transactional-class quota charge, frequency-exempt, exactly one live confirmation per pending request, dedupe per G-6; a pending request created after a global suppression is not created at all | AM-09 (A1 §5 table row); INV-11 | RD-D |
+| Confirmation (double opt-in) mail: transactional-class quota charge, frequency-exempt, exactly one live confirmation per pending request, dedupe per G-6; a global suppression does NOT block a fresh explicit re-consent request from creating a current-generation pending request and its deduplicated confirmation — the request alone neither clears suppression nor increments the generation, no marketing send of any class is admitted against a pending request, and only a valid confirmation completing the ceremony against the current generation clears suppression and advances the generation; older-generation tokens and artefacts remain inert | AM-09 as repaired by the two-repairs filing accepted 2026-10-31 (A1 G-1/G-2/G-3/G-6; A2 GM-6); INV-11 | RD-D |
 | Stale-token replay returns the recorded confirmed/expired/superseded result — without new consent, generation advancement, or welcome issuance (A1 T-1 behaviour stands; the readiness ruling confirms it governs) | A1 T-1; readiness ruling 2026-10-31 | RD-D |
 | Once-ever welcome/coupon history survives generations | A1 G-4; AM-09 acceptance in readiness ruling | RD-D/RD-K |
 
