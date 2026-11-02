@@ -91,6 +91,7 @@ export interface RenderOptions {
   starGlow: boolean;
   constellationLines: ConstellationLines;
   constellationLabels: boolean;
+  planetLabels: boolean;
   showGrid: boolean;
   showPlanets: boolean;
   premiumStars: "off" | "subtle" | "realistic";
@@ -240,6 +241,7 @@ const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) =
     starGlow: true,
     constellationLines: "thin",
     constellationLabels: false,
+    planetLabels: false,
     showGrid: false,
     showPlanets: true,
     premiumStars: "off",

@@ -104,6 +104,7 @@ const SAMPLE_RECIPE: MapRecipe = {
     starGlow: true,
     constellationLines: "thin",
     constellationLabels: false,
+    planetLabels: false,
     showGrid: false,
     showPlanets: true,
     premiumStars: "off",

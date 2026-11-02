@@ -218,6 +218,15 @@ export function AdvancedOptionsPanel({
             value={renderOptions.showPlanets}
             onChange={(val) => setRenderOptions({ showPlanets: val })}
           />
+
+          {/* Planet name labels - only show if planets are on */}
+          {renderOptions.showPlanets && (
+            <Toggle
+              label="Planet Names"
+              value={renderOptions.planetLabels}
+              onChange={(val) => setRenderOptions({ planetLabels: val })}
+            />
+          )}
         </div>
       </CollapsibleSection>
 

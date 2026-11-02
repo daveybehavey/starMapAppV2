@@ -29,6 +29,11 @@ import {
   type WatermarkPlacement,
   type WatermarkTextMetrics,
 } from "./watermarkPlacement";
+import {
+  resolvePlanetLabelPlacements,
+  resolvePlanetLabelStyle,
+  type PlanetLabelInput,
+} from "./planetLabels";
 export {
   resolveWatermarkPlacement,
   WATERMARK_OPACITY,
@@ -749,6 +754,7 @@ export function buildRecipeFromState(input: {
       starGlow: input.renderOptions?.starGlow ?? true,
       constellationLines: input.renderOptions?.constellationLines ?? "thin",
       constellationLabels: input.renderOptions?.constellationLabels ?? false,
+      planetLabels: input.renderOptions?.planetLabels ?? false,
       showGrid: input.renderOptions?.showGrid ?? false,
       showPlanets: input.renderOptions?.showPlanets ?? true,
       premiumStars: input.renderOptions?.premiumStars ?? "off",
@@ -1239,6 +1245,7 @@ function drawPlanetaryLayer(
   premiumPlanets: boolean,
   themeGlowColor: string,
   scale: number,
+  mapLookTier: MapLookTier = "custom",
 ) {
   ctx.save();
   ctx.shadowBlur = styleProfile.allowGlow ? 14 : 0;
@@ -1246,12 +1253,14 @@ function drawPlanetaryLayer(
   ctx.globalAlpha = 0.95;
 
   if (renderOptions?.showPlanets ?? true) {
+    const planetLabelInputs: PlanetLabelInput[] = [];
     for (const planet of sky.planets) {
       if (!Number.isFinite(planet.x) || !Number.isFinite(planet.y)) continue;
       const sizeBase = renderOptions?.planetEmphasis === "highlighted" ? 4.2 : 3.2;
       const magnitudeSize = planetRadiusFromMagnitude(planet.magnitude, sizeBase);
       const size = magnitudeSize * (mode?.planetSizeFactor ?? 1) * scale;
       ctx.globalAlpha = (mode?.planetAlpha ?? 0.85) * (renderOptions?.planetEmphasis === "highlighted" ? 1 : 0.95);
+      planetLabelInputs.push({ name: planet.name, x: planet.x, y: planet.y, radius: size });
 
       if (premiumPlanets && renderOptions?.premiumPlanets === "realistic") {
         drawPremiumPlanet(ctx, planet, size, palette);
@@ -1287,6 +1296,35 @@ function drawPlanetaryLayer(
       ctx.beginPath();
       ctx.arc(planet.x, planet.y, size, 0, TWO_PI);
       ctx.fill();
+    }
+
+    if (renderOptions?.planetLabels ?? false) {
+      // Planet name labels (#489): the constellation labels' own
+      // annotation system — style table + collision layout live in
+      // ./planetLabels (pure, unit-tested); this pass only paints.
+      // Painted inside the planetary layer, so the parchment fade
+      // wraps the labels exactly like the planets they name, and
+      // preview/export share this single render path.
+      const labelStyle = resolvePlanetLabelStyle(mapLookTier, scale);
+      ctx.save();
+      ctx.shadowColor = "transparent";
+      ctx.shadowBlur = 0;
+      ctx.setLineDash([]);
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = palette.accent;
+      ctx.globalAlpha = labelStyle.alpha;
+      ctx.font = labelStyle.font;
+      if ("letterSpacing" in ctx) {
+        (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = `${labelStyle.letterSpacingPx}px`;
+      }
+      const placements = resolvePlanetLabelPlacements(planetLabelInputs, labelStyle, (text) =>
+        ctx.measureText(text).width,
+      );
+      for (const placement of placements) {
+        ctx.fillText(placement.text, placement.x, placement.y);
+      }
+      ctx.restore();
     }
   }
 
@@ -1427,6 +1465,7 @@ function drawSky(
       premiumPlanets,
       theme.glow,
       scale,
+      mapLookTier,
     );
   if (isParchment) {
     drawParchmentFadedLayer(ctx, width, height, drawPlanetary);

@@ -466,6 +466,7 @@ function normalizeRenderOptions(value: unknown): ValidationResult<Partial<Render
   const booleanFields = [
     "starGlow",
     "constellationLabels",
+    "planetLabels",
     "showGrid",
     "showPlanets",
     "showMoon",
