@@ -1374,3 +1374,96 @@ test("P1-C (F9): a webhook dispatch answered 500 stays attempted and is never re
     restoreKv();
   }
 });
+
+/* ================= Gate fix round 2 — F9: a legacy "rejected" marker refuses like "attempted" ================= */
+
+test("Gate round 2 (F9): a legacy 'rejected' marker refuses at BOTH dispatch sites — it encodes an ambiguous response, not a proven refusal", async () => {
+  // Round 1 (P1-C) established the doctrine: NO non-2xx answer proves
+  // the receiver rejected the dispatch, so no new "rejected" markers
+  // are written. But records already carrying the legacy state kept a
+  // "retryable reading" at both dispatch sites — and that state
+  // encodes exactly an ambiguous response (the receiver may have
+  // created the order before its 500). Round 2 closes the gap: a
+  // "rejected" marker now refuses exactly like "attempted" — the
+  // retry route answers 409 alternate_dispatch_reconciliation_required
+  // and the webhook pass persists the reconciliation problem record —
+  // with zero outbound dispatches at either site. An operator
+  // reconciles; nothing redispatches blind.
+  installFakeKv();
+  installFetchDouble();
+  try {
+    const rejectedMarker = (sessionId) => ({
+      dispatchId: `alt-fulfillment:${sessionId}`,
+      state: "rejected",
+      attemptedAt: Date.now() - 60_000,
+      respondedAt: Date.now() - 59_000,
+      httpStatus: 500,
+    });
+
+    // --- operator retry route ---
+    const seeded = seedPrintOrder();
+    data.set(printOrderKey(F9_SESSION), {
+      ...seeded,
+      alternateDispatch: rejectedMarker(F9_SESSION),
+    });
+    stubStripeForRetry();
+    const retry = await printRetryRoute.POST(retryRequest());
+    assert.equal(retry.status, 409, "the retry route refuses a legacy rejected marker");
+    assert.equal(
+      (await retry.json()).error,
+      "alternate_dispatch_reconciliation_required",
+    );
+    assert.equal(fulfillmentCalls().length, 0, "the retry route never dispatches");
+    assert.equal(
+      data.get(printOrderKey(F9_SESSION))?.alternateDispatch?.state,
+      "rejected",
+      "the marker stands untouched for the operator",
+    );
+
+    // --- webhook pass ---
+    const sessionId = "cs_wh_gate2_rejected";
+    __resetPrintOrderAuthorityMemoryForTests();
+    data.set(printOrderKey(sessionId), {
+      status: "failed",
+      sessionId,
+      printVariant: "poster_framed",
+      includesDigitalAddOn: false,
+      amountTotal: 9900,
+      currency: "usd",
+      customerEmail: "buyer@example.com",
+      customerName: "Buyer One",
+      shippingDetails: {
+        name: "Buyer One",
+        address: { line1: "1 Main St", city: "Victoria", state: "BC", country: "US", postal_code: "90210" },
+      },
+      printAssetId: WH_PRINT_ASSET_ID,
+      attempts: 1,
+      error: "webhook_failed",
+      terminalEventType: null,
+      createdAt: Date.now(),
+      alternateDispatch: rejectedMarker(sessionId),
+    });
+    const delivered = await postEvent(
+      completedEvent("evt_gate2_rejected", printCheckoutSessionFixture(sessionId)),
+    );
+    assert.equal(
+      delivered.status,
+      200,
+      `the delivery finalises as a refusal: ${JSON.stringify(delivered.body)}`,
+    );
+    assert.equal(fulfillmentCalls().length, 0, "the webhook pass never dispatches either");
+    const stored = data.get(printOrderKey(sessionId));
+    assert.equal(
+      stored?.error,
+      "alternate_dispatch_reconciliation_required",
+      "the pass persists the reconciliation problem record",
+    );
+    assert.equal(
+      stored?.alternateDispatch?.state,
+      "rejected",
+      "the marker survives the pass for the operator",
+    );
+  } finally {
+    restoreKv();
+  }
+});

@@ -23,11 +23,14 @@ export type PrintOrderTerminalEventType = "order_failed" | "order_canceled";
  * have answered after acceptance, and the receiver's contract
  * defines no provably-rejecting status), so a non-2xx outcome now
  * stays "attempted" with the response facts recorded on the marker.
- * Records already carrying "rejected" keep their retryable reading
- * at both dispatch sites. The dispatchId is stable per
- * session and is sent as the payload's dispatchId and the request's
- * Idempotency-Key header so a receiver that does honour idempotency
- * can dedupe as well.
+ * Gate fix round 2 (PR #477): records already carrying "rejected"
+ * are governed by the same doctrine — the state encodes exactly an
+ * ambiguous response, so it is never read as licence to redispatch:
+ * both dispatch sites refuse on it exactly like "attempted" (see
+ * alternateDispatchBlocksRedispatch) and an operator reconciles.
+ * The dispatchId is stable per session and is sent as the payload's
+ * dispatchId and the request's Idempotency-Key header so a
+ * receiver that does honour idempotency can dedupe as well.
  */
 export type AlternateFulfillmentDispatch = {
   dispatchId: string;
@@ -39,6 +42,20 @@ export type AlternateFulfillmentDispatch = {
 
 export function alternateFulfillmentDispatchId(sessionId: string) {
   return `alt-fulfillment:${sessionId}`;
+}
+
+/**
+ * The marker states that block any further dispatch until an
+ * operator reconciles: "attempted" (an outcome that was never
+ * durably resolved) and the legacy "rejected" (an ambiguous non-2xx
+ * answer, which under the round-1 doctrine does not prove the
+ * receiver refused the order). Both refuse identically at every
+ * dispatch site.
+ */
+export function alternateDispatchBlocksRedispatch(
+  dispatch?: AlternateFulfillmentDispatch | null,
+): boolean {
+  return dispatch?.state === "attempted" || dispatch?.state === "rejected";
 }
 
 export type PrintOrderRecord = {

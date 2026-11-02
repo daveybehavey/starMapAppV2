@@ -5,6 +5,7 @@ import { hasValidAdminToken, readAdminTokenFromHeaders } from "@/lib/adminAuth";
 import { isPrintfulConfigured, submitPrintfulOrder } from "@/lib/printful";
 import { evaluatePrintMarginForPaidOrder } from "@/lib/printMargin";
 import {
+  alternateDispatchBlocksRedispatch,
   alternateFulfillmentDispatchId,
   assertPrintOrderRetained,
   buildAlternateFulfillmentWebhookPayload,
@@ -490,9 +491,11 @@ async function postRetryPrintOrder(req: NextRequest) {
   // S94-1 F9: replay-safe dispatch to the alternate destination (see
   // AlternateFulfillmentDispatch in printOrders). A prior attempt whose
   // outcome was never durably resolved refuses redispatch outright —
-  // the receiver may already hold this order.
+  // the receiver may already hold this order. Gate fix round 2
+  // (PR #477): a legacy "rejected" marker refuses identically — it
+  // encodes an ambiguous response, not a proven refusal.
   const dispatchId = alternateFulfillmentDispatchId(sessionId);
-  if (hydrated.alternateDispatch?.state === "attempted") {
+  if (alternateDispatchBlocksRedispatch(hydrated.alternateDispatch)) {
     return NextResponse.json(
       { ok: false, error: "alternate_dispatch_reconciliation_required", dispatchId },
       { status: 409 },

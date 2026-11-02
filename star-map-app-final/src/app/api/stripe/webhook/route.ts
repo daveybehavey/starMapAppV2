@@ -36,6 +36,7 @@ import { isPrintfulConfigured, submitPrintfulOrder } from "@/lib/printful";
 import { isPrintfulV2Configured, submitPrintfulV2CatalogOrder } from "@/lib/printfulV2Orders";
 import { PRINT_ASSET_ID_REGEX } from "@/lib/printAssets";
 import {
+  alternateDispatchBlocksRedispatch,
   alternateFulfillmentDispatchId,
   assertPrintOrderRetained,
   buildAlternateFulfillmentWebhookPayload,
@@ -2111,16 +2112,19 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
   // the alternate webhook is the fulfiller (the same condition as the
   // problem/sent persists below). A prior attempt whose outcome was
   // never durably resolved refuses redispatch — the receiver may
-  // already hold this order; an operator reconciles.
+  // already hold this order; an operator reconciles. Gate fix round 2
+  // (PR #477): a legacy "rejected" marker refuses identically — it
+  // encodes an ambiguous response, not a proven refusal.
   const alternateIsFulfiller = !isPrintfulConfigured();
   const dispatchId = alternateFulfillmentDispatchId(session.id);
-  if (alternateIsFulfiller && existing?.alternateDispatch?.state === "attempted") {
+  const existingAlternateDispatch = existing?.alternateDispatch;
+  if (alternateIsFulfiller && alternateDispatchBlocksRedispatch(existingAlternateDispatch)) {
     await persistProblemPrintOrder({
       ...payload,
       printAssetUrl,
       status: "failed",
       error: "alternate_dispatch_reconciliation_required",
-      alternateDispatch: existing.alternateDispatch,
+      alternateDispatch: existingAlternateDispatch,
     });
     return;
   }
