@@ -23,6 +23,17 @@
  * base flow does locally). Area 9 adds the Class B join-path race
  * (identical bytes through two descriptors); area 7 P2 adds the
  * controlled terminal-success interleaving.
+ *
+ * R-3(b) fix (Slate 95 pass S95-4 P1): the OFF-state set now also
+ * exercises the frozen route-classification contract (repair fix round
+ * F-2.1) — protocol-class POSTs (descriptor-carrying, JSON, mixed or
+ * capability-shaped) are refused at the route layer while OFF and
+ * reach no legacy write; the earlier pin that a descriptor header
+ * "does not divert the legacy flow" is superseded by that contract.
+ * The same set covers revocation parity: both archive resolvers now
+ * honour the session's governing claim token exactly as the claim
+ * route does (PR #447 fix round 4), so a superseded token resolves
+ * nowhere on this route.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -1232,27 +1243,150 @@ test("OFF state (flag unset): POST is the base legacy flow — descriptorless up
   }
 });
 
-test("OFF state (flag 'false'): JSON ops are not the protocol (base 415), and a descriptor header does not divert the legacy flow", async () => {
+test("OFF state (flag 'false'): protocol-class POSTs are refused at the route layer (R-3(b) darkness, F-2.1) and reach NO legacy write", async () => {
   process.env.DL1_AUTHORITY_ROUTING_ENABLED = "false";
   try {
     const { sessionId, token } = await seedSession();
-    // Base POST: a JSON content-type is refused 415 (token + session first).
-    const json = await route.POST(jsonPost(token, { op: "identify", mapId: MAP }));
-    assert.equal(json.status, 415);
-    // A descriptor header changes nothing while OFF: the upload is the
-    // legacy flow and lands at the legacy key.
     const bytes = bigPng(0);
-    const res = await route.POST(
+    // The named negative control: a VALID legacy token + PNG body +
+    // prepare-descriptor header is protocol-shaped. Before this fix it
+    // was served by the legacy handler and landed at the legacy key;
+    // the frozen classification contract refuses it at the route layer
+    // with the refusal an unrouted path receives (404).
+    const descriptor = await route.POST(
       uploadPost(token, bytes, { "x-prepare-descriptor": "not-a-real-descriptor" }),
     );
-    assert.equal(res.status, 200);
-    const body = await res.json();
-    assert.equal(body.sessionId, sessionId);
-    assert.equal(body.bytes, bytes.length);
-    const get = await route.GET(new NextRequest(url(token), { method: "GET" }));
-    assert.equal(get.status, 200);
-    assert.deepEqual(Buffer.from(await get.arrayBuffer()), bytes);
+    assert.equal(descriptor.status, 404);
+    assert.deepEqual(await descriptor.json(), { ok: false, error: "Not found" });
+    // Nothing was written: the legacy key holds no object.
+    const getAfterDescriptor = await route.GET(new NextRequest(url(token), { method: "GET" }));
+    assert.equal(getAfterDescriptor.status, 404);
+    // A malformed (empty) descriptor header is still protocol material.
+    const emptyDescriptor = await route.POST(
+      uploadPost(token, bytes, { "x-prepare-descriptor": "" }),
+    );
+    assert.equal(emptyDescriptor.status, 404);
+    // The JSON operations have no legacy form: protocol class, refused
+    // before any token judgement (previously the base 415).
+    const json = await route.POST(jsonPost(token, { op: "identify", mapId: MAP }));
+    assert.equal(json.status, 404);
+    // Protocol material in the query placement (cap marker) makes the
+    // credential set mixed — classified protocol, never legacy.
+    const mixed = await route.POST(
+      new NextRequest(`${url(token)}&cap=dl1cap.v1.x.y`, {
+        method: "POST",
+        headers: { "content-type": "image/png" },
+        body: bytes,
+      }),
+    );
+    assert.equal(mixed.status, 404);
+    // A capability-shaped credential presented as the token is protocol
+    // material in query placement, not a legacy token.
+    const capability = await route.POST(uploadPost("dl1cap.v1.payload.signature", bytes));
+    assert.equal(capability.status, 404);
+    // Still nothing at the legacy key, and no authority state exists.
+    const getFinal = await route.GET(new NextRequest(url(token), { method: "GET" }));
+    assert.equal(getFinal.status, 404);
+    const state = await client.getState(sessionId);
+    assert.deepEqual(Object.keys(state.publicationIntents ?? {}), []);
+    assert.deepEqual(Object.keys(state.artifactRegistry ?? {}), []);
   } finally {
     process.env.DL1_AUTHORITY_ROUTING_ENABLED = "true";
   }
+});
+
+test("OFF state (flag 'false'): the cookie classification follows the token — ambient cookie beside a token stays legacy; cookie-only is a protocol form", async () => {
+  process.env.DL1_AUTHORITY_ROUTING_ENABLED = "false";
+  try {
+    const { sessionId, token } = await seedSession();
+    const bytes = bigPng(0);
+    // The shipped client's same-origin fetch carries the ambient
+    // premium cookie beside its token: still the legacy class.
+    const withCookie = await route.POST(
+      new NextRequest(url(token), {
+        method: "POST",
+        headers: { "content-type": "image/png", cookie: `starmap_premium=${sessionId}` },
+        body: bytes,
+      }),
+    );
+    assert.equal(withCookie.status, 200);
+    const body = await withCookie.json();
+    assert.equal(body.sessionId, sessionId);
+    // A cookie credential with NO token matches only the protocol
+    // fused form (§5.6): refused while OFF.
+    const cookieOnly = await route.POST(
+      new NextRequest(url(null), {
+        method: "POST",
+        headers: { "content-type": "image/png", cookie: `starmap_premium=${sessionId}` },
+        body: bytes,
+      }),
+    );
+    assert.equal(cookieOnly.status, 404);
+  } finally {
+    process.env.DL1_AUTHORITY_ROUTING_ENABLED = "true";
+  }
+});
+
+/* ------------- Revocation parity: superseded tokens die here too ------------- */
+
+async function seedSessionWithTokens({ inlineToken = null, governingToken = null } = {}) {
+  sessionCounter += 1;
+  const sessionId = `cs_route_${RUN}_${sessionCounter}`;
+  const oldToken = `tok_route_old_${RUN}_${sessionCounter}`;
+  const newToken = `tok_route_new_${RUN}_${sessionCounter}`;
+  await kv.set(ENTITLEMENT_KV.stripeSession(sessionId), {
+    paid: true,
+    mapId: MAP,
+    created: Date.now(),
+    ...(inlineToken === "old" ? { claimToken: oldToken } : {}),
+    ...(inlineToken === "new" ? { claimToken: newToken } : {}),
+  });
+  await kv.set(ENTITLEMENT_KV.claim(oldToken), { sessionId, mapId: MAP });
+  await kv.set(ENTITLEMENT_KV.claim(newToken), { sessionId, mapId: MAP });
+  await kv.set(ENTITLEMENT_KV.mapRecipe(MAP), RECIPE);
+  if (governingToken) {
+    await kv.set(ENTITLEMENT_KV.claimPointer(sessionId), {
+      schemaVersion: 1,
+      sessionId,
+      token: governingToken === "old" ? oldToken : newToken,
+      updatedAt: Date.now(),
+    });
+  }
+  return { sessionId, oldToken, newToken };
+}
+
+test("revocation parity (OFF state, legacy resolvers): a superseded token gets no archive write and no archive read; the governing token is served exactly as before", async () => {
+  process.env.DL1_AUTHORITY_ROUTING_ENABLED = "false";
+  try {
+    // Pointer-governed rotation: newToken governs, oldToken superseded.
+    const a = await seedSessionWithTokens({ governingToken: "new" });
+    const bytes = bigPng(0);
+    const postOld = await route.POST(uploadPost(a.oldToken, bytes));
+    assert.equal(postOld.status, 401);
+    const getOld = await route.GET(new NextRequest(url(a.oldToken), { method: "GET" }));
+    assert.equal(getOld.status, 401);
+    const postNew = await route.POST(uploadPost(a.newToken, bytes));
+    assert.equal(postNew.status, 200);
+    const getNew = await route.GET(new NextRequest(url(a.newToken), { method: "GET" }));
+    assert.equal(getNew.status, 200);
+    assert.deepEqual(Buffer.from(await getNew.arrayBuffer()), bytes);
+    // Inline-fallback (no pointer): the record's claimToken governs.
+    const b = await seedSessionWithTokens({ inlineToken: "old" });
+    const postB2 = await route.POST(uploadPost(b.newToken, bytes));
+    assert.equal(postB2.status, 401);
+    const postB1 = await route.POST(uploadPost(b.oldToken, bytes));
+    assert.equal(postB1.status, 200);
+  } finally {
+    process.env.DL1_AUTHORITY_ROUTING_ENABLED = "true";
+  }
+});
+
+test("revocation parity (ON state, protocol resolver): a superseded token does not resolve for identify; the governing token identifies", async () => {
+  const { oldToken, newToken } = await seedSessionWithTokens({ governingToken: "new" });
+  const refused = await route.POST(jsonPost(oldToken, { op: "identify", mapId: MAP }));
+  assert.equal(refused.status, 401);
+  assert.equal((await refused.json()).error, "identity_rejected");
+  const identified = await route.POST(jsonPost(newToken, { op: "identify", mapId: MAP }));
+  assert.equal(identified.status, 200);
+  assert.equal((await identified.json()).state, "identified");
 });
