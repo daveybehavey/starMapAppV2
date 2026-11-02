@@ -159,6 +159,10 @@ test.describe("API route regressions", () => {
         {
           ...validMapRecipe.textBoxes[0],
           color: "#d7b56c",
+          // #481: a buyer-set fontWeight must survive the same round trip
+          // (the sanitizer dropped it, silently resetting shared maps
+          // to the renderer's 600 default).
+          fontWeight: 400,
           textStyleBinding: { color: "automatic", fontFamily: "bogus" },
         },
       ],
@@ -181,7 +185,35 @@ test.describe("API route regressions", () => {
     expect(loaded.textBoxes[0].textStyleBinding).toEqual({
       color: "automatic",
       fontFamily: "explicit",
+      fontWeight: "automatic",
     });
+    expect(loaded.textBoxes[0].fontWeight).toBe(400);
+
+    // #481 sanitizer edges: out-of-range weights clamp to the CSS range;
+    // non-numeric weights are dropped (absent stays absent).
+    const recipeWithWildWeights = {
+      ...validMapRecipe,
+      textBoxes: [
+        { ...validMapRecipe.textBoxes[0], id: "title", fontWeight: 950 },
+        { ...validMapRecipe.textBoxes[0], id: "subtitle", fontWeight: "700" },
+      ],
+    };
+    const wildSave = await fetchLocalApi(request, baseURL ?? TEST_ORIGIN, "/api/maps", testInfo, {
+      method: "POST",
+      data: recipeWithWildWeights,
+    });
+    expect(wildSave.status()).toBe(200);
+    const wildBody = (await wildSave.json()) as { id?: unknown };
+    const wildLoad = await fetchLocalApi(
+      request,
+      baseURL ?? TEST_ORIGIN,
+      `/api/maps?id=${wildBody.id}`,
+      testInfo,
+    );
+    expect(wildLoad.status()).toBe(200);
+    const wildLoaded = (await wildLoad.json()) as typeof recipeWithWildWeights;
+    expect(wildLoaded.textBoxes[0].fontWeight).toBe(900);
+    expect(wildLoaded.textBoxes[1].fontWeight).toBeUndefined();
   });
 
   test("checkout rejects digital posts without browser handoff token", async ({
