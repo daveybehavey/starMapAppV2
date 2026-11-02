@@ -313,4 +313,44 @@ test("sweep wiring is pinned in the worker + runtime sources", () => {
   // guard must read the authority through the env-passed binding.
   assert.match(runtimeSource, /readAuthorityLifecycleForMirrorGuardFromNamespace/);
   assert.match(runtimeSource, /PRINT_ORDER_AUTHORITY/);
+  // The pre-alert authority gate is wired from the same runtime entry.
+  assert.match(runtimeSource, /authorityGate/);
+});
+
+test("sweep (gate round 8): the authority gate blocks alerts for terminal and unreadable orders before any send", async () => {
+  const terminal = heldRecord({
+    sessionId: "cs_test_hold_gate_terminal",
+    providerHoldAt: NOW - 48 * HOUR,
+    operatorHoldAlertedAt: NOW - 47 * HOUR,
+  });
+  const unread = heldRecord({ sessionId: "cs_test_hold_gate_unread" });
+  const healthy = heldRecord({ sessionId: "cs_test_hold_gate_ok" });
+  const store = createFakeStore([terminal, unread, healthy]);
+  let alerts = 0;
+  let escalations = 0;
+  const gates = {
+    cs_test_hold_gate_terminal: "terminal",
+    cs_test_hold_gate_unread: "unread",
+    cs_test_hold_gate_ok: "ok",
+  };
+  const summary = await runPrintOrderHoldSweep({
+    store,
+    config: resolvePrintOrderHoldSweepConfig({ PRINT_ORDER_HOLD_SWEEP_ENABLED: "true" }),
+    now: () => NOW,
+    authorityGate: async (sessionId) => gates[sessionId],
+    sendHoldAlert: async () => {
+      alerts += 1;
+      return okSender();
+    },
+    sendHoldEscalationAlert: async () => {
+      escalations += 1;
+      return okSender();
+    },
+  });
+  assert.equal(summary.authoritySkips, 2);
+  assert.equal(summary.alertsSent, 1, "only the healthy order is alerted");
+  assert.equal(summary.escalationsSent, 0, "the terminal order is never escalated");
+  assert.equal(alerts, 1);
+  assert.equal(escalations, 0);
+  assert.equal(store.writes.length, 1, "only the healthy order's stamp is persisted");
 });

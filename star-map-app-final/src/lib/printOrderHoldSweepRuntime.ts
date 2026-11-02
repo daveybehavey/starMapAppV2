@@ -149,6 +149,20 @@ export async function runScheduledPrintOrderHoldSweep(
       envRecord.STAR_MAP_KV,
       envRecord.PRINT_ORDER_AUTHORITY,
     ),
+    // Pre-alert authority gate (same binding route + predicate as the
+    // persist guard): a terminally failed order whose KV projection
+    // lags must never be alerted or escalated as "on hold", and an
+    // unreadable authority stays silent rather than guessing.
+    authorityGate: async (sessionId) => {
+      const lifecycle = envRecord.PRINT_ORDER_AUTHORITY
+        ? await readAuthorityLifecycleForMirrorGuardFromNamespace(
+            envRecord.PRINT_ORDER_AUTHORITY,
+            sessionId,
+          )
+        : await readAuthorityLifecycleForMirrorGuard(sessionId);
+      if (!shouldRejectNonterminalKvMirror(lifecycle)) return "ok";
+      return lifecycle === "terminal_failed" ? "terminal" : "unread";
+    },
     config: resolvePrintOrderHoldSweepConfig(envRecordFromBindings(env)),
     sendHoldAlert: sendPrintOrderHoldAlert,
     sendHoldEscalationAlert: sendPrintOrderHoldEscalationAlert,

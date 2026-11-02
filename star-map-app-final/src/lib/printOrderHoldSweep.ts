@@ -76,8 +76,13 @@ export type PrintOrderHoldSweepSummary = {
   escalationsSent: number;
   escalationFailures: number;
   writesSkipped: number;
+  authoritySkips: number;
   errors: number;
 };
+
+export type PrintOrderHoldSweepAuthorityGate = (
+  sessionId: string,
+) => Promise<"ok" | "terminal" | "unread">;
 
 export type PrintOrderHoldSweepAction = "alert" | "escalate";
 
@@ -166,6 +171,7 @@ function emptySummary(enabled: boolean): PrintOrderHoldSweepSummary {
     escalationsSent: 0,
     escalationFailures: 0,
     writesSkipped: 0,
+    authoritySkips: 0,
     errors: 0,
   };
 }
@@ -181,6 +187,19 @@ export async function runPrintOrderHoldSweep(deps: {
   now?: () => number;
   sendHoldAlert: (record: PrintOrderRecord) => Promise<PrintOrderAlertResult>;
   sendHoldEscalationAlert: (record: PrintOrderRecord) => Promise<PrintOrderAlertResult>;
+  /**
+   * Authority check BEFORE any alert is sent for a record. The scanned
+   * KV record is a projection: a terminal failure can be committed in
+   * the authority while its KV projection lags, leaving a stale `sent`
+   * + hold record that would otherwise be alerted/escalated every tick
+   * (the post-send persist guard rejects the stamp, so nothing ever
+   * settles it). "terminal" and "unread" both skip the record for this
+   * tick — the terminal path already alerted the operator, and an
+   * unreadable authority must not produce possibly-false alerts. The
+   * persist-side guard stays as the second line for transitions that
+   * land during the send.
+   */
+  authorityGate?: PrintOrderHoldSweepAuthorityGate;
   log?: (summary: PrintOrderHoldSweepSummary) => void;
 }): Promise<PrintOrderHoldSweepSummary> {
   const summary = emptySummary(deps.config.enabled);
@@ -207,6 +226,14 @@ export async function runPrintOrderHoldSweep(deps: {
         }
         const action = printOrderHoldSweepAction(record, deps.config, now());
         if (!action || !record) continue;
+
+        if (deps.authorityGate) {
+          const gate = await deps.authorityGate(record.sessionId);
+          if (gate !== "ok") {
+            summary.authoritySkips += 1;
+            continue;
+          }
+        }
 
         const at = now();
         if (action === "alert") {
