@@ -291,6 +291,62 @@ export async function applyPrintfulOrderFailureFromWebhook(input: {
   };
 }
 
+export type HoldPersistMerge =
+  | { outcome: "merged"; record: PrintOrderRecord }
+  | {
+      outcome: "superseded";
+      reason: "shipment" | "terminal_failure" | "operator_resolve";
+    };
+
+/**
+ * Merge hold annotations onto the LATEST KV record, never onto the
+ * pre-alert snapshot: the alert send takes seconds, and a shipment (or an
+ * operator resolve, or a terminal failure) landing in that window must
+ * survive the hold write. Refuses — the episode has ended — when the
+ * fresh record shows the order shipped, failed terminally, or lost a
+ * previously recorded hold to an operator resolve. Alert stamps are
+ * progress-only: a concurrent delivery's recorded alert success is never
+ * regressed by this pass's outcome.
+ */
+export function mergeHoldAnnotationsIntoLatestRecord(args: {
+  existing: PrintOrderRecord;
+  fresh: PrintOrderRecord;
+  annotations: PrintOrderRecord;
+}): HoldPersistMerge {
+  const { existing, fresh, annotations } = args;
+  if (fresh.shippedAt) {
+    return { outcome: "superseded", reason: "shipment" };
+  }
+  if (fresh.status === "failed" || fresh.terminalEventType) {
+    return { outcome: "superseded", reason: "terminal_failure" };
+  }
+  if (existing.providerHoldAt && !fresh.providerHoldAt) {
+    return { outcome: "superseded", reason: "operator_resolve" };
+  }
+  const freshAlertLanded = Boolean(fresh.operatorHoldAlertedAt);
+  return {
+    outcome: "merged",
+    record: {
+      ...fresh,
+      // First recorded hold wins the timestamp (aging anchor); the
+      // reason/status track the latest hold event.
+      providerHoldAt: fresh.providerHoldAt ?? annotations.providerHoldAt,
+      providerHoldReason:
+        annotations.providerHoldReason ?? fresh.providerHoldReason,
+      providerHoldOrderStatus:
+        annotations.providerHoldOrderStatus ?? fresh.providerHoldOrderStatus,
+      operatorHoldAlertedAt:
+        fresh.operatorHoldAlertedAt ?? annotations.operatorHoldAlertedAt,
+      operatorHoldAlertProvider: freshAlertLanded
+        ? fresh.operatorHoldAlertProvider
+        : annotations.operatorHoldAlertProvider,
+      operatorHoldAlertError: freshAlertLanded
+        ? undefined
+        : annotations.operatorHoldAlertError,
+    },
+  };
+}
+
 /**
  * S96-1 F1: apply an `order_put_hold` webhook. Before this, the event fell
  * into the route's 200-ignored fallback: the order stayed `sent`/`bound`
@@ -446,7 +502,41 @@ export async function applyPrintfulOrderHoldFromWebhook(input: {
     };
   }
 
-  const persistResult = await persistPrintOrderRecord(sessionId, nextRecord);
+  // Merge the hold annotations onto the LATEST record before persisting:
+  // a shipment / resolve / terminal write that landed during the alert
+  // must not be overwritten by the pre-alert snapshot.
+  const fresh = await kv.get<PrintOrderRecord>(printOrderKey(sessionId));
+  if (!fresh) {
+    return {
+      ok: true,
+      status: "projection_missing",
+      reason: "reconciliation_needed",
+      sessionId,
+      authority: authoritySnapshot,
+    };
+  }
+  const merge = mergeHoldAnnotationsIntoLatestRecord({
+    existing,
+    fresh,
+    annotations: nextRecord,
+  });
+  if (merge.outcome === "superseded") {
+    return {
+      ok: true,
+      status: "ignored",
+      reason:
+        merge.reason === "shipment"
+          ? "superseded_by_shipment"
+          : merge.reason === "operator_resolve"
+            ? "superseded_by_operator_resolve"
+            : "superseded_by_terminal_failure",
+      sessionId,
+      authority: authoritySnapshot,
+    };
+  }
+  const mergedRecord = merge.record;
+
+  const persistResult = await persistPrintOrderRecord(sessionId, mergedRecord);
   if (persistResult.outcome === "rejected_terminal_failure") {
     return {
       ok: true,
@@ -466,14 +556,14 @@ export async function applyPrintfulOrderHoldFromWebhook(input: {
     };
   }
 
-  if (nextRecord.operatorHoldAlertError) {
+  if (mergedRecord.operatorHoldAlertError) {
     // The hold itself is durably recorded; the 502 makes Printful retry,
     // and the sweep retries the alert from the recorded error either way.
     return {
       ok: false,
       status: "alert_failed",
       sessionId,
-      error: nextRecord.operatorHoldAlertError,
+      error: mergedRecord.operatorHoldAlertError,
       authority: authoritySnapshot,
     };
   }

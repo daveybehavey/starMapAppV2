@@ -7,6 +7,7 @@ import {
   buildPrintfulWebhookFailureError,
   isPrintfulOrderFailureWebhookType,
   isPrintfulOrderHoldWebhookType,
+  mergeHoldAnnotationsIntoLatestRecord,
   PRINTFUL_ORDER_FAILURE_WEBHOOK_TYPES,
   PRINTFUL_ORDER_HOLD_WEBHOOK_TYPE,
 } from "./printfulWebhookOrderEvents.harness.mjs";
@@ -62,4 +63,89 @@ test("S96-1 F1: hold handling is pinned in the TS sources", () => {
   // The route dispatches holds to their handler instead of the ignored fallback.
   assert.match(printfulRouteSource, /isPrintfulOrderHoldWebhookType\(eventType\)/);
   assert.match(printfulRouteSource, /handleOrderHold/);
+  // Gate round 3: hold annotations merge onto the latest record before
+  // persisting — a shipment landing during the alert must survive.
+  assert.match(eventsSource, /mergeHoldAnnotationsIntoLatestRecord\(\{\s+existing,\s+fresh,\s+annotations: nextRecord/);
+  assert.match(eventsSource, /superseded_by_shipment/);
+  assert.match(eventsSource, /superseded_by_operator_resolve/);
+});
+
+/* ============ Gate round 3 — hold persist merges onto the latest record ============ */
+
+const holdBase = {
+  sessionId: "cs_hold_merge",
+  status: "sent",
+  printfulOrderId: "9911",
+  createdAt: 1_700_000_000_000,
+};
+const holdAnnotations = {
+  ...holdBase,
+  providerHoldAt: 1_700_000_100_000,
+  providerHoldReason: "address_issue",
+  providerHoldOrderStatus: "onhold",
+  operatorHoldAlertedAt: 1_700_000_100_000,
+  operatorHoldAlertProvider: "resend",
+  operatorHoldAlertError: undefined,
+};
+
+test("S96-1 F1 (gate round 3): a shipment landing during the alert supersedes the hold write", () => {
+  const merge = mergeHoldAnnotationsIntoLatestRecord({
+    existing: holdBase,
+    fresh: { ...holdBase, shippedAt: 1_700_000_090_000, status: "sent" },
+    annotations: holdAnnotations,
+  });
+  assert.deepEqual(merge, { outcome: "superseded", reason: "shipment" });
+});
+
+test("S96-1 F1 (gate round 3): a terminal failure on the fresh record supersedes the hold write", () => {
+  const merge = mergeHoldAnnotationsIntoLatestRecord({
+    existing: holdBase,
+    fresh: { ...holdBase, status: "failed", terminalEventType: "order_failed" },
+    annotations: holdAnnotations,
+  });
+  assert.deepEqual(merge, { outcome: "superseded", reason: "terminal_failure" });
+});
+
+test("S96-1 F1 (gate round 3): an operator resolve that cleared a recorded hold supersedes the hold write", () => {
+  const merge = mergeHoldAnnotationsIntoLatestRecord({
+    existing: { ...holdBase, providerHoldAt: 1_700_000_050_000 },
+    fresh: { ...holdBase },
+    annotations: holdAnnotations,
+  });
+  assert.deepEqual(merge, { outcome: "superseded", reason: "operator_resolve" });
+});
+
+test("S96-1 F1 (gate round 3): the merge keeps the fresh record's fields and applies only the annotations", () => {
+  const merge = mergeHoldAnnotationsIntoLatestRecord({
+    existing: holdBase,
+    fresh: { ...holdBase, printfulOrderId: "9922", error: undefined },
+    annotations: holdAnnotations,
+  });
+  assert.equal(merge.outcome, "merged");
+  assert.equal(merge.record.printfulOrderId, "9922");
+  assert.equal(merge.record.providerHoldAt, 1_700_000_100_000);
+  assert.equal(merge.record.providerHoldReason, "address_issue");
+  assert.equal(merge.record.operatorHoldAlertedAt, 1_700_000_100_000);
+});
+
+test("S96-1 F1 (gate round 3): a concurrent delivery's alert success is never regressed by this pass's alert error", () => {
+  const merge = mergeHoldAnnotationsIntoLatestRecord({
+    existing: holdBase,
+    fresh: {
+      ...holdBase,
+      providerHoldAt: 1_700_000_099_000,
+      operatorHoldAlertedAt: 1_700_000_099_500,
+      operatorHoldAlertProvider: "resend",
+    },
+    annotations: {
+      ...holdAnnotations,
+      operatorHoldAlertedAt: undefined,
+      operatorHoldAlertProvider: "resend",
+      operatorHoldAlertError: "print_alert_not_configured",
+    },
+  });
+  assert.equal(merge.outcome, "merged");
+  assert.equal(merge.record.providerHoldAt, 1_700_000_099_000);
+  assert.equal(merge.record.operatorHoldAlertedAt, 1_700_000_099_500);
+  assert.equal(merge.record.operatorHoldAlertError, undefined);
 });
