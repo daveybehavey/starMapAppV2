@@ -718,7 +718,12 @@ test("item 4.10: reversal recognises an authority-confirmed grant (grant_confirm
     assert.equal(res.status, 200);
     const state = data.get(referralRewardedKey(buyerId));
     assert.equal(state.conversionReversed, true, "confirmed grant is reversible despite conversionRecorded false");
-    assert.equal(data.get(sessionKey(REFERRER_ID)).creditsRemaining, 2, "legacy clawback applied once");
+    // S94-1-F1 (supersedes the #471-era pin): with routing disabled
+    // the reversal never debits the combined KV counter — a legacy
+    // balance commingles purchased and reward value with no split,
+    // so the reclaim is zero (see the S94-1 section below).
+    assert.equal(state.rewardReclaimed, 0);
+    assert.equal(data.get(sessionKey(REFERRER_ID)).creditsRemaining, 3, "S94-1: combined counter is never debited");
   } finally {
     restoreKv();
   }
@@ -988,8 +993,9 @@ test("item 4 (fix round): reversal of an uncounted confirmed grant keeps other c
     const res = await postEvent(refundEvent("evt_reversal_uncounted", "pi_buyer_uncounted", "ch_uncounted"));
     assert.equal(res.status, 200);
     const state = data.get(referralRewardedKey(buyerId));
-    assert.equal(state.conversionReversed, true, "the confirmed grant is still reversed (credit clawback path)");
-    assert.equal(data.get(sessionKey(REFERRER_ID)).creditsRemaining, 2, "credit clawback applied once");
+    assert.equal(state.conversionReversed, true, "the confirmed grant is still reversed (reversal bookkeeping path)");
+    assert.equal(state.rewardReclaimed, 0, "S94-1: routing-disabled reclaim is zero — the combined counter is never debited");
+    assert.equal(data.get(sessionKey(REFERRER_ID)).creditsRemaining, 3, "S94-1: combined counter is never debited");
     const referral = data.get(referralKey(REFERRAL_CODE));
     assert.equal(referral.rewardsGranted, 5, "an uncounted grant must not subtract other conversions' rewards");
     assert.equal(referral.conversions, 5, "an uncounted conversion must not decrement the conversion counter");
@@ -1021,7 +1027,8 @@ test("item 4 (fix round): reversal of a counted completed grant decrements the a
     assert.equal(res.status, 200);
     const state = data.get(referralRewardedKey(buyerId));
     assert.equal(state.conversionReversed, true);
-    assert.equal(data.get(sessionKey(REFERRER_ID)).creditsRemaining, 2, "credit clawback applied once");
+    assert.equal(state.rewardReclaimed, 0, "S94-1: routing-disabled reclaim is zero");
+    assert.equal(data.get(sessionKey(REFERRER_ID)).creditsRemaining, 3, "S94-1: combined counter is never debited");
     const referral = data.get(referralKey(REFERRAL_CODE));
     assert.equal(referral.conversions, 5, "counted conversion decremented exactly once");
     assert.equal(referral.rewardsGranted, 5, "counted reward decremented exactly once");
@@ -1057,7 +1064,8 @@ test("item 4 (fix round): reversal of a mid-bookkeeping grant (aggregate marker 
     assert.equal(res.status, 200);
     const state = data.get(referralRewardedKey(buyerId));
     assert.equal(state.conversionReversed, true);
-    assert.equal(data.get(sessionKey(REFERRER_ID)).creditsRemaining, 2, "credit clawback applied once");
+    assert.equal(state.rewardReclaimed, 0, "S94-1: routing-disabled reclaim is zero");
+    assert.equal(data.get(sessionKey(REFERRER_ID)).creditsRemaining, 3, "S94-1: combined counter is never debited");
     const referral = data.get(referralKey(REFERRAL_CODE));
     assert.equal(referral.conversions, 5, "the landed conversion is un-counted exactly once");
     assert.equal(referral.rewardsGranted, 5, "the landed reward is un-counted exactly once");
@@ -1086,7 +1094,8 @@ test("item 4 (fix round): reversal of a finished legacy decision (no phase, conv
     assert.equal(res.status, 200);
     const state = data.get(referralRewardedKey(buyerId));
     assert.equal(state.conversionReversed, true);
-    assert.equal(data.get(sessionKey(REFERRER_ID)).creditsRemaining, 2, "credit clawback applied once");
+    assert.equal(state.rewardReclaimed, 0, "S94-1: routing-disabled reclaim is zero");
+    assert.equal(data.get(sessionKey(REFERRER_ID)).creditsRemaining, 3, "S94-1: combined counter is never debited");
     const referral = data.get(referralKey(REFERRAL_CODE));
     assert.equal(referral.conversions, 5, "legacy counted conversion decremented exactly once");
     assert.equal(referral.rewardsGranted, 5, "legacy counted reward decremented exactly once");
@@ -1241,7 +1250,9 @@ test("item 4 (fix round 2): a reversal landing mid-bookkeeping (after the delta,
     // the injection point: when the delta is already visible, the
     // reversal's own writes are applied to the store first, exactly
     // as reverseReferralReward would write them at that moment
-    // (marker observed -> decrement, clawback, flags persisted).
+    // (marker observed -> decrement, flags persisted; S94-1: the
+    // reversal no longer writes the referrer session record — the
+    // combined counter is never debited).
     let reversalLanded = false;
     getHook = (key, read) => {
       const referral = data.get(referralKey(REFERRAL_CODE));
@@ -1256,11 +1267,6 @@ test("item 4 (fix round 2): a reversal landing mid-bookkeeping (after the delta,
           conversions: referral.conversions - 1,
           rewardsGranted: referral.rewardsGranted - 1,
         });
-        const referrer = data.get(sessionKey(REFERRER_ID));
-        data.set(sessionKey(REFERRER_ID), {
-          ...referrer,
-          creditsRemaining: Math.max(0, (referrer.creditsRemaining ?? 0) - 1),
-        });
         data.set(referralRewardedKey(session.id), {
           ...data.get(referralRewardedKey(session.id)),
           conversionReversed: true,
@@ -1268,7 +1274,7 @@ test("item 4 (fix round 2): a reversal landing mid-bookkeeping (after the delta,
           rewardReversed: true,
           rewardReversedAt: 4242,
           reversalReason: "refund",
-          rewardReclaimed: 1,
+          rewardReclaimed: 0,
         });
         const ledger = data.get(`referral:events:${REFERRAL_CODE}`) ?? [];
         data.set(`referral:events:${REFERRAL_CODE}`, [
@@ -1295,7 +1301,7 @@ test("item 4 (fix round 2): a reversal landing mid-bookkeeping (after the delta,
     assert.equal(state.aggregateApplied, true, "the delta genuinely landed (and was reversed out)");
     assert.equal(data.get(referralKey(REFERRAL_CODE)).conversions, 0, "delta and decrement net to zero");
     assert.equal(data.get(referralKey(REFERRAL_CODE)).rewardsGranted, 0);
-    assert.equal(data.get(sessionKey(REFERRER_ID)).creditsRemaining, 2, "credit clawback landed once");
+    assert.equal(data.get(sessionKey(REFERRER_ID)).creditsRemaining, 3, "S94-1: the combined counter is never debited");
     assert.equal(referralEventsFor(session.id, "conversion_recorded").length, 1);
     assert.equal(referralEventsFor(session.id, "conversion_reversed").length, 1);
     getHook = null;
@@ -1304,7 +1310,7 @@ test("item 4 (fix round 2): a reversal landing mid-bookkeeping (after the delta,
     // no-ops — no second clawback, no second decrement.
     const refund = await postEvent(refundEvent("evt_midbook_rev_refund", session.payment_intent, "ch_midbook_rev"));
     assert.equal(refund.status, 200);
-    assert.equal(data.get(sessionKey(REFERRER_ID)).creditsRemaining, 2, "no second clawback");
+    assert.equal(data.get(sessionKey(REFERRER_ID)).creditsRemaining, 3, "no clawback on the redelivery either");
     assert.equal(data.get(referralKey(REFERRAL_CODE)).conversions, 0, "no second decrement");
     assert.equal(data.get(referralKey(REFERRAL_CODE)).rewardsGranted, 0);
   } finally {
@@ -1355,6 +1361,192 @@ test("item 4 (fix round 2): a conversion already reversed when bookkeeping resum
     assert.equal(data.get(sessionKey(REFERRER_ID)).creditsRemaining, 2, "no further clawback");
     assert.equal(referralEventsFor(buyerId, "conversion_recorded").length, 0, "no grant-side ledger entries after a reversal");
     assert.equal(referralEventsFor(buyerId, "reward_granted").length, 0);
+  } finally {
+    restoreKv();
+  }
+});
+
+/* ======== S94-1 — legacy clawback bucket discipline + same-surface P2s ======== */
+// S94-1-F1 (P1): with authority routing disabled, the legacy reversal
+// debited the referrer's COMBINED KV counter — the same counter
+// purchased credits live in. Legacy grants raised creditsTotal
+// alongside the balance, so a spent reward is indistinguishable from
+// purchased value (the migration doctrine in entitlementMigration.ts
+// records the legacy balance WHOLE as the legacy bucket for exactly
+// this reason). DL-1 R1 Option A: a clawback may only remove
+// positively identified, unspent reward value; in a legacy record
+// there is none, so the routing-disabled reclaim is ZERO — the same
+// answer the authority path gives for a pre-bucket grant
+// (not_bucket_grant). The reversal's bookkeeping (flags, aggregate
+// decrements, ledger) still lands; only the debit is removed.
+
+test("S94-1-F1: routing-disabled reversal of a legacy rewarded conversion reclaims ZERO from the combined balance — purchased credits are unreachable", async () => {
+  installFakeKv();
+  installFetchDouble();
+  try {
+    // Legacy shape: the pre-bucket grant raised the combined counter
+    // (creditsTotal 4 = 3 purchased + 1 reward) and one credit was
+    // consumed. Which of the remaining 3 is the reward is unknowable.
+    seedPaidSession(REFERRER_ID, { creditsTotal: 4, creditsRemaining: 3 });
+    seedCountedReferralRecord({ conversions: 6, rewardsGranted: 6 });
+    const buyerId = "cs_buyer_s941_legacy";
+    data.set(ENTITLEMENT_KV.stripePaymentIntent("pi_buyer_s941_legacy"), buyerId);
+    data.set(referralRewardedKey(buyerId), {
+      referralCode: REFERRAL_CODE,
+      referrerSessionId: REFERRER_ID,
+      rewarded: true,
+      rewardGranted: 1,
+      conversionRecorded: true,
+      createdAt: 7,
+    });
+    const res = await postEvent(refundEvent("evt_s941_legacy_refund", "pi_buyer_s941_legacy", "ch_s941_legacy"));
+    assert.equal(res.status, 200);
+    const state = data.get(referralRewardedKey(buyerId));
+    assert.equal(state.conversionReversed, true, "the conversion is still reversed");
+    assert.equal(state.rewardReversed, true);
+    assert.equal(state.rewardReclaimed, 0, "no positively identified unspent reward value exists in a legacy record");
+    assert.equal(data.get(sessionKey(REFERRER_ID)).creditsRemaining, 3, "the combined balance is never debited");
+    assert.equal(sessionPuts(REFERRER_ID).length, 0, "the reversal does not write the referrer session record at all");
+    const referral = data.get(referralKey(REFERRAL_CODE));
+    assert.equal(referral.conversions, 5, "counted conversion decremented exactly once");
+    assert.equal(referral.rewardsGranted, 5, "counted reward decremented exactly once");
+
+    // Redelivery: no second decrement, no late debit.
+    const again = await postEvent(refundEvent("evt_s941_legacy_refund2", "pi_buyer_s941_legacy", "ch_s941_legacy"));
+    assert.equal(again.status, 200);
+    assert.equal(data.get(sessionKey(REFERRER_ID)).creditsRemaining, 3);
+    assert.equal(data.get(referralKey(REFERRAL_CODE)).conversions, 5);
+  } finally {
+    restoreKv();
+  }
+});
+
+test("S94-1-F4: routing-enabled reversal of a pending conversion defers — a committed-but-unconfirmed grant is never finalized around", async () => {
+  installFakeKv();
+  installFetchDouble();
+  process.env.DL1_AUTHORITY_ROUTING_ENABLED = "1";
+  try {
+    seedPaidSession(REFERRER_ID);
+    seedReferralRecord();
+    const buyerId = "cs_buyer_s941_pending";
+    data.set(ENTITLEMENT_KV.stripePaymentIntent("pi_buyer_s941_pending"), buyerId);
+    // The S93-1 pending checkpoint: the authority may already have
+    // accepted the grant while the grant_confirmed write is still
+    // outstanding. Treating this as "nothing to reverse" would
+    // finalize the refund with a live grant behind it.
+    data.set(referralRewardedKey(buyerId), {
+      referralCode: REFERRAL_CODE,
+      referrerSessionId: REFERRER_ID,
+      phase: "pending",
+      createdAt: 7,
+    });
+    const res = await postEvent(refundEvent("evt_s941_pending_refund", "pi_buyer_s941_pending", "ch_s941_pending"));
+    assert.equal(res.status, 503, "the refund stays retryable while the grant identity is unresolved");
+    assert.equal(data.has(eventMarkerKey("evt_s941_pending_refund")), false, "dedupe must not finalize");
+    const state = data.get(referralRewardedKey(buyerId));
+    assert.equal(state.conversionReversed, undefined, "no reversal is recorded against an unresolved grant");
+    assert.equal(data.get(sessionKey(REFERRER_ID)).creditsRemaining, 3);
+
+    // The grant side settles as a terminal skip (nothing was ever
+    // granted): the same refund now finalizes cleanly — the deferral
+    // resolves instead of deadlocking.
+    data.set(referralRewardedKey(buyerId), {
+      referralCode: REFERRAL_CODE,
+      referrerSessionId: REFERRER_ID,
+      phase: "terminal_skip",
+      rewarded: true,
+      rewardGranted: 0,
+      conversionRecorded: false,
+      rewardSkipReason: "purchaser_revoked",
+      createdAt: 7,
+    });
+    const settled = await postEvent(refundEvent("evt_s941_pending_refund2", "pi_buyer_s941_pending", "ch_s941_pending"));
+    assert.equal(settled.status, 200);
+    assert.equal(data.get(sessionKey(REFERRER_ID)).creditsRemaining, 3);
+  } finally {
+    restoreKv();
+  }
+});
+
+test("S94-1-F6: a reversal ledger append that fails after the state finalizes is repaired on redelivery — events land exactly once", async () => {
+  installFakeKv();
+  installFetchDouble();
+  try {
+    seedPaidSession(REFERRER_ID);
+    seedCountedReferralRecord({ conversions: 6, rewardsGranted: 6 });
+    const buyerId = "cs_buyer_s941_ledger";
+    data.set(ENTITLEMENT_KV.stripePaymentIntent("pi_buyer_s941_ledger"), buyerId);
+    data.set(referralRewardedKey(buyerId), {
+      referralCode: REFERRAL_CODE,
+      referrerSessionId: REFERRER_ID,
+      rewarded: true,
+      rewardGranted: 1,
+      conversionRecorded: true,
+      createdAt: 7,
+    });
+    // The first reversal ledger append (conversion_reversed) fails
+    // AFTER the clawback + reversal-state write have landed.
+    failRules.push({
+      op: "set",
+      match: (key) => key === `referral:events:${REFERRAL_CODE}`,
+      times: 1,
+    });
+    // The append throw is uncaught inside the handler — in
+    // production it surfaces as a 500 and Stripe redelivers; in this
+    // harness it rejects the POST promise. Either way the event
+    // stays retryable and unfinalized.
+    let firstThrew = false;
+    try {
+      await postEvent(refundEvent("evt_s941_ledger_1", "pi_buyer_s941_ledger", "ch_s941_ledger"));
+    } catch {
+      firstThrew = true;
+    }
+    assert.ok(firstThrew, "the failed append keeps the event retryable");
+    const stateAfterFirst = data.get(referralRewardedKey(buyerId));
+    assert.equal(stateAfterFirst.conversionReversed, true, "the reversal state finalized before the ledger append (the defect's fingerprint)");
+    assert.equal(referralEventsFor(buyerId, "conversion_reversed").length, 0, "the ledger evidence is missing after the failure");
+
+    const second = await postEvent(refundEvent("evt_s941_ledger_2", "pi_buyer_s941_ledger", "ch_s941_ledger"));
+    assert.equal(second.status, 200);
+    assert.equal(referralEventsFor(buyerId, "conversion_reversed").length, 1, "the missing conversion_reversed event is repaired exactly once");
+    assert.equal(referralEventsFor(buyerId, "reward_reversed").length, 1, "the missing reward_reversed event is repaired exactly once");
+    const referral = data.get(referralKey(REFERRAL_CODE));
+    assert.equal(referral.conversions, 5, "the aggregate decrement is not repeated by the repair");
+    assert.equal(referral.rewardsGranted, 5);
+  } finally {
+    restoreKv();
+  }
+});
+
+test("S94-1-F8: a birth-pending authority grant is paired with its reversal — the refund defers instead of finalizing unpaired", async () => {
+  installFakeKv();
+  installFetchDouble();
+  process.env.DL1_AUTHORITY_ROUTING_ENABLED = "1";
+  try {
+    seedPaidSession(REFERRER_ID);
+    seedReferralRecord();
+    const buyerId = "cs_buyer_s941_birth";
+    data.set(ENTITLEMENT_KV.stripePaymentIntent("pi_buyer_s941_birth"), buyerId);
+    // The grant-side terminal shape for an authority grant_pending
+    // (birth): zero KV grant, conversionRecorded true, the skip
+    // reason recorded — the same shape the discovery/inclusion
+    // pendings carry, which the reversal DOES pair with the
+    // authority. The birth reason must be classified the same way.
+    data.set(referralRewardedKey(buyerId), {
+      referralCode: REFERRAL_CODE,
+      referrerSessionId: REFERRER_ID,
+      phase: "terminal_skip",
+      rewarded: true,
+      rewardGranted: 0,
+      conversionRecorded: true,
+      rewardSkipReason: "authority_grant_birth_unresolved",
+      createdAt: 7,
+    });
+    const res = await postEvent(refundEvent("evt_s941_birth_refund", "pi_buyer_s941_birth", "ch_s941_birth"));
+    assert.equal(res.status, 503, "the reversal consults the authority and defers on the unresolved identity instead of finalizing");
+    assert.equal(data.has(eventMarkerKey("evt_s941_birth_refund")), false, "dedupe must not finalize");
+    const state = data.get(referralRewardedKey(buyerId));
+    assert.equal(state.conversionReversed, undefined, "no unpaired reversal is recorded");
   } finally {
     restoreKv();
   }

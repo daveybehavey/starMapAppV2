@@ -1251,6 +1251,21 @@ async function reverseReferralReward(
     rewardState.phase === "grant_confirmed" ||
     rewardState.phase === "completed" ||
     (rewardState.rewardGranted ?? 0) > 0;
+  // S94-1-F4: with authority routing enabled, a record still in the
+  // pending checkpoint may name a grant the authority has ALREADY
+  // accepted whose grant_confirmed write is still outstanding.
+  // Answering a settled "nothing to reverse" here would finalize
+  // the refund around a live grant — the grant side's later
+  // purchaser_revoked skip records a decision but does not reverse
+  // an accepted grant. Defer instead: the checkout redelivery
+  // settles the record into grant_confirmed / completed /
+  // terminal_skip, each already dispositioned below, and the
+  // refund's redelivery then completes the reversal. With routing
+  // disabled no authority grant can be in flight (the grant path
+  // defers rather than granting), so the legacy disposition stands.
+  if (rewardState.phase === "pending" && isEntitlementAuthorityRoutingEnabled()) {
+    return { deferred: true };
+  }
   if (rewardState.rewarded !== true && !confirmedGrant) return { deferred: false };
   if (!confirmedGrant && rewardState.conversionRecorded !== true) return { deferred: false };
 
@@ -1259,7 +1274,61 @@ async function reverseReferralReward(
   const rewardGranted = Math.max(0, Math.floor(rewardState.rewardGranted ?? 0));
   const conversionAlreadyReversed = rewardState.conversionReversed === true;
   const rewardAlreadyReversed = rewardGranted <= 0 || rewardState.rewardReversed === true;
-  if (conversionAlreadyReversed && rewardAlreadyReversed) return { deferred: false };
+  if (conversionAlreadyReversed && rewardAlreadyReversed) {
+    // S94-1-F6: the reversal state write lands BEFORE the ledger
+    // appends at the end of this function, so an append failure in
+    // the original delivery stranded the reversal with its ledger
+    // evidence missing — and this early return meant no redelivery
+    // ever repaired it. The appends carry deterministic ids and
+    // appendReferralEvent dedupes by id (replacing, never
+    // duplicating), so re-issuing the events this record owes is a
+    // no-op when they already landed and a repair when they did
+    // not. The aggregate decrements are NOT repeated here: they
+    // landed with the original reversal and their evidence is
+    // unchanged.
+    if (conversionAlreadyReversed) {
+      await appendReferralEvent({
+        code: referralCode,
+        type: "conversion_reversed",
+        eventId: `conversion_reversed:${sessionId}`,
+        createdAt: rewardState.conversionReversedAt ?? Date.now(),
+        details: {
+          checkoutSessionId: sessionId,
+          reason: rewardState.reversalReason ?? reason,
+          orderType: rewardState.orderType,
+          amountTotal: rewardState.amountTotal,
+          source: rewardState.source,
+          medium: rewardState.medium,
+          campaign: rewardState.campaign,
+          content: rewardState.content,
+          offerVariant: rewardState.offerVariant,
+        },
+      });
+    }
+    if (
+      (rewardState.rewardReversed === true && rewardGranted > 0) ||
+      (rewardState.rewardReclaimed ?? 0) > 0
+    ) {
+      await appendReferralEvent({
+        code: referralCode,
+        type: "reward_reversed",
+        eventId: `reward_reversed:${sessionId}`,
+        createdAt: rewardState.rewardReversedAt ?? Date.now(),
+        details: {
+          checkoutSessionId: sessionId,
+          reason: rewardState.reversalReason ?? reason,
+          rewardGranted,
+          rewardReclaimed: rewardState.rewardReclaimed ?? 0,
+          source: rewardState.source,
+          medium: rewardState.medium,
+          campaign: rewardState.campaign,
+          content: rewardState.content,
+          offerVariant: rewardState.offerVariant,
+        },
+      });
+    }
+    return { deferred: false };
+  }
 
   const referralRecord = await kv.get<ReferralRecord>(referralKey(referralCode));
   if (!referralRecord || referralRecord.sessionId !== rewardState.referrerSessionId) {
@@ -1285,7 +1354,12 @@ async function reverseReferralReward(
     routingEnabled &&
     rewardGranted <= 0 &&
     (rewardState.rewardSkipReason === "authority_grant_discovery_unresolved" ||
-      rewardState.rewardSkipReason === "authority_grant_inclusion_unresolved");
+      rewardState.rewardSkipReason === "authority_grant_inclusion_unresolved" ||
+      // S94-1-F8: the birth pending kind is an authority grant
+      // pendency exactly like discovery/inclusion — leaving it out
+      // finalized the reversal without ever consulting the
+      // authority for a grant that may still settle and fold.
+      rewardState.rewardSkipReason === "authority_grant_birth_unresolved");
 
   // When authority routing is enabled, the clawback runs BEFORE any
   // bookkeeping below is finalized (Codex P2, PR #367): a transient
@@ -1343,8 +1417,11 @@ async function reverseReferralReward(
   // outcome write is still outstanding). A grant_confirmed record
   // whose bookkeeping never applied the delta carries none of these
   // — decrementing it would subtract rewards belonging to other
-  // conversions. The credit clawback below is NOT gated on this: a
-  // confirmed grant's credits are reclaimable regardless.
+  // conversions. The credit clawback below is NOT gated on this
+  // either: under authority routing a confirmed grant's bucket
+  // credits are reclaimable regardless of counted-ness; with
+  // routing disabled the reclaim is zero under the S94-1-F1 bucket
+  // discipline (see the clawback block below).
   const aggregateCounted =
     rewardState.aggregateApplied === true ||
     (rewardState.phase === undefined && rewardState.conversionRecorded === true) ||
@@ -1368,17 +1445,27 @@ async function reverseReferralReward(
     if (authorityClawed !== null) {
       rewardReclaimed = authorityClawed;
     } else if (!routingEnabled && referrer && referrer.plan !== "subscription") {
-      // Routing gated off (see the grant path): the grant was credited
-      // to the legacy KV counter, so the clawback debits that same
-      // counter — the pre-slice behaviour, kept symmetric with the
-      // grant until the Slice 6 activation enables the bucket.
-      const currentCredits = Math.max(0, referrer.creditsRemaining ?? 0);
-      rewardReclaimed = Math.min(currentCredits, rewardGranted);
-      await kv.set(sessionKey(rewardState.referrerSessionId), {
-        ...referrer,
-        paid: true,
-        creditsRemaining: Math.max(0, currentCredits - rewardReclaimed),
-      });
+      // S94-1-F1 (DL-1 R1 Option A): NO debit is taken here. The
+      // legacy grant was credited to the combined KV counter — the
+      // same counter purchased credits live in — and the grant
+      // raised creditsTotal alongside the balance, so once the
+      // reward is spent it is indistinguishable from purchased
+      // value in this record (the migration baseline captures the
+      // legacy balance WHOLE for exactly this reason). A clawback
+      // may only remove positively identified, unspent reward
+      // value; a legacy record identifies none, so the reclaim is
+      // zero — the same answer the authority path returns for a
+      // pre-bucket grant (not_bucket_grant: a clawback must not
+      // reach the legacy bucket; reclaimed is zero by policy). The
+      // reversal still finalizes (flags, aggregate decrements,
+      // ledger): the reward entitlement is extinguished, purchased
+      // credits are unreachable, and no debt is created when the
+      // reward was spent. The pre-S94-1 debit —
+      // min(combined balance, rewardGranted) written back to the
+      // session record — removed purchased credits whenever the
+      // reward had been spent first, and its whole-record write
+      // also republished the earlier-read referrer snapshot.
+      rewardReclaimed = 0;
     }
   } else if (pendingAuthorityGrant && authorityClawed !== null) {
     // The pending grant settled and folded before this reversal
@@ -1417,6 +1504,10 @@ async function reverseReferralReward(
     await appendReferralEvent({
       code: referralCode,
       type: "conversion_reversed",
+      // S94-1-F6: deterministic id — the redelivery repair path at
+      // this function's head re-issues this exact event if the
+      // original append failed after the state write landed.
+      eventId: `conversion_reversed:${sessionId}`,
       createdAt: timestamp,
       details: {
         checkoutSessionId: sessionId,
@@ -1439,6 +1530,8 @@ async function reverseReferralReward(
     await appendReferralEvent({
       code: referralCode,
       type: "reward_reversed",
+      // S94-1-F6: deterministic id, as for conversion_reversed above.
+      eventId: `reward_reversed:${sessionId}`,
       createdAt: timestamp,
       details: {
         checkoutSessionId: sessionId,
