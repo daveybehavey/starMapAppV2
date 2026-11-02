@@ -54,9 +54,20 @@ export function resolvePrintOrderKvWrite({ createdAt, now = Date.now(), env = pr
  */
 /** Mirror of preserveLatestHoldAnnotations in src/lib/printOrders.ts */
 export function preserveLatestHoldAnnotations(next, latest) {
-  if (!latest?.providerHoldAt) return next;
-  if (next.providerHoldAt && next.providerHoldAt !== latest.providerHoldAt) {
-    return next;
+  if (!latest) return next;
+  if (!latest.providerHoldAt) {
+    if (!next.providerHoldAt) return next;
+    return {
+      ...next,
+      providerHoldAt: undefined,
+      providerHoldReason: undefined,
+      providerHoldOrderStatus: undefined,
+      operatorHoldAlertedAt: undefined,
+      operatorHoldAlertProvider: undefined,
+      operatorHoldAlertError: undefined,
+      operatorHoldEscalatedAt: undefined,
+      operatorHoldEscalationAlertError: undefined,
+    };
   }
   return {
     ...next,

@@ -515,11 +515,25 @@ test("S96-1 (gate round 5): no recorded hold on the latest record leaves the wri
   assert.equal(preserveLatestHoldAnnotations(next, { ...holdCarrier, providerHoldAt: undefined }), next);
 });
 
-test("S96-1 (gate round 5): a different hold episode on the write is never overwritten", () => {
-  const next = { ...holdCarrier, providerHoldAt: 1_700_000_200_000, providerHoldReason: "newer_hold" };
+test("S96-1 (gate round 5): the latest stored episode wins over a different episode on the write", () => {
+  const next = { ...holdCarrier, providerHoldAt: 1_700_000_200_000, providerHoldReason: "snapshot_hold" };
   const merged = preserveLatestHoldAnnotations(next, holdCarrier);
-  assert.equal(merged, next);
-  assert.equal(merged.providerHoldReason, "newer_hold");
+  assert.equal(merged.providerHoldAt, 1_700_000_100_000);
+  assert.equal(merged.providerHoldReason, "address_issue");
+});
+
+test("S96-1 (gate round 5): a hold cleared on the latest record is stripped from the write, never resurrected", () => {
+  // The post-submit resurrection case: an earlier sync carried the hold
+  // onto the working record, then an operator resolve (or shipment)
+  // cleared it during the review await — the review write must not
+  // bring it back.
+  const next = { ...holdCarrier };
+  const cleared = { sessionId: "cs_hold_carry", status: "sent", createdAt: 1_700_000_000_000 };
+  const merged = preserveLatestHoldAnnotations(next, cleared);
+  assert.equal(merged.providerHoldAt, undefined);
+  assert.equal(merged.providerHoldReason, undefined);
+  assert.equal(merged.operatorHoldAlertedAt, undefined);
+  assert.equal(merged.operatorHoldEscalatedAt, undefined);
 });
 
 test("S96-1 (gate round 5): post-submit persists and the stranded-claim surfacing are pinned in the TS sources", () => {

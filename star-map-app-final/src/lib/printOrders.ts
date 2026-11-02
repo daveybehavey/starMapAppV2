@@ -407,24 +407,38 @@ export function resolvePrintOrderCreatedAt(
 }
 
 /**
- * Carry a recorded provider hold from the LATEST stored record onto a
- * pending whole-record write built from an older snapshot. Hold state is
- * written by the Printful webhook handler on its own timeline; any other
- * writer whose snapshot predates the hold (post-submit review persists,
- * delayed problem writes) would otherwise erase it silently, and the
- * aging sweep would lose the hold forever. Writers that deliberately
- * END a hold (terminal failure, operator resolve, shipment) do not use
- * this helper — they author the clearing write themselves. A `next`
- * record carrying a DIFFERENT hold episode is left untouched (its own
- * timeline is newer); the same episode takes the latest stamps.
+ * Sync hold annotations from the LATEST stored record onto a pending
+ * whole-record write. Hold state is owned by the stored record: it is
+ * written by the Printful webhook handler (and cleared by the terminal,
+ * operator-resolve, and shipment writers) on its own timeline, while
+ * other writers (the post-submit identity/review persists) build their
+ * records from snapshots that predate — or, after an earlier sync,
+ * postdate — the latest hold state. Syncing in both directions is what
+ * makes those writers safe: a hold recorded during their awaits is
+ * carried onto the write instead of being erased, and a hold CLEARED
+ * during their awaits is stripped from the write instead of being
+ * resurrected from the snapshot. Callers must pass the freshest read
+ * they can take immediately before persisting; the writers that
+ * deliberately end a hold never use this helper.
  */
 export function preserveLatestHoldAnnotations(
   next: PrintOrderRecord,
   latest: PrintOrderRecord | null | undefined,
 ): PrintOrderRecord {
-  if (!latest?.providerHoldAt) return next;
-  if (next.providerHoldAt && next.providerHoldAt !== latest.providerHoldAt) {
-    return next;
+  if (!latest) return next;
+  if (!latest.providerHoldAt) {
+    if (!next.providerHoldAt) return next;
+    return {
+      ...next,
+      providerHoldAt: undefined,
+      providerHoldReason: undefined,
+      providerHoldOrderStatus: undefined,
+      operatorHoldAlertedAt: undefined,
+      operatorHoldAlertProvider: undefined,
+      operatorHoldAlertError: undefined,
+      operatorHoldEscalatedAt: undefined,
+      operatorHoldEscalationAlertError: undefined,
+    };
   }
   return {
     ...next,
