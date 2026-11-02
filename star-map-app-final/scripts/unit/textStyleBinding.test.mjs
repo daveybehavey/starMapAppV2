@@ -290,7 +290,10 @@ test("applyStyleDefaults: automatic properties follow the template, explicit one
   const { textBoxes: out } = applyStyleDefaults("midnightMinimal", [mixed]);
   assert.equal(out[0].color, "#ff3366", "explicit colour survives");
   assert.equal(out[0].fontFamily, "montserrat", "automatic font follows template");
-  assert.deepEqual(out[0].textStyleBinding, { color: "explicit", fontFamily: "automatic", fontWeight: "automatic" });
+  // applyStyleDefaults passes the binding through untouched (it reads the
+  // normalized form but never rewrites it), so the pre-#481 two-key fixture
+  // binding survives verbatim.
+  assert.deepEqual(out[0].textStyleBinding, { color: "explicit", fontFamily: "automatic" });
 
   const legacy = baseBox(); // no binding at all
   const legacyOut = applyStyleDefaults("navyGold", [legacy]).textBoxes;
