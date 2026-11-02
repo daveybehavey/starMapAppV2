@@ -247,7 +247,8 @@ test("both editor surfaces offer Add Caption, gated on an available caption", ()
   for (const rel of ["../../src/components/EditorExperience.tsx", "../../src/app/MobileCreate.tsx"]) {
     const source = read(rel);
     assert.match(source, /buildAutoCaption\(\{/);
-    assert.match(source, /upsertAutoCaptionBox\(textBoxes, autoCaption, selectedStyle\)/);
+    assert.match(source, /upsertAutoCaptionBox\(textBoxes, autoCaption, selectedStyle, \{/);
+    assert.match(source, /resolveShapeMaskFootprint\(/);
     assert.match(source, /\{autoCaption && \(/);
     assert.match(source, /\+ Add Caption/);
   }
