@@ -58,9 +58,72 @@ function parseFloatValue(value: string | undefined, fallback: number, minimum = 
   return Math.max(minimum, parsed);
 }
 
+/**
+ * COGS env read with the same public-mirror pattern as readGuardEnv
+ * below (PR #479): the server reads the server var first and falls
+ * back to the NEXT_PUBLIC_ mirror; the browser can only see the
+ * mirror. The COGS knobs feed BOTH the checkout route's margin guard
+ * (server) and the paywall preflight that runs the same evaluation in
+ * the browser (paywallPrintCheckout → evaluatePrintMarginForCheckout),
+ * so the pair must move together: tune one without the other and the
+ * preflight prices COGS at the code default while the route enforces
+ * the tuned value (or vice versa) — the October merch defect class, in
+ * which a computed process.env[...] read is invisible to the bundler
+ * and silently resolves to the fallback client-side. This read was
+ * the last computed one in this file (S96-6 residual, settled
+ * 2026-11-02: client-reachable via the paywall, latent only because
+ * production configures no PRINT_COGS_* values today).
+ *
+ * Every reference below MUST stay literal, one branch per catalog
+ * row's cogsEnv: Next.js only inlines a NEXT_PUBLIC_ var into the
+ * browser bundle when the member access is written out in full. The
+ * pairs are deliberately NOT declared in wrangler.toml while unset —
+ * [vars] carries only flags / non-default values / IDs (binding
+ * budget note there); when a COGS retune lands, add BOTH names with
+ * the same value. Parity is pinned by printMarginCogsParity.test.mjs,
+ * which also fails if a future catalog row's cogsEnv has no branch
+ * here.
+ */
+function readCogsEnv(cogsEnv: string): string | undefined {
+  switch (cogsEnv) {
+    case "PRINT_COGS_POSTER_UNFRAMED_CENTS":
+      return typeof window === "undefined"
+        ? process.env.PRINT_COGS_POSTER_UNFRAMED_CENTS ??
+            process.env.NEXT_PUBLIC_PRINT_COGS_POSTER_UNFRAMED_CENTS
+        : process.env.NEXT_PUBLIC_PRINT_COGS_POSTER_UNFRAMED_CENTS;
+    case "PRINT_COGS_POSTER_UNFRAMED_16X16_CENTS":
+      return typeof window === "undefined"
+        ? process.env.PRINT_COGS_POSTER_UNFRAMED_16X16_CENTS ??
+            process.env.NEXT_PUBLIC_PRINT_COGS_POSTER_UNFRAMED_16X16_CENTS
+        : process.env.NEXT_PUBLIC_PRINT_COGS_POSTER_UNFRAMED_16X16_CENTS;
+    case "PRINT_COGS_POSTER_FRAMED_CENTS":
+      return typeof window === "undefined"
+        ? process.env.PRINT_COGS_POSTER_FRAMED_CENTS ??
+            process.env.NEXT_PUBLIC_PRINT_COGS_POSTER_FRAMED_CENTS
+        : process.env.NEXT_PUBLIC_PRINT_COGS_POSTER_FRAMED_CENTS;
+    case "PRINT_COGS_CANVAS_WRAP_CENTS":
+      return typeof window === "undefined"
+        ? process.env.PRINT_COGS_CANVAS_WRAP_CENTS ??
+            process.env.NEXT_PUBLIC_PRINT_COGS_CANVAS_WRAP_CENTS
+        : process.env.NEXT_PUBLIC_PRINT_COGS_CANVAS_WRAP_CENTS;
+    case "PRINT_COGS_MUG_11OZ_CENTS":
+      return typeof window === "undefined"
+        ? process.env.PRINT_COGS_MUG_11OZ_CENTS ??
+            process.env.NEXT_PUBLIC_PRINT_COGS_MUG_11OZ_CENTS
+        : process.env.NEXT_PUBLIC_PRINT_COGS_MUG_11OZ_CENTS;
+    case "PRINT_COGS_CARD_4X6_CENTS":
+      return typeof window === "undefined"
+        ? process.env.PRINT_COGS_CARD_4X6_CENTS ??
+            process.env.NEXT_PUBLIC_PRINT_COGS_CARD_4X6_CENTS
+        : process.env.NEXT_PUBLIC_PRINT_COGS_CARD_4X6_CENTS;
+    default:
+      return undefined;
+  }
+}
+
 function getVariantProductCostCents(variant: PrintVariant): number {
   const row = getPrintCatalogRow(variant);
-  return parseIntValue(process.env[row.cogsEnv], row.defaultCogsCents, 0);
+  return parseIntValue(readCogsEnv(row.cogsEnv), row.defaultCogsCents, 0);
 }
 
 /**
