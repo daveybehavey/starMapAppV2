@@ -35,7 +35,9 @@ process.env.ACCOUNT_RECOVERY_EMAIL_FROM ??= "StarMapCo <access@example.com>";
 process.env.RESEND_API_KEY ??= "re_unit_test_placeholder";
 // F7: a positive 24h reward cap of 2, read by the webhook module at load.
 process.env.REFERRAL_MAX_REWARDS_PER_REFERRER_24H = "2";
-delete process.env.REFERRAL_MAX_REWARDS_PER_REFERRER_30D;
+// The 30d cap is deliberately OFF here via an explicit 0: an unset var
+// now falls back to the production default cap (Slate 96 S96-6).
+process.env.REFERRAL_MAX_REWARDS_PER_REFERRER_30D = "0";
 // F9: alternate fulfilment destination + operator retry enabled.
 process.env.PRINT_FULFILLMENT_WEBHOOK_URL = "https://fulfillment.example.test/hook";
 process.env.PRINT_ORDER_SUBMISSION_ENABLED = "1";
