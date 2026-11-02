@@ -16,4 +16,4 @@ These are real `renderStarMap` canvas outputs rendered locally with `@napi-rs/ca
 
 The permanent `scripts/unit/bortleSky.test.mjs` regression suite records the actual renderer's canvas commands, pins the pre-control main command hash, and verifies that only a background fill is added at 1 and 9 across all four styles. All remaining commands, including star positions, radii and opacity, are identical. Catalogue computation remains fixed at 4.5.
 
-`tests/bortle-sky-control.spec.ts` exercises the slider, brightness changes and exact pixel restoration in Chromium. Local execution was blocked because Chromium was absent and the environment network policy denied the Playwright browser download (403 Domain forbidden). The images above are canvas renders, not browser UI screenshots.
+The Bortle test in `tests/premium-rendering.spec.ts` exercises the slider, brightness changes and exact pixel restoration in Chromium. Local execution was blocked because Chromium was absent and the environment network policy denied the Playwright browser download (403 Domain forbidden). The images above are canvas renders, not browser UI screenshots.
