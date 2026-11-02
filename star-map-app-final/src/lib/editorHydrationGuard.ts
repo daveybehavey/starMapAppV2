@@ -13,11 +13,20 @@
  * The rule is deliberately conservative: apply only when the
  * effect was never cleaned up, the response is still for the map
  * the URL currently names, and the editor's recipe state has not
- * changed since the fetch started (an edit-generation counter the
- * component bumps on every recipe-field change). ANY intervening
- * change defeats hydration — the safe direction, since the user's
- * in-flight work is never worth less than the URL recipe, and the
- * autosave keeps their version as the draft.
+ * changed since the fetch started (the store's edit-generation
+ * counter). ANY intervening change defeats hydration — the safe
+ * direction, since the user's in-flight work is never worth less
+ * than the URL recipe, and the autosave keeps their version as
+ * the draft.
+ *
+ * The counter's timing is part of the guarantee (S96-2 F7): it
+ * advances synchronously inside the store's mutation path (see
+ * src/lib/store.ts) and inside the selectedOccasion setter (see
+ * useEditorLogic), never in a passive effect. The component reads
+ * it via useStore.getState() at fetch start and at response time,
+ * so an edit made at any moment after the fetch starts — even one
+ * whose React commit/effects have not run yet — is already
+ * counted when the response is checked.
  *
  * Pure and dependency-free so the plain-Node unit runner can
  * import it directly.

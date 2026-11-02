@@ -141,6 +141,21 @@ export interface EditorState {
   aspectRatio: AspectRatio;
   shape: Shape;
   renderOptions: RenderOptions;
+  /**
+   * Monotonic count of recipe-state changes (S93-2 class 5 /
+   * S96-2 F7). Advanced SYNCHRONOUSLY inside the store's setState
+   * notification whenever a recipe field (dateTime, location,
+   * textBoxes, selectedStyle, aspectRatio, shape, renderOptions)
+   * actually changes — see the subscription below — and by
+   * bumpEditGeneration() for the one recipe field that lives
+   * outside this store (selectedOccasion, hook-local in
+   * useEditorLogic, whose setter bumps it synchronously too).
+   * EditorExperience's hydration guard reads it via
+   * useStore.getState() at fetch start and again when the response
+   * arrives; because the advance happens inside the mutation call
+   * itself, no response continuation can observe a pre-edit value.
+   */
+  editGeneration: number;
   previewFidelity: "standard" | "high";
   paid: boolean;
   revealed: boolean;
@@ -260,6 +275,7 @@ const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) =
     constellationColor: "",
     constellationLineScale: 1.1,
   },
+  editGeneration: 0,
   previewFidelity: "standard",
   paid: false,
   revealed: false,
@@ -405,6 +421,60 @@ const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) =
 });
 
 export const useStore = create<EditorState>(storeImpl);
+
+/**
+ * The recipe fields whose change counts as an edit for the
+ * hydration guard — the store-resident subset of the field set
+ * EditorExperience's S93-2 wiring tracked (selectedOccasion is
+ * hook-local state and bumps the same counter from its setter in
+ * useEditorLogic).
+ */
+const RECIPE_EDIT_FIELDS = [
+  "dateTime",
+  "location",
+  "textBoxes",
+  "selectedStyle",
+  "aspectRatio",
+  "shape",
+  "renderOptions",
+] as const satisfies readonly (keyof EditorState)[];
+
+/**
+ * Advance the edit generation by one. Exported for the one recipe
+ * field that lives outside this store (selectedOccasion in
+ * useEditorLogic); store-resident fields advance it through the
+ * subscription below, never by calling this directly.
+ */
+export function bumpEditGeneration(): void {
+  useStore.setState((state) => ({
+    editGeneration: state.editGeneration + 1,
+  }));
+}
+
+// S96-2 F7: advance the edit generation SYNCHRONOUSLY with every
+// recipe mutation. The S93-2 guard originally counted edits in a
+// passive React effect in EditorExperience (a useEffect keyed on
+// the recipe fields): an edit that landed after the hydration
+// fetch started but before that effect ran left the generation
+// unchanged, so the late response still passed the guard and
+// overwrote the edit. Zustand notifies subscribers synchronously
+// inside setState — before the mutating call returns — so a
+// generation read at any later moment (including a fetch
+// continuation, which can only run after the current synchronous
+// stack unwinds) already includes every edit made so far. The
+// window is closed by construction, for every write path: store
+// actions, the draft restore's direct useStore.setState, and any
+// future caller. The bump's own setState changes only
+// editGeneration, so the listener observes no recipe-field change
+// for it and does not recurse.
+useStore.subscribe((state, prevState) => {
+  for (const field of RECIPE_EDIT_FIELDS) {
+    if (!Object.is(state[field], prevState[field])) {
+      bumpEditGeneration();
+      return;
+    }
+  }
+});
 
 // Expose store globally for testing/export scripts in development
 if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
