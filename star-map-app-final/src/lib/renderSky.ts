@@ -285,7 +285,7 @@ const STYLE_RENDER_PROFILES: Record<StyleId, StyleRenderProfile> = {
     lineAlphaMultiplier: 1.15,
     lineAlphaClamp: null,
     lineDashed: true,
-    showMilkyWayBand: false,
+    showMilkyWayBand: true,
     planetFlatColor: true,
     starJitterMin: 0.97,
     starJitterRange: 0.05,
@@ -308,7 +308,7 @@ const STYLE_RENDER_PROFILES: Record<StyleId, StyleRenderProfile> = {
     lineAlphaMultiplier: 1.35,
     lineAlphaClamp: { min: 0.45, max: 0.8 },
     lineDashed: true,
-    showMilkyWayBand: false,
+    showMilkyWayBand: true,
     planetFlatColor: true,
     starJitterMin: 0.92,
     starJitterRange: 0.18,
@@ -325,7 +325,7 @@ const STYLE_RENDER_PROFILES: Record<StyleId, StyleRenderProfile> = {
     lineAlphaMultiplier: 1,
     lineAlphaClamp: null,
     lineDashed: false,
-    showMilkyWayBand: false,
+    showMilkyWayBand: true,
     planetFlatColor: false,
     // Keep minimalist mode sparse but slightly less aggressive for better readability.
     starJitterMin: 0.94,
@@ -773,6 +773,14 @@ export function buildRecipeFromState(input: {
       // (download normalize, checkout, hydration fingerprints).
       shapeLayoutVersion: input.renderOptions?.shapeLayoutVersion,
       frameEnabled: input.renderOptions?.frameEnabled ?? true,
+      // Mirror editorDraft's validation: a non-finite value must not
+      // persist into a recipe, and out-of-range values clamp to 1–9
+      // (the renderer's own range) instead of riding through verbatim.
+      bortleClass:
+        typeof input.renderOptions?.bortleClass === "number" &&
+        Number.isFinite(input.renderOptions.bortleClass)
+          ? clamp(input.renderOptions.bortleClass, 1, 9)
+          : DEFAULT_BORTLE,
       backgroundColor: input.renderOptions?.backgroundColor ?? "",
       constellationColor: input.renderOptions?.constellationColor ?? "",
       constellationLineScale: input.renderOptions?.constellationLineScale ?? 1.1,
@@ -822,6 +830,45 @@ function parchmentRetentionFactor(distance: number, radius: number) {
   return 1 - smoothstep01((t - PARCHMENT_FADE_START) / (1 - PARCHMENT_FADE_START));
 }
 
+/**
+ * Sample positions (as fractions of R) at which drawParchmentFadedLayer
+ * samples parchmentRetentionFactor for its destination-in gradient
+ * stops. One source for the painter and the painted-retention model
+ * below, so the two cannot drift apart.
+ */
+const PARCHMENT_FADE_SAMPLE_TS: readonly number[] = [0.925, 0.95, 0.975];
+
+/**
+ * The retention drawParchmentFadedLayer actually paints: its gradient
+ * stops sit at 0 and PARCHMENT_FADE_START with alpha 1, at 1 with
+ * alpha 0, and at PARCHMENT_FADE_SAMPLE_TS with the smoothstep
+ * retention sampled there — and the canvas interpolates
+ * piecewise-LINEARLY between stops, not along the continuous
+ * smoothstep parchmentRetentionFactor describes. Models of layers
+ * painted through the fade (the Milky Way band overlay) must consume
+ * this function: the smoothstep model understates the painted band
+ * alpha between the outer sample points, which left a star the model
+ * had qualified at 3:1 painting at ≈2.9945:1 in the outermost fade
+ * ring (t≈0.96·R, band centre).
+ */
+function parchmentPaintedRetentionFactor(distance: number, radius: number) {
+  if (radius <= 0) return 1;
+  const t = distance / radius;
+  if (t <= PARCHMENT_FADE_START) return 1;
+  if (t >= 1) return 0;
+  let prevT = PARCHMENT_FADE_START;
+  let prevAlpha = 1;
+  for (const sampleT of PARCHMENT_FADE_SAMPLE_TS) {
+    const sampleAlpha = parchmentRetentionFactor(sampleT * radius, radius);
+    if (t <= sampleT) {
+      return prevAlpha + (sampleAlpha - prevAlpha) * ((t - prevT) / (sampleT - prevT));
+    }
+    prevT = sampleT;
+    prevAlpha = sampleAlpha;
+  }
+  return prevAlpha + (0 - prevAlpha) * ((t - prevT) / (1 - prevT));
+}
+
 type Rgb = { r: number; g: number; b: number };
 
 function relativeLuminance({ r, g, b }: Rgb) {
@@ -859,24 +906,76 @@ function minAlphaForContrast(ink: Rgb, backing: Rgb, target: number): number | n
   return hi;
 }
 
+/** The effective Bortle class for a render: finite values clamp to
+ * 1–9; absent or non-finite values resolve to the historical default. */
+function effectiveBortleClass(renderOptions?: MapRecipe["renderOptions"]): number {
+  const requested = renderOptions?.bortleClass;
+  return typeof requested === "number" && Number.isFinite(requested)
+    ? clamp(requested, 1, 9)
+    : DEFAULT_BORTLE;
+}
+
+/**
+ * One layer painted over the parchment backing before the stars, as the
+ * backing model consumes it: a colour composited at a (point-local)
+ * alpha. Overlays apply in paint order after the warm edge wash.
+ */
+type ParchmentBackingOverlay = { rgb: Rgb; alpha: number };
+
+/**
+ * drawBackground's Bortle wash as a backing overlay: black below the
+ * default class, white above it, nothing at the default itself (the
+ * default render issues no wash and must stay byte-identical).
+ */
+function bortleWashOverlay(bortle: number): ParchmentBackingOverlay | null {
+  if (bortle === DEFAULT_BORTLE) return null;
+  return bortle < DEFAULT_BORTLE
+    ? {
+        rgb: { r: 0, g: 0, b: 0 },
+        alpha: ((DEFAULT_BORTLE - bortle) / (DEFAULT_BORTLE - 1)) * 0.75,
+      }
+    : {
+        rgb: { r: 255, g: 255, b: 255 },
+        alpha: ((bortle - DEFAULT_BORTLE) / (9 - DEFAULT_BORTLE)) * 0.28,
+      };
+}
+
 /**
  * The parchment backing under a point: the paper base with drawBackground's
- * warm edge wash composited over it. The wash is a concentric radial
+ * warm edge wash composited over it, then every overlay the caller knows
+ * is painted over that backing before the stars (the Bortle wash, the
+ * Milky Way band, …) in paint order. The warm wash is a concentric radial
  * gradient — transparent inside 0.35 × min(width, height),
  * rgba(92, 64, 36, 0.18) at 0.85 × max(width, height) — so its effective
  * colour is constant and only its alpha varies with distance.
  */
-function parchmentBackingAt(base: Rgb, x: number, y: number, width: number, height: number): Rgb {
+function parchmentBackingAt(
+  base: Rgb,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  overlays: readonly ParchmentBackingOverlay[] = [],
+): Rgb {
   const distance = Math.hypot(x - width / 2, y - height / 2);
   const inner = Math.min(width, height) * 0.35;
   const outer = Math.max(width, height) * 0.85;
   const washAlpha =
     PARCHMENT_WASH_MAX_ALPHA * clamp((distance - inner) / Math.max(1, outer - inner), 0, 1);
-  return {
+  let backing: Rgb = {
     r: PARCHMENT_WASH_RGB.r * washAlpha + base.r * (1 - washAlpha),
     g: PARCHMENT_WASH_RGB.g * washAlpha + base.g * (1 - washAlpha),
     b: PARCHMENT_WASH_RGB.b * washAlpha + base.b * (1 - washAlpha),
   };
+  for (const overlay of overlays) {
+    const alpha = clamp(overlay.alpha, 0, 1);
+    backing = {
+      r: overlay.rgb.r * alpha + backing.r * (1 - alpha),
+      g: overlay.rgb.g * alpha + backing.g * (1 - alpha),
+      b: overlay.rgb.b * alpha + backing.b * (1 - alpha),
+    };
+  }
+  return backing;
 }
 
 /**
@@ -913,7 +1012,7 @@ function drawParchmentFadedLayer(
   const gradient = layerCtx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, radius);
   gradient.addColorStop(0, "rgba(0, 0, 0, 1)");
   gradient.addColorStop(PARCHMENT_FADE_START, "rgba(0, 0, 0, 1)");
-  for (const t of [0.925, 0.95, 0.975]) {
+  for (const t of PARCHMENT_FADE_SAMPLE_TS) {
     gradient.addColorStop(t, `rgba(0, 0, 0, ${parchmentRetentionFactor(t * radius, radius)})`);
   }
   gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
@@ -1001,6 +1100,20 @@ function drawBackground(
     edge.addColorStop(0, "rgba(0,0,0,0)");
     edge.addColorStop(1, "rgba(92,64,36,0.18)");
     ctx.fillStyle = edge;
+    ctx.fillRect(0, 0, width, height);
+    ctx.restore();
+  }
+
+  // Paint only the backing, before stars and other sky geometry. Keep the
+  // catalogue computation at DEFAULT_BORTLE: it also controls star radii/alpha.
+  // The historical default must issue no extra canvas operations.
+  const bortle = effectiveBortleClass(renderOptions);
+  if (bortle !== DEFAULT_BORTLE) {
+    ctx.save();
+    ctx.fillStyle = bortle < DEFAULT_BORTLE ? "#000000" : "#ffffff";
+    ctx.globalAlpha = bortle < DEFAULT_BORTLE
+      ? ((DEFAULT_BORTLE - bortle) / (DEFAULT_BORTLE - 1)) * 0.75
+      : ((bortle - DEFAULT_BORTLE) / (9 - DEFAULT_BORTLE)) * 0.28;
     ctx.fillRect(0, 0, width, height);
     ctx.restore();
   }
@@ -1094,6 +1207,7 @@ function drawStarLayer(
   height = 0,
   isParchment = false,
   parchmentPaper: Rgb | null = null,
+  parchmentBand: MilkyWayBandModel | null = null,
 ) {
   const starIntensity = resolveStarIntensity(renderOptions?.starIntensity);
   const intensityFactor = STAR_INTENSITY_FACTORS[starIntensity].size;
@@ -1110,6 +1224,14 @@ function drawStarLayer(
     ? (parseHexColor(palette.star) ?? parseRgbColor(palette.star))
     : null;
   const parchmentRadius = Math.min(width, height) * PROJECTION_RADIUS_FACTOR;
+  // drawBackground paints the Bortle wash over the parchment backing
+  // before this layer runs, so the contrast compensation must qualify
+  // stars against the washed backing, not the unwashed model. At the
+  // default class there is no wash and this stays null, leaving the
+  // default render's commands untouched.
+  const bortleWash = isParchment
+    ? bortleWashOverlay(effectiveBortleClass(renderOptions))
+    : null;
 
   ctx.save();
   ctx.fillStyle = palette.star;
@@ -1145,12 +1267,22 @@ function drawStarLayer(
     if (!Number.isFinite(alpha)) continue;
     if (isParchment && parchmentInk && parchmentPaper) {
       // #412: raise the alpha to the 3:1 floor against this star's
-      // actual backing (paper + warm edge wash). If even opaque ink
-      // cannot reach 3:1 over that backing, omit the star explicitly
-      // (SQ-60 section 1) rather than painting a sub-criterion speck.
+      // actual backing (paper + warm edge wash + every pre-star layer
+      // painted over that backing, composed in paint order: the
+      // Bortle wash first — drawBackground paints it before drawSky —
+      // then the Milky Way band's local contribution, when the band
+      // is painted). If even opaque ink cannot reach 3:1 over that
+      // backing, omit the star explicitly (SQ-60 section 1) rather
+      // than painting a sub-criterion speck.
+      const parchmentOverlays: ParchmentBackingOverlay[] = [];
+      if (bortleWash) parchmentOverlays.push(bortleWash);
+      if (parchmentBand) {
+        const bandOverlay = milkyWayBandOverlayAt(parchmentBand, star.x, star.y, width, height);
+        if (bandOverlay) parchmentOverlays.push(bandOverlay);
+      }
       const needed = minAlphaForContrast(
         parchmentInk,
-        parchmentBackingAt(parchmentPaper, star.x, star.y, width, height),
+        parchmentBackingAt(parchmentPaper, star.x, star.y, width, height, parchmentOverlays),
         PARCHMENT_CONTRAST_RATIO,
       );
       if (needed === null) continue;
@@ -1431,12 +1563,37 @@ function drawSky(
     drawConstellations(ctx);
   }
 
+  const densityTuning = getStarDensityTuning(mapLookTier);
+  // On parchment the band paints over the backing before the stars, so
+  // its local contribution joins the contrast model (below) in the same
+  // overlay shape as any other pre-star backing layer.
+  let parchmentBand: MilkyWayBandModel | null = null;
   if (cinematicDetail && styleProfile.showMilkyWayBand) {
     const bandColor = resolveBandColor(palette.star);
-    drawMilkyWayBand(ctx, width, height, recipe, bandColor, mode);
+    // Preserve navyGold's original band exactly. Newly covered styles use
+    // their ordinary star opacity and faint-star retention: the diffuse band
+    // stays restrained in the sparse style and uses fixed ink on parchment.
+    const bandOpacity = styleId === "navyGold"
+      ? 1
+      : styleProfile.starAlphaBoost *
+        (1 - getMinimalDropChance(5, styleProfile.minimalDrop) * densityTuning.minimalDropScale);
+    const drawBand = (target: CanvasRenderingContext2D) =>
+      drawMilkyWayBand(target, width, height, recipe, bandColor, mode, bandOpacity);
+    if (isParchment) {
+      drawParchmentFadedLayer(ctx, width, height, drawBand);
+      const bandRgb = parseHexColor(bandColor) ?? parseRgbColor(bandColor);
+      if (bandRgb) {
+        parchmentBand = {
+          rgb: bandRgb,
+          angle: computeGalacticBandAngle(recipe, width, height) ?? Math.PI * 0.18,
+          strength: milkyWayBandStrength(mode, bandOpacity),
+        };
+      }
+    } else {
+      drawBand(ctx);
+    }
   }
 
-  const densityTuning = getStarDensityTuning(mapLookTier);
   drawStarLayer(
     ctx,
     sky,
@@ -1453,6 +1610,7 @@ function drawSky(
     height,
     isParchment,
     parchmentPaper,
+    parchmentBand,
   );
   const drawPlanetary = (target: CanvasRenderingContext2D) =>
     drawPlanetaryLayer(
@@ -1564,6 +1722,78 @@ function drawFilmGrain(
   ctx.restore();
 }
 
+/**
+ * The Milky Way band's cross-profile: gradient stop position → fraction
+ * of the band strength. One source for the painter and for the backing
+ * model below, so the two cannot drift apart.
+ */
+const MILKY_WAY_GRADIENT_PROFILE: readonly (readonly [number, number])[] = [
+  [0, 0],
+  [0.15, 0.08],
+  [0.25, 0.22],
+  [0.35, 0.55],
+  [0.45, 0.85],
+  [0.5, 1],
+  [0.55, 0.85],
+  [0.65, 0.55],
+  [0.75, 0.22],
+  [0.85, 0.08],
+  [1, 0],
+];
+
+/** The band strength drawMilkyWayBand paints with for a mode + multiplier. */
+function milkyWayBandStrength(mode?: ModeSettings, opacityMultiplier = 1): number {
+  const baseStrength = 0.12 + (mode?.vignetteStrength ?? 1) * 0.05;
+  return clamp(baseStrength, 0.08, 0.22) * opacityMultiplier;
+}
+
+/** What drawSky needs to model the band's local backing contribution. */
+type MilkyWayBandModel = { rgb: Rgb; angle: number; strength: number };
+
+/**
+ * The band's contribution to the parchment backing at a point, as a
+ * backing overlay: the band colour at the alpha the band actually
+ * paints there — the gradient profile across the band (position from
+ * the band angle, in the band's rotated frame, clipped to the painted
+ * rect), times the parchment radial-fade retention the band is
+ * actually painted with on parchment — drawParchmentFadedLayer's
+ * piecewise-linear gradient, not the continuous smoothstep it samples
+ * (parchmentPaintedRetentionFactor). Null off the band.
+ */
+function milkyWayBandOverlayAt(
+  band: MilkyWayBandModel,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): ParchmentBackingOverlay | null {
+  const dx = x - width / 2;
+  const dy = y - height / 2;
+  const cos = Math.cos(band.angle);
+  const sin = Math.sin(band.angle);
+  const localX = dx * cos + dy * sin;
+  const localY = -dx * sin + dy * cos;
+  const bandWidth = Math.min(width, height) * MILKY_WAY_BAND_WIDTH_FACTOR;
+  const bandLength = Math.max(width, height) * MILKY_WAY_BAND_LENGTH_FACTOR;
+  if (Math.abs(localX) > bandLength / 2 || Math.abs(localY) > bandWidth) return null;
+  const t = clamp((localY + bandWidth) / (bandWidth * 2), 0, 1);
+  let factor = 0;
+  for (let i = 0; i < MILKY_WAY_GRADIENT_PROFILE.length - 1; i += 1) {
+    const [t0, f0] = MILKY_WAY_GRADIENT_PROFILE[i];
+    const [t1, f1] = MILKY_WAY_GRADIENT_PROFILE[i + 1];
+    if (t <= t1) {
+      factor = f0 + (f1 - f0) * ((t - t0) / (t1 - t0));
+      break;
+    }
+  }
+  const retention = parchmentPaintedRetentionFactor(
+    Math.hypot(dx, dy),
+    Math.min(width, height) * PROJECTION_RADIUS_FACTOR,
+  );
+  const alpha = band.strength * factor * retention;
+  return alpha > 0 ? { rgb: band.rgb, alpha } : null;
+}
+
 function drawMilkyWayBand(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -1571,29 +1801,23 @@ function drawMilkyWayBand(
   recipe: MapRecipe,
   color: string,
   mode?: ModeSettings,
+  opacityMultiplier = 1,
 ) {
   const bandAngle = computeGalacticBandAngle(recipe, width, height) ?? Math.PI * 0.18;
   const bandWidth = Math.min(width, height) * MILKY_WAY_BAND_WIDTH_FACTOR;
   const bandLength = Math.max(width, height) * MILKY_WAY_BAND_LENGTH_FACTOR;
-  const baseStrength = 0.12 + (mode?.vignetteStrength ?? 1) * 0.05;
-  const strength = clamp(baseStrength, 0.08, 0.22);
+  const strength = milkyWayBandStrength(mode, opacityMultiplier);
 
   ctx.save();
   ctx.translate(width / 2, height / 2);
   ctx.rotate(bandAngle);
   const gradient = ctx.createLinearGradient(0, -bandWidth, 0, bandWidth);
   // Smoother gradient with more stops for natural Milky Way appearance
-  gradient.addColorStop(0, "rgba(0,0,0,0)");
-  gradient.addColorStop(0.15, toRgba(color, strength * 0.08));
-  gradient.addColorStop(0.25, toRgba(color, strength * 0.22));
-  gradient.addColorStop(0.35, toRgba(color, strength * 0.55));
-  gradient.addColorStop(0.45, toRgba(color, strength * 0.85));
-  gradient.addColorStop(0.5, toRgba(color, strength));
-  gradient.addColorStop(0.55, toRgba(color, strength * 0.85));
-  gradient.addColorStop(0.65, toRgba(color, strength * 0.55));
-  gradient.addColorStop(0.75, toRgba(color, strength * 0.22));
-  gradient.addColorStop(0.85, toRgba(color, strength * 0.08));
-  gradient.addColorStop(1, "rgba(0,0,0,0)");
+  for (const [stop, factor] of MILKY_WAY_GRADIENT_PROFILE) {
+    // The end stops stay the literal transparent black they have
+    // always been; only the interior stops carry the band colour.
+    gradient.addColorStop(stop, factor === 0 ? "rgba(0,0,0,0)" : toRgba(color, strength * factor));
+  }
   ctx.fillStyle = gradient;
   ctx.fillRect(-bandLength / 2, -bandWidth, bandLength, bandWidth * 2);
   ctx.restore();
@@ -2701,9 +2925,15 @@ export const __testUtils = {
   adjustColor,
   toUTCDateFromLocal,
   parchmentRetentionFactor,
+  parchmentPaintedRetentionFactor,
   minAlphaForContrast,
   parchmentBackingAt,
   relativeLuminance,
+  milkyWayBandOverlayAt,
+  milkyWayBandStrength,
+  computeGalacticBandAngle,
+  effectiveBortleClass,
+  bortleWashOverlay,
 };
 
 export { STYLE_THEME, clamp };

@@ -31,9 +31,13 @@ register("./tsAliasLoader.mjs", import.meta.url);
 const { __testUtils, STYLE_THEME } = await import("../../src/lib/renderSky.ts");
 const {
   parchmentRetentionFactor,
+  parchmentPaintedRetentionFactor,
   minAlphaForContrast,
   parchmentBackingAt,
   relativeLuminance,
+  bortleWashOverlay,
+  milkyWayBandOverlayAt,
+  milkyWayBandStrength,
 } = __testUtils;
 
 const INK = { r: 0x3a, g: 0x2d, b: 0x1f };
@@ -136,9 +140,101 @@ test("source: parchment floor is 0.575 and the paper texture is gone", () => {
 test("source: premium stars are gated off for parchment; layers route through the fade", () => {
   assert.ok(renderSkySource.includes("premium && !isParchment && (renderOptions?.premiumStars"));
   const faded = renderSkySource.match(/drawParchmentFadedLayer\(ctx, width, height, draw/g) ?? [];
-  assert.equal(faded.length, 2); // constellations + planetary
+  assert.equal(faded.length, 3); // constellations + Milky Way + planetary
 });
 
 test("source: parchment ink is the style's fixed ink, never a mode-palette colour", () => {
   assert.ok(renderSkySource.includes("star: isParchment ? theme.star : (mode?.palette?.star ?? theme.star)"));
+});
+
+// ── Composed backing: Bortle wash + Milky Way band (#494 × #499) ──
+// drawBackground paints the Bortle wash over the parchment backing
+// before drawSky paints the band, so drawStarLayer must qualify stars
+// against BOTH overlays composed in that paint order —
+// overlays = [bortleWash, band]. Worst case pinned here: the band
+// centre (profile peak, fade retention 1) at the canvas centre.
+
+test("composed backing: Bortle wash + band at band centre — ≥3:1-or-omission", () => {
+  const W = 400;
+  const H = 400;
+  // Illustrated mode (vignetteStrength 1.1): band strength 0.175, the
+  // same configuration the milkyWay band pins use; parchment band
+  // opacity is 1 (starAlphaBoost 1, no minimalDrop).
+  const strength = milkyWayBandStrength({ vignetteStrength: 1.1 }, 1);
+  assert.ok(Math.abs(strength - 0.175) < 1e-12);
+  const bandOverlay = milkyWayBandOverlayAt({ rgb: INK, angle: 0, strength }, W / 2, H / 2, W, H);
+  assert.ok(bandOverlay);
+  assert.ok(Math.abs(bandOverlay.alpha - strength) < 1e-12, "band centre: profile peak × retention 1");
+
+  for (const bortle of [3, 1]) {
+    const wash = bortleWashOverlay(bortle);
+    assert.ok(wash, `Bortle ${bortle} must paint a wash`);
+    const backing = parchmentBackingAt(PAPER, W / 2, H / 2, W, H, [wash, bandOverlay]);
+    // The composition order is observable: [wash, band] must equal
+    // the manual paint-order composite and differ from [band, wash].
+    const inOrder = composite(bandOverlay.rgb, composite(wash.rgb, PAPER, wash.alpha), bandOverlay.alpha);
+    const reversed = composite(wash.rgb, composite(bandOverlay.rgb, PAPER, bandOverlay.alpha), wash.alpha);
+    for (const channel of ["r", "g", "b"]) {
+      assert.ok(Math.abs(backing[channel] - inOrder[channel]) < 1e-9, `Bortle ${bortle}: overlays must compose in paint order`);
+    }
+    assert.ok(Math.abs(backing.r - reversed.r) > 1, `Bortle ${bortle}: overlay order must be observable`);
+    const needed = minAlphaForContrast(INK, backing, 3);
+    if (bortle === 3) {
+      // Reachable, but only with a heavy raise (≈0.90): the star is
+      // kept and clears 3:1 — the two darkening layers compound.
+      assert.ok(needed !== null && needed > 0.85 && needed < 0.96, `Bortle 3 + band centre: expected needed ≈0.90, got ${needed}`);
+      assert.ok(contrastRatio(composite(INK, backing, Math.max(0.575, needed)), backing) >= 2.999);
+    } else {
+      // Bortle 1: even opaque ink cannot reach 3:1 over the composed
+      // backing — the criterion is omission, never a sub-3:1 paint.
+      assert.equal(needed, null, "Bortle 1 + band centre must be omission");
+    }
+  }
+});
+
+// ── Painted fade retention (micro-fix: painter vs model) ──
+// drawParchmentFadedLayer's destination-in gradient samples the
+// smoothstep retention at 0.925/0.95/0.975 and interpolates
+// piecewise-linearly between stops. The band overlay model must use
+// that painted retention: the continuous smoothstep understates the
+// painted band alpha in the outermost ring (at t≈0.96·R the painted
+// retention is 0.3625 vs the smoothstep's ≈0.352), which left a
+// model-qualified star painting at ≈2.9945:1.
+
+test("painted fade retention: piecewise-linear between the sampled stops", () => {
+  const R = 180; // 400 × PROJECTION_RADIUS_FACTOR (0.45)
+  assert.equal(parchmentPaintedRetentionFactor(0, R), 1);
+  assert.equal(parchmentPaintedRetentionFactor(0.9 * R, R), 1);
+  assert.equal(parchmentPaintedRetentionFactor(R, R), 0);
+  // Exact at the sampled stops (both interpolations agree there).
+  assert.ok(Math.abs(parchmentPaintedRetentionFactor(0.925 * R, R) - 0.84375) < 1e-9);
+  assert.ok(Math.abs(parchmentPaintedRetentionFactor(0.95 * R, R) - 0.5) < 1e-9);
+  assert.ok(Math.abs(parchmentPaintedRetentionFactor(0.975 * R, R) - 0.15625) < 1e-9);
+  // The worst ring point: linear between (0.95, 0.5) and
+  // (0.975, 0.15625) — strictly above the smoothstep model value.
+  const painted = parchmentPaintedRetentionFactor(0.96 * R, R);
+  assert.ok(Math.abs(painted - 0.3625) < 1e-9, `expected 0.3625, got ${painted}`);
+  assert.ok(painted > parchmentRetentionFactor(0.96 * R, R) + 0.005, "painted retention must exceed the smoothstep value at 0.96R");
+  assert.equal(parchmentPaintedRetentionFactor(10, 0), 1);
+});
+
+test("band overlay at the worst fade-ring point uses the painted retention", () => {
+  const W = 400;
+  const H = 400;
+  const R = 0.45 * W;
+  const strength = milkyWayBandStrength({ vignetteStrength: 1.1 }, 1);
+  // On the band centre line (angle 0 → centre line is horizontal),
+  // at distance 0.96·R from the centre: profile peak × painted
+  // retention 0.3625.
+  const x = W / 2 + 0.96 * R;
+  const overlay = milkyWayBandOverlayAt({ rgb: INK, angle: 0, strength }, x, H / 2, W, H);
+  assert.ok(overlay);
+  assert.ok(Math.abs(overlay.alpha - strength * 0.3625) < 1e-9, `expected ${strength * 0.3625}, got ${overlay.alpha}`);
+  // And a star qualified against that painted backing really clears
+  // 3:1 composited over it (the pre-fix model could qualify a star
+  // that then painted at ≈2.9945:1).
+  const backing = parchmentBackingAt(PAPER, x, H / 2, W, H, [overlay]);
+  const needed = minAlphaForContrast(INK, backing, 3);
+  assert.ok(needed !== null);
+  assert.ok(contrastRatio(composite(INK, backing, Math.max(0.575, needed)), backing) >= 2.999);
 });

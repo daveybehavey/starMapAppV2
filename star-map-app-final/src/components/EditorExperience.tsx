@@ -881,6 +881,10 @@ export function EditorExperience({
           // from the fresh-session stamp by the merge — a pre-#406
           // draft has no version and must restore as legacy.
           shapeLayoutVersion: draft.renderOptions.shapeLayoutVersion,
+          // Same pin for the Bortle class: a draft without one restores
+          // as the legacy default (absent), never inheriting the
+          // fresh-session value by the merge.
+          bortleClass: draft.renderOptions.bortleClass,
         },
         sampleDesignLastAutoSynced: draft.sampleDesignLastAutoSynced,
         // Same confirmed-location predicate as Generate / auto-reveal — a named
@@ -1076,6 +1080,11 @@ export function EditorExperience({
           // without a version hydrates as legacy, never converted by
           // the merge against the fresh-session stamp.
           shapeLayoutVersion: recipe.renderOptions.shapeLayoutVersion,
+          // Same pin for the Bortle class: a saved design without one
+          // hydrates as the legacy default (absent), never inheriting
+          // a non-default value from the draft-restored session state
+          // this merge runs against.
+          bortleClass: recipe.renderOptions.bortleClass,
         });
       }
       if (recipe.selectedOccasion) {

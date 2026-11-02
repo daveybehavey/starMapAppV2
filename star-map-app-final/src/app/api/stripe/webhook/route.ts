@@ -129,16 +129,21 @@ const referralRewardCredits = (() => {
   if (!Number.isFinite(parsed) || parsed < 1) return 1;
   return parsed;
 })();
+// Abuse caps: when the env vars are missing or invalid, the defaults
+// are the production values (10 per 30 days, 3 per 24 hours —
+// wrangler.toml and the deployed Worker settings), so an env-less
+// deploy stays capped instead of silently unlimited (Slate 96 S96-6).
+// An explicit 0 remains a deliberate operator opt-out.
 const referralMaxRewardsPerReferrer30d = (() => {
   const raw = process.env.REFERRAL_MAX_REWARDS_PER_REFERRER_30D?.trim();
   const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
-  if (!Number.isFinite(parsed) || parsed < 0) return 0;
+  if (!Number.isFinite(parsed) || parsed < 0) return 10;
   return parsed;
 })();
 const referralMaxRewardsPerReferrer24h = (() => {
   const raw = process.env.REFERRAL_MAX_REWARDS_PER_REFERRER_24H?.trim();
   const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN;
-  if (!Number.isFinite(parsed) || parsed < 0) return 0;
+  if (!Number.isFinite(parsed) || parsed < 0) return 3;
   return parsed;
 })();
 const REFERRAL_REWARD_CAP_WINDOW_24H_MS = 24 * 60 * 60 * 1000;

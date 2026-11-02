@@ -240,6 +240,7 @@ function sanitizeRenderOptions(options: Record<string, unknown>) {
     // legacy (and a legacy design must stay absent, not gain a key).
     "shapeLayoutVersion",
     "frameEnabled",
+    "bortleClass",
     "backgroundColor",
     "constellationColor",
     "constellationLineScale",

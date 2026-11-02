@@ -483,6 +483,14 @@ function normalizeRenderOptions(value: unknown): ValidationResult<Partial<Render
     normalized[key] = value[key];
   }
 
+  if (hasOwn(value, "bortleClass") && typeof value.bortleClass !== "undefined") {
+    const bortle = value.bortleClass;
+    if (typeof bortle !== "number" || !Number.isFinite(bortle)) {
+      return { ok: false, reason: "invalid_render_options" };
+    }
+    normalized.bortleClass = clamp(bortle, 1, 9);
+  }
+
   const colorFields = ["backgroundColor", "constellationColor"] as const;
   for (const key of colorFields) {
     if (!hasOwn(value, key)) continue;
