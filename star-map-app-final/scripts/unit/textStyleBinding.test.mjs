@@ -126,7 +126,21 @@ test("normalizeTextStyleBinding: only literal 'automatic' grants automatic, per 
     fontFamily: "automatic",
     fontWeight: "automatic",
   });
-  assert.deepEqual(normalizeTextStyleBinding({ color: "explicit", fontFamily: "explicit" }), EXPLICIT);
+  // A machinery-shaped legacy record (valid colour/font literals, no
+  // fontWeight key — everything written before #481) resolves its weight
+  // ownership to automatic: pre-#481 weights always followed tier
+  // typography, whatever the colour/font ownership.
+  assert.deepEqual(normalizeTextStyleBinding({ color: "explicit", fontFamily: "explicit" }), {
+    color: "explicit",
+    fontFamily: "explicit",
+    fontWeight: "automatic",
+  });
+  // A present-but-invalid fontWeight value is malformed provenance:
+  // explicit, never automatic.
+  assert.deepEqual(
+    normalizeTextStyleBinding({ color: "automatic", fontFamily: "explicit", fontWeight: "invalid" }),
+    { color: "automatic", fontFamily: "explicit", fontWeight: "explicit" },
+  );
 });
 
 test("normalizeTextStyleBinding: missing or malformed resolves explicit/explicit, fresh object", () => {
@@ -405,6 +419,23 @@ test("protective wrapper: explicit colour/font restored, other tier effects reta
   assert.equal(subtitle.color, "#c8a662");
 });
 
+test("protective wrapper: a legacy two-key explicit binding's weight still follows tiers (#481)", () => {
+  const boxes = knownBoxes();
+  boxes[0] = {
+    ...boxes[0],
+    fontFamily: "playfair",
+    color: "#ff3366",
+    fontWeight: 400,
+    // Pre-#481 shape: colour/font ownership only, no fontWeight key.
+    textStyleBinding: { color: "explicit", fontFamily: "explicit" },
+  };
+  const out = applyTierTypographyProtected("polished", "navyGold", boxes);
+  const title = out.find((b) => b.id === "title");
+  assert.equal(title.fontWeight, 600, "legacy weight takes the tier patch, it is not frozen at 400");
+  assert.equal(title.color, "#ff3366", "explicit colour is still restored");
+  assert.equal(title.fontFamily, "playfair", "explicit font is still restored");
+});
+
 test("protective wrapper: an explicit fontWeight the user set survives tier typography (#481)", () => {
   const boxes = knownBoxes();
   boxes[0] = {
@@ -576,6 +607,10 @@ test("editorDraft: malformed binding normalizes per property", () => {
   const data = draftData([
     { ...knownBoxes()[0], textStyleBinding: { color: "automatic", fontFamily: "invalid" } },
     { ...knownBoxes()[1], textStyleBinding: "automatic" },
+    {
+      ...knownBoxes()[2],
+      textStyleBinding: { color: "automatic", fontFamily: "explicit", fontWeight: "invalid" },
+    },
   ]);
   const parsed = parseEditorDraft(JSON.stringify(data));
   assert.equal(parsed.status, "restored");
@@ -585,6 +620,11 @@ test("editorDraft: malformed binding normalizes per property", () => {
     fontWeight: "automatic",
   });
   assert.deepEqual(parsed.data.textBoxes[1].textStyleBinding, EXPLICIT);
+  assert.deepEqual(parsed.data.textBoxes[2].textStyleBinding, {
+    color: "automatic",
+    fontFamily: "explicit",
+    fontWeight: "explicit",
+  });
 });
 
 test("SimplifiedEditor save round trip: raw JSON of textBoxes -> setTextBoxes keeps ownership", () => {

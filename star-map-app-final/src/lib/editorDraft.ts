@@ -293,16 +293,22 @@ function normalizeDraftTextStyleBinding(value: unknown): TextStyleBinding {
   const color = record.color === "automatic" ? "automatic" : "explicit";
   const fontFamily = record.fontFamily === "automatic" ? "automatic" : "explicit";
   // fontWeight joined the binding with the editor weight control (#481).
-  // Bindings written before then carry no fontWeight key: a record that
-  // marks any property "automatic" was written by the binding machinery as
-  // a complete binding, and no user surface could set a weight before #481,
-  // so such a record's weight ownership was automatic. Anything else keeps
-  // the provenance-preserving explicit default.
-  let fontWeight: "automatic" | "explicit";
+  // Bindings written before then carry no fontWeight key at all, and no
+  // user surface could set a weight, so a machinery-shaped legacy record
+  // (at least one valid ownership literal among colour/font) resolves its
+  // missing weight ownership to automatic — pre-#481 weights always
+  // followed tier typography, whatever the colour/font ownership was.
+  // A present-but-invalid fontWeight value is malformed provenance and
+  // resolves explicit, never automatic.
+  const machineryShaped =
+    record.color === "automatic" ||
+    record.color === "explicit" ||
+    record.fontFamily === "automatic" ||
+    record.fontFamily === "explicit";
+  const hasWeightKey = Object.prototype.hasOwnProperty.call(record, "fontWeight");
+  let fontWeight: "automatic" | "explicit" = "explicit";
   if (record.fontWeight === "automatic") fontWeight = "automatic";
-  else if (record.fontWeight === "explicit") fontWeight = "explicit";
-  else if (color === "automatic" || fontFamily === "automatic") fontWeight = "automatic";
-  else fontWeight = "explicit";
+  else if (!hasWeightKey && machineryShaped) fontWeight = "automatic";
   return { color, fontFamily, fontWeight };
 }
 
