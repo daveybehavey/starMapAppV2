@@ -56,7 +56,10 @@ test("checkout POST enforces app mode before the idempotency cache lookup", () =
   const post = src.slice(src.indexOf("export async function POST"));
   const check = post.indexOf("isAndroidAppModeRequest(req)");
   const keyBuild = post.indexOf("checkoutIdempotencyKey({");
-  const cacheGet = post.indexOf("kv.get<string>(idempotencyKey)");
+  // S95-2 N1 (2026-11-02): the cache read is kv.get<unknown> since the
+  // stored value became a handoff record (legacy entries are bare strings);
+  // the ordering contract this test pins is unchanged.
+  const cacheGet = post.indexOf("kv.get<unknown>(idempotencyKey)");
   assert.ok(check > 0 && keyBuild > 0 && cacheGet > 0);
   assert.ok(check < keyBuild && check < cacheGet, "app-mode refusal must precede cache key + lookup");
   assert.ok(post.indexOf("ANDROID_APP_DIGITAL_BLOCKED") < cacheGet);
@@ -72,7 +75,7 @@ test("app-mode checkouts use their own idempotency cache key", () => {
   // so app-mode keys without a copy stay byte-identical).
   assert.match(src, /\$\{input\.androidAppMode \? ":app-android" : ""\}\$\{pricingSegment\}\$\{giftSegment\}\$\{copySegment\}`/);
   const post = src.slice(src.indexOf("export async function POST"));
-  const keyCall = post.slice(post.indexOf("checkoutIdempotencyKey({"), post.indexOf("kv.get<string>(idempotencyKey)"));
+  const keyCall = post.slice(post.indexOf("checkoutIdempotencyKey({"), post.indexOf("kv.get<unknown>(idempotencyKey)"));
   assert.match(keyCall, /androidAppMode,/);
 });
 
