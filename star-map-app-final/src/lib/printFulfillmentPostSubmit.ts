@@ -45,11 +45,19 @@ export async function applyPrintfulPostSubmitReview(
 
   const review = await reviewPrintfulOrderFiles(sentRecord.printfulOrderId);
   const disposition = summarizePrintfulFileReview(review);
+  const now = Date.now();
 
   if (disposition === "failed" && review) {
     const failedRecord: PrintOrderRecord = {
       ...sentRecord,
       error: formatPrintfulFileFailureError(review),
+      // S96-1 F3: the review resolved — stamp it and close any pending
+      // episode so the review sweep never revisits this order.
+      fileReviewState: "failed",
+      fileReviewCheckedAt: now,
+      fileReviewPendingSince: undefined,
+      fileReviewPendingAlertedAt: undefined,
+      fileReviewPendingAlertError: undefined,
     };
     if (!failedRecord.operatorFailureAlertedAt) {
       const alertResult = await sendPrintOrderFailureAlert(failedRecord);
@@ -65,15 +73,34 @@ export async function applyPrintfulPostSubmitReview(
     return failedRecord;
   }
 
-  // Pending/unavailable: do not invent failure or approval from incomplete review.
+  // Pending/unavailable: do not invent failure or approval from incomplete
+  // review — but DO stamp the state (S96-1 F3). Returning the record
+  // unchanged used to make a pending review indistinguishable from a
+  // resolved one, and nothing ever looked again; the stamp is what the
+  // scheduled review sweep revisits. The pending-since is preserved
+  // across re-checks so the aging clock measures the episode.
   if (disposition === "pending" || disposition === "unavailable") {
-    return sentRecord;
+    return {
+      ...sentRecord,
+      fileReviewState: "pending",
+      fileReviewCheckedAt: now,
+      fileReviewPendingSince: sentRecord.fileReviewPendingSince ?? now,
+    };
   }
 
+  const healthyRecord: PrintOrderRecord = {
+    ...sentRecord,
+    fileReviewState: "healthy",
+    fileReviewCheckedAt: now,
+    fileReviewPendingSince: undefined,
+    fileReviewPendingAlertedAt: undefined,
+    fileReviewPendingAlertError: undefined,
+  };
+
   if (!sentRecord.operatorAlertedAt) {
-    const alertResult = await sendPrintOrderApprovalAlert(sentRecord);
+    const alertResult = await sendPrintOrderApprovalAlert(healthyRecord);
     // Return a new record — in-place mutation of sentRecord defeats change detection.
-    const approved: PrintOrderRecord = { ...sentRecord };
+    const approved: PrintOrderRecord = { ...healthyRecord };
     if (alertResult.delivered) {
       approved.operatorAlertedAt = Date.now();
       approved.operatorAlertProvider = alertResult.provider;
@@ -85,7 +112,97 @@ export async function applyPrintfulPostSubmitReview(
     return approved;
   }
 
-  return sentRecord;
+  return healthyRecord;
+}
+
+/**
+ * S96-1 F8: apply a review outcome onto the CURRENT stored record,
+ * carrying only the fields the review owns. Review writers used to
+ * persist a spread of the pre-send snapshot (hold-annotation sync
+ * excepted), so any field another writer landed during the Printful
+ * review call — a shipment fact, a resolve, a newer annotation — was
+ * silently reverted. Starting from `current` preserves all of it; the
+ * review-owned fields are then applied as progress:
+ * - the review stamps move to the reviewed state, except that a
+ *   resolved state (healthy/failed) is never regressed by a stale
+ *   review, and a pending episode keeps its earliest pending-since;
+ * - the failure `error` is written only by a failed review;
+ * - operator alert stamps are set only when the current record lacks
+ *   them (a delivered stamp is never replaced by a later failure).
+ * Returns null when the record no longer describes the reviewed order
+ * in `sent` (terminal projection, shipment, different bound id, or a
+ * conflicting resolution) — the caller must not write at all.
+ * The review sweep's runtime persists through this same merge.
+ */
+export function applyReviewOutcomeToCurrent(
+  current: PrintOrderRecord | null | undefined,
+  reviewed: PrintOrderRecord,
+): PrintOrderRecord | null {
+  if (!current) return null;
+  if (current.status !== "sent" || current.shippedAt) return null;
+  if (
+    normalizeAuthorityProviderOrderId(current.printfulOrderId) !==
+    normalizeAuthorityProviderOrderId(reviewed.printfulOrderId)
+  ) {
+    return null;
+  }
+  if (
+    (current.fileReviewState === "healthy" || current.fileReviewState === "failed") &&
+    reviewed.fileReviewState !== current.fileReviewState
+  ) {
+    return null;
+  }
+  const next: PrintOrderRecord = { ...current };
+  if (reviewed.fileReviewState) {
+    next.fileReviewState = reviewed.fileReviewState;
+    next.fileReviewCheckedAt = reviewed.fileReviewCheckedAt;
+    if (reviewed.fileReviewState === "pending") {
+      next.fileReviewPendingSince =
+        current.fileReviewPendingSince ?? reviewed.fileReviewPendingSince;
+      if (!current.fileReviewPendingAlertedAt && reviewed.fileReviewPendingAlertedAt) {
+        next.fileReviewPendingAlertedAt = reviewed.fileReviewPendingAlertedAt;
+        next.fileReviewPendingAlertError = undefined;
+      } else if (
+        !current.fileReviewPendingAlertedAt &&
+        !current.fileReviewPendingAlertError &&
+        reviewed.fileReviewPendingAlertError
+      ) {
+        next.fileReviewPendingAlertError = reviewed.fileReviewPendingAlertError;
+      }
+    } else {
+      next.fileReviewPendingSince = undefined;
+      next.fileReviewPendingAlertedAt = undefined;
+      next.fileReviewPendingAlertError = undefined;
+    }
+  }
+  if (reviewed.fileReviewState === "failed" && reviewed.error) {
+    next.error = reviewed.error;
+  }
+  if (!current.operatorAlertedAt && reviewed.operatorAlertedAt) {
+    next.operatorAlertedAt = reviewed.operatorAlertedAt;
+    next.operatorAlertProvider = reviewed.operatorAlertProvider;
+    next.operatorAlertError = undefined;
+  } else if (
+    !current.operatorAlertedAt &&
+    !current.operatorAlertError &&
+    reviewed.operatorAlertError
+  ) {
+    next.operatorAlertProvider = reviewed.operatorAlertProvider;
+    next.operatorAlertError = reviewed.operatorAlertError;
+  }
+  if (!current.operatorFailureAlertedAt && reviewed.operatorFailureAlertedAt) {
+    next.operatorFailureAlertedAt = reviewed.operatorFailureAlertedAt;
+    next.operatorFailureAlertProvider = reviewed.operatorFailureAlertProvider;
+    next.operatorFailureAlertError = undefined;
+  } else if (
+    !current.operatorFailureAlertedAt &&
+    !current.operatorFailureAlertError &&
+    reviewed.operatorFailureAlertError
+  ) {
+    next.operatorFailureAlertProvider = reviewed.operatorFailureAlertProvider;
+    next.operatorFailureAlertError = reviewed.operatorFailureAlertError;
+  }
+  return next;
 }
 
 function reviewAnnotatedRecord(before: PrintOrderRecord, after: PrintOrderRecord): boolean {
@@ -96,7 +213,12 @@ function reviewAnnotatedRecord(before: PrintOrderRecord, after: PrintOrderRecord
     before.operatorAlertError !== after.operatorAlertError ||
     before.operatorFailureAlertedAt !== after.operatorFailureAlertedAt ||
     before.operatorFailureAlertProvider !== after.operatorFailureAlertProvider ||
-    before.operatorFailureAlertError !== after.operatorFailureAlertError
+    before.operatorFailureAlertError !== after.operatorFailureAlertError ||
+    before.fileReviewState !== after.fileReviewState ||
+    before.fileReviewCheckedAt !== after.fileReviewCheckedAt ||
+    before.fileReviewPendingSince !== after.fileReviewPendingSince ||
+    before.fileReviewPendingAlertedAt !== after.fileReviewPendingAlertedAt ||
+    before.fileReviewPendingAlertError !== after.fileReviewPendingAlertError
   );
 }
 
@@ -216,10 +338,31 @@ export async function bindAcceptedPrintfulIdentityThenReview(input: {
     };
   }
 
-  const preservedReviewed = preserveLatestHoldAnnotations(
-    reviewed,
-    await kv.get<PrintOrderRecord>(printOrderKey(sessionId)),
-  );
+  // S96-1 F8: persist the review outcome by merging its owned fields
+  // onto the FRESHEST record, not by spreading the reviewed snapshot —
+  // a concurrent writer's fields (shipment, resolve, annotations)
+  // landing during the review call survive. Hold annotations need no
+  // special carry here: starting from the current record preserves
+  // them by construction. When the merge refuses (the record moved to
+  // a terminal projection, shipped, or a different bound id), nothing
+  // is written and the fresh record is what callers see. Only when the
+  // fresh read itself is unavailable does the previous hold-sync
+  // snapshot write remain as the fallback.
+  const freshReview = await kv.get<PrintOrderRecord>(printOrderKey(sessionId));
+  const mergedReviewed = applyReviewOutcomeToCurrent(freshReview, reviewed);
+  if (freshReview && !mergedReviewed) {
+    return {
+      record: freshReview,
+      identityPersist,
+      reviewPersist: null,
+      indexed,
+      bindOk: true,
+      bindBlockedByTerminal: false,
+      bindFailureReason: null,
+    };
+  }
+  const preservedReviewed =
+    mergedReviewed ?? preserveLatestHoldAnnotations(reviewed, freshReview);
   const reviewPersist = await persistPrintOrderRecord(sessionId, preservedReviewed, {
     allowClearTerminalFailure: false,
   });

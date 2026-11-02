@@ -309,6 +309,32 @@ export function isPrintOrderAuthorityClaimError(
 }
 
 /**
+ * Stripe-retryable: a failed print order's problem state is durable, but
+ * the operator failure alert for it was attempted and NOT delivered
+ * (S96-1 F9). The alert is the only discovery channel for a failed
+ * checkout order — there is no failure sweep — so the Stripe event must
+ * stay unfinalized and be redelivered; the next pass retries the alert
+ * from the persisted stamps. Mirrors the Printful webhook's terminal
+ * path, which answers 502 when its failure alert cannot be delivered.
+ */
+export class PrintOrderFailureAlertError extends Error {
+  readonly code = "print_order_failure_alert_undelivered";
+  readonly reason: string;
+
+  constructor(reason: string) {
+    super(`print_order_failure_alert_undelivered:${reason}`);
+    this.name = "PrintOrderFailureAlertError";
+    this.reason = reason;
+  }
+}
+
+export function isPrintOrderFailureAlertError(
+  error: unknown,
+): error is PrintOrderFailureAlertError {
+  return error instanceof PrintOrderFailureAlertError;
+}
+
+/**
  * Project a KV mirror through DO authority for operator/status/retry surfaces.
  * KV remains non-authoritative: a stale `failed` mirror after operator recovery
  * or bind must not make authoritative consumers report/act as failed.

@@ -1,7 +1,7 @@
 import type { PrintOrderRecord } from "@/lib/printOrders";
 
 type PrintOrderAlertProvider = "resend" | "sendgrid" | "none";
-type PrintOrderAlertKind = "approval" | "failure" | "hold";
+type PrintOrderAlertKind = "approval" | "failure" | "hold" | "review_pending";
 
 type PrintOrderAlertOptions = {
   /** Hold alerts only: this is the aging-sweep escalation, not the first notice. */
@@ -98,6 +98,16 @@ function getFailureSubject(order: PrintOrderRecord) {
   return `${prefix} order needs intervention`;
 }
 
+function getReviewPendingSubject(order: PrintOrderRecord) {
+  const prefix = order.includesDigitalAddOn ? "Print + HD" : "Print";
+  return `${prefix} order file review still pending at Printful`;
+}
+
+function formatPendingSince(order: PrintOrderRecord) {
+  const since = order.fileReviewPendingSince ?? order.createdAt ?? Date.now();
+  return new Date(since).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
+}
+
 function getHoldSubject(order: PrintOrderRecord, options?: PrintOrderAlertOptions) {
   const prefix = order.includesDigitalAddOn ? "Print + HD" : "Print";
   return options?.escalated
@@ -124,6 +134,9 @@ function getIntro(order: PrintOrderRecord, kind: PrintOrderAlertKind, options?: 
       ? "This paid print order has been on hold at Printful past the escalation threshold and still needs operator action."
       : "Printful has placed this paid print order on hold. Production will not start until the hold is resolved in Printful.";
   }
+  if (kind === "review_pending") {
+    return "Printful has not finished reviewing this paid order's print files. The order stays submitted, but production cannot start until the files clear review — and the review has now been pending past the alert threshold.";
+  }
   if (order.status === "pending" && getFailureReason(order) === "submission_disabled") {
     return "A paid print order is waiting because fulfillment submission is disabled.";
   }
@@ -136,6 +149,9 @@ function getFooterNote(kind: PrintOrderAlertKind) {
   }
   if (kind === "hold") {
     return "Resolve the hold in Printful (for example a file, address, or payment issue on their side). The hold clears here when Printful ships or fails the order, or when an operator resolves it.";
+  }
+  if (kind === "review_pending") {
+    return "Check the order's files in Printful. If they show a problem, correct and re-upload them. The review sweep keeps re-checking until the review resolves; no further alert is sent for this pending episode.";
   }
   return "Check the stored error, correct the issue, then retry the order from the admin endpoint or Printful workflow.";
 }
@@ -155,7 +171,9 @@ function getCopy(order: PrintOrderRecord, kind: PrintOrderAlertKind, options?: P
       ? getApprovalSubject(order)
       : kind === "hold"
         ? getHoldSubject(order, options)
-        : getFailureSubject(order);
+        : kind === "review_pending"
+          ? getReviewPendingSubject(order)
+          : getFailureSubject(order);
   const intro = getIntro(order, kind, options);
   const failureReason = getFailureReason(order);
   const holdReason = getHoldReason(order);
@@ -179,11 +197,16 @@ function getCopy(order: PrintOrderRecord, kind: PrintOrderAlertKind, options?: P
   if (kind === "hold") {
     textLines.push(`Hold reason: ${holdReason}`);
   }
+  if (kind === "review_pending") {
+    textLines.push(`File review pending since: ${formatPendingSince(order)}`);
+  }
   textLines.push("", `Review in Printful: ${printfulReviewUrl}`, `Site: ${siteUrl}`);
 
-  const accentBg = kind === "approval" ? "#f4c74e" : kind === "hold" ? "#fb923c" : "#f87171";
+  const accentBg =
+    kind === "approval" ? "#f4c74e" : kind === "hold" || kind === "review_pending" ? "#fb923c" : "#f87171";
   const accentText = kind === "failure" ? "#ffffff" : "#141414";
-  const accentSubtle = kind === "approval" ? "#d9c78d" : kind === "hold" ? "#fed7aa" : "#fecaca";
+  const accentSubtle =
+    kind === "approval" ? "#d9c78d" : kind === "hold" || kind === "review_pending" ? "#fed7aa" : "#fecaca";
   const failureRow =
     kind === "failure"
       ? `<tr><td style="padding: 6px 0; font-weight: 700;">Failure reason</td><td style="padding: 6px 0;">${escapeHtml(
@@ -193,7 +216,11 @@ function getCopy(order: PrintOrderRecord, kind: PrintOrderAlertKind, options?: P
         ? `<tr><td style="padding: 6px 0; font-weight: 700;">Hold reason</td><td style="padding: 6px 0;">${escapeHtml(
             holdReason,
           )}</td></tr>`
-        : "";
+        : kind === "review_pending"
+          ? `<tr><td style="padding: 6px 0; font-weight: 700;">File review</td><td style="padding: 6px 0;">Pending since ${escapeHtml(
+              formatPendingSince(order),
+            )}</td></tr>`
+          : "";
 
   const html = `
     <div style="font-family: Georgia, 'Times New Roman', serif; max-width: 620px; margin: 0 auto; color: #0b1324; line-height: 1.6;">
@@ -356,6 +383,14 @@ export async function sendPrintOrderFailureAlert(order: PrintOrderRecord): Promi
 /** S96-1 F1: first notice that Printful placed a paid order on hold. */
 export async function sendPrintOrderHoldAlert(order: PrintOrderRecord): Promise<PrintOrderAlertResult> {
   return sendPrintOrderAlert(order, "hold");
+}
+
+/** S96-1 F3: the review sweep's one-shot alert when a post-submit file
+ * review stays pending past the configured threshold. */
+export async function sendPrintOrderReviewPendingAlert(
+  order: PrintOrderRecord,
+): Promise<PrintOrderAlertResult> {
+  return sendPrintOrderAlert(order, "review_pending");
 }
 
 /** S96-1 F1: the hold sweep's escalation when a hold ages unresolved. */

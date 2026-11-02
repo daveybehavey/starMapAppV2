@@ -61,8 +61,10 @@ import {
   claimAlternateFulfillmentDispatch,
   isPrintOrderAuthorityBindError,
   isPrintOrderAuthorityClaimError,
+  isPrintOrderFailureAlertError,
   PrintOrderAuthorityBindError,
   PrintOrderAuthorityClaimError,
+  PrintOrderFailureAlertError,
   seedPrintOrderAuthorityFromKv,
 } from "@/lib/printOrderAuthority";
 import { sendPrintOrderConfirmation } from "@/lib/printOrderConfirmation";
@@ -1758,6 +1760,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       // Ordinary/nonterminal failure writers must not inherit stale terminal provenance.
       ...(record.status === "failed" ? { terminalEventType: null } : {}),
     };
+    let failureAlertUndelivered = false;
     if (!nextRecord.operatorFailureAlertedAt) {
       const alertResult = await sendPrintOrderFailureAlert(nextRecord);
       if (alertResult.delivered) {
@@ -1767,10 +1770,23 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       } else {
         nextRecord.operatorFailureAlertProvider = alertResult.provider;
         nextRecord.operatorFailureAlertError = alertResult.error;
+        failureAlertUndelivered = true;
       }
     }
     // Fail-closed: unretainable delete must not look like durable problem-state success.
     assertPrintOrderRetained(await persistPrintOrderRecord(session.id, nextRecord));
+    // S96-1 F9: the problem state is durable, but if this pass attempted
+    // the operator failure alert and it was not delivered, the event
+    // must NOT finalize — the alert is the only discovery channel for a
+    // failed order (no failure sweep exists). Throwing keeps the Stripe
+    // event dedupe unfinalized; redelivery retries the alert from the
+    // persisted stamps (operatorFailureAlertedAt still unset), exactly
+    // as the Printful webhook's 502-on-alert-failure path intends.
+    if (failureAlertUndelivered) {
+      throw new PrintOrderFailureAlertError(
+        nextRecord.operatorFailureAlertError ?? "print_alert_failed",
+      );
+    }
   };
 
   const existing = await kv.get<PrintOrderRecord>(printOrderKey(session.id));
@@ -2239,6 +2255,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
         alternateDispatch: existingAlternateDispatch,
         terminalEventType: null,
       };
+      let strandedAlertUndelivered = false;
       if (!strandedRecord.operatorFailureAlertedAt) {
         const alertResult = await sendPrintOrderFailureAlert(strandedRecord);
         if (alertResult.delivered) {
@@ -2248,6 +2265,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
         } else {
           strandedRecord.operatorFailureAlertProvider = alertResult.provider;
           strandedRecord.operatorFailureAlertError = alertResult.error;
+          strandedAlertUndelivered = true;
         }
       }
       const freshest = await kv.get<PrintOrderRecord>(printOrderKey(session.id));
@@ -2259,6 +2277,14 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
         return;
       }
       assertPrintOrderRetained(await persistPrintOrderRecord(session.id, strandedRecord));
+      // S96-1 F9: same rule as persistProblemPrintOrder — the surfaced
+      // failure is durable, but an undelivered operator alert must keep
+      // the Stripe event retryable rather than ACK into invisibility.
+      if (strandedAlertUndelivered) {
+        throw new PrintOrderFailureAlertError(
+          strandedRecord.operatorFailureAlertError ?? "print_alert_failed",
+        );
+      }
       return;
     }
     payload = {
@@ -2664,6 +2690,16 @@ async function processCheckoutFulfillment(
       // S96-1 F2: the alternate-dispatch claim was unresolvable and
       // nothing was dispatched — Stripe must retry; do not finalize dedupe.
       console.error("Print order alternate dispatch claim failed; Stripe event remains retryable", {
+        sessionId: session.id,
+        reason: error.reason,
+      });
+      return { retryable: true };
+    }
+    if (isPrintOrderFailureAlertError(error)) {
+      // S96-1 F9: the failed order's problem state is durable but its
+      // operator alert was not delivered — Stripe must retry so the
+      // next pass re-attempts the alert; do not finalize dedupe.
+      console.error("Print order failure alert undelivered; Stripe event remains retryable", {
         sessionId: session.id,
         reason: error.reason,
       });

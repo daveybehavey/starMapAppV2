@@ -1,7 +1,6 @@
 import { kv } from "@/lib/kv";
 import {
   persistPrintOrderRecord,
-  preserveLatestHoldAnnotations,
   printOrderKey,
   type PrintOrderRecord,
 } from "@/lib/printOrders";
@@ -92,36 +91,45 @@ export async function sendPrintOrderConfirmation(sessionId: string): Promise<Pri
     },
   });
 
-  // Both outcome writes are built from the pre-send snapshot; a
-  // provider hold recorded while the email was in flight would be
-  // erased by them. Sync the hold annotations from the latest stored
-  // record immediately before each persist (same helper and doctrine
-  // as the post-submit identity/review writes).
+  // S96-1 F8: both outcome writes merge ONLY the confirmation fields
+  // onto the FRESHEST record. The previous shape spread the pre-send
+  // snapshot with a hold-annotation sync — holds survived, but any
+  // other field a concurrent writer landed while the email was in
+  // flight (a shipment fact, review stamps, a resolve) was reverted.
+  // Starting from the latest record preserves all of it by
+  // construction. When the record has moved on — deleted, no longer
+  // `sent` (a terminal projection owns it), or already stamped by a
+  // concurrent confirmation — the stale outcome is not written at all.
+  const latest = (await kv.get<ExtendedPrintOrderRecord>(key)) as ExtendedPrintOrderRecord | null;
+
   if (!sendResult.ok) {
-    const failed: ExtendedPrintOrderRecord = {
-      ...record,
-      printConfirmationError: sendResult.error.slice(0, 320),
-    };
-    const failedSynced = preserveLatestHoldAnnotations(
-      failed,
-      await kv.get<PrintOrderRecord>(key),
-    ) as ExtendedPrintOrderRecord;
-    await persistPrintOrderRecord(sessionId, failedSynced);
+    if (latest && latest.status === "sent" && !latest.printConfirmationSentAt) {
+      await persistPrintOrderRecord(sessionId, {
+        ...latest,
+        printConfirmationError: sendResult.error.slice(0, 320),
+      });
+    }
     console.warn("Print confirmation email failed", { sessionId, error: sendResult.error });
     return { ok: false, status: "failed", reason: sendResult.error, provider: "resend" };
   }
 
-  const sent: ExtendedPrintOrderRecord = {
-    ...record,
-    printConfirmationSentAt: Date.now(),
-    printConfirmationMessageId: sendResult.id || undefined,
-    printConfirmationError: undefined,
-  };
-  const sentSynced = preserveLatestHoldAnnotations(
-    sent,
-    await kv.get<PrintOrderRecord>(key),
-  ) as ExtendedPrintOrderRecord;
-  await persistPrintOrderRecord(sessionId, sentSynced);
+  if (latest?.printConfirmationSentAt) {
+    return {
+      ok: true,
+      status: "already_sent",
+      provider: "resend",
+      messageId: latest.printConfirmationMessageId ?? sendResult.id ?? null,
+    };
+  }
+
+  if (latest && latest.status === "sent") {
+    await persistPrintOrderRecord(sessionId, {
+      ...latest,
+      printConfirmationSentAt: Date.now(),
+      printConfirmationMessageId: sendResult.id || undefined,
+      printConfirmationError: undefined,
+    });
+  }
 
   return {
     ok: true,

@@ -190,3 +190,26 @@ test("S96-1 F1 (gate round 7): an already-shipped record rejects the hold before
   assert.ok(eventsSource.split("superseded_by_shipment").length >= 3);
   assert.match(eventsSource, /if \(existing\.shippedAt\) \{/);
 });
+
+test("S96-1 F7: package_shipped with an unresolved session is retryable (503), never a 200 ACK", () => {
+  // Extract the shipped handler body and pin its unresolved branch.
+  const start = printfulRouteSource.indexOf("async function handlePackageShipped");
+  assert.ok(start >= 0, "handlePackageShipped exists in the route");
+  const handler = printfulRouteSource.slice(start, start + 2400);
+  assert.match(handler, /status: "session_unresolved"/);
+  assert.match(handler, /\{ status: 503 \}/);
+  assert.match(handler, /package_shipped session unresolved \(retryable\)/);
+  // The pre-F7 shape — a 200 "ignored" ACK for the unresolved case —
+  // must not return: it dropped the shipment notification permanently.
+  assert.doesNotMatch(handler, /status: "ignored",\s+reason: "session_unresolved"/);
+});
+
+test("S96-1 F7: package_shipped with a resolved session but no tracking stays a 200 ignore (pinned, deliberate)", () => {
+  const start = printfulRouteSource.indexOf("async function handlePackageShipped");
+  const handler = printfulRouteSource.slice(start, start + 2400);
+  // Correlation exists once the session resolves; a redelivery of the
+  // same payload cannot supply the missing tracking number, so there
+  // is nothing for a retry to recover. See the PR body for the full
+  // disposition.
+  assert.match(handler, /reason: "tracking_number_missing"/);
+});

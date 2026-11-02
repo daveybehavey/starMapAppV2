@@ -102,6 +102,30 @@ export async function trySendInitialHdPurchaseEmail(input: {
     return { delivered: false, provider: "none", skipped: true, reason: "not_eligible" };
   }
 
+  // S96-1 F5: the dedupe claim below is taken BEFORE dispatch, so a
+  // failed first send used to stand forever — every replay read the
+  // counter as "already_sent" even though nothing was delivered and a
+  // later pass could have succeeded. Release the claim ONLY on recorded
+  // evidence: the initial-result sidecar holds a failure outcome
+  // (present, no deliveredAt) from a previous attempt. A delivered
+  // record keeps the claim; an absent or unreadable sidecar changes
+  // nothing, so an outcome lost after dispatch keeps the S93-1
+  // exactly-once residual rather than risking a duplicate email. (The
+  // delete + re-claim is not atomic — two passes racing the release
+  // could both dispatch; that needs a prior recorded failure AND
+  // overlapping passes, and the counter bounds every later attempt.)
+  let priorInitialResult: HdEmailResultRecord | null = null;
+  try {
+    priorInitialResult = await kv.getErrorPreserving<HdEmailResultRecord>(
+      ENTITLEMENT_KV.hdInitialEmailResult(input.sessionId),
+    );
+  } catch {
+    priorInitialResult = null;
+  }
+  if (priorInitialResult != null && priorInitialResult.deliveredAt == null) {
+    await kv.deleteDurable(ENTITLEMENT_KV.accessEmailDedupe(input.sessionId));
+  }
+
   const shouldSend = await kv.incr(ENTITLEMENT_KV.accessEmailDedupe(input.sessionId), 1, {
     ex: ACCESS_EMAIL_TTL_SECONDS,
   });
@@ -181,6 +205,16 @@ export async function trySendHdArchiveReadyEmail(input: {
   const archiveReady = await hdArchiveObjectExists(input.sessionId);
   if (!archiveReady) {
     return { delivered: false, provider: "none", skipped: true, reason: "archive_not_ready" };
+  }
+
+  // S96-1 F5: same claim release as the initial path. A recorded
+  // archive-ready failure (sidecar present, no deliveredAt) releases
+  // the claim so this pass retries the send; a delivered outcome was
+  // already handled by the archive_already_emailed check above when it
+  // carried the archive, and without the archive link a delivered
+  // record still keeps its claim below (no duplicate follow-up).
+  if (archiveEmailResult != null && archiveEmailResult.deliveredAt == null) {
+    await kv.deleteDurable(ENTITLEMENT_KV.hdArchiveEmailDedupe(input.sessionId));
   }
 
   const shouldSend = await kv.incr(ENTITLEMENT_KV.hdArchiveEmailDedupe(input.sessionId), 1, {

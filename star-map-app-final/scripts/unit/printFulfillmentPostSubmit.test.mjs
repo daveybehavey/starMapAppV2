@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  applyReviewOutcomeToCurrent,
   applyOperatorResolveProjection,
   applyTerminalWebhookDoFirst,
   applyTerminalWebhookWithRevisionGuard,
@@ -241,7 +242,7 @@ test("AG-018 #4: healthy review persists approval metadata via new record snapsh
   assert.ok(stored.operatorAlertedAt);
   assert.equal(stored.operatorAlertProvider, "resend");
   assert.match(postSubmitSource, /Return a new record/);
-  assert.match(postSubmitSource, /const approved: PrintOrderRecord = \{ \.\.\.sentRecord \}/);
+  assert.match(postSubmitSource, /const approved: PrintOrderRecord = \{ \.\.\.healthyRecord \}/);
   assert.match(postSubmitSource, /const beforeReview: PrintOrderRecord = \{ \.\.\.identityRecord \}/);
 });
 
@@ -1101,4 +1102,150 @@ test("AG-086 #6: seed + retry idempotent for ordinary failed mirror with explici
   assert.equal(state.revision, 1);
   assert.equal(state.seededFromKv, true);
   assert.equal(resolveRetryDoFirst({ authority: state, kvOrder: mirror }).action, "submit");
+});
+
+test("S96-1 F3: a pending review is stamped and persisted for the sweep to revisit", async () => {
+  const kv = createMemoryKv();
+  const result = await bindAcceptedPrintfulIdentityThenReview({
+    sessionId: SESSION,
+    sentRecord: baseSentRecord(),
+    kv,
+    reviewResult: buildReviewFromStatuses([{ item: "a", type: "default", status: "waiting" }]),
+  });
+  assert.equal(result.record.fileReviewState, "pending");
+  assert.equal(typeof result.record.fileReviewCheckedAt, "number");
+  assert.equal(result.record.fileReviewPendingSince, result.record.fileReviewCheckedAt);
+  assert.equal(result.reviewPersist?.outcome, "persisted", "the pending stamp must be durable, not just returned");
+  const stored = await kv.get(printOrderKey(SESSION));
+  assert.equal(stored.fileReviewState, "pending");
+  assert.equal(stored.fileReviewPendingSince, result.record.fileReviewPendingSince);
+});
+
+test("S96-1 F3: failed and healthy reviews stamp their resolution and close the pending episode", async () => {
+  const failedKv = createMemoryKv();
+  const failed = await bindAcceptedPrintfulIdentityThenReview({
+    sessionId: SESSION,
+    sentRecord: baseSentRecord({ fileReviewPendingSince: 123 }),
+    kv: failedKv,
+    reviewResult: buildReviewFromStatuses([{ item: "a", type: "default", status: "failed" }]),
+  });
+  assert.equal(failed.record.fileReviewState, "failed");
+  assert.equal(failed.record.fileReviewPendingSince, undefined);
+
+  const healthyKv = createMemoryKv();
+  const healthy = await bindAcceptedPrintfulIdentityThenReview({
+    sessionId: SESSION,
+    sentRecord: baseSentRecord({ fileReviewPendingSince: 123 }),
+    kv: healthyKv,
+    reviewResult: buildReviewFromStatuses([{ item: "a", type: "default", status: "ok" }]),
+  });
+  assert.equal(healthy.record.fileReviewState, "healthy");
+  assert.equal(healthy.record.fileReviewPendingSince, undefined);
+  const storedHealthy = await healthyKv.get(printOrderKey(SESSION));
+  assert.equal(storedHealthy.fileReviewState, "healthy");
+});
+
+test("S96-1 F8: review merge refuses records that no longer describe the reviewed order", () => {
+  const reviewed = { status: "sent", printfulOrderId: "PF-1", fileReviewState: "healthy", fileReviewCheckedAt: 10 };
+  assert.equal(applyReviewOutcomeToCurrent(null, reviewed), null);
+  assert.equal(applyReviewOutcomeToCurrent({ status: "failed", printfulOrderId: "PF-1" }, reviewed), null);
+  assert.equal(
+    applyReviewOutcomeToCurrent({ status: "sent", printfulOrderId: "PF-1", shippedAt: 5 }, reviewed),
+    null,
+    "a shipped record is not annotated over",
+  );
+  assert.equal(
+    applyReviewOutcomeToCurrent({ status: "sent", printfulOrderId: "PF-2" }, reviewed),
+    null,
+    "a different bound id is not annotated over",
+  );
+  assert.equal(
+    applyReviewOutcomeToCurrent(
+      { status: "sent", printfulOrderId: "PF-1", fileReviewState: "failed" },
+      { ...reviewed, fileReviewState: "pending" },
+    ),
+    null,
+    "a resolved review is never regressed by a stale pending outcome",
+  );
+});
+
+test("S96-1 F8: review merge preserves concurrent fields and moves alert stamps only forward", () => {
+  const current = {
+    status: "sent",
+    printfulOrderId: "PF-1",
+    fileReviewState: "pending",
+    fileReviewPendingSince: 100,
+    shippingNotificationSentAt: 999,
+    operatorAlertError: "earlier_failure",
+  };
+  const reviewed = {
+    status: "sent",
+    printfulOrderId: "PF-1",
+    fileReviewState: "healthy",
+    fileReviewCheckedAt: 500,
+    operatorAlertedAt: 500,
+    operatorAlertProvider: "resend",
+    operatorAlertError: undefined,
+    shippingNotificationSentAt: undefined,
+  };
+  const merged = applyReviewOutcomeToCurrent(current, reviewed);
+  assert.equal(merged.fileReviewState, "healthy");
+  assert.equal(merged.fileReviewPendingSince, undefined);
+  assert.equal(merged.shippingNotificationSentAt, 999, "a concurrent writer's field survives the merge");
+  assert.equal(merged.operatorAlertedAt, 500);
+  assert.equal(merged.operatorAlertError, undefined, "a delivered stamp clears the earlier error");
+
+  const stillPending = applyReviewOutcomeToCurrent(current, {
+    status: "sent",
+    printfulOrderId: "PF-1",
+    fileReviewState: "pending",
+    fileReviewCheckedAt: 700,
+    fileReviewPendingSince: 700,
+  });
+  assert.equal(stillPending.fileReviewPendingSince, 100, "the episode clock keeps its earliest observation");
+  assert.equal(stillPending.fileReviewCheckedAt, 700);
+});
+
+test("S96-1 F3/F8: source wiring — stamps, merge persist, and the sweep runtime", () => {
+  assert.match(postSubmitSource, /fileReviewState: "pending"/);
+  assert.match(postSubmitSource, /fileReviewState: "failed"/);
+  assert.match(postSubmitSource, /fileReviewState: "healthy"/);
+  assert.match(postSubmitSource, /export function applyReviewOutcomeToCurrent/);
+  assert.match(postSubmitSource, /applyReviewOutcomeToCurrent\(freshReview, reviewed\)/);
+  const sweepRuntimeSource = fs.readFileSync(
+    path.join(appRoot, "src/lib/printOrderReviewSweepRuntime.ts"),
+    "utf8",
+  );
+  assert.match(sweepRuntimeSource, /applyReviewOutcomeToCurrent/);
+  assert.match(sweepRuntimeSource, /runScheduledPrintOrderReviewSweep/);
+  const workerSource = fs.readFileSync(path.join(appRoot, "cloudflare-worker.ts"), "utf8");
+  assert.match(workerSource, /runScheduledPrintOrderReviewSweep\(env\)/);
+});
+
+test("S96-1 F4: retry route dispatch parity with the webhook (source pins)", () => {
+  // Merch margin skip — the poster margin model must not gate merch.
+  assert.match(retrySource, /merch_margin_skipped/);
+  // Merch with V2 configured goes through the catalog path with the
+  // webhook's argument shape (family placement/technique/label).
+  assert.match(retrySource, /submitPrintfulV2CatalogOrder\(\{/);
+  assert.match(retrySource, /catalogVariantId: hydrated\.merchCatalogVariantId/);
+  assert.match(retrySource, /placement: family\?\.placement \?\? "default"/);
+  assert.match(retrySource, /technique: family\?\.technique \?\? "digital"/);
+  // The poster v1 path is closed to merch.
+  assert.match(retrySource, /if \(!isMerchRetry && isPrintfulConfigured\(\)\)/);
+  // No destination anywhere is a persisted problem, not a bare 503.
+  assert.match(retrySource, /error: "fulfillment_not_configured"/);
+  assert.doesNotMatch(retrySource, /error: "Fulfillment not configured"/);
+});
+
+test("S96-1 F9: an undelivered failure alert keeps the Stripe event retryable (source pins)", () => {
+  assert.match(webhookSource, /throw new PrintOrderFailureAlertError\(/);
+  assert.match(webhookSource, /isPrintOrderFailureAlertError\(error\)/);
+  assert.match(webhookSource, /failure alert undelivered; Stripe event remains retryable/);
+  const authorityLibSource = fs.readFileSync(
+    path.join(appRoot, "src/lib/printOrderAuthority.ts"),
+    "utf8",
+  );
+  assert.match(authorityLibSource, /export class PrintOrderFailureAlertError/);
+  assert.match(authorityLibSource, /export function isPrintOrderFailureAlertError/);
 });

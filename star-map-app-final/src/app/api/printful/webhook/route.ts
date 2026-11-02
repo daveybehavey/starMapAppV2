@@ -68,16 +68,28 @@ async function handlePackageShipped(payload: PrintfulShipmentEvent) {
   });
 
   if (!sessionId) {
-    console.warn("Printful package_shipped session unresolved", {
+    // S96-1 F7 (extends AG-081): an unresolved session must not be ACKed
+    // here either. The failure and hold handlers return 503 for exactly
+    // this condition so Printful retries until the provider-ID index
+    // exists or external_id becomes resolvable; a 200 dropped the
+    // shipment notification permanently when the event raced the
+    // submit-time index write. The missing-tracking case below stays a
+    // 200: the session IS resolved there (correlation exists), and a
+    // redelivery of the same payload cannot supply the missing number.
+    console.warn("Printful package_shipped session unresolved (retryable)", {
       printfulOrderId,
       externalId: externalId.slice(0, 64),
     });
-    return NextResponse.json({
-      ok: true,
-      status: "ignored",
-      reason: "session_unresolved",
-      printfulOrderId,
-    });
+    return NextResponse.json(
+      {
+        ok: false,
+        status: "session_unresolved",
+        event: "package_shipped",
+        reason: "session_unresolved",
+        printfulOrderId,
+      },
+      { status: 503 },
+    );
   }
 
   const shipment = payload?.data?.shipment ?? null;

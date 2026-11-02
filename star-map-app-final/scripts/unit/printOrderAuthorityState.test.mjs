@@ -521,3 +521,47 @@ test("S96-1 F2: claim wiring is pinned in the TS sources", () => {
   assert.match(clientSource, /claimAlternateFulfillmentDispatch/);
   assert.match(clientSource, /PrintOrderAuthorityClaimError/);
 });
+
+test("S96-1 F10: operator_resolve with no provider identity anywhere is refused, state untouched", () => {
+  const unbound = createUnboundAuthorityState("cs_test_f10_unbound");
+  const result = applyPrintOrderAuthorityOp(unbound, {
+    type: "operator_resolve",
+    now: 5,
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, "provider_identity_required");
+  assert.equal(result.state, unbound, "refusal returns the untouched state object");
+  assert.equal(result.state.lifecycle, "unbound");
+  assert.equal(result.state.revision, 0);
+});
+
+test("S96-1 F10: operator_resolve with no identity does not recover a terminal failure", () => {
+  let state = createUnboundAuthorityState("cs_test_f10_terminal");
+  state = applyPrintOrderAuthorityOp(state, {
+    type: "mark_terminal_failed",
+    eventType: "order_failed",
+    now: 1,
+  }).state;
+  const result = applyPrintOrderAuthorityOp(state, {
+    type: "operator_resolve",
+    explicitPrintfulOrderId: "   ",
+    bootstrapPrintfulOrderId: null,
+    now: 2,
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, "provider_identity_required");
+  assert.equal(result.state.lifecycle, "terminal_failed", "no silent recovery without an id");
+  assert.equal(result.state.revision, state.revision);
+});
+
+test("S96-1 F10: operator_resolve with only a bootstrap id still binds it", () => {
+  const unbound = createUnboundAuthorityState("cs_test_f10_bootstrap");
+  const result = applyPrintOrderAuthorityOp(unbound, {
+    type: "operator_resolve",
+    bootstrapPrintfulOrderId: "PF-BOOT",
+    now: 5,
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.state.printfulOrderId, "PF-BOOT");
+  assert.equal(result.state.lifecycle, "bound");
+});
