@@ -42,6 +42,8 @@ import { syncSampleDesignTextBoxes } from "@/lib/sampleDesignTextSync";
 import { CheckoutLegalNotice } from "@/components/CheckoutLegalNotice";
 import {
   formatPrice,
+  getPrintPricingTiers,
+  getPrintSecondCopyPriceCents,
   getPricingTiers,
   isPrintSecondCopyPublicEnabled,
   type CheckoutOrderType,
@@ -613,6 +615,12 @@ export function EditorExperience({
     );
     return androidAppMode ? rows.filter((row) => !row.includeDigitalAddOn) : rows;
   }, [printShippingCountry, androidAppMode, preferredPrintVariant, includeSecondCopy, secondCopyOffered]);
+  // Lever A (S94-4-F9): the second copy's actual price beside the
+  // checkbox — the same canonical 90%-of-tier price checkout charges.
+  const secondCopyPriceLabel = formatPrice(
+    getPrintSecondCopyPriceCents(preferredPrintVariant),
+    getPrintPricingTiers()[preferredPrintVariant].currency
+  );
   const activeMapLookTier = useMemo(
     () => resolveMapLookTier(renderOptions, selectedStyle),
     [renderOptions, selectedStyle]
@@ -3787,7 +3795,8 @@ export function EditorExperience({
                                   <span className="font-semibold text-amber-100">
                                     Add a second copy — 10% off
                                   </span>{" "}
-                                  — a second copy of the same print, in the same parcel.
+                                  — a second copy of the same print for {secondCopyPriceLabel}, in the
+                                  same parcel.
                                 </span>
                               </label>
                             ) : null}
@@ -3809,7 +3818,7 @@ export function EditorExperience({
                                       isGift: isGiftOrder,
                                     })
                                   }
-                                  disabled={checkoutInFlight || !printShippingCountry}
+                                  disabled={checkoutInFlight || !printShippingCountry || !row.checkoutAvailable}
                                   className={paywallPrintSkuButtonClassesEditorPanel(
                                     row,
                                     preferredPrintVariant,
@@ -3824,6 +3833,15 @@ export function EditorExperience({
                                       <span className="block text-[10px] text-amber-100/95">
                                         {row.secondaryLine}
                                       </span>
+                                      {row.unavailableNote ? (
+                                        <span className="block text-[10px] font-semibold text-rose-200">
+                                          {row.unavailableNote}
+                                        </span>
+                                      ) : row.freeShippingProgressLine ? (
+                                        <span className="block text-[10px] text-amber-100/80">
+                                          {row.freeShippingProgressLine}
+                                        </span>
+                                      ) : null}
                                     </span>
                                   )}
                                 </button>

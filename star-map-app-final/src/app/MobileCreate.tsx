@@ -1768,7 +1768,7 @@ export function MobileCreate({
                           isSecondCopyEligibleVariant(primaryPrintRow.variant),
                       })
                     }
-                    disabled={!printShippingCountry || printCheckoutInFlight}
+                    disabled={!printShippingCountry || printCheckoutInFlight || !primaryPrintRow.checkoutAvailable}
                     className={`${paywallPrintSkuButtonClassesMobile(primaryPrintRow, preferredPrintVariant, preferredIncludeDigitalAddOn)} mt-2 w-full`}
                   >
                     {printCheckoutInFlight ? (
@@ -1780,6 +1780,15 @@ export function MobileCreate({
                           {primaryPrintRow.headline}
                         </span>
                         <span className="block text-[10px] text-amber-100/95">{primaryPrintRow.secondaryLine}</span>
+                        {primaryPrintRow.unavailableNote ? (
+                          <span className="block text-[10px] font-semibold text-rose-200">
+                            {primaryPrintRow.unavailableNote}
+                          </span>
+                        ) : primaryPrintRow.freeShippingProgressLine ? (
+                          <span className="block text-[10px] text-amber-100/80">
+                            {primaryPrintRow.freeShippingProgressLine}
+                          </span>
+                        ) : null}
                       </span>
                     )}
                   </button>
@@ -1805,7 +1814,7 @@ export function MobileCreate({
                                 isSecondCopyEligibleVariant(row.variant),
                             })
                           }
-                          disabled={!printShippingCountry || printCheckoutInFlight}
+                          disabled={!printShippingCountry || printCheckoutInFlight || !row.checkoutAvailable}
                           className={paywallPrintSkuButtonClassesMobile(row, preferredPrintVariant, preferredIncludeDigitalAddOn)}
                         >
                           {printCheckoutInFlight ? (
@@ -1817,6 +1826,15 @@ export function MobileCreate({
                                 {row.headline}
                               </span>
                               <span className="block text-[10px] text-amber-100/95">{row.secondaryLine}</span>
+                              {row.unavailableNote ? (
+                                <span className="block text-[10px] font-semibold text-rose-200">
+                                  {row.unavailableNote}
+                                </span>
+                              ) : row.freeShippingProgressLine ? (
+                                <span className="block text-[10px] text-amber-100/80">
+                                  {row.freeShippingProgressLine}
+                                </span>
+                              ) : null}
                             </span>
                           )}
                         </button>

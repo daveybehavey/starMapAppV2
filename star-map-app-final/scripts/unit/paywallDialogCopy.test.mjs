@@ -95,12 +95,17 @@ test("PaywallModal keeps Love-It reprint under print options and digital support
   );
 
   const digitalPanelStart = src.indexOf('id="paywall-tab-panel-digital"');
-  // Print rows carry the Love-It line; the mug row (merch terms, M05)
-  // switches to MERCH_POLICY_LINE. Both live in the print panel only.
-  const printPolicy = src.indexOf('row.variant === "mug_11oz" ? MERCH_POLICY_LINE : LOVE_IT_GUARANTEE_LINE');
+  // UPDATED 2026-11-02 (S94-4-F5): the Love-It line is no longer
+  // repeated under every print row; it renders ONCE per surface in a
+  // policy block beside the rows. Inside the digital panel it may only
+  // appear within the print-upsell card (whose buttons also start print
+  // checkout) — never under the digital purchase options themselves.
+  const printPolicy = src.indexOf("{LOVE_IT_GUARANTEE_LINE}");
+  const upsellStart = src.indexOf("Prefer a physical print?", digitalPanelStart);
   const digitalLoveIt = src.indexOf("LOVE_IT_GUARANTEE_LINE", digitalPanelStart);
-  assert.ok(printPolicy > 0 && printPolicy < digitalPanelStart, "Love-It line should appear in print panel");
-  assert.equal(digitalLoveIt, -1, "Love-It reprint line must not appear under digital options");
+  assert.ok(printPolicy > 0 && printPolicy < digitalPanelStart, "Love-It policy block should appear in print panel");
+  assert.ok(upsellStart > digitalPanelStart, "print upsell card should exist in the digital panel");
+  assert.ok(digitalLoveIt > upsellStart, "in the digital panel the Love-It line appears only inside the print upsell");
 });
 
 test("Christmas order-by banner never renders 'Order by for'", async () => {

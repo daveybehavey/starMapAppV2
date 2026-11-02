@@ -2,7 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CheckoutPlan } from "@/lib/pricing";
-import { isPrintSecondCopyPublicEnabled, type PrintVariant } from "@/lib/pricing";
+import {
+  formatPrice,
+  getPrintPricingTiers,
+  getPrintSecondCopyPriceCents,
+  isPrintSecondCopyPublicEnabled,
+  type PrintVariant,
+} from "@/lib/pricing";
 import { isSecondCopyEligibleVariant } from "@/lib/printCatalog";
 import type { PaywallCopyVariant } from "@/lib/experiments";
 import { trackSelectItem, trackViewItemList } from "@/lib/analytics";
@@ -221,6 +227,17 @@ export function PaywallModal({
     () => formatPosterShippingFootnote(printShippingCountry),
     [printShippingCountry]
   );
+
+  // Lever A (S94-4-F9): the second copy's actual price beside the
+  // checkbox — the same canonical 90%-of-tier price checkout charges
+  // (getPrintSecondCopyPriceCents), in the same book the rows display.
+  const secondCopyPriceLabel = formatPrice(
+    getPrintSecondCopyPriceCents(preferredPrintVariant),
+    getPrintPricingTiers()[preferredPrintVariant].currency
+  );
+  // The merch policy line is shown once per surface (S94-4-F5), and
+  // only when a merch row is actually on offer.
+  const hasMerchPrintRow = printRows.some((row) => row.variant === "mug_11oz");
 
   const canPrintCheckout = Boolean(printShippingCountry);
 
@@ -667,7 +684,7 @@ export function PaywallModal({
                     />
                     <span>
                       <span className="font-semibold text-amber-100">Add a second copy — 10% off</span>{" "}
-                      — a second copy of the same print, in the same parcel.
+                      — a second copy of the same print for {secondCopyPriceLabel}, in the same parcel.
                     </span>
                   </label>
                 ) : null}
@@ -677,7 +694,7 @@ export function PaywallModal({
                       <button
                         type="button"
                         onClick={() => handlePrintCheckoutClick(row, "paywall_print_options")}
-                        disabled={checkoutInFlight || !canPrintCheckout}
+                        disabled={checkoutInFlight || !canPrintCheckout || !row.checkoutAvailable}
                         className={paywallPrintSkuButtonClasses(
                           row,
                           preferredPrintVariant,
@@ -701,11 +718,35 @@ export function PaywallModal({
                           country: printShippingCountry,
                         })}
                       </p>
-                      <p className="mt-0.5 px-1 text-[10px] leading-snug text-amber-100/75">
-                        {row.variant === "mug_11oz" ? MERCH_POLICY_LINE : LOVE_IT_GUARANTEE_LINE}
-                      </p>
+                      {row.unavailableNote ? (
+                        <p className="mt-0.5 px-1 text-[10px] leading-snug font-semibold text-rose-200">
+                          {row.unavailableNote}
+                        </p>
+                      ) : row.freeShippingProgressLine ? (
+                        <p className="mt-0.5 px-1 text-[10px] leading-snug text-amber-100/80">
+                          {row.freeShippingProgressLine}
+                        </p>
+                      ) : null}
                     </div>
                   ))}
+                </div>
+                {/* S94-4-F5: the guarantee / merch policy copy appears ONCE
+                    for the panel, beside the purchase rows — not repeated
+                    under every button. Wording is unchanged; the returns
+                    page carries the full policy. */}
+                <div className="mt-3 space-y-1 px-1 text-[10px] leading-snug text-amber-100/75">
+                  <p>
+                    {LOVE_IT_GUARANTEE_LINE}{" "}
+                    <a
+                      href="/returns"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline underline-offset-2 hover:text-white"
+                    >
+                      Returns &amp; exchanges
+                    </a>
+                  </p>
+                  {hasMerchPrintRow ? <p>{MERCH_POLICY_LINE}</p> : null}
                 </div>
               </div>
             )}
@@ -830,29 +871,55 @@ export function PaywallModal({
               )}
               <div className="mt-3 grid gap-2">
                 {printRows.map((row) => (
-                  <button
-                    key={`upsell-${paywallPrintCheckoutRowKey(row)}`}
-                    type="button"
-                    onClick={() => handlePrintUpsellClick(row)}
-                    disabled={checkoutInFlight}
-                    className={paywallPrintSkuButtonClasses(
-                      row,
-                      preferredPrintVariant,
-                      preferredIncludeDigitalAddOn
-                    )}
-                  >
-                    {checkoutInFlight ? (
-                      "Opening secure checkout..."
-                    ) : (
-                      <>
-                        <span className="block font-semibold">{row.headline}</span>
-                        <span className="mt-0.5 block text-[10px] font-normal text-amber-100/95">
-                          {canPrintCheckout ? row.secondaryLine : "Open print tab to finish"}
-                        </span>
-                      </>
-                    )}
-                  </button>
+                  <div key={`upsell-${paywallPrintCheckoutRowKey(row)}`}>
+                    <button
+                      type="button"
+                      onClick={() => handlePrintUpsellClick(row)}
+                      disabled={checkoutInFlight || (canPrintCheckout && !row.checkoutAvailable)}
+                      className={paywallPrintSkuButtonClasses(
+                        row,
+                        preferredPrintVariant,
+                        preferredIncludeDigitalAddOn
+                      )}
+                    >
+                      {checkoutInFlight ? (
+                        "Opening secure checkout..."
+                      ) : (
+                        <>
+                          <span className="block font-semibold">{row.headline}</span>
+                          <span className="mt-0.5 block text-[10px] font-normal text-amber-100/95">
+                            {canPrintCheckout ? row.secondaryLine : "Open print tab to finish"}
+                          </span>
+                        </>
+                      )}
+                    </button>
+                    {canPrintCheckout && row.unavailableNote ? (
+                      <p className="mt-1 px-1 text-[10px] leading-snug font-semibold text-rose-200">
+                        {row.unavailableNote}
+                      </p>
+                    ) : canPrintCheckout && row.freeShippingProgressLine ? (
+                      <p className="mt-1 px-1 text-[10px] leading-snug text-amber-100/80">
+                        {row.freeShippingProgressLine}
+                      </p>
+                    ) : null}
+                  </div>
                 ))}
+              </div>
+              {/* S94-4-F5: one policy block for this surface too (these
+                  buttons start print checkout directly). */}
+              <div className="mt-3 space-y-1 px-1 text-[10px] leading-snug text-amber-100/75">
+                <p>
+                  {LOVE_IT_GUARANTEE_LINE}{" "}
+                  <a
+                    href="/returns"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-2 hover:text-white"
+                  >
+                    Returns &amp; exchanges
+                  </a>
+                </p>
+                {hasMerchPrintRow ? <p>{MERCH_POLICY_LINE}</p> : null}
               </div>
             </div>
           )}

@@ -99,10 +99,30 @@ export function getSecondCopyShippingIncrementCents(
   return getPrintShippingEstimate(variant, country)?.amountCents ?? 0;
 }
 
+/**
+ * Guard config env read with the codebase's public-mirror pattern (same
+ * shape as getPrintAllowedCountries / getPrintFreeShippingThresholdCents):
+ * the server reads the server var first and falls back to the
+ * NEXT_PUBLIC_ mirror; the browser can only see the mirror. The mirrors
+ * exist so purchase surfaces (the paywall rows) can preflight the SAME
+ * guard the checkout route enforces, before the buyer clicks — the pair
+ * must move together in wrangler.toml, exactly like the
+ * PRINT_CHECKOUT_ENABLED / NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED pair.
+ * The Stripe-fee knobs have no mirror and keep the server read (their
+ * code defaults govern in production).
+ */
+function readGuardEnv(serverName: "PRINT_MARGIN_GUARD_ENABLED" | "PRINT_MIN_MARGIN_CENTS"): string | undefined {
+  const publicName = `NEXT_PUBLIC_${serverName}`;
+  if (typeof window === "undefined") {
+    return process.env[serverName] ?? process.env[publicName];
+  }
+  return process.env[publicName];
+}
+
 export function getPrintMarginGuardConfig(): PrintMarginGuardConfig {
   return {
-    enabled: parseBool(process.env.PRINT_MARGIN_GUARD_ENABLED, false),
-    minMarginCents: parseIntValue(process.env.PRINT_MIN_MARGIN_CENTS, 0, 0),
+    enabled: parseBool(readGuardEnv("PRINT_MARGIN_GUARD_ENABLED"), false),
+    minMarginCents: parseIntValue(readGuardEnv("PRINT_MIN_MARGIN_CENTS"), 0, 0),
     stripePercent: parseFloatValue(process.env.PRINT_MARGIN_STRIPE_PERCENT, DEFAULT_STRIPE_PERCENT, 0),
     stripeFixedCents: parseIntValue(process.env.PRINT_MARGIN_STRIPE_FIXED_CENTS, DEFAULT_STRIPE_FIXED_CENTS, 0),
   };
