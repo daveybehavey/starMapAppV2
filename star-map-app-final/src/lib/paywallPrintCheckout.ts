@@ -1,7 +1,7 @@
 import type { PaywallPrintCheckoutRow } from "@/lib/printCatalog";
 import type { PrintVariant } from "@/lib/printCatalog";
 import { isSecondCopyEligibleVariant, resolvePaywallOfferRows } from "@/lib/printCatalog";
-import { formatPrice, getPrintPricingTiers } from "@/lib/pricing";
+import { formatPrice, getPrintPricingTiers, getPrintSecondCopyPriceCents } from "@/lib/pricing";
 import { formatPrintShippingEstimate, getPrintShippingCountryLabel } from "@/lib/printfulShipping";
 import {
   getPrintFreeShippingThresholdCents,
@@ -31,6 +31,16 @@ export type PaywallPrintCheckoutPresentationRow = PaywallPrintCheckoutRow & {
    * "free shipping") or when the threshold is not configured.
    */
   freeShippingProgressLine: string | null;
+  /**
+   * Lever A (S94-4-F9, corrected in PR #479 fix round 1): THIS row's
+   * own second-copy price, from the canonical 90%-of-tier helper.
+   * The price lives on the row — never on the shared checkbox label —
+   * because each row buys its own variant: a label priced from the
+   * preferred variant advertised $89.10 (framed) beside an unframed
+   * row whose copy actually costs $44.10, and vice versa. Null for
+   * variants that cannot take a second copy.
+   */
+  secondCopyPriceLine: string | null;
 };
 
 export function getPaywallPrintCheckoutPresentation(
@@ -112,6 +122,12 @@ export function getPaywallPrintCheckoutPresentation(
       : isBundleRow
         ? `${formatPrice(merchandiseSubtotalCents, tier.currency)} · ${shippingLabel}`
         : [productPrice, shippingLabel].join(" + ");
+    // Lever A: the copy's price for THIS row's variant, in the same
+    // book the row displays — the price and the purchase can never
+    // drift apart because both derive from row.variant.
+    const secondCopyPriceLine = isSecondCopyEligibleVariant(row.variant)
+      ? `Second copy: ${formatPrice(getPrintSecondCopyPriceCents(row.variant), tier.currency)}`
+      : null;
     return {
       ...row,
       index,
@@ -120,6 +136,7 @@ export function getPaywallPrintCheckoutPresentation(
       checkoutAvailable,
       unavailableNote,
       freeShippingProgressLine,
+      secondCopyPriceLine,
     };
   });
 }

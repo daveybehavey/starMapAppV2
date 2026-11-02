@@ -2,13 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CheckoutPlan } from "@/lib/pricing";
-import {
-  formatPrice,
-  getPrintPricingTiers,
-  getPrintSecondCopyPriceCents,
-  isPrintSecondCopyPublicEnabled,
-  type PrintVariant,
-} from "@/lib/pricing";
+import { isPrintSecondCopyPublicEnabled, type PrintVariant } from "@/lib/pricing";
 import { isSecondCopyEligibleVariant } from "@/lib/printCatalog";
 import type { PaywallCopyVariant } from "@/lib/experiments";
 import { trackSelectItem, trackViewItemList } from "@/lib/analytics";
@@ -228,13 +222,13 @@ export function PaywallModal({
     [printShippingCountry]
   );
 
-  // Lever A (S94-4-F9): the second copy's actual price beside the
-  // checkbox — the same canonical 90%-of-tier price checkout charges
-  // (getPrintSecondCopyPriceCents), in the same book the rows display.
-  const secondCopyPriceLabel = formatPrice(
-    getPrintSecondCopyPriceCents(preferredPrintVariant),
-    getPrintPricingTiers()[preferredPrintVariant].currency
-  );
+  // Lever A (S94-4-F9, corrected in PR #479 fix round 1): the second
+  // copy's price is NOT shown beside the checkbox — each row below
+  // buys its own variant, so the copy is priced per row instead
+  // (row.secondCopyPriceLine, from the canonical 90%-of-tier helper).
+  // A single label priced from the preferred variant advertised the
+  // framed copy price ($89.10) beside an unframed row whose copy
+  // costs $44.10, and vice versa.
   // The merch policy line is shown once per surface (S94-4-F5), and
   // only when a merch row is actually on offer.
   const hasMerchPrintRow = printRows.some((row) => row.variant === "mug_11oz");
@@ -684,7 +678,8 @@ export function PaywallModal({
                     />
                     <span>
                       <span className="font-semibold text-amber-100">Add a second copy — 10% off</span>{" "}
-                      — a second copy of the same print for {secondCopyPriceLabel}, in the same parcel.
+                      — a second copy of the same print, in the same parcel. Its price is shown on
+                      each format below.
                     </span>
                   </label>
                 ) : null}
@@ -725,6 +720,11 @@ export function PaywallModal({
                       ) : row.freeShippingProgressLine ? (
                         <p className="mt-0.5 px-1 text-[10px] leading-snug text-amber-100/80">
                           {row.freeShippingProgressLine}
+                        </p>
+                      ) : null}
+                      {secondCopyOffered && row.secondCopyPriceLine ? (
+                        <p className="mt-0.5 px-1 text-[10px] leading-snug text-amber-100/80">
+                          {row.secondCopyPriceLine}
                         </p>
                       ) : null}
                     </div>
@@ -900,6 +900,11 @@ export function PaywallModal({
                     ) : canPrintCheckout && row.freeShippingProgressLine ? (
                       <p className="mt-1 px-1 text-[10px] leading-snug text-amber-100/80">
                         {row.freeShippingProgressLine}
+                      </p>
+                    ) : null}
+                    {canPrintCheckout && secondCopyOffered && row.secondCopyPriceLine ? (
+                      <p className="mt-1 px-1 text-[10px] leading-snug text-amber-100/80">
+                        {row.secondCopyPriceLine}
                       </p>
                     ) : null}
                   </div>

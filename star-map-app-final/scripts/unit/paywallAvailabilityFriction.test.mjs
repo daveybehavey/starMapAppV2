@@ -14,7 +14,7 @@
  * - F8 (Lever B progress): rows below the $89 threshold carry an
  *   "Add $X more for free shipping" line computed from the canonical
  *   threshold helper; qualifying rows carry none.
- * - F5/F9 placements are source pins at the bottom of this file.
+ * - F5/F9 placements are pinned at the bottom of this file.
  *
  * Env is set before import: the guard config is read per call, so the
  * matrix toggles it in place.
@@ -106,18 +106,53 @@ test("F2 wiring: the public env mirrors exist and match the server pair", () => 
   assert.match(wrangler, /^NEXT_PUBLIC_PRINT_MIN_MARGIN_CENTS = "1000"$/m);
 
   const margin = read("../../src/lib/printMargin.ts");
-  assert.match(margin, /NEXT_PUBLIC_\$\{serverName\}|`NEXT_PUBLIC_/);
   assert.match(margin, /readGuardEnv\("PRINT_MARGIN_GUARD_ENABLED"\)/);
   assert.match(margin, /readGuardEnv\("PRINT_MIN_MARGIN_CENTS"\)/);
+  // Fix round 1 (PR #479): the mirror reads must be LITERAL member
+  // accesses. Next.js inlines only fully written-out
+  // process.env.NEXT_PUBLIC_* references into browser bundles, so the
+  // original dynamically indexed read silently yielded undefined in
+  // the browser and left the guard disabled client-side while the
+  // checkout route still enforced it. Pin the literals, and ban the
+  // dynamic read for these keys (unrelated dynamic reads, e.g. the
+  // catalog COGS knobs, are server-only and stay).
+  assert.match(margin, /process\.env\.NEXT_PUBLIC_PRINT_MARGIN_GUARD_ENABLED/);
+  assert.match(margin, /process\.env\.NEXT_PUBLIC_PRINT_MIN_MARGIN_CENTS/);
+  assert.equal(margin.includes("process.env[publicName]"), false);
+  assert.equal(margin.includes("NEXT_PUBLIC_${"), false);
 });
 
-test("F9: both purchase surfaces price the second copy beside the checkbox", () => {
+test("F9: the second copy is priced per row, never from the preferred variant", () => {
+  const rows = getPaywallPrintCheckoutPresentation("US", null, false);
+  // Each eligible row carries its OWN copy price (canonical 90% of
+  // its tier): unframed $49.00 → $44.10, framed $99.00 → $89.10,
+  // canvas $79.00 → $71.10 — so the price beside a row is always the
+  // price that row's purchase actually charges for the copy.
+  assert.equal(
+    findRow(rows, "poster_unframed", (r) => !r.includeDigitalAddOn).secondCopyPriceLine,
+    "Second copy: $44.10 USD",
+  );
+  assert.equal(
+    findRow(rows, "poster_framed", (r) => !r.includeDigitalAddOn && !r.includeCardAddOn)
+      .secondCopyPriceLine,
+    "Second copy: $89.10 USD",
+  );
+  assert.equal(findRow(rows, "canvas_wrap").secondCopyPriceLine, "Second copy: $71.10 USD");
+  // Ineligible variants carry no copy price (a mug-led shopper's mug row).
+  const mugRows = getPaywallPrintCheckoutPresentation("US", "mug_11oz", false);
+  assert.equal(findRow(mugRows, "mug_11oz").secondCopyPriceLine, null);
+
+  // Source pins: both surfaces render the price from the row, and the
+  // old single preferred-variant checkbox label is gone (it advertised
+  // the framed copy price beside an unframed purchase, and vice versa).
   for (const rel of ["../../src/components/PaywallModal.tsx", "../../src/components/EditorExperience.tsx"]) {
     const src = read(rel);
-    assert.match(src, /getPrintSecondCopyPriceCents/, rel);
     assert.match(src, /Add a second copy — 10% off/, rel);
-    assert.match(src, /secondCopyPriceLabel/, rel);
+    assert.match(src, /row\.secondCopyPriceLine/, rel);
+    assert.equal(src.includes("secondCopyPriceLabel"), false, rel);
   }
+  const presentation = read("../../src/lib/paywallPrintCheckout.ts");
+  assert.match(presentation, /getPrintSecondCopyPriceCents\(row\.variant\)/);
 });
 
 test("F5: the modal guarantee renders in policy blocks with a returns link, not per row", () => {

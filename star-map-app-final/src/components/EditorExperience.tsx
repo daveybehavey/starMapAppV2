@@ -42,8 +42,6 @@ import { syncSampleDesignTextBoxes } from "@/lib/sampleDesignTextSync";
 import { CheckoutLegalNotice } from "@/components/CheckoutLegalNotice";
 import {
   formatPrice,
-  getPrintPricingTiers,
-  getPrintSecondCopyPriceCents,
   getPricingTiers,
   isPrintSecondCopyPublicEnabled,
   type CheckoutOrderType,
@@ -615,12 +613,13 @@ export function EditorExperience({
     );
     return androidAppMode ? rows.filter((row) => !row.includeDigitalAddOn) : rows;
   }, [printShippingCountry, androidAppMode, preferredPrintVariant, includeSecondCopy, secondCopyOffered]);
-  // Lever A (S94-4-F9): the second copy's actual price beside the
-  // checkbox — the same canonical 90%-of-tier price checkout charges.
-  const secondCopyPriceLabel = formatPrice(
-    getPrintSecondCopyPriceCents(preferredPrintVariant),
-    getPrintPricingTiers()[preferredPrintVariant].currency
-  );
+  // Lever A (S94-4-F9, corrected in PR #479 fix round 1): the second
+  // copy's price is NOT shown beside the checkbox — each row in the
+  // grid below buys its own variant, so the copy is priced per row
+  // instead (row.secondCopyPriceLine, from the canonical 90%-of-tier
+  // helper). A single label priced from the preferred variant
+  // advertised the framed copy price ($89.10) beside an unframed row
+  // whose copy costs $44.10, and vice versa.
   const activeMapLookTier = useMemo(
     () => resolveMapLookTier(renderOptions, selectedStyle),
     [renderOptions, selectedStyle]
@@ -3795,8 +3794,8 @@ export function EditorExperience({
                                   <span className="font-semibold text-amber-100">
                                     Add a second copy — 10% off
                                   </span>{" "}
-                                  — a second copy of the same print for {secondCopyPriceLabel}, in the
-                                  same parcel.
+                                  — a second copy of the same print, in the same parcel. Its price is
+                                  shown on each format below.
                                 </span>
                               </label>
                             ) : null}
@@ -3840,6 +3839,11 @@ export function EditorExperience({
                                       ) : row.freeShippingProgressLine ? (
                                         <span className="block text-[10px] text-amber-100/80">
                                           {row.freeShippingProgressLine}
+                                        </span>
+                                      ) : null}
+                                      {secondCopyOffered && row.secondCopyPriceLine ? (
+                                        <span className="block text-[10px] text-amber-100/80">
+                                          {row.secondCopyPriceLine}
                                         </span>
                                       ) : null}
                                     </span>
