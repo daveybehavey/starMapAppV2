@@ -1253,6 +1253,12 @@ test("item 4 (fix round 2): a reversal landing mid-bookkeeping (after the delta,
     // (marker observed -> decrement, flags persisted; S94-1: the
     // reversal no longer writes the referrer session record — the
     // combined counter is never debited).
+    // Re-pin (2026-11-02, merch/append disposition lane): the feed
+    // read inside appendReferralEvent (and the cap count) moved from
+    // kv.get to kv.getErrorPreserving in the read-hardening change,
+    // so the staging hook is armed on BOTH read paths — the
+    // injection point is unchanged (the pass's feed read after the
+    // delta), only the kv method it rides on moved.
     let reversalLanded = false;
     getHook = (key, read) => {
       const referral = data.get(referralKey(REFERRAL_CODE));
@@ -1290,6 +1296,7 @@ test("item 4 (fix round 2): a reversal landing mid-bookkeeping (after the delta,
       }
       return read();
     };
+    epGetHook = getHook;
     const res = await postEvent(completedEvent("evt_midbook_rev_1", session));
     assert.equal(res.status, 200, `bookkeeping completes: ${JSON.stringify(res.body)}`);
     assert.equal(reversalLanded, true, "the staged interleave actually occurred");
@@ -1305,6 +1312,7 @@ test("item 4 (fix round 2): a reversal landing mid-bookkeeping (after the delta,
     assert.equal(referralEventsFor(session.id, "conversion_recorded").length, 1);
     assert.equal(referralEventsFor(session.id, "conversion_reversed").length, 1);
     getHook = null;
+    epGetHook = null;
 
     // A later refund delivery now sees the preserved flags and
     // no-ops — no second clawback, no second decrement.

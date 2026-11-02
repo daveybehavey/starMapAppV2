@@ -1593,3 +1593,226 @@ test("Gate round 3 (F9): a present dispatch marker whose state is missing or unr
     restoreKv();
   }
 });
+
+/* ================= 2026-11-02 lane — merch fall-through + feed/count read hardening =================
+ * Item 1: a PAID merch order in the alternate-webhook-only
+ * configuration (Printful V2 unconfigured — this harness sets no
+ * PRINTFUL_API_TOKEN / PRINTFUL_STORE_ID — with
+ * PRINT_FULFILLMENT_WEBHOOK_URL set) stranded at "pending": the
+ * merch branch of queuePrintOrder returned unconditionally, no
+ * error, no alert, no automatic dispatch path. Fixed-variant merch
+ * families resolve at checkout with no Printful credentials, and
+ * merch sellability is gated by catalog flags, not V2 config, so
+ * the configuration sells real orders.
+ * Item 2: appendReferralEvent's read had the BOT-P2 shape (plain
+ * kv.get degrades to null; the write-back erased the stored feed),
+ * and the cap count decided on plain reads. Both are now
+ * error-preserving; the append skips its write on an unreadable
+ * history (never throws into the non-retryable link/visit routes),
+ * and the count fails closed (the grant flow defers). */
+
+function merchCheckoutSessionFixture(sessionId, overrides = {}) {
+  return printCheckoutSessionFixture(sessionId, {
+    metadata: {
+      order_type: "print",
+      print_variant: "poster_framed",
+      print_asset_id: WH_PRINT_ASSET_ID,
+      // sticker_kisscut 3x3 — a fixed-variant family: checkout
+      // resolves it from the curated map with no Printful token.
+      print_merch_family: "sticker_kisscut",
+      print_merch_catalog_variant_id: "10163",
+      print_merch_size: "3×3",
+      qa_run: "true",
+    },
+    ...overrides,
+  });
+}
+
+test("Merch fall-through: a paid merch order in the alternate-only configuration dispatches once, under the marker discipline", async () => {
+  installFakeKv();
+  installFetchDouble();
+  try {
+    const sessionId = "cs_wh_merch_fallthrough";
+    __resetPrintOrderAuthorityMemoryForTests();
+    const first = await postEvent(
+      completedEvent("evt_merch_ft_first", merchCheckoutSessionFixture(sessionId)),
+    );
+    assert.equal(first.status, 200, `delivery finalises: ${JSON.stringify(first.body)}`);
+    assert.equal(
+      fulfillmentCalls().length,
+      1,
+      "the paid merch order is dispatched to the alternate webhook exactly once",
+    );
+    const call = fulfillmentCalls()[0];
+    const payload = JSON.parse(call.body);
+    assert.equal(payload.merchCatalogVariantId, 10163, "the dispatch payload carries the merch catalog variant");
+    assert.equal(payload.dispatchId, `alt-fulfillment:${sessionId}`);
+    const headers = new Headers(call.headers);
+    assert.equal(headers.get("idempotency-key"), `alt-fulfillment:${sessionId}`);
+    const sent = data.get(printOrderKey(sessionId));
+    assert.equal(sent.status, "sent");
+    assert.equal(sent.alternateDispatch?.state, "accepted");
+    assert.equal(sent.merchCatalogVariantId, 10163);
+
+    // Redelivery: the visible sent record stops any second dispatch.
+    const second = await postEvent(
+      completedEvent("evt_merch_ft_second", merchCheckoutSessionFixture(sessionId)),
+    );
+    assert.equal(second.status, 200);
+    assert.equal(fulfillmentCalls().length, 1, "redelivery dispatches nothing further");
+  } finally {
+    restoreKv();
+  }
+});
+
+test("Merch fall-through: a standing attempted marker refuses the webhook pass instead of dispatching", async () => {
+  installFakeKv();
+  installFetchDouble();
+  try {
+    const sessionId = "cs_wh_merch_marker";
+    __resetPrintOrderAuthorityMemoryForTests();
+    data.set(printOrderKey(sessionId), {
+      status: "failed",
+      sessionId,
+      printVariant: "poster_framed",
+      merchCatalogVariantId: 10163,
+      includesDigitalAddOn: false,
+      amountTotal: 9900,
+      currency: "usd",
+      customerEmail: "buyer@example.com",
+      customerName: "Buyer One",
+      shippingDetails: {
+        name: "Buyer One",
+        address: { line1: "1 Main St", city: "Victoria", state: "BC", country: "US", postal_code: "90210" },
+      },
+      printAssetId: WH_PRINT_ASSET_ID,
+      attempts: 1,
+      error: "webhook_failed",
+      terminalEventType: null,
+      createdAt: Date.now(),
+      alternateDispatch: {
+        dispatchId: `alt-fulfillment:${sessionId}`,
+        state: "attempted",
+        attemptedAt: Date.now() - 60_000,
+      },
+    });
+    const res = await postEvent(
+      completedEvent("evt_merch_marker", merchCheckoutSessionFixture(sessionId)),
+    );
+    assert.equal(res.status, 200, `the delivery finalises as a refusal: ${JSON.stringify(res.body)}`);
+    assert.equal(fulfillmentCalls().length, 0, "no outbound dispatch while the marker is unresolved");
+    const stored = data.get(printOrderKey(sessionId));
+    assert.equal(stored?.error, "alternate_dispatch_reconciliation_required");
+    assert.equal(stored?.alternateDispatch?.state, "attempted", "the marker survives for the operator");
+  } finally {
+    restoreKv();
+  }
+});
+
+test("Feed append hardening: an unreadable feed history is preserved — the append skips instead of overwriting", async () => {
+  installFakeKv();
+  installFetchDouble();
+  try {
+    const feedKey = `referral:events:${REFERRAL_CODE}`;
+    const seeded = [
+      {
+        id: "reward_granted:cs_legacy_buyer",
+        code: REFERRAL_CODE,
+        type: "reward_granted",
+        createdAt: Date.now() - 60_000,
+        details: { checkoutSessionId: "cs_legacy_buyer", rewardGranted: 1 },
+      },
+      {
+        id: "conversion_reversed:cs_legacy_buyer",
+        code: REFERRAL_CODE,
+        type: "conversion_reversed",
+        createdAt: Date.now() - 30_000,
+        details: { checkoutSessionId: "cs_legacy_buyer" },
+      },
+    ];
+    data.set(feedKey, seeded);
+
+    // Transient Cloudflare read failure: the plain read degrades to
+    // null (kv.get's failure mode) and the error-preserving read
+    // throws (its failure mode). Pre-fix the append consumed the
+    // degraded null as an empty history and wrote it back, erasing
+    // both seeded entries.
+    getHook = async (key, read) => (key === feedKey ? null : read());
+    epGetHook = async (key, read) => {
+      if (key === feedKey) throw new KvReadError("injected feed read failure");
+      return read();
+    };
+    const skipped = await appendReferralEvent({
+      code: REFERRAL_CODE,
+      type: "visit_recorded",
+      eventId: "visit_recorded:cs_probe",
+      createdAt: Date.now(),
+    });
+    assert.equal(skipped, null, "the append reports itself unrecorded instead of writing truncated history");
+    assert.deepEqual(
+      data.get(feedKey),
+      seeded,
+      "the stored feed survives the failed append byte-identical",
+    );
+    getHook = null;
+    epGetHook = null;
+
+    // Once reads recover, appends resume on top of the preserved history.
+    const appended = await appendReferralEvent({
+      code: REFERRAL_CODE,
+      type: "visit_recorded",
+      eventId: "visit_recorded:cs_probe",
+      createdAt: Date.now(),
+    });
+    assert.equal(appended?.id, "visit_recorded:cs_probe");
+    assert.equal((data.get(feedKey) ?? []).length, 3, "the recovered append unions with the preserved history");
+  } finally {
+    restoreKv();
+  }
+});
+
+test("Cap count hardening: an unreadable grants ledger fails the count closed instead of under-enforcing", async () => {
+  installFakeKv();
+  installFetchDouble();
+  try {
+    const grantsKey = `referral:reward-grants:${REFERRAL_CODE}`;
+    const now = Date.now();
+    for (const buyer of ["cs_old_buyer_1", "cs_old_buyer_2"]) {
+      await appendReferralRewardGrant({
+        code: REFERRAL_CODE,
+        eventId: `reward_granted:${buyer}`,
+        createdAt: now - 60_000,
+        details: { checkoutSessionId: buyer, rewardGranted: 1 },
+      });
+    }
+    assert.equal(
+      await countRecentReferralRewardGrants(REFERRAL_CODE, 24 * 60 * 60 * 1000, now),
+      2,
+      "precondition: the count sees both seeded grants",
+    );
+
+    // Degraded ledger read: plain get would return null (count falls
+    // back to the feed side = 0 and the cap silently under-enforces);
+    // the error-preserving read throws, and the count must surface
+    // that so the webhook grant flow defers instead of deciding.
+    getHook = async (key, read) => (key === grantsKey ? null : read());
+    epGetHook = async (key, read) => {
+      if (key === grantsKey) throw new KvReadError("injected ledger read failure");
+      return read();
+    };
+    await assert.rejects(
+      () => countRecentReferralRewardGrants(REFERRAL_CODE, 24 * 60 * 60 * 1000, now),
+      "the cap count fails closed on an unreadable ledger",
+    );
+    getHook = null;
+    epGetHook = null;
+
+    assert.equal(
+      await countRecentReferralRewardGrants(REFERRAL_CODE, 24 * 60 * 60 * 1000, now),
+      2,
+      "the count recovers once reads do",
+    );
+  } finally {
+    restoreKv();
+  }
+});

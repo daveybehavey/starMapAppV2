@@ -152,18 +152,32 @@ test("SubmissionDisabled: zero manufacturing POSTs, pending submission_disabled 
   assert.equal(env.record.error, "submission_disabled");
 });
 
-test("ExcludedBranches: merch selects V2 only; merch with only the alternate URL submits nowhere", async () => {
+test("ExcludedBranches: merch selects V2 only when configured; without V2 it falls through to the alternate webhook, never v1", async () => {
   const v2 = createDestinationEnv({ printfulV2Configured: true });
   const v2Result = await simulateQueuePrintOrder(v2, { merch: true });
   assert.equal(v2Result.outcome, "merch_v2_sent");
   assert.equal(v2.counters.printfulV2Post, 1);
   assert.equal(v2.counters.alternatePost, 0);
 
+  // Re-pinned 2026-11-02 (merch fall-through fix): this case asserted
+  // "merch_no_submission" before — the designed behaviour stranded a
+  // PAID merch order at pending in this configuration (merch is
+  // sellable on catalog flags alone). Merch now dispatches to the
+  // alternate webhook; v1 stays untouched even though this env has
+  // v1 configured (the harness default), because v1 cannot submit
+  // catalog-variant orders.
   const noV2 = createDestinationEnv({ printfulV2Configured: false });
   const noV2Result = await simulateQueuePrintOrder(noV2, { merch: true });
-  assert.equal(noV2Result.outcome, "merch_no_submission");
-  assert.equal(noV2.counters.alternatePost, 0);
+  assert.equal(noV2Result.outcome, "merch_alternate_sent");
+  assert.equal(noV2.counters.alternatePost, 1);
   assert.equal(noV2.counters.printfulPost, 0);
+  assert.equal(noV2.counters.printfulV2Post, 0);
+
+  const noDestination = createDestinationEnv({ printfulV2Configured: false, alternateUrl: "" });
+  const noDestResult = await simulateQueuePrintOrder(noDestination, { merch: true });
+  assert.equal(noDestResult.outcome, "fulfillment_not_configured");
+  assert.equal(noDestination.counters.alternatePost, 0);
+  assert.equal(noDestination.counters.printfulPost, 0);
 });
 
 // ---------------------------------------------------------------------------
@@ -193,12 +207,23 @@ test("PIN: Printful reported-failure path still returns before any destination f
   );
 });
 
-test("PIN: merch branch still returns inside queuePrintOrder (never reaches the alternate POST)", () => {
+test("PIN: merch branch falls through to the alternate tail when V2 is unconfigured and the webhook is set (2026-11-02 re-pin)", () => {
   const merchIdx = webhookSource.indexOf("if (payload.merchCatalogVariantId) {");
   const regularIdx = webhookSource.indexOf("if (!isPrintfulConfigured() && !printFulfillmentWebhookUrl)", merchIdx);
   assert.ok(merchIdx >= 0 && regularIdx > merchIdx);
   const merchSegment = webhookSource.slice(merchIdx, regularIdx);
-  assert.match(merchSegment, /\}\s*return;\s*\}\s*$/);
+  // The pre-2026-11-02 pin asserted the segment ends in an
+  // unconditional return (merch never reaches the alternate POST) —
+  // that shape stranded paid merch orders at pending, so the pin is
+  // inverted: the segment must carry the fall-through marker, the
+  // V2 submit must still return inside the branch, and the branch
+  // must NOT end in an unconditional return.
+  assert.match(merchSegment, /Merch fall-through \(2026-11-02\)/);
+  assert.doesNotMatch(merchSegment, /\}\s*return;\s*\}\s*$/);
+  assert.match(
+    webhookSource,
+    /if \(isPrintfulConfigured\(\) && !payload\.merchCatalogVariantId\) \{\s*const printfulResult = await submitPrintfulOrder\(\{/,
+  );
 });
 
 test("PIN: ops retry route still selects a single destination per branch", () => {

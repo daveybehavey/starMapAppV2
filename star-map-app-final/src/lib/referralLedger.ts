@@ -1,7 +1,7 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import { kv } from "@/lib/kv";
+import { kv, KvReadError } from "@/lib/kv";
 import { normalizeReferralCode } from "@/lib/referrals";
 
 export type ReferralEventType =
@@ -68,7 +68,28 @@ export async function appendReferralEvent(input: {
   };
 
   const key = referralEventsKey(normalizedCode);
-  const existing = (await kv.get<ReferralEvent[]>(key)) ?? [];
+  // 2026-11-02 (merch/append disposition lane): this read must be
+  // error-preserving — the BOT-P2 shape. A plain kv.get degrades to
+  // null on a transient Cloudflare read failure; treating that as an
+  // empty history and writing it back erased the code's entire
+  // stored feed (the F6 reversal-recognition evidence and the
+  // pre-#477 in-window reward_granted entries the cap count still
+  // unions in). Unlike the grants ledger this append must NOT fail
+  // closed by throwing: several callers are non-retryable
+  // customer-facing routes (referral link creation, visit recording)
+  // whose primary writes have already landed when this append runs.
+  // So on an unreadable history the append skips its write and
+  // returns null — the new event is lost, the stored history is
+  // never destroyed by a read that could not see it. Callers that
+  // need the event durably (webhook grant/reversal bookkeeping)
+  // re-append deterministically on redelivery.
+  let existing: ReferralEvent[];
+  try {
+    existing = (await kv.getErrorPreserving<ReferralEvent[]>(key)) ?? [];
+  } catch (error) {
+    if (error instanceof KvReadError) return null;
+    throw error;
+  }
   const next = [event, ...existing.filter((entry) => entry.id !== event.id)].slice(
     0,
     REFERRAL_EVENT_HISTORY_LIMIT,
@@ -158,9 +179,21 @@ export async function countRecentReferralRewardGrants(
   };
   // Read the raw feed storage, NOT getReferralEvents: its 50-entry
   // read clamp is a display concern and must not bound cap evidence.
-  const feed = (await kv.get<ReferralEvent[]>(referralEventsKey(normalizedCode))) ?? [];
+  // Both reads are error-preserving (2026-11-02, merch/append
+  // disposition lane): this count is a money gate — it decides the
+  // reward_cap skip inside the webhook grant flow, whose own
+  // discipline is that unreadable evidence defers the grant
+  // (ReferralGrantTransientError), never decides degraded. A plain
+  // kv.get degrading to null on a transient read failure would
+  // silently count only the surviving side and under-enforce the
+  // cap. A failed read now throws KvReadError, which propagates to
+  // the grant flow and leaves the conversion retryable — the same
+  // fail-closed shape BOT-P2 gave the grants-ledger append. (The
+  // display getter getReferralEvents above stays a plain read: it
+  // feeds only summaries, and deciding nothing, it may degrade.)
+  const feed = (await kv.getErrorPreserving<ReferralEvent[]>(referralEventsKey(normalizedCode))) ?? [];
   feed.forEach(consider);
-  const grants = (await kv.get<ReferralEvent[]>(referralRewardGrantsKey(normalizedCode))) ?? [];
+  const grants = (await kv.getErrorPreserving<ReferralEvent[]>(referralRewardGrantsKey(normalizedCode))) ?? [];
   grants.forEach(consider);
   return count;
 }

@@ -1927,16 +1927,6 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
   }
 
   if (payload.merchCatalogVariantId) {
-    if (!isPrintfulV2Configured() && !printFulfillmentWebhookUrl) {
-      await persistProblemPrintOrder({
-        ...payload,
-        printAssetUrl,
-        status: "failed",
-        error: "fulfillment_not_configured",
-      });
-      return;
-    }
-
     if (isPrintfulV2Configured()) {
       const family = payload.merchFamily ? getMerchFamily(payload.merchFamily) : null;
       const printfulResult = await submitPrintfulV2CatalogOrder({
@@ -2011,8 +2001,35 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
           bindFailureReason ?? (bindBlockedByTerminal ? "terminal_blocks_bind" : "bind_rejected"),
         );
       }
+      return;
     }
-    return;
+
+    if (!printFulfillmentWebhookUrl) {
+      await persistProblemPrintOrder({
+        ...payload,
+        printAssetUrl,
+        status: "failed",
+        error: "fulfillment_not_configured",
+      });
+      return;
+    }
+
+    // Merch fall-through (2026-11-02): Printful V2 — the only native
+    // merch destination — is not configured, but the alternate
+    // fulfilment webhook is. Merch sellability is gated by the merch
+    // catalog flags, NOT by V2 configuration, and fixed-variant
+    // families resolve at checkout with no Printful credentials at
+    // all, so this configuration sells real paid merch orders. The
+    // pre-fix branch returned here unconditionally: the order sat at
+    // "pending" with no error and no alert, and no automatic path
+    // ever dispatched it (the ops retry route is manual only). Fall
+    // through to the shared alternate-dispatch tail below instead:
+    // the v1 Printful branch is skipped for merch (it cannot submit
+    // catalog-variant orders), and the tail treats the alternate
+    // webhook as this order's fulfiller under the S94-1 F9 marker
+    // discipline. Destination exclusivity is preserved: V2-configured
+    // merch submits to V2 only (above), and a merch order reaches
+    // exactly one destination per invocation.
   }
 
   if (!isPrintfulConfigured() && !printFulfillmentWebhookUrl) {
@@ -2025,7 +2042,10 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     return;
   }
 
-  if (isPrintfulConfigured()) {
+  // Merch never submits via v1 Printful (no catalog-variant support);
+  // a merch order that fell through the merch branch above is bound
+  // for the alternate webhook only.
+  if (isPrintfulConfigured() && !payload.merchCatalogVariantId) {
     const printfulResult = await submitPrintfulOrder({
       externalId: session.id,
       variant: payload.printVariant,
@@ -2118,7 +2138,12 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
   // round 3: ANY present marker refuses, including one whose
   // persisted state is missing or unrecognized (fail closed) —
   // dispatch happens only when no marker exists.
-  const alternateIsFulfiller = !isPrintfulConfigured();
+  // The alternate webhook is this order's fulfiller when v1 Printful
+  // did not take it: v1 unconfigured (the regular case), or a merch
+  // order that fell through (merch never submits via v1 — see the
+  // branch guard above). For non-merch orders this reduces to the
+  // pre-2026-11-02 definition exactly.
+  const alternateIsFulfiller = !isPrintfulConfigured() || Boolean(payload.merchCatalogVariantId);
   const dispatchId = alternateFulfillmentDispatchId(session.id);
   const existingAlternateDispatch = existing?.alternateDispatch;
   if (alternateIsFulfiller && alternateDispatchBlocksRedispatch(existingAlternateDispatch)) {
@@ -2157,7 +2182,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
   } catch (error) {
     // Outbound fulfillment failures only — durable persistence errors must not land here.
     if (isDurableKvPersistenceError(error)) throw error;
-    if (!isPrintfulConfigured()) {
+    if (alternateIsFulfiller) {
       // The dispatch outcome is unknown (no response): the marker in
       // payload stays "attempted", so a later pass refuses instead of
       // redispatching.
@@ -2182,7 +2207,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     // for the operator, and any later pass refuses to redispatch
     // until the dispatch is reconciled.
     const body = await webhookResponse.text().catch(() => "");
-    if (!isPrintfulConfigured()) {
+    if (alternateIsFulfiller) {
       await persistProblemPrintOrder({
         ...payload,
         printAssetUrl,
@@ -2202,7 +2227,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
 
   // Successful external side effect: persist "sent" outside the outbound catch so a
   // transient KV failure cannot be rewritten as a webhook/provider failure.
-  if (!isPrintfulConfigured()) {
+  if (alternateIsFulfiller) {
     const sentPersist = await persistPrintOrderRecord(session.id, {
       ...payload,
       printAssetUrl,
