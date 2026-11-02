@@ -24,6 +24,52 @@ import { kv } from "@/lib/kv";
 const ACCESS_EMAIL_TTL_SECONDS = 45 * 24 * 60 * 60;
 const HD_ARCHIVE_EMAIL_TTL_SECONDS = 45 * 24 * 60 * 60;
 
+/**
+ * A failure sidecar in its resumable-release state: once a claim
+ * release has consumed the failure evidence, `releaseConsumedAt` is
+ * stamped INTO the sidecar so a partially completed release (evidence
+ * consumed, claim delete failed) can be resumed by a later pass
+ * instead of stranding the claim forever.
+ */
+type HdEmailResultRecordWithReleaseState = HdEmailResultRecord & {
+  releaseConsumedAt?: number;
+};
+
+/**
+ * Consume a recorded failure sidecar and release its dedupe claim —
+ * the S96-1 F5 fix, made resumable (Codex P2 on PR #502). Protocol:
+ *
+ *   1. Stamp `releaseConsumedAt` into the sidecar (unless already
+ *      stamped). From this moment the failure is consumed: no later
+ *      pass may treat the record as fresh evidence, and the stamped
+ *      sidecar authorises resuming the release.
+ *   2. Delete the claim.
+ *   3. Delete the sidecar. Only an ABSENT sidecar means "release
+ *      complete", which is what the post-dispatch outcome-loss path
+ *      relies on (S93-1): a delivered retry whose outcome write failed
+ *      has no sidecar at the next claim, so it is never released.
+ *
+ * Any step throwing aborts the pass with the failure surfaced (the
+ * claim increment has not happened yet, so the caller sees an error,
+ * not a send). The next pass re-reads the stamped sidecar and resumes
+ * at the first incomplete step — a transient delete failure delays
+ * the retry by one pass instead of sealing the session's email.
+ */
+async function consumeFailureEvidenceAndReleaseClaim(input: {
+  sidecarKey: string;
+  claimKey: string;
+  prior: HdEmailResultRecordWithReleaseState;
+}): Promise<void> {
+  if (input.prior.releaseConsumedAt == null) {
+    await kv.setDurable(input.sidecarKey, {
+      ...input.prior,
+      releaseConsumedAt: Date.now(),
+    });
+  }
+  await kv.deleteDurable(input.claimKey);
+  await kv.deleteDurable(input.sidecarKey);
+}
+
 export type HdDownloadEmailDispatchResult = AccountAccessAlertResult & {
   skipped?: boolean;
   reason?: string;
@@ -123,16 +169,11 @@ export async function trySendInitialHdPurchaseEmail(input: {
     priorInitialResult = null;
   }
   if (priorInitialResult != null && priorInitialResult.deliveredAt == null) {
-    // Consume the failure evidence BEFORE releasing the claim. If
-    // this pass delivers but its own outcome write then fails, a
-    // surviving failure sidecar would authorize the NEXT pass to
-    // release the fresh claim and send a duplicate customer email.
-    // With the sidecar deleted first, an unrecorded outcome leaves
-    // no evidence behind, and the absent-sidecar rule above keeps
-    // the claim — the accepted S93-1 residual. A failure of either
-    // delete propagates: no release, no dispatch, retry next pass.
-    await kv.deleteDurable(ENTITLEMENT_KV.hdInitialEmailResult(input.sessionId));
-    await kv.deleteDurable(ENTITLEMENT_KV.accessEmailDedupe(input.sessionId));
+    await consumeFailureEvidenceAndReleaseClaim({
+      sidecarKey: ENTITLEMENT_KV.hdInitialEmailResult(input.sessionId),
+      claimKey: ENTITLEMENT_KV.accessEmailDedupe(input.sessionId),
+      prior: priorInitialResult,
+    });
   }
 
   const shouldSend = await kv.incr(ENTITLEMENT_KV.accessEmailDedupe(input.sessionId), 1, {
@@ -223,11 +264,11 @@ export async function trySendHdArchiveReadyEmail(input: {
   // carried the archive, and without the archive link a delivered
   // record still keeps its claim below (no duplicate follow-up).
   if (archiveEmailResult != null && archiveEmailResult.deliveredAt == null) {
-    // Consume the failure evidence BEFORE releasing the claim, as in
-    // the initial path: a delivered retry whose outcome write fails
-    // must not leave evidence behind that re-authorizes a release.
-    await kv.deleteDurable(ENTITLEMENT_KV.hdArchiveEmailResult(input.sessionId));
-    await kv.deleteDurable(ENTITLEMENT_KV.hdArchiveEmailDedupe(input.sessionId));
+    await consumeFailureEvidenceAndReleaseClaim({
+      sidecarKey: ENTITLEMENT_KV.hdArchiveEmailResult(input.sessionId),
+      claimKey: ENTITLEMENT_KV.hdArchiveEmailDedupe(input.sessionId),
+      prior: archiveEmailResult,
+    });
   }
 
   const shouldSend = await kv.incr(ENTITLEMENT_KV.hdArchiveEmailDedupe(input.sessionId), 1, {

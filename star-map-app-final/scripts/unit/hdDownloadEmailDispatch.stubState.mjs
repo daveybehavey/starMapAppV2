@@ -6,8 +6,12 @@ export const hdStubState = {
   kvReadThrows: false,
   /** When true, kv.setDurable throws (outcome write failure). */
   kvSetThrows: false,
+  /** When true, kv.setDurable throws only for values carrying deliveredAt (a delivered outcome write). */
+  kvSetThrowsIfDelivered: false,
   /** When true, kv.deleteDurable throws (evidence consumption failure). */
   kvDeleteThrows: false,
+  /** When set, kv.deleteDurable throws only for keys containing this substring. */
+  kvDeleteThrowsFor: null,
   emailConfigured: true,
   archiveExists: false,
   /** FIFO of sendAccountAccessAlert results; defaults to delivered. */
@@ -19,7 +23,9 @@ export function resetHdStubState() {
   hdStubState.kv = new Map();
   hdStubState.kvReadThrows = false;
   hdStubState.kvSetThrows = false;
+  hdStubState.kvSetThrowsIfDelivered = false;
   hdStubState.kvDeleteThrows = false;
+  hdStubState.kvDeleteThrowsFor = null;
   hdStubState.emailConfigured = true;
   hdStubState.archiveExists = false;
   hdStubState.sendQueue = [];

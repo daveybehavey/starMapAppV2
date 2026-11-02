@@ -7,7 +7,11 @@
 // recorded failure outcome in the per-variant sidecar, and the gate
 // round added: the failure evidence is CONSUMED (sidecar deleted)
 // before the claim is released, so a delivered retry whose own
-// outcome write fails cannot re-authorize another release.
+// outcome write fails cannot re-authorize another release. Gate
+// round 2 made the consumption RESUMABLE: consumption is stamped
+// into the sidecar first, so a partial release (stamp done, claim
+// delete failed) is completed by the next pass instead of sealing
+// the session's email forever (Codex P2 on PR #502).
 import assert from "node:assert/strict";
 import test from "node:test";
 import { register } from "node:module";
@@ -113,20 +117,20 @@ test("F5 initial: a delivered retry whose outcome write fails cannot re-authoriz
   assert.equal(first.delivered, false);
   assert.equal(hdStubState.sends.length, 1);
 
-  // The retry delivers, but recording its outcome fails. The pass-one
-  // failure evidence was consumed before the release, so nothing can
-  // authorize another release now.
-  hdStubState.kvSetThrows = true;
+  // The retry delivers, but recording its (delivered) outcome fails.
+  // The pass-one failure evidence was consumed before the release, so
+  // nothing can authorize another release now.
+  hdStubState.kvSetThrowsIfDelivered = true;
   await assert.rejects(() => trySendInitialHdPurchaseEmail(INPUT), /kv_set_failed/);
   assert.equal(hdStubState.sends.length, 2, "the retry did dispatch and deliver");
-  hdStubState.kvSetThrows = false;
+  hdStubState.kvSetThrowsIfDelivered = false;
 
   const third = await trySendInitialHdPurchaseEmail(INPUT);
   assert.equal(third.reason, "already_sent");
   assert.equal(hdStubState.sends.length, 2, "no duplicate after an unrecorded delivery");
 });
 
-test("F5 initial: if consuming the failure evidence fails, nothing is released or sent", async () => {
+test("F5 initial: a failed release is resumable — the consumption marker stands and the next pass completes it", async () => {
   resetHdStubState();
   hdStubState.sendQueue = [
     { delivered: false, provider: "resend", error: "resend_500" },
@@ -137,11 +141,67 @@ test("F5 initial: if consuming the failure evidence fails, nothing is released o
 
   hdStubState.kvDeleteThrows = true;
   await assert.rejects(() => trySendInitialHdPurchaseEmail(INPUT), /kv_delete_failed/);
-  assert.equal(hdStubState.sends.length, 1, "no dispatch while the evidence cannot be consumed");
+  assert.equal(hdStubState.sends.length, 1, "no dispatch while the release cannot complete");
+  const marked = hdStubState.kv.get(ENTITLEMENT_KV.hdInitialEmailResult(SESSION));
+  assert.equal(typeof marked.releaseConsumedAt, "number", "consumption was stamped into the sidecar before the delete failed");
+  assert.equal(marked.deliveredAt, undefined, "the stamped record is still the failure outcome");
+  assert.equal(hdStubState.kv.get(ENTITLEMENT_KV.accessEmailDedupe(SESSION)), 1, "the claim still stands");
   hdStubState.kvDeleteThrows = false;
 
   const retry = await trySendInitialHdPurchaseEmail(INPUT);
-  assert.equal(retry.delivered, true, "the intact evidence still authorizes the retry once deletes work");
+  assert.equal(retry.delivered, true, "the next pass resumes and completes the release");
+  assert.equal(hdStubState.sends.length, 2);
+});
+
+test("F5 initial: a claim-delete failure mid-release resumes instead of sealing the email (Codex P2 repro)", async () => {
+  resetHdStubState();
+  hdStubState.sendQueue = [
+    { delivered: false, provider: "resend", error: "resend_500" },
+    { delivered: true, provider: "resend" },
+  ];
+  const first = await trySendInitialHdPurchaseEmail(INPUT);
+  assert.equal(first.delivered, false);
+
+  // Exactly the confirmation-review repro: the failure sidecar is
+  // consumed (stamped) but deleting the claim fails — under a
+  // delete-both protocol the evidence would be gone, the claim would
+  // stand, and every later pass would read already_sent forever.
+  hdStubState.kvDeleteThrowsFor = "access_link:email";
+  await assert.rejects(() => trySendInitialHdPurchaseEmail(INPUT), /kv_delete_failed/);
+  assert.equal(hdStubState.sends.length, 1, "no dispatch while the claim delete fails");
+  const marked = hdStubState.kv.get(ENTITLEMENT_KV.hdInitialEmailResult(SESSION));
+  assert.equal(typeof marked.releaseConsumedAt, "number", "the marked sidecar authorizes resuming the release");
+  assert.equal(hdStubState.kv.get(ENTITLEMENT_KV.accessEmailDedupe(SESSION)), 1, "the claim still stands");
+  hdStubState.kvDeleteThrowsFor = null;
+
+  const retry = await trySendInitialHdPurchaseEmail(INPUT);
+  assert.equal(retry.delivered, true, "the resumed release lets the retry dispatch");
+  assert.equal(hdStubState.sends.length, 2);
+
+  const third = await trySendInitialHdPurchaseEmail(INPUT);
+  assert.equal(third.reason, "already_sent");
+  assert.equal(hdStubState.sends.length, 2, "the delivered retry is never duplicated");
+});
+
+test("F5 initial: a sidecar-delete failure mid-release also resumes", async () => {
+  resetHdStubState();
+  hdStubState.sendQueue = [
+    { delivered: false, provider: "resend", error: "resend_500" },
+    { delivered: true, provider: "resend" },
+  ];
+  const first = await trySendInitialHdPurchaseEmail(INPUT);
+  assert.equal(first.delivered, false);
+
+  hdStubState.kvDeleteThrowsFor = "hd-email:initial-result";
+  await assert.rejects(() => trySendInitialHdPurchaseEmail(INPUT), /kv_delete_failed/);
+  assert.equal(hdStubState.sends.length, 1);
+  assert.equal(hdStubState.kv.get(ENTITLEMENT_KV.accessEmailDedupe(SESSION)), undefined, "the claim was already released");
+  const marked = hdStubState.kv.get(ENTITLEMENT_KV.hdInitialEmailResult(SESSION));
+  assert.equal(typeof marked.releaseConsumedAt, "number", "the marked sidecar still stands, authorizing the resume");
+  hdStubState.kvDeleteThrowsFor = null;
+
+  const retry = await trySendInitialHdPurchaseEmail(INPUT);
+  assert.equal(retry.delivered, true);
   assert.equal(hdStubState.sends.length, 2);
 });
 
@@ -156,17 +216,48 @@ test("F5 archive-ready: a delivered retry whose outcome write fails cannot re-au
   assert.equal(first.delivered, false);
   assert.equal(hdStubState.sends.length, 1);
 
-  hdStubState.kvSetThrows = true;
+  hdStubState.kvSetThrowsIfDelivered = true;
   await assert.rejects(
     () => trySendHdArchiveReadyEmail({ siteOrigin: "https://starmapco.com", sessionId: SESSION }),
     /kv_set_failed/,
   );
   assert.equal(hdStubState.sends.length, 2, "the retry did dispatch and deliver");
-  hdStubState.kvSetThrows = false;
+  hdStubState.kvSetThrowsIfDelivered = false;
 
   const third = await trySendHdArchiveReadyEmail({ siteOrigin: "https://starmapco.com", sessionId: SESSION });
   assert.equal(third.reason, "archive_email_already_sent");
   assert.equal(hdStubState.sends.length, 2, "no duplicate follow-up after an unrecorded delivery");
+});
+
+test("F5 archive-ready: a claim-delete failure mid-release resumes instead of sealing the email", async () => {
+  resetHdStubState();
+  seedArchiveSession();
+  hdStubState.sendQueue = [
+    { delivered: false, provider: "resend", error: "resend_500" },
+    { delivered: true, provider: "resend" },
+  ];
+  const first = await trySendHdArchiveReadyEmail({ siteOrigin: "https://starmapco.com", sessionId: SESSION });
+  assert.equal(first.delivered, false);
+  assert.equal(hdStubState.sends.length, 1);
+
+  hdStubState.kvDeleteThrowsFor = "hd_archive:email";
+  await assert.rejects(
+    () => trySendHdArchiveReadyEmail({ siteOrigin: "https://starmapco.com", sessionId: SESSION }),
+    /kv_delete_failed/,
+  );
+  assert.equal(hdStubState.sends.length, 1, "no dispatch while the claim delete fails");
+  const marked = hdStubState.kv.get(ENTITLEMENT_KV.hdArchiveEmailResult(SESSION));
+  assert.equal(typeof marked.releaseConsumedAt, "number", "the marked sidecar authorizes resuming the release");
+  assert.equal(hdStubState.kv.get(ENTITLEMENT_KV.hdArchiveEmailDedupe(SESSION)), 1, "the claim still stands");
+  hdStubState.kvDeleteThrowsFor = null;
+
+  const retry = await trySendHdArchiveReadyEmail({ siteOrigin: "https://starmapco.com", sessionId: SESSION });
+  assert.equal(retry.delivered, true, "the resumed release lets the retry dispatch");
+  assert.equal(hdStubState.sends.length, 2);
+
+  const third = await trySendHdArchiveReadyEmail({ siteOrigin: "https://starmapco.com", sessionId: SESSION });
+  assert.equal(third.reason, "archive_already_emailed");
+  assert.equal(hdStubState.sends.length, 2);
 });
 
 test("F5 archive-ready: an initial email that already carried the archive still suppresses the follow-up", async () => {

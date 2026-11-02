@@ -11,11 +11,22 @@ export const kv = {
   },
   async setDurable(key, value) {
     if (hdStubState.kvSetThrows) throw new Error("kv_set_failed");
+    if (
+      hdStubState.kvSetThrowsIfDelivered &&
+      value != null &&
+      typeof value === "object" &&
+      value.deliveredAt != null
+    ) {
+      throw new Error("kv_set_failed");
+    }
     hdStubState.kv.set(key, value);
     return "OK";
   },
   async deleteDurable(key) {
     if (hdStubState.kvDeleteThrows) throw new Error("kv_delete_failed");
+    if (hdStubState.kvDeleteThrowsFor && key.includes(hdStubState.kvDeleteThrowsFor)) {
+      throw new Error("kv_delete_failed");
+    }
     hdStubState.kv.delete(key);
     return "OK";
   },

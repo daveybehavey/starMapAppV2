@@ -117,7 +117,6 @@ export type PrintOrderAuthorityApplyResult =
         | "invalid_provider_id"
         | "invalid_dispatch_id"
         | "operator_recover_not_terminal"
-        | "provider_identity_required"
         | "invalid_session";
     };
 
@@ -434,16 +433,6 @@ function applyOperatorResolve(
 
   // Preserve authoritative id when present; otherwise explicit, else KV bootstrap.
   const targetId = existing ?? explicit ?? bootstrap;
-
-  if (!targetId) {
-    // S96-1 F10: a resolve with no provider identity anywhere must not
-    // recover a terminal failure or report success — the resolve route
-    // projects `sent` from an ok result, and a sent order with no
-    // Printful order id is a phantom fulfillment (no provider lookup or
-    // acceptance stands behind it). Refuse BEFORE any lifecycle change
-    // so the authority state is left exactly as it was.
-    return { ok: false, state, reason: "provider_identity_required" };
-  }
 
   let next = state;
   let changed = false;

@@ -245,14 +245,6 @@ export function applyPrintOrderAuthorityOp(state, op) {
       }
 
       const targetId = existing ?? explicit ?? bootstrap;
-
-      if (!targetId) {
-        // S96-1 F10: mirror of printOrderAuthorityState.ts — a resolve
-        // with no provider identity anywhere is refused before any
-        // lifecycle change.
-        return { ok: false, state, reason: "provider_identity_required" };
-      }
-
       let next = state;
       let changed = false;
 

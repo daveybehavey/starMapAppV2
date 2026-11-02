@@ -90,13 +90,6 @@ export async function POST(req: NextRequest) {
     if (reason === "conflicting_provider_id") {
       return NextResponse.json({ ok: false, error: "conflicting_provider_id" }, { status: 409 });
     }
-    if (reason === "provider_identity_required") {
-      // S96-1 F10: no authority id, no operator-supplied id, and no KV
-      // bootstrap id — projecting `sent` would mint a fulfillment with
-      // no provider identity. The authority apply refused before any
-      // mutation, so nothing was recovered or bound.
-      return NextResponse.json({ ok: false, error: "provider_identity_required" }, { status: 409 });
-    }
     // Any unsuccessful authority result stops before sent projection/index writes.
     return NextResponse.json(
       { ok: false, error: "operator_resolve_failed", reason },
