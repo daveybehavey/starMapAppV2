@@ -48,6 +48,7 @@ type StoredTextBox = {
   text?: string;
   fontFamily?: string;
   color?: string;
+  fontWeight?: number;
   textStyleBinding?: { color?: string; fontFamily?: string };
   size?: number;
   align?: string;
@@ -172,6 +173,15 @@ function sanitizeTextBox(box: StoredTextBox): StoredTextBox {
     ? box.align
     : "center";
 
+  // Validate font weight (#481): a buyer-set weight must survive the
+  // save/share round trip — dropping it silently reset shared maps to
+  // the renderer's 600 default. Accept the finite CSS weight range,
+  // rounded; absent or invalid stays absent.
+  const fontWeight =
+    typeof box.fontWeight === "number" && Number.isFinite(box.fontWeight)
+      ? Math.max(100, Math.min(900, Math.round(box.fontWeight)))
+      : undefined;
+
   // Clamp position values to 0-1 range
   let position: { x?: number; y?: number } | undefined;
   if (box.position) {
@@ -199,6 +209,7 @@ function sanitizeTextBox(box: StoredTextBox): StoredTextBox {
     text,
     fontFamily,
     color: typeof box.color === "string" ? box.color.slice(0, 24) : undefined,
+    fontWeight,
     textStyleBinding,
     size,
     align,

@@ -37,6 +37,7 @@ const editor = read("../../src/components/EditorExperience.tsx");
 const mobile = read("../../src/app/MobileCreate.tsx");
 const renderSky = read("../../src/lib/renderSky.ts");
 const store = read("../../src/lib/store.ts");
+const mapsRoute = read("../../src/app/api/maps/route.ts");
 
 test("renderer default weight is 600 when a box carries none", () => {
   assert.match(renderSky, /box\.fontWeight \?\? 600/);
@@ -100,4 +101,9 @@ test("recipe builder carries fontWeight verbatim, unset stays unset", () => {
 test("store marks a fontWeight edit as explicit ownership (tier protection)", () => {
   assert.match(store, /hasOwnProperty\.call\(payload, "fontWeight"\)/);
   assert.match(store, /binding\.fontWeight = "explicit"/);
+});
+
+test("saved-map API sanitizer validates and retains fontWeight", () => {
+  assert.match(mapsRoute, /typeof box\.fontWeight === "number" && Number\.isFinite\(box\.fontWeight\)/);
+  assert.match(mapsRoute, /\n    fontWeight,\n/);
 });

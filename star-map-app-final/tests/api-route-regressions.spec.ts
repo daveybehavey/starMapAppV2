@@ -159,6 +159,10 @@ test.describe("API route regressions", () => {
         {
           ...validMapRecipe.textBoxes[0],
           color: "#d7b56c",
+          // #481: a buyer-set fontWeight must survive the same round trip
+          // (the sanitizer dropped it, silently resetting shared maps
+          // to the renderer's 600 default).
+          fontWeight: 400,
           textStyleBinding: { color: "automatic", fontFamily: "bogus" },
         },
       ],
@@ -183,6 +187,7 @@ test.describe("API route regressions", () => {
       fontFamily: "explicit",
       fontWeight: "automatic",
     });
+    expect(loaded.textBoxes[0].fontWeight).toBe(400);
   });
 
   test("checkout rejects digital posts without browser handoff token", async ({
