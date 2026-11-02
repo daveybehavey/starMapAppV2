@@ -11,6 +11,15 @@ export function isPrintfulOrderHoldWebhookType(eventType) {
   return eventType.trim() === PRINTFUL_ORDER_HOLD_WEBHOOK_TYPE;
 }
 
+/** Mirror of holdProviderIdConflicts in src/lib/printfulWebhookOrderEvents.ts */
+export function holdProviderIdConflicts(eventPrintfulOrderId, authorityPrintfulOrderId) {
+  return Boolean(
+    eventPrintfulOrderId &&
+      authorityPrintfulOrderId &&
+      eventPrintfulOrderId !== authorityPrintfulOrderId,
+  );
+}
+
 /** Mirror of mergeHoldAnnotationsIntoLatestRecord in src/lib/printfulWebhookOrderEvents.ts */
 export function mergeHoldAnnotationsIntoLatestRecord({ existing, fresh, annotations }) {
   if (fresh.shippedAt) {

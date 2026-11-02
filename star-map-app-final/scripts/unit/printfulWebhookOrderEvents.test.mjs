@@ -7,6 +7,7 @@ import {
   buildPrintfulWebhookFailureError,
   isPrintfulOrderFailureWebhookType,
   isPrintfulOrderHoldWebhookType,
+  holdProviderIdConflicts,
   mergeHoldAnnotationsIntoLatestRecord,
   PRINTFUL_ORDER_FAILURE_WEBHOOK_TYPES,
   PRINTFUL_ORDER_HOLD_WEBHOOK_TYPE,
@@ -148,4 +149,18 @@ test("S96-1 F1 (gate round 3): a concurrent delivery's alert success is never re
   assert.equal(merge.record.providerHoldAt, 1_700_000_099_000);
   assert.equal(merge.record.operatorHoldAlertedAt, 1_700_000_099_500);
   assert.equal(merge.record.operatorHoldAlertError, undefined);
+});
+
+/* ============ Gate round 6 — hold events reject conflicting provider IDs ============ */
+
+test("S96-1 F1 (gate round 6): a hold naming a different provider order than the authority's bound order conflicts", () => {
+  assert.equal(holdProviderIdConflicts("222", "111"), true);
+  assert.equal(holdProviderIdConflicts("111", "111"), false);
+  // Nothing bound yet, or the event names no order: nothing to conflict with.
+  assert.equal(holdProviderIdConflicts("222", null), false);
+  assert.equal(holdProviderIdConflicts(null, "111"), false);
+  assert.equal(holdProviderIdConflicts(null, null), false);
+  // The handler rejects conflicts before any record write or alert.
+  assert.match(eventsSource, /holdProviderIdConflicts\(printfulOrderId, authority\.printfulOrderId\)/);
+  assert.match(eventsSource, /reason: "conflicting_provider_id"/);
 });

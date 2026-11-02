@@ -291,6 +291,27 @@ export async function applyPrintfulOrderFailureFromWebhook(input: {
   };
 }
 
+/**
+ * A hold event conflicts when it names a provider order different from
+ * the one the authority has bound for the resolved session. Session
+ * resolution can land via external_id, so without this check a delayed
+ * or misdirected hold for another order would be recorded — and
+ * alerted, and escalated — against the wrong order. Either ID missing
+ * means there is nothing to conflict with (the bind may simply not
+ * have landed yet). Mirrors the terminal handler's
+ * conflicting_provider_id doctrine.
+ */
+export function holdProviderIdConflicts(
+  eventPrintfulOrderId: string | null,
+  authorityPrintfulOrderId: string | null,
+): boolean {
+  return Boolean(
+    eventPrintfulOrderId &&
+      authorityPrintfulOrderId &&
+      eventPrintfulOrderId !== authorityPrintfulOrderId,
+  );
+}
+
 export type HoldPersistMerge =
   | { outcome: "merged"; record: PrintOrderRecord }
   | {
@@ -429,6 +450,20 @@ export async function applyPrintfulOrderHoldFromWebhook(input: {
       ok: true,
       status: "ignored",
       reason: "superseded_by_terminal_failure",
+      sessionId,
+      authority: authoritySnapshot,
+    };
+  }
+
+  if (holdProviderIdConflicts(printfulOrderId, authority.printfulOrderId)) {
+    // The event names a different provider order than the one bound to
+    // this session: recording it would hold (and alert, and escalate)
+    // the wrong order. ACK-ignore — the mismatch is permanent, so a
+    // retry could never land it correctly.
+    return {
+      ok: true,
+      status: "ignored",
+      reason: "conflicting_provider_id",
       sessionId,
       authority: authoritySnapshot,
     };
