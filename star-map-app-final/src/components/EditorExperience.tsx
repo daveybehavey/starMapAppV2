@@ -462,11 +462,14 @@ export function EditorExperience({
   const queryPromoCode = normalizePromoCode(searchParams.get("code"));
   const queryReferralCode = normalizeReferralCode(searchParams.get("ref"));
   const mapIdFromQuery = useMemo(() => parseMapIdParam(searchParams.get("map_id")), [searchParams]);
-  // S93-2 class 5: hydration race guard — a monotonic count of
-  // recipe-state changes (bumped by the effect below) and a mirror
-  // of the URL map id, so a late /api/maps response can prove the
-  // editor has not moved on before it is allowed to apply.
-  const editGenerationRef = useRef(0);
+  // S93-2 class 5: hydration race guard — a mirror of the URL
+  // map id, plus the store's edit generation (read synchronously
+  // via useStore.getState() at fetch start and at response time),
+  // so a late /api/maps response can prove the editor has not
+  // moved on before it is allowed to apply. The generation lives
+  // in the store and advances synchronously inside every recipe
+  // mutation (S96-2 F7 — see src/lib/store.ts); it is NOT counted
+  // by an effect here anymore.
   const mapIdFromQueryRef = useRef(mapIdFromQuery);
   const merchFamilyFromQuery = searchParams.get("merch_family");
   // M04: a merch-led landing (shop card click) must name the product the
@@ -1099,17 +1102,17 @@ export function EditorExperience({
     ]
   );
 
-  // S93-2 class 5: keep the map-id mirror current and count every
-  // recipe-state change as an edit generation. Declared before the
-  // hydration effect so a commit that both restores state and arms
-  // hydration is counted before the fetch captures its generation.
+  // S93-2 class 5: keep the map-id mirror current. Declared
+  // before the hydration effect so a commit that both restores
+  // state and arms hydration is reflected before the fetch
+  // captures its baseline. The edit generation needs no effect:
+  // it advances synchronously inside the store's mutation path
+  // (S96-2 F7), so by the time the fetch below captures it, every
+  // change made so far — restore and initialization included —
+  // is already counted.
   useEffect(() => {
     mapIdFromQueryRef.current = mapIdFromQuery;
   }, [mapIdFromQuery]);
-
-  useEffect(() => {
-    editGenerationRef.current += 1;
-  }, [dateTime, location, textBoxes, selectedStyle, aspectRatio, shape, renderOptions, selectedOccasion]);
 
   useEffect(() => {
     // Start only once the draft is restored AND the automatic
@@ -1131,7 +1134,7 @@ export function EditorExperience({
       return;
     }
     mapFromUrlHandledRef.current = true;
-    const generationAtFetchStart = editGenerationRef.current;
+    const generationAtFetchStart = useStore.getState().editGeneration;
     let cancelled = false;
 
     void (async () => {
@@ -1149,7 +1152,7 @@ export function EditorExperience({
             requestedMapId,
             currentMapId: mapIdFromQueryRef.current,
             editGenerationAtFetchStart: generationAtFetchStart,
-            editGenerationNow: editGenerationRef.current,
+            editGenerationNow: useStore.getState().editGeneration,
           })
         ) {
           return;

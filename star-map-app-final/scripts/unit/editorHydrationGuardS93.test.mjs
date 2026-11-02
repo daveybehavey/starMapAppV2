@@ -205,20 +205,80 @@ test("wiring: initialization is marked by the visual-options callback and gates 
 
 test("wiring: the effect captures the generation, cleans up, and checks before applying", () => {
   const src = read("src/components/EditorExperience.tsx");
-  // Generation + mirror refs exist.
-  assert.match(src, /const editGenerationRef = useRef\(0\);/);
+  // The map-id mirror ref exists. The generation itself is NOT a
+  // component ref anymore (S96-2 F7, below).
   assert.match(src, /const mapIdFromQueryRef = useRef\(mapIdFromQuery\);/);
-  // The generation bumps on every recipe-field change — the same
-  // field set hydration would overwrite.
+  // Fetch-start capture reads the store's generation
+  // synchronously, and the response-time check reads it again the
+  // same way.
   assert.match(
     src,
-    /editGenerationRef\.current \+= 1;\s*\}, \[dateTime, location, textBoxes, selectedStyle, aspectRatio, shape, renderOptions, selectedOccasion\]\);/,
+    /const generationAtFetchStart = useStore\.getState\(\)\.editGeneration;/,
   );
-  // Fetch-start capture and cleanup.
-  assert.match(src, /const generationAtFetchStart = editGenerationRef\.current;/);
+  assert.match(
+    src,
+    /editGenerationNow: useStore\.getState\(\)\.editGeneration,/,
+  );
   assert.match(src, /return \(\) => \{\s*cancelled = true;\s*\};/);
   // The guard is consulted before applyHydratedMapRecipe runs.
   const guardAt = src.indexOf("shouldApplyHydratedMapRecipe({");
   const applyAt = src.indexOf("applyHydratedMapRecipe(data);");
   assert.ok(guardAt !== -1 && applyAt !== -1 && guardAt < applyAt);
+});
+
+// --- S96-2 F7: the generation must advance synchronously ---
+//
+// The wiring above originally counted edits in a passive
+// useEffect in EditorExperience. That left a constructible
+// window: fetch captures N -> user edits (store updated) -> the
+// response continuation runs BEFORE the tracking effect flushes
+// -> it still reads N and overwrites the edit. The generation
+// now lives in the store and advances inside the mutation path
+// itself; the behavioural pins live in
+// editorHydrationGenerationSync.test.mjs (plain Node, no effect
+// queue — an advance seen there is synchronous by construction).
+// These pins hold the wiring that makes it so.
+
+test("wiring (F7): no passive-effect generation counting remains in the component", () => {
+  const src = read("src/components/EditorExperience.tsx");
+  assert.doesNotMatch(src, /editGenerationRef/);
+  assert.doesNotMatch(src, /editGeneration.*\+= 1/);
+});
+
+test("wiring (F7): the store advances the generation synchronously on recipe mutation", () => {
+  const store = read("src/lib/store.ts");
+  // The counter is store state…
+  assert.match(store, /editGeneration: number;/);
+  assert.match(store, /editGeneration: 0,/);
+  // …advanced by a synchronous subscription over exactly the
+  // store-resident recipe fields the guard tracks…
+  assert.match(store, /useStore\.subscribe\(\(state, prevState\) => \{/);
+  for (const field of [
+    "dateTime",
+    "location",
+    "textBoxes",
+    "selectedStyle",
+    "aspectRatio",
+    "shape",
+    "renderOptions",
+  ]) {
+    assert.match(
+      store,
+      new RegExp(`"${field}",`),
+      `RECIPE_EDIT_FIELDS must include ${field}`,
+    );
+  }
+  // …and bumpEditGeneration is the exported seam for the one
+  // field that lives outside the store.
+  assert.match(store, /export function bumpEditGeneration\(\): void \{/);
+});
+
+test("wiring (F7): the hook-local selectedOccasion setter bumps the generation synchronously", () => {
+  const hook = read("src/hooks/useEditorLogic.ts");
+  assert.match(
+    hook,
+    /import \{ bumpEditGeneration, useStore, type RenderOptions \} from "@\/lib\/store";/,
+  );
+  assert.match(hook, /const setSelectedOccasion = useCallback\(\(id: string \| null\) => \{/);
+  assert.match(hook, /bumpEditGeneration\(\);\s*\}\s*setSelectedOccasionState\(id\);/);
 });

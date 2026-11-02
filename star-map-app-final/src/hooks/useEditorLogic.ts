@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useStore, type RenderOptions } from "@/lib/store";
+import { bumpEditGeneration, useStore, type RenderOptions } from "@/lib/store";
 import { useShallow } from "zustand/react/shallow";
 import { occasionPresets } from "@/lib/occasionPresets";
 import { proPresets } from "@/lib/proPresets";
@@ -145,7 +145,27 @@ export function useEditorLogic(options: UseEditorLogicOptions = {}): UseEditorLo
   const [renderMode, setRenderMode] = useState<RenderModeId>("cinematic");
   const [intensity, setIntensity] = useState(isQuick ? 70 : 50);
   const [intensityDisplay, setIntensityDisplay] = useState(isQuick ? 70 : 50);
-  const [selectedOccasion, setSelectedOccasion] = useState<string | null>(null);
+  const [selectedOccasion, setSelectedOccasionState] = useState<string | null>(null);
+  // S96-2 F7: selectedOccasion is a recipe field the hydration
+  // guard tracks, but it lives in this hook rather than the
+  // store, so the store's synchronous subscription cannot see it.
+  // This wrapper is the synchronous seam for it: an actual change
+  // advances the store's edit generation inside the setter call
+  // itself — before any pending fetch continuation can run —
+  // matching the advance store-resident fields get. The mirrored
+  // ref carries the comparison so the bump fires exactly when the
+  // value changes (the same Object.is semantics the guard's old
+  // passive-effect dependency list had). Every writer goes
+  // through this wrapper: applyPreset / applyProPreset below and
+  // every consumer of the returned setter.
+  const selectedOccasionRef = useRef<string | null>(null);
+  const setSelectedOccasion = useCallback((id: string | null) => {
+    if (!Object.is(selectedOccasionRef.current, id)) {
+      selectedOccasionRef.current = id;
+      bumpEditGeneration();
+    }
+    setSelectedOccasionState(id);
+  }, []);
   const [customOccasion, setCustomOccasion] = useState(false);
   const [presetHint, setPresetHint] = useState<string | null>(null);
   const presetHintTimerRef = useRef<number | null>(null);
@@ -315,6 +335,7 @@ export function useEditorLogic(options: UseEditorLogicOptions = {}): UseEditorLo
       setLocation,
       setRenderOptions,
       setRevealed,
+      setSelectedOccasion,
       setShape,
       setStyle,
       setTextBoxes,
@@ -355,6 +376,7 @@ export function useEditorLogic(options: UseEditorLogicOptions = {}): UseEditorLo
       applyVisualOptions,
       setAspectRatio,
       setRenderOptions,
+      setSelectedOccasion,
       setShape,
       setStyle,
       setTextBoxes,
