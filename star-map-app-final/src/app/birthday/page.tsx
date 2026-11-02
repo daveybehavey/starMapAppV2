@@ -26,6 +26,12 @@ import {
   getInstantHdPriceLine,
 } from "@/lib/digitalGiftCheckout";
 import { getChristmasLandingPromo, getChristmasOrderBySummaryLines } from "@/lib/christmasCampaign";
+import {
+  PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS,
+  PRINT_US_STANDARD_TRANSIT_BUSINESS_DAYS,
+  getPrintDeliveryEstimateExampleLine,
+  getPrintUrgentHdUpsellLine,
+} from "@/lib/commerceFacts";
 import { buildFramedHdCheckoutHref, getGiftLadderIntro } from "@/lib/moneyPageGiftCheckout";
 import { getPricingTiers, getPrintPricingTiers } from "@/lib/pricing";
 import type { Metadata } from "next";
@@ -72,6 +78,17 @@ export default function BirthdayPage() {
   const printCheckoutEnabled = /^(1|true|yes)$/i.test(
     (process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED || "").trim()
   );
+  // BIRTHDAY_FAQ_ITEMS stays the shared source; the delivery-timing item is
+  // composed here from the canonical commerce facts so its numbers can never
+  // drift from checkout copy. The composed array feeds BOTH the visible FAQ
+  // and the FAQPage schema, like the shared source does.
+  const birthdayFaqItems = [
+    ...BIRTHDAY_FAQ_ITEMS,
+    {
+      question: "How long does delivery take?",
+      answer: `${getPrintDeliveryEstimateExampleLine()} ${getPrintUrgentHdUpsellLine()}`,
+    },
+  ];
   const schemaCurrency = (tiers.single.currency || "USD").toUpperCase();
   const productOffers = [
     {
@@ -143,6 +160,16 @@ export default function BirthdayPage() {
         </div>
         <InstantHdHeroExtras source="birthday-hero-instant" showButton={false} />
         <p className="text-xs text-neutral-300 sm:text-sm">Framed + HD bundle: {bundlePriceLine}</p>
+        <p className="text-xs text-neutral-300 sm:text-sm">
+          Made to order in {PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS} · U.S. transit typically{" "}
+          {PRINT_US_STANDARD_TRANSIT_BUSINESS_DAYS} ·{" "}
+          <Link
+            href="/shipping"
+            className="underline decoration-white/30 underline-offset-2 hover:text-white"
+          >
+            Delivery ranges by destination
+          </Link>
+        </p>
       </header>
 
       <GiftFormatLadder
@@ -183,6 +210,54 @@ export default function BirthdayPage() {
           <li>Styles that work for any age—clean, elegant, or celebratory</li>
           <li>Optional dedication lines for names, wishes, or a milestone year</li>
         </ul>
+      </section>
+
+      <section className="mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
+        <h2 className="text-midnight text-xl font-semibold">Milestone birthdays, written in the stars</h2>
+        <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
+          A milestone birthday deserves more than a generic card. The generator recreates the exact
+          night sky from any past date, so a milestone map shows the sky from the night they were
+          born — plotted from real astronomical data, not a stock design.
+        </p>
+        <ul className="grid gap-3 sm:grid-cols-2">
+          <li className="rounded-2xl border border-black/5 bg-amber-50/60 p-4 text-sm text-neutral-800 sm:text-base">
+            <span className="text-midnight font-semibold">18th</span> — the sky from the night they
+            were born, for the birthday they turn adult.
+          </li>
+          <li className="rounded-2xl border border-black/5 bg-amber-50/60 p-4 text-sm text-neutral-800 sm:text-base">
+            <span className="text-midnight font-semibold">21st</span> — twenty-one years since that
+            first night, plotted exactly as it was.
+          </li>
+          <li className="rounded-2xl border border-black/5 bg-amber-50/60 p-4 text-sm text-neutral-800 sm:text-base">
+            <span className="text-midnight font-semibold">30th</span> — three decades on, the same
+            stars over their birthplace.
+          </li>
+          <li className="rounded-2xl border border-black/5 bg-amber-50/60 p-4 text-sm text-neutral-800 sm:text-base">
+            <span className="text-midnight font-semibold">40th</span> — the night sky from forty
+            years ago, recreated star for star.
+          </li>
+          <li className="rounded-2xl border border-black/5 bg-amber-50/60 p-4 text-sm text-neutral-800 sm:text-base">
+            <span className="text-midnight font-semibold">50th</span> — half a century since the
+            night it all started.
+          </li>
+          <li className="rounded-2xl border border-black/5 bg-amber-50/60 p-4 text-sm text-neutral-800 sm:text-base">
+            <span className="text-midnight font-semibold">65th</span> — a retirement-year keepsake
+            that starts at the very beginning.
+          </li>
+          <li className="rounded-2xl border border-black/5 bg-amber-50/60 p-4 text-sm text-neutral-800 sm:text-base">
+            <span className="text-midnight font-semibold">90th</span> — ninety years of birthdays,
+            beginning with the first night&apos;s sky.
+          </li>
+        </ul>
+        <p className="text-sm text-neutral-800 sm:text-base">
+          Any milestone year works — if the date is in the past, the generator can recreate its sky.{" "}
+          <Link
+            href="/editor?mode=quick&source=birthday-milestone"
+            className="text-amber-700 underline hover:text-amber-800"
+          >
+            Start a free milestone preview
+          </Link>
+        </p>
       </section>
 
       <section className="mt-6 space-y-3 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
@@ -290,7 +365,7 @@ export default function BirthdayPage() {
       <section className="mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-midnight text-lg font-semibold">Birthday star map FAQ</h2>
         <div className="space-y-4 text-sm text-neutral-800 sm:text-base">
-          {BIRTHDAY_FAQ_ITEMS.map((item) => (
+          {birthdayFaqItems.map((item) => (
             <div key={item.question}>
               <h3 className="text-midnight font-semibold">{item.question}</h3>
               <p>{item.answer}</p>
@@ -304,7 +379,7 @@ export default function BirthdayPage() {
         imageUrl={ogImage}
         offers={productOffers}
       />
-      <FaqSchema items={BIRTHDAY_FAQ_ITEMS} />
+      <FaqSchema items={birthdayFaqItems} />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>
   );

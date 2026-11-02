@@ -19,6 +19,10 @@ export function getPrintDeliveryEstimateLine(input = {}) {
   return `Made to order — typical production takes ${PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS} before shipment. ${transit}; delivery dates are estimates, not guarantees.`;
 }
 
+export function getPrintDeliveryEstimateExampleLine() {
+  return `Made to order — typical production takes ${PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS} before shipment. Standard transit then depends on the destination — for example, ${PRINT_US_STANDARD_TRANSIT_BUSINESS_DAYS} within the United States. Delivery dates are estimates, not guarantees.`;
+}
+
 export function getPrintStandardShippingOnlyLine() {
   return "Standard shipping is the only print shipping option we offer today — express is not available for these poster and framed products.";
 }
