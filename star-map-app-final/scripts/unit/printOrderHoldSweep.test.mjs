@@ -14,6 +14,7 @@ import { register } from "node:module";
 register("./tsAliasLoader.mjs", import.meta.url);
 
 const {
+  applyHoldSweepStampsToCurrent,
   printOrderHoldSweepAction,
   resolvePrintOrderHoldSweepConfig,
   runPrintOrderHoldSweep,
@@ -82,6 +83,15 @@ const failingSender = async () => ({
 test("config: inert unless explicitly enabled; escalation threshold parses with a 24h default", () => {
   assert.equal(resolvePrintOrderHoldSweepConfig({}).enabled, false);
   assert.equal(resolvePrintOrderHoldSweepConfig({ PRINT_ORDER_HOLD_SWEEP_ENABLED: "yes" }).enabled, false);
+  assert.equal(
+    resolvePrintOrderHoldSweepConfig({ PRINT_ORDER_HOLD_SWEEP_ENABLED: "TRUE" }).enabled,
+    false,
+    "activation is case-sensitive, matching the review-request flag posture",
+  );
+  assert.equal(
+    resolvePrintOrderHoldSweepConfig({ PRINT_ORDER_HOLD_SWEEP_ENABLED: " true " }).enabled,
+    true,
+  );
   const enabled = resolvePrintOrderHoldSweepConfig({ PRINT_ORDER_HOLD_SWEEP_ENABLED: "true" });
   assert.equal(enabled.enabled, true);
   assert.equal(enabled.escalationThresholdMs, 24 * HOUR);
@@ -99,6 +109,59 @@ test("config: inert unless explicitly enabled; escalation threshold parses with 
     }).escalationThresholdMs,
     24 * HOUR,
   );
+});
+
+test("stamp merge: an ended or changed hold episode refuses the sweep's stale write", () => {
+  const swept = heldRecord({ operatorHoldAlertedAt: NOW, operatorHoldAlertProvider: "resend" });
+  // Terminal failure landed mid-sweep: status failed, hold fields cleared.
+  assert.equal(
+    applyHoldSweepStampsToCurrent(heldRecord({ status: "failed", providerHoldAt: undefined }), swept),
+    null,
+  );
+  // Shipment landed mid-sweep.
+  assert.equal(applyHoldSweepStampsToCurrent(heldRecord({ shippedAt: NOW }), swept), null);
+  // Operator resolved the hold (fields cleared, order still sent).
+  assert.equal(applyHoldSweepStampsToCurrent(heldRecord({ providerHoldAt: undefined }), swept), null);
+  // A NEW hold episode began (different first-hold timestamp).
+  assert.equal(
+    applyHoldSweepStampsToCurrent(heldRecord({ providerHoldAt: NOW - 30 * 60 * 1000 }), swept),
+    null,
+  );
+  // The record is gone entirely.
+  assert.equal(applyHoldSweepStampsToCurrent(null, swept), null);
+  assert.equal(applyHoldSweepStampsToCurrent(undefined, swept), null);
+});
+
+test("stamp merge: a live episode takes only the sweep's stamps, onto the current record", () => {
+  const swept = heldRecord({
+    operatorHoldAlertedAt: NOW,
+    operatorHoldAlertProvider: "resend",
+    providerHoldReason: "stale_reason_from_snapshot",
+  });
+  const current = heldRecord({ providerHoldReason: "address_issue_current", attempts: 3 });
+  const merged = applyHoldSweepStampsToCurrent(current, swept);
+  assert.equal(merged.operatorHoldAlertedAt, NOW);
+  assert.equal(merged.operatorHoldAlertProvider, "resend");
+  assert.equal(
+    merged.providerHoldReason,
+    "address_issue_current",
+    "non-stamp fields come from the current record, never the snapshot",
+  );
+  assert.equal(merged.attempts, 3);
+});
+
+test("stamp merge: stamps the current record already carries are never regressed", () => {
+  // The webhook's own alert landed during the sweep; the sweep's failed
+  // alert outcome must not attach its error to the delivered alert.
+  const swept = heldRecord({ operatorHoldAlertError: "smtp_down", operatorHoldAlertProvider: "none" });
+  const current = heldRecord({
+    operatorHoldAlertedAt: NOW - 60 * 1000,
+    operatorHoldAlertProvider: "resend",
+  });
+  const merged = applyHoldSweepStampsToCurrent(current, swept);
+  assert.equal(merged.operatorHoldAlertedAt, NOW - 60 * 1000);
+  assert.equal(merged.operatorHoldAlertProvider, "resend");
+  assert.equal(merged.operatorHoldAlertError, undefined);
 });
 
 test("action: unalerted hold alerts, aged alerted hold escalates, everything else is left alone", () => {

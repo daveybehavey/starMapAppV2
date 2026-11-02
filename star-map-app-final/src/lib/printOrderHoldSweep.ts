@@ -37,7 +37,7 @@ export type PrintOrderHoldSweepConfig = {
 export function resolvePrintOrderHoldSweepConfig(
   env: Record<string, string | undefined>,
 ): PrintOrderHoldSweepConfig {
-  const enabled = (env.PRINT_ORDER_HOLD_SWEEP_ENABLED ?? "").trim().toLowerCase() === "true";
+  const enabled = (env.PRINT_ORDER_HOLD_SWEEP_ENABLED ?? "").trim() === "true";
   const parsedHours = Number.parseFloat(env.PRINT_ORDER_HOLD_ESCALATION_HOURS ?? "");
   const hours =
     Number.isFinite(parsedHours) && parsedHours > 0
@@ -55,8 +55,11 @@ export type PrintOrderHoldSweepStore = {
   /**
    * Persist an annotated record. Implementations must preserve the
    * record's creation-anchored KV retention (see
-   * printOrderHoldSweepRuntime.ts); "skipped" means the record could
-   * not be retained and nothing was written.
+   * printOrderHoldSweepRuntime.ts) and must apply the annotations as
+   * stamps onto the CURRENT stored record
+   * (applyHoldSweepStampsToCurrent) — the scanned snapshot may be
+   * stale. "skipped" means the record could not be retained and
+   * nothing was written.
    */
   persistRecord(
     sessionId: string,
@@ -101,6 +104,56 @@ export function printOrderHoldSweepAction(
     return "escalate";
   }
   return null;
+}
+
+/**
+ * Apply the sweep's stamp outcome to the CURRENT stored record. The
+ * sweep scans from a snapshot; a terminal failure, shipment, or
+ * operator resolve can land while its alert email is in flight, and
+ * writing the stale snapshot back would resurrect the ended hold and
+ * regress the record's status — the route writers' authority-backed
+ * persist guard has no equivalent for this raw-KV adapter, so the
+ * merge lives here: the write is refused (null) unless the same hold
+ * episode is still live on the current record, and only the sweep's
+ * stamp fields are carried over, each only as progress (a stamp the
+ * current record already carries is never regressed — e.g. the
+ * webhook's own alert landing during the sweep keeps its stamp and
+ * its clean error state).
+ */
+export function applyHoldSweepStampsToCurrent(
+  current: PrintOrderRecord | null | undefined,
+  swept: PrintOrderRecord,
+): PrintOrderRecord | null {
+  if (!current) return null;
+  if (
+    typeof current.providerHoldAt !== "number" ||
+    !Number.isFinite(current.providerHoldAt) ||
+    current.providerHoldAt !== swept.providerHoldAt ||
+    current.status !== "sent" ||
+    current.shippedAt
+  ) {
+    return null;
+  }
+  const next: PrintOrderRecord = { ...current };
+  if (!current.operatorHoldAlertedAt) {
+    if (swept.operatorHoldAlertedAt) {
+      next.operatorHoldAlertedAt = swept.operatorHoldAlertedAt;
+      next.operatorHoldAlertProvider = swept.operatorHoldAlertProvider;
+      next.operatorHoldAlertError = undefined;
+    } else if (swept.operatorHoldAlertError) {
+      next.operatorHoldAlertProvider = swept.operatorHoldAlertProvider;
+      next.operatorHoldAlertError = swept.operatorHoldAlertError;
+    }
+  }
+  if (!current.operatorHoldEscalatedAt) {
+    if (swept.operatorHoldEscalatedAt) {
+      next.operatorHoldEscalatedAt = swept.operatorHoldEscalatedAt;
+      next.operatorHoldEscalationAlertError = undefined;
+    } else if (swept.operatorHoldEscalationAlertError && current.operatorHoldAlertedAt) {
+      next.operatorHoldEscalationAlertError = swept.operatorHoldEscalationAlertError;
+    }
+  }
+  return next;
 }
 
 function emptySummary(enabled: boolean): PrintOrderHoldSweepSummary {

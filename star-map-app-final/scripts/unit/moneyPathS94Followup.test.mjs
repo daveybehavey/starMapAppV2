@@ -1872,12 +1872,15 @@ test("S96-1 F2: a webhook delivery parked mid-read cannot dispatch after a concu
       "the parked delivery never dispatches — the authority claim, not the KV marker, excluded it",
     );
 
-    // The loser's problem write is the honest end state for this
-    // interleave (the whole-record projection posture predates this
-    // fix): the order is flagged for operator reconciliation, and the
-    // standing claim keeps every later pass out as well.
+    // Gate fix (bot P2): the loser writes NOTHING — neither its stale
+    // pending rebuild nor a problem record may regress the winner's
+    // fulfilled record. (An earlier draft of this fix let the loser
+    // overwrite the winner's `sent` record with a reconciliation
+    // failure.) The standing claim keeps every later pass out as well.
     const after = data.get(printOrderKey(sessionId));
-    assert.equal(after.error, "alternate_dispatch_reconciliation_required");
+    assert.equal(after.status, "sent", "the winner's fulfilled record stands untouched");
+    assert.equal(after.alternateDispatch?.state, "accepted");
+    assert.notEqual(after.error, "alternate_dispatch_reconciliation_required");
 
     const redelivery = await postEvent(
       completedEvent("evt_s961_race_a2", printCheckoutSessionFixture(sessionId)),

@@ -1819,6 +1819,19 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       ? { alternateDispatch: existing.alternateDispatch }
       : {}),
   };
+  // Gate fix (bot P2): a concurrent pass (an admin retry, or a parallel
+  // delivery of another event for this session) may have completed the
+  // order while this pass was reading and validating — re-check before
+  // the whole-record rebuild write so a stale pass never regresses a
+  // fulfilled `sent` record back to pending.
+  const freshBeforeWrite = await kv.get<PrintOrderRecord>(printOrderKey(session.id));
+  if (freshBeforeWrite?.status === "sent") {
+    void sendPrintOrderConfirmation(session.id).catch((error) => {
+      console.warn("Print confirmation email retry on sent order failed", error);
+    });
+    return;
+  }
+
   // Pending queue write must remain durable. Deleted/unretainable aborts before Printful.
   assertPrintOrderRetained(await persistPrintOrderRecord(session.id, payload));
 
@@ -2167,9 +2180,12 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     // the marker write, this pass must WIN the atomic claim in the
     // print-order authority (serialized by the DO): exactly one
     // concurrent caller proceeds. Seed first so a pre-claim KV marker
-    // also stands as a claim. The claim loser never dispatches: if
-    // the winner already completed end-to-end it stands down silently;
-    // otherwise it takes the same reconciliation path as a found marker.
+    // also stands as a claim. The claim loser never dispatches and
+    // never writes: the winner owns the record (a loser problem write
+    // could land after the winner's `sent` write and regress a
+    // fulfilled order to `failed`). A genuinely stuck winner is
+    // surfaced by its standing claim + attempted marker and is
+    // reconciled by a later pass under the found-marker doctrine.
     await seedPrintOrderAuthorityFromKv(session.id, existing);
     const claim = await claimAlternateFulfillmentDispatch(session.id, dispatchId);
     if (!claim.ok) {
@@ -2188,17 +2204,18 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       throw new PrintOrderAuthorityClaimError(claim.reason);
     }
     if (!claim.claimAcquired) {
-      const fresh = await kv.get<PrintOrderRecord>(printOrderKey(session.id));
-      if (fresh?.status === "sent" && fresh.alternateDispatch?.state === "accepted") {
-        // The concurrent winner completed end-to-end; nothing to reconcile.
-        return;
-      }
-      await persistProblemPrintOrder({
-        ...payload,
-        printAssetUrl,
-        status: "failed",
-        error: "alternate_dispatch_reconciliation_required",
-        alternateDispatch: fresh?.alternateDispatch ?? existingAlternateDispatch,
+      // Gate fix (bot P2): the loser writes NOTHING. The winner is
+      // mid-dispatch or already complete and owns the record; a
+      // whole-record problem write from the loser — which first awaits
+      // an operator alert email — could land after the winner's `sent`
+      // write and regress a fulfilled order to `failed` with a stale
+      // marker. If the winner's dispatch is genuinely stuck, the
+      // standing claim plus the attempted marker surface it, and the
+      // NEXT pass, which can observe the final state, applies the
+      // found-marker reconciliation doctrine above.
+      console.warn("Alternate dispatch claim lost to a concurrent pass; standing down", {
+        sessionId: session.id,
+        dispatchId,
       });
       return;
     }

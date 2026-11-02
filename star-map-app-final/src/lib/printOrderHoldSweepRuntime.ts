@@ -9,12 +9,17 @@
  * closed with `print_alert_not_configured` and the sweep records the
  * failure on the order instead of pretending the operator was told.
  */
-import { printOrderKey, resolvePrintOrderKvWrite } from "@/lib/printOrders";
+import {
+  printOrderKey,
+  resolvePrintOrderKvWrite,
+  type PrintOrderRecord,
+} from "@/lib/printOrders";
 import {
   sendPrintOrderHoldAlert,
   sendPrintOrderHoldEscalationAlert,
 } from "@/lib/printOrderAlerts";
 import {
+  applyHoldSweepStampsToCurrent,
   resolvePrintOrderHoldSweepConfig,
   runPrintOrderHoldSweep,
   type PrintOrderHoldSweepStore,
@@ -56,15 +61,26 @@ export function createPrintOrderHoldSweepStore(ns: RawKvNamespace): PrintOrderHo
       return ns.get<T>(key, "json");
     },
     async persistRecord(sessionId, record) {
+      // Re-read and merge the sweep's stamps onto the CURRENT record:
+      // the sweep worked from a snapshot, and a terminal failure,
+      // shipment, or operator resolve that landed mid-scan must not be
+      // overwritten by it (applyHoldSweepStampsToCurrent refuses when
+      // the hold episode has ended or changed).
+      const key = printOrderKey(sessionId);
+      const current = await ns.get<PrintOrderRecord>(key, "json");
+      const merged = applyHoldSweepStampsToCurrent(current, record);
+      if (!merged) {
+        return { outcome: "skipped", reason: "hold_state_changed" };
+      }
       // A bare KV put would strip the record's creation-anchored TTL and
       // make a PII-bearing order record permanent — always re-apply the
       // remaining retention, and refuse (skip) when it has run out,
       // exactly as persistPrintOrderRecord decides for route writers.
-      const plan = resolvePrintOrderKvWrite(record.createdAt);
+      const plan = resolvePrintOrderKvWrite(merged.createdAt);
       if (plan.action === "delete") {
         return { outcome: "skipped", reason: "unretainable" };
       }
-      await ns.put(printOrderKey(sessionId), JSON.stringify(record), {
+      await ns.put(key, JSON.stringify(merged), {
         expirationTtl: plan.ttlSeconds,
       });
       return { outcome: "persisted" };
