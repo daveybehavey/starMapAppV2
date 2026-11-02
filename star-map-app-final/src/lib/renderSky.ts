@@ -773,6 +773,14 @@ export function buildRecipeFromState(input: {
       // (download normalize, checkout, hydration fingerprints).
       shapeLayoutVersion: input.renderOptions?.shapeLayoutVersion,
       frameEnabled: input.renderOptions?.frameEnabled ?? true,
+      // Mirror editorDraft's validation: a non-finite value must not
+      // persist into a recipe, and out-of-range values clamp to 1–9
+      // (the renderer's own range) instead of riding through verbatim.
+      bortleClass:
+        typeof input.renderOptions?.bortleClass === "number" &&
+        Number.isFinite(input.renderOptions.bortleClass)
+          ? clamp(input.renderOptions.bortleClass, 1, 9)
+          : DEFAULT_BORTLE,
       backgroundColor: input.renderOptions?.backgroundColor ?? "",
       constellationColor: input.renderOptions?.constellationColor ?? "",
       constellationLineScale: input.renderOptions?.constellationLineScale ?? 1.1,
@@ -859,24 +867,76 @@ function minAlphaForContrast(ink: Rgb, backing: Rgb, target: number): number | n
   return hi;
 }
 
+/** The effective Bortle class for a render: finite values clamp to
+ * 1–9; absent or non-finite values resolve to the historical default. */
+function effectiveBortleClass(renderOptions?: MapRecipe["renderOptions"]): number {
+  const requested = renderOptions?.bortleClass;
+  return typeof requested === "number" && Number.isFinite(requested)
+    ? clamp(requested, 1, 9)
+    : DEFAULT_BORTLE;
+}
+
+/**
+ * One layer painted over the parchment backing before the stars, as the
+ * backing model consumes it: a colour composited at a (point-local)
+ * alpha. Overlays apply in paint order after the warm edge wash.
+ */
+type ParchmentBackingOverlay = { rgb: Rgb; alpha: number };
+
+/**
+ * drawBackground's Bortle wash as a backing overlay: black below the
+ * default class, white above it, nothing at the default itself (the
+ * default render issues no wash and must stay byte-identical).
+ */
+function bortleWashOverlay(bortle: number): ParchmentBackingOverlay | null {
+  if (bortle === DEFAULT_BORTLE) return null;
+  return bortle < DEFAULT_BORTLE
+    ? {
+        rgb: { r: 0, g: 0, b: 0 },
+        alpha: ((DEFAULT_BORTLE - bortle) / (DEFAULT_BORTLE - 1)) * 0.75,
+      }
+    : {
+        rgb: { r: 255, g: 255, b: 255 },
+        alpha: ((bortle - DEFAULT_BORTLE) / (9 - DEFAULT_BORTLE)) * 0.28,
+      };
+}
+
 /**
  * The parchment backing under a point: the paper base with drawBackground's
- * warm edge wash composited over it. The wash is a concentric radial
+ * warm edge wash composited over it, then every overlay the caller knows
+ * is painted over that backing before the stars (the Bortle wash, the
+ * Milky Way band, …) in paint order. The warm wash is a concentric radial
  * gradient — transparent inside 0.35 × min(width, height),
  * rgba(92, 64, 36, 0.18) at 0.85 × max(width, height) — so its effective
  * colour is constant and only its alpha varies with distance.
  */
-function parchmentBackingAt(base: Rgb, x: number, y: number, width: number, height: number): Rgb {
+function parchmentBackingAt(
+  base: Rgb,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  overlays: readonly ParchmentBackingOverlay[] = [],
+): Rgb {
   const distance = Math.hypot(x - width / 2, y - height / 2);
   const inner = Math.min(width, height) * 0.35;
   const outer = Math.max(width, height) * 0.85;
   const washAlpha =
     PARCHMENT_WASH_MAX_ALPHA * clamp((distance - inner) / Math.max(1, outer - inner), 0, 1);
-  return {
+  let backing: Rgb = {
     r: PARCHMENT_WASH_RGB.r * washAlpha + base.r * (1 - washAlpha),
     g: PARCHMENT_WASH_RGB.g * washAlpha + base.g * (1 - washAlpha),
     b: PARCHMENT_WASH_RGB.b * washAlpha + base.b * (1 - washAlpha),
   };
+  for (const overlay of overlays) {
+    const alpha = clamp(overlay.alpha, 0, 1);
+    backing = {
+      r: overlay.rgb.r * alpha + backing.r * (1 - alpha),
+      g: overlay.rgb.g * alpha + backing.g * (1 - alpha),
+      b: overlay.rgb.b * alpha + backing.b * (1 - alpha),
+    };
+  }
+  return backing;
 }
 
 /**
@@ -1005,6 +1065,20 @@ function drawBackground(
     ctx.restore();
   }
 
+  // Paint only the backing, before stars and other sky geometry. Keep the
+  // catalogue computation at DEFAULT_BORTLE: it also controls star radii/alpha.
+  // The historical default must issue no extra canvas operations.
+  const bortle = effectiveBortleClass(renderOptions);
+  if (bortle !== DEFAULT_BORTLE) {
+    ctx.save();
+    ctx.fillStyle = bortle < DEFAULT_BORTLE ? "#000000" : "#ffffff";
+    ctx.globalAlpha = bortle < DEFAULT_BORTLE
+      ? ((DEFAULT_BORTLE - bortle) / (DEFAULT_BORTLE - 1)) * 0.75
+      : ((bortle - DEFAULT_BORTLE) / (9 - DEFAULT_BORTLE)) * 0.28;
+    ctx.fillRect(0, 0, width, height);
+    ctx.restore();
+  }
+
   // Rectangle border using theme accent color. The inset comes from
   // textFit.ts so the text fit-to-width bound (drawText) is derived from
   // the same calculation this stroke uses — one source of
@@ -1110,6 +1184,16 @@ function drawStarLayer(
     ? (parseHexColor(palette.star) ?? parseRgbColor(palette.star))
     : null;
   const parchmentRadius = Math.min(width, height) * PROJECTION_RADIUS_FACTOR;
+  // drawBackground paints the Bortle wash over the parchment backing
+  // before this layer runs, so the contrast compensation must qualify
+  // stars against the washed backing, not the unwashed model. At the
+  // default class there is no wash and this stays empty, leaving the
+  // default render's commands untouched.
+  const parchmentOverlays: ParchmentBackingOverlay[] = [];
+  if (isParchment) {
+    const wash = bortleWashOverlay(effectiveBortleClass(renderOptions));
+    if (wash) parchmentOverlays.push(wash);
+  }
 
   ctx.save();
   ctx.fillStyle = palette.star;
@@ -1145,12 +1229,13 @@ function drawStarLayer(
     if (!Number.isFinite(alpha)) continue;
     if (isParchment && parchmentInk && parchmentPaper) {
       // #412: raise the alpha to the 3:1 floor against this star's
-      // actual backing (paper + warm edge wash). If even opaque ink
+      // actual backing (paper + warm edge wash + the Bortle wash
+      // overlay). If even opaque ink
       // cannot reach 3:1 over that backing, omit the star explicitly
       // (SQ-60 section 1) rather than painting a sub-criterion speck.
       const needed = minAlphaForContrast(
         parchmentInk,
-        parchmentBackingAt(parchmentPaper, star.x, star.y, width, height),
+        parchmentBackingAt(parchmentPaper, star.x, star.y, width, height, parchmentOverlays),
         PARCHMENT_CONTRAST_RATIO,
       );
       if (needed === null) continue;
@@ -2704,6 +2789,8 @@ export const __testUtils = {
   minAlphaForContrast,
   parchmentBackingAt,
   relativeLuminance,
+  effectiveBortleClass,
+  bortleWashOverlay,
 };
 
 export { STYLE_THEME, clamp };
