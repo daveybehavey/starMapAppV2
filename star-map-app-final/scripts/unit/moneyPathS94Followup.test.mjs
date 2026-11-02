@@ -1,6 +1,10 @@
 // S94-1 follow-up — behavioural coverage for the five leftover findings
 // of the Slate 94 money-path adjacency audit (F2, F3, F5, F7, F9).
 // F1/F4/F6/F8 were fixed in PR #476 (moneyPathS931.test.mjs).
+// S96-1 continuation (final section): F2 — the F9 marker was
+// check-then-write, so concurrent deliveries could both dispatch; the
+// atomic authority claim now gates both dispatch sites. F1 — Printful
+// order_put_hold was 200-ignored; it is now recorded + alerted.
 //
 // Harness notes (modelled on moneyPathS931.test.mjs):
 // - The webhook route is driven through signed POSTs; the portal /
@@ -90,6 +94,7 @@ const referralLinkRoute = await import("../../src/app/api/referrals/link/route.t
 const referralStatusRoute = await import("../../src/app/api/referrals/status/route.ts");
 const consumeRoute = await import("../../src/app/api/entitlements/consume/route.ts");
 const printRetryRoute = await import("../../src/app/api/print/orders/retry/route.ts");
+const printfulWebhookRoute = await import("../../src/app/api/printful/webhook/route.ts");
 
 /* ---------------- fake KV (moneyPathS931 shape) ---------------- */
 
@@ -1813,6 +1818,237 @@ test("Cap count hardening: an unreadable grants ledger fails the count closed in
       "the count recovers once reads do",
     );
   } finally {
+    restoreKv();
+  }
+});
+
+/* ================= S96-1 F2 — concurrent alternate dispatch: the atomic claim admits exactly one ================= */
+
+function seedRacePrintOrder(sessionId) {
+  // seedPrintOrder plus the checkout phone already considered (null), so
+  // the retry route's hydration is a no-op and cannot rewrite the record
+  // mid-race — the race under test is the dispatch claim, nothing else.
+  const record = seedPrintOrder(sessionId);
+  const withPhone = { ...record, customerPhone: null };
+  data.set(printOrderKey(sessionId), withPhone);
+  return withPhone;
+}
+
+test("S96-1 F2: a webhook delivery parked mid-read cannot dispatch after a concurrent retry claimed the order", async () => {
+  installFakeKv();
+  installFetchDouble();
+  try {
+    const sessionId = "cs_test_s961_race_a";
+    seedRacePrintOrder(sessionId);
+    stubStripeForRetry(sessionId);
+
+    // Park the webhook delivery inside queuePrintOrder's read of the
+    // order record: it resumes holding the pre-race snapshot (status
+    // failed, NO dispatch marker) — the exact interleave in which the
+    // pre-fix check-then-write marker let both sides dispatch.
+    const park = armReadPark(printOrderKey(sessionId));
+    const deliveryPromise = postEvent(
+      completedEvent("evt_s961_race_a", printCheckoutSessionFixture(sessionId)),
+    );
+    await park.enteredPromise;
+
+    // The concurrent admin retry runs to completion: it wins the
+    // atomic claim and dispatches — once.
+    const retryRes = await printRetryRoute.POST(retryRequest(sessionId));
+    assert.equal(retryRes.status, 200, "the retry winner completes");
+    assert.equal(fulfillmentCalls().length, 1, "the winner dispatched exactly once");
+    assert.equal(data.get(printOrderKey(sessionId))?.status, "sent");
+
+    park.release();
+    const delivery = await deliveryPromise;
+    assert.equal(
+      delivery.status,
+      200,
+      `the losing delivery finalises without a Stripe retry: ${JSON.stringify(delivery.body)}`,
+    );
+    assert.equal(
+      fulfillmentCalls().length,
+      1,
+      "the parked delivery never dispatches — the authority claim, not the KV marker, excluded it",
+    );
+
+    // Gate fix (bot P2): the loser writes NOTHING — neither its stale
+    // pending rebuild nor a problem record may regress the winner's
+    // fulfilled record. (An earlier draft of this fix let the loser
+    // overwrite the winner's `sent` record with a reconciliation
+    // failure.) The standing claim keeps every later pass out as well.
+    const after = data.get(printOrderKey(sessionId));
+    assert.equal(after.status, "sent", "the winner's fulfilled record stands untouched");
+    assert.equal(after.alternateDispatch?.state, "accepted");
+    assert.notEqual(after.error, "alternate_dispatch_reconciliation_required");
+
+    const redelivery = await postEvent(
+      completedEvent("evt_s961_race_a2", printCheckoutSessionFixture(sessionId)),
+    );
+    assert.equal(redelivery.status, 200);
+    assert.equal(fulfillmentCalls().length, 1, "no later delivery dispatches either");
+  } finally {
+    restoreKv();
+  }
+});
+
+test("S96-1 F2: a retry parked mid-read loses cleanly to a concurrent webhook delivery", async () => {
+  installFakeKv();
+  installFetchDouble();
+  try {
+    const sessionId = "cs_test_s961_race_b";
+    seedRacePrintOrder(sessionId);
+    stubStripeForRetry(sessionId);
+
+    // Park the admin retry inside its read of the order record; the
+    // webhook delivery then runs to completion (claim + dispatch).
+    const park = armReadPark(printOrderKey(sessionId));
+    const retryPromise = printRetryRoute.POST(retryRequest(sessionId));
+    await park.enteredPromise;
+
+    const delivery = await postEvent(
+      completedEvent("evt_s961_race_b", printCheckoutSessionFixture(sessionId)),
+    );
+    assert.equal(delivery.status, 200, `the webhook winner completes: ${JSON.stringify(delivery.body)}`);
+    assert.equal(fulfillmentCalls().length, 1, "the winner dispatched exactly once");
+
+    park.release();
+    const retryRes = await retryPromise;
+    assert.equal(retryRes.status, 409, "the losing retry is refused, not dispatched");
+    assert.equal(
+      (await retryRes.json()).error,
+      "alternate_dispatch_reconciliation_required",
+    );
+    assert.equal(fulfillmentCalls().length, 1, "exactly one outbound dispatch across both racers");
+
+    // The loser wrote nothing: the winner's record stands untouched.
+    const after = data.get(printOrderKey(sessionId));
+    assert.equal(after.status, "sent");
+    assert.equal(after.alternateDispatch?.state, "accepted");
+  } finally {
+    restoreKv();
+  }
+});
+
+/* ================= S96-1 F1 — Printful order_put_hold is recorded and alerted ================= */
+
+const PRINTFUL_TEST_SECRET = "unit-test-printful-secret";
+
+function postPrintfulEvent(payload) {
+  return printfulWebhookRoute.POST(
+    new NextRequest(`https://starmapco.test/api/printful/webhook?token=${PRINTFUL_TEST_SECRET}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+  );
+}
+
+const resendCalls = () => fetchLog.filter((entry) => entry.url.startsWith("https://api.resend.com/"));
+
+function seedSentPrintOrder(sessionId) {
+  __resetPrintOrderAuthorityMemoryForTests();
+  const record = {
+    status: "sent",
+    sessionId,
+    printVariant: "poster_framed",
+    includesDigitalAddOn: false,
+    amountTotal: 9900,
+    currency: "usd",
+    customerEmail: "buyer@example.com",
+    customerName: "Buyer One",
+    shippingDetails: {
+      name: "Buyer One",
+      address: { line1: "1 Main St", city: "Victoria", state: "BC", country: "US", postal_code: "90210" },
+    },
+    printfulOrderId: 9001,
+    attempts: 1,
+    sentAt: Date.now(),
+    createdAt: Date.now(),
+  };
+  data.set(printOrderKey(sessionId), record);
+  return record;
+}
+
+test("S96-1 F1: order_put_hold is recorded + alerted once, and a terminal failure supersedes and clears it", async () => {
+  installFakeKv();
+  installFetchDouble();
+  process.env.PRINTFUL_WEBHOOK_SECRET = PRINTFUL_TEST_SECRET;
+  process.env.PRINT_ORDER_ALERT_FROM = "StarMapCo <ops@example.com>";
+  try {
+    const sessionId = "cs_test_s961_hold";
+    seedSentPrintOrder(sessionId);
+    const holdPayload = {
+      type: "order_put_hold",
+      data: {
+        reason: "address_issue",
+        order: { id: 9001, external_id: sessionId, status: "onhold" },
+      },
+    };
+
+    const first = await postPrintfulEvent(holdPayload);
+    assert.equal(first.status, 200, `the hold is acknowledged as handled: ${first.status}`);
+    assert.equal((await first.json()).status, "updated");
+    const held = data.get(printOrderKey(sessionId));
+    assert.equal(typeof held.providerHoldAt, "number", "the hold is visible state on the record");
+    assert.equal(held.providerHoldReason, "address_issue");
+    assert.equal(held.providerHoldOrderStatus, "onhold");
+    assert.equal(held.status, "sent", "a hold is not a failure — the order stays sent");
+    assert.equal(typeof held.operatorHoldAlertedAt, "number", "the operator was alerted");
+    assert.equal(resendCalls().length, 1, "exactly one hold alert was sent");
+    const alertBody = JSON.parse(resendCalls()[0].body);
+    assert.match(alertBody.subject, /on hold at Printful/);
+
+    // Redelivery: the first hold timestamp stands and no second alert goes out.
+    const second = await postPrintfulEvent(holdPayload);
+    assert.equal(second.status, 200);
+    const heldAgain = data.get(printOrderKey(sessionId));
+    assert.equal(heldAgain.providerHoldAt, held.providerHoldAt, "first hold wins");
+    assert.equal(resendCalls().length, 1, "no duplicate hold alert on redelivery");
+
+    // A terminal failure supersedes the hold and clears it from the record.
+    const failure = await postPrintfulEvent({
+      type: "order_failed",
+      data: {
+        reason: "file_failed",
+        order: { id: 9001, external_id: sessionId, status: "failed" },
+      },
+    });
+    assert.equal(failure.status, 200);
+    const failed = data.get(printOrderKey(sessionId));
+    assert.equal(failed.status, "failed");
+    assert.equal(failed.providerHoldAt, undefined, "the terminal projection clears the hold");
+
+    // A late hold after the terminal event is acknowledged but ignored.
+    const late = await postPrintfulEvent(holdPayload);
+    assert.equal(late.status, 200);
+    const lateBody = await late.json();
+    assert.equal(lateBody.status, "ignored");
+    assert.equal(lateBody.reason, "superseded_by_terminal_failure");
+    assert.equal(data.get(printOrderKey(sessionId)).providerHoldAt, undefined);
+  } finally {
+    delete process.env.PRINTFUL_WEBHOOK_SECRET;
+    delete process.env.PRINT_ORDER_ALERT_FROM;
+    restoreKv();
+  }
+});
+
+test("S96-1 F1: a hold whose session cannot be resolved stays retryable (503), never ACKed away", async () => {
+  installFakeKv();
+  installFetchDouble();
+  process.env.PRINTFUL_WEBHOOK_SECRET = PRINTFUL_TEST_SECRET;
+  try {
+    const res = await postPrintfulEvent({
+      type: "order_put_hold",
+      data: {
+        reason: "address_issue",
+        order: { id: 424242, external_id: "not-a-checkout-session", status: "onhold" },
+      },
+    });
+    assert.equal(res.status, 503, "Printful must retry until the session resolves");
+    assert.equal((await res.json()).status, "session_unresolved");
+  } finally {
+    delete process.env.PRINTFUL_WEBHOOK_SECRET;
     restoreKv();
   }
 });

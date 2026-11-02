@@ -20,7 +20,7 @@ import {
   type PrintOrderRecord,
 } from "@/lib/printOrders";
 
-type AuthorityNamespace = {
+export type AuthorityNamespace = {
   idFromName(name: string): DurableObjectId;
   get(id: DurableObjectId): {
     getState(sessionId: string): Promise<PrintOrderAuthorityState>;
@@ -144,6 +144,8 @@ export async function seedPrintOrderAuthorityFromKv(
     printfulOrderId?: string | number | null;
     /** Explicit KV provenance only — never infer from `error` (AG-086). */
     terminalEventType?: PrintOrderRecord["terminalEventType"];
+    /** S96-1 F2: a pre-claim KV dispatch marker seeds the atomic claim. */
+    alternateDispatch?: PrintOrderRecord["alternateDispatch"];
     error?: string | null;
   } | null,
 ): Promise<PrintOrderAuthorityApplyResult | { ok: false; reason: "authority_unread"; state: null }> {
@@ -152,7 +154,28 @@ export async function seedPrintOrderAuthorityFromKv(
     kvStatus: kvMirror?.status ?? null,
     printfulOrderId: kvMirror?.printfulOrderId ?? null,
     terminalEventType: terminalEventTypeForAuthoritySeed(kvMirror),
+    alternateDispatch: kvMirror?.alternateDispatch
+      ? {
+          dispatchId: kvMirror.alternateDispatch.dispatchId,
+          attemptedAt: kvMirror.alternateDispatch.attemptedAt,
+        }
+      : null,
   });
+}
+
+/**
+ * S96-1 F2: atomically claim the one alternate-destination dispatch for
+ * this order. Serialized by the DO (or the local memory mutex), so under
+ * concurrent webhook/retry deliveries exactly one caller observes
+ * `claimAcquired: true` in an `ok` result; the others observe the
+ * standing claim and must refuse to dispatch. `authority_unread` fails
+ * closed — callers must not dispatch without the claim.
+ */
+export async function claimAlternateFulfillmentDispatch(
+  sessionId: string,
+  dispatchId: string,
+): Promise<PrintOrderAuthorityApplyResult | { ok: false; reason: "authority_unread"; state: null }> {
+  return applyAuthority(sessionId, { type: "claim_alternate_dispatch", dispatchId });
 }
 
 export async function bindPrintProviderOrderId(
@@ -210,6 +233,31 @@ export async function readAuthorityLifecycleForMirrorGuard(
   return "unbound";
 }
 
+/**
+ * Mirror-guard lifecycle read against an EXPLICIT namespace, for callers
+ * running outside a fetch request context (scheduled handlers), where
+ * getCloudflareContext() cannot resolve the binding. Same fail-closed
+ * semantics as readAuthorityLifecycleForMirrorGuard: an unreadable
+ * authority in production reports "unread", never a guessed lifecycle.
+ */
+export async function readAuthorityLifecycleForMirrorGuardFromNamespace(
+  namespace: AuthorityNamespace | null | undefined,
+  sessionId: string,
+): Promise<PrintOrderAuthorityLifecycle | null | "unread"> {
+  if (!namespace) return readAuthorityLifecycleForMirrorGuard(sessionId);
+  const trimmed = sessionId.trim();
+  if (!trimmed) return "unread";
+  try {
+    const stub = namespace.get(namespace.idFromName(trimmed));
+    const state = await stub.getState(trimmed);
+    if (state) return state.lifecycle;
+  } catch {
+    // Fall through to the shared fail-closed tail.
+  }
+  if (!isLocalAuthorityFallbackAllowed()) return "unread";
+  return getMemoryState(trimmed).lifecycle;
+}
+
 export function shouldRejectNonterminalKvMirror(
   lifecycle: PrintOrderAuthorityLifecycle | "unread" | null,
 ): boolean {
@@ -236,6 +284,28 @@ export function isPrintOrderAuthorityBindError(
   error: unknown,
 ): error is PrintOrderAuthorityBindError {
   return error instanceof PrintOrderAuthorityBindError;
+}
+
+/**
+ * Stripe-retryable: the alternate-dispatch claim could not be resolved
+ * (authority unread), so nothing was dispatched and the event must be
+ * redelivered rather than finalized (S96-1 F2).
+ */
+export class PrintOrderAuthorityClaimError extends Error {
+  readonly code = "print_order_authority_claim_failed";
+  readonly reason: string;
+
+  constructor(reason: string) {
+    super(`print_order_authority_claim_failed:${reason}`);
+    this.name = "PrintOrderAuthorityClaimError";
+    this.reason = reason;
+  }
+}
+
+export function isPrintOrderAuthorityClaimError(
+  error: unknown,
+): error is PrintOrderAuthorityClaimError {
+  return error instanceof PrintOrderAuthorityClaimError;
 }
 
 /**

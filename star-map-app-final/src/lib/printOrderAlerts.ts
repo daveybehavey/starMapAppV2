@@ -1,7 +1,12 @@
 import type { PrintOrderRecord } from "@/lib/printOrders";
 
 type PrintOrderAlertProvider = "resend" | "sendgrid" | "none";
-type PrintOrderAlertKind = "approval" | "failure";
+type PrintOrderAlertKind = "approval" | "failure" | "hold";
+
+type PrintOrderAlertOptions = {
+  /** Hold alerts only: this is the aging-sweep escalation, not the first notice. */
+  escalated?: boolean;
+};
 
 export type PrintOrderAlertResult = {
   delivered: boolean;
@@ -93,15 +98,31 @@ function getFailureSubject(order: PrintOrderRecord) {
   return `${prefix} order needs intervention`;
 }
 
+function getHoldSubject(order: PrintOrderRecord, options?: PrintOrderAlertOptions) {
+  const prefix = order.includesDigitalAddOn ? "Print + HD" : "Print";
+  return options?.escalated
+    ? `${prefix} order still on hold at Printful — escalation`
+    : `${prefix} order on hold at Printful`;
+}
+
 function getFailureReason(order: PrintOrderRecord) {
   return order.error?.trim() || "unknown_failure";
 }
 
-function getIntro(order: PrintOrderRecord, kind: PrintOrderAlertKind) {
+function getHoldReason(order: PrintOrderRecord) {
+  return order.providerHoldReason?.trim() || "unknown_hold_reason";
+}
+
+function getIntro(order: PrintOrderRecord, kind: PrintOrderAlertKind, options?: PrintOrderAlertOptions) {
   if (kind === "approval") {
     return /^(0|false|no)$/i.test((process.env.PRINTFUL_AUTO_CONFIRM ?? "true").trim())
       ? "Printful created a draft order that still needs manual approval."
       : "Printful order was created automatically.";
+  }
+  if (kind === "hold") {
+    return options?.escalated
+      ? "This paid print order has been on hold at Printful past the escalation threshold and still needs operator action."
+      : "Printful has placed this paid print order on hold. Production will not start until the hold is resolved in Printful.";
   }
   if (order.status === "pending" && getFailureReason(order) === "submission_disabled") {
     return "A paid print order is waiting because fulfillment submission is disabled.";
@@ -113,10 +134,13 @@ function getFooterNote(kind: PrintOrderAlertKind) {
   if (kind === "approval") {
     return "Approve this draft in Printful when you are ready to submit it to fulfillment.";
   }
+  if (kind === "hold") {
+    return "Resolve the hold in Printful (for example a file, address, or payment issue on their side). The hold clears here when Printful ships or fails the order, or when an operator resolves it.";
+  }
   return "Check the stored error, correct the issue, then retry the order from the admin endpoint or Printful workflow.";
 }
 
-function getCopy(order: PrintOrderRecord, kind: PrintOrderAlertKind) {
+function getCopy(order: PrintOrderRecord, kind: PrintOrderAlertKind, options?: PrintOrderAlertOptions) {
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://starmapco.com").replace(/\/+$/, "");
   const createdAt = new Date(order.createdAt || Date.now()).toLocaleString("en-US", {
     dateStyle: "medium",
@@ -126,9 +150,15 @@ function getCopy(order: PrintOrderRecord, kind: PrintOrderAlertKind) {
   const destination = formatDestination(order);
   const customer = order.customerName || order.customerEmail || "Unknown";
   const printfulReviewUrl = getPrintfulReviewUrl(order);
-  const subject = kind === "approval" ? getApprovalSubject(order) : getFailureSubject(order);
-  const intro = getIntro(order, kind);
+  const subject =
+    kind === "approval"
+      ? getApprovalSubject(order)
+      : kind === "hold"
+        ? getHoldSubject(order, options)
+        : getFailureSubject(order);
+  const intro = getIntro(order, kind, options);
   const failureReason = getFailureReason(order);
+  const holdReason = getHoldReason(order);
   const textLines = [
     subject,
     "",
@@ -146,17 +176,24 @@ function getCopy(order: PrintOrderRecord, kind: PrintOrderAlertKind) {
   if (kind === "failure") {
     textLines.push(`Failure reason: ${failureReason}`);
   }
+  if (kind === "hold") {
+    textLines.push(`Hold reason: ${holdReason}`);
+  }
   textLines.push("", `Review in Printful: ${printfulReviewUrl}`, `Site: ${siteUrl}`);
 
-  const accentBg = kind === "approval" ? "#f4c74e" : "#f87171";
-  const accentText = kind === "approval" ? "#141414" : "#ffffff";
-  const accentSubtle = kind === "approval" ? "#d9c78d" : "#fecaca";
+  const accentBg = kind === "approval" ? "#f4c74e" : kind === "hold" ? "#fb923c" : "#f87171";
+  const accentText = kind === "failure" ? "#ffffff" : "#141414";
+  const accentSubtle = kind === "approval" ? "#d9c78d" : kind === "hold" ? "#fed7aa" : "#fecaca";
   const failureRow =
     kind === "failure"
       ? `<tr><td style="padding: 6px 0; font-weight: 700;">Failure reason</td><td style="padding: 6px 0;">${escapeHtml(
           failureReason,
         )}</td></tr>`
-      : "";
+      : kind === "hold"
+        ? `<tr><td style="padding: 6px 0; font-weight: 700;">Hold reason</td><td style="padding: 6px 0;">${escapeHtml(
+            holdReason,
+          )}</td></tr>`
+        : "";
 
   const html = `
     <div style="font-family: Georgia, 'Times New Roman', serif; max-width: 620px; margin: 0 auto; color: #0b1324; line-height: 1.6;">
@@ -195,7 +232,7 @@ function getCopy(order: PrintOrderRecord, kind: PrintOrderAlertKind) {
   return { subject, text: textLines.join("\n"), html };
 }
 
-async function sendWithResend(order: PrintOrderRecord, kind: PrintOrderAlertKind) {
+async function sendWithResend(order: PrintOrderRecord, kind: PrintOrderAlertKind, options?: PrintOrderAlertOptions) {
   const resendApiKey = process.env.RESEND_API_KEY?.trim() || "";
   const from = getAlertFrom();
   const to = getAlertRecipient();
@@ -213,7 +250,7 @@ async function sendWithResend(order: PrintOrderRecord, kind: PrintOrderAlertKind
   } = {
     from,
     to: [to],
-    ...getCopy(order, kind),
+    ...getCopy(order, kind, options),
   };
 
   const replyTo = getAlertReplyTo();
@@ -243,7 +280,7 @@ async function sendWithResend(order: PrintOrderRecord, kind: PrintOrderAlertKind
   return { delivered: true, provider: "resend" as const };
 }
 
-async function sendWithSendgrid(order: PrintOrderRecord, kind: PrintOrderAlertKind) {
+async function sendWithSendgrid(order: PrintOrderRecord, kind: PrintOrderAlertKind, options?: PrintOrderAlertOptions) {
   const sendgridApiKey = process.env.SENDGRID_API_KEY?.trim() || "";
   const from = parseEmailAddress(getAlertFrom());
   const to = getAlertRecipient();
@@ -251,7 +288,7 @@ async function sendWithSendgrid(order: PrintOrderRecord, kind: PrintOrderAlertKi
     return { delivered: false, provider: "none" as const, error: "print_alert_not_configured" };
   }
 
-  const copy = getCopy(order, kind);
+  const copy = getCopy(order, kind, options);
   const replyTo = parseEmailAddress(getAlertReplyTo());
 
   const payload = {
@@ -289,12 +326,13 @@ async function sendWithSendgrid(order: PrintOrderRecord, kind: PrintOrderAlertKi
 async function sendPrintOrderAlert(
   order: PrintOrderRecord,
   kind: PrintOrderAlertKind,
+  options?: PrintOrderAlertOptions,
 ): Promise<PrintOrderAlertResult> {
   try {
-    const resendResult = await sendWithResend(order, kind);
+    const resendResult = await sendWithResend(order, kind, options);
     if (resendResult.provider !== "none") return resendResult;
 
-    const sendgridResult = await sendWithSendgrid(order, kind);
+    const sendgridResult = await sendWithSendgrid(order, kind, options);
     if (sendgridResult.provider !== "none") return sendgridResult;
 
     return { delivered: false, provider: "none", error: "print_alert_not_configured" };
@@ -313,4 +351,16 @@ export async function sendPrintOrderApprovalAlert(order: PrintOrderRecord): Prom
 
 export async function sendPrintOrderFailureAlert(order: PrintOrderRecord): Promise<PrintOrderAlertResult> {
   return sendPrintOrderAlert(order, "failure");
+}
+
+/** S96-1 F1: first notice that Printful placed a paid order on hold. */
+export async function sendPrintOrderHoldAlert(order: PrintOrderRecord): Promise<PrintOrderAlertResult> {
+  return sendPrintOrderAlert(order, "hold");
+}
+
+/** S96-1 F1: the hold sweep's escalation when a hold ages unresolved. */
+export async function sendPrintOrderHoldEscalationAlert(
+  order: PrintOrderRecord,
+): Promise<PrintOrderAlertResult> {
+  return sendPrintOrderAlert(order, "hold", { escalated: true });
 }

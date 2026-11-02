@@ -13,6 +13,7 @@ import {
   getPrintOrderRetentionSeconds,
   getPrintRecipient,
   normalizeCheckoutPhone,
+  preserveLatestHoldAnnotations,
   redactPrintOrderApiResponseText,
   resolvePrintOrderCreatedAt,
   resolvePrintOrderKvWrite,
@@ -39,6 +40,14 @@ const resolveRouteSource = fs.readFileSync(
 const retryScriptSource = fs.readFileSync(path.join(appRoot, "scripts/retry-print-order.mjs"), "utf8");
 const privacyPageSource = fs.readFileSync(path.join(appRoot, "src/app/privacy/page.tsx"), "utf8");
 const printOrdersSource = fs.readFileSync(path.join(appRoot, "src/lib/printOrders.ts"), "utf8");
+const postSubmitSource = fs.readFileSync(
+  path.join(appRoot, "src/lib/printFulfillmentPostSubmit.ts"),
+  "utf8",
+);
+const confirmationSource = fs.readFileSync(
+  path.join(appRoot, "src/lib/printOrderConfirmation.ts"),
+  "utf8",
+);
 const webhookRouteSource = fs.readFileSync(
   path.join(appRoot, "src/app/api/stripe/webhook/route.ts"),
   "utf8",
@@ -477,4 +486,70 @@ test("alternate fulfillment webhook omits phone on initial and retry-shaped payl
     retryRouteSource,
     /JSON\.stringify\(\{\s*\.\.\.hydrated,\s*printAssetUrl,\s*recipient,\s*\}\)/,
   );
+});
+
+/* ============ S96-1 gate round 5 — hold preservation + stranded claims ============ */
+
+const holdCarrier = {
+  sessionId: "cs_hold_carry",
+  status: "sent",
+  createdAt: 1_700_000_000_000,
+  providerHoldAt: 1_700_000_100_000,
+  providerHoldReason: "address_issue",
+  providerHoldOrderStatus: "onhold",
+  operatorHoldAlertedAt: 1_700_000_100_500,
+  operatorHoldAlertProvider: "resend",
+  operatorHoldAlertError: undefined,
+  operatorHoldEscalatedAt: undefined,
+  operatorHoldEscalationAlertError: undefined,
+};
+
+test("S96-1 (gate round 5): preserveLatestHoldAnnotations carries a recorded hold onto a stale write", () => {
+  const next = { sessionId: "cs_hold_carry", status: "sent", createdAt: 1_700_000_000_000, error: "review_note" };
+  const merged = preserveLatestHoldAnnotations(next, holdCarrier);
+  assert.equal(merged.providerHoldAt, 1_700_000_100_000);
+  assert.equal(merged.providerHoldReason, "address_issue");
+  assert.equal(merged.operatorHoldAlertedAt, 1_700_000_100_500);
+  assert.equal(merged.error, "review_note");
+});
+
+test("S96-1 (gate round 5): no recorded hold on the latest record leaves the write untouched", () => {
+  const next = { sessionId: "cs_hold_carry", status: "sent", createdAt: 1_700_000_000_000 };
+  assert.equal(preserveLatestHoldAnnotations(next, null), next);
+  assert.equal(preserveLatestHoldAnnotations(next, { ...holdCarrier, providerHoldAt: undefined }), next);
+});
+
+test("S96-1 (gate round 5): the latest stored episode wins over a different episode on the write", () => {
+  const next = { ...holdCarrier, providerHoldAt: 1_700_000_200_000, providerHoldReason: "snapshot_hold" };
+  const merged = preserveLatestHoldAnnotations(next, holdCarrier);
+  assert.equal(merged.providerHoldAt, 1_700_000_100_000);
+  assert.equal(merged.providerHoldReason, "address_issue");
+});
+
+test("S96-1 (gate round 5): a hold cleared on the latest record is stripped from the write, never resurrected", () => {
+  // The post-submit resurrection case: an earlier sync carried the hold
+  // onto the working record, then an operator resolve (or shipment)
+  // cleared it during the review await — the review write must not
+  // bring it back.
+  const next = { ...holdCarrier };
+  const cleared = { sessionId: "cs_hold_carry", status: "sent", createdAt: 1_700_000_000_000 };
+  const merged = preserveLatestHoldAnnotations(next, cleared);
+  assert.equal(merged.providerHoldAt, undefined);
+  assert.equal(merged.providerHoldReason, undefined);
+  assert.equal(merged.operatorHoldAlertedAt, undefined);
+  assert.equal(merged.operatorHoldEscalatedAt, undefined);
+});
+
+test("S96-1 (gate round 5): post-submit persists and the stranded-claim surfacing are pinned in the TS sources", () => {
+  // Both post-submit persist sites preserve the latest hold annotations.
+  assert.match(postSubmitSource, /preserveLatestHoldAnnotations\(\s+sentRecord,/);
+  assert.match(postSubmitSource, /preserveLatestHoldAnnotations\(\s+reviewed,/);
+  assert.match(printOrdersSource, /export function preserveLatestHoldAnnotations/);
+  // The claim-loser surfacing: alert, final re-read, conditional write.
+  assert.match(webhookRouteSource, /Stranded-claim surfacing stood down/);
+  assert.match(webhookRouteSource, /freshest\?\.status === "sent" \|\| freshest\?\.alternateDispatch/);
+  // Gate round 9: the confirmation-email writer syncs hold annotations
+  // from the latest record before both of its outcome persists.
+  assert.match(confirmationSource, /preserveLatestHoldAnnotations\(\s+failed,/);
+  assert.match(confirmationSource, /preserveLatestHoldAnnotations\(\s+sent,/);
 });

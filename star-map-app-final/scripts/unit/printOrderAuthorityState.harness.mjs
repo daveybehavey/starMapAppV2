@@ -25,6 +25,18 @@ export function createUnboundAuthorityState(sessionId, now = Date.now()) {
     revision: 0,
     updatedAt: now,
     seededFromKv: false,
+    alternateDispatchClaim: null,
+  };
+}
+
+function seededAlternateDispatchClaim(op, now) {
+  const dispatchId =
+    typeof op.alternateDispatch?.dispatchId === "string" ? op.alternateDispatch.dispatchId.trim() : "";
+  if (!dispatchId) return null;
+  const attemptedAt = op.alternateDispatch?.attemptedAt;
+  return {
+    dispatchId,
+    claimedAt: typeof attemptedAt === "number" && Number.isFinite(attemptedAt) ? attemptedAt : now,
   };
 }
 
@@ -48,6 +60,8 @@ export function applyPrintOrderAuthorityOp(state, op) {
       }
       const now = op.now ?? Date.now();
       const id = normalizeAuthorityProviderOrderId(op.printfulOrderId ?? null);
+      const seededClaim = seededAlternateDispatchClaim(op, now);
+      const claimPatch = seededClaim ? { alternateDispatchClaim: seededClaim } : {};
       if (op.kvStatus === "failed") {
         const terminalEventType =
           typeof op.terminalEventType === "string" ? op.terminalEventType.trim() : "";
@@ -63,21 +77,52 @@ export function applyPrintOrderAuthorityOp(state, op) {
                 terminalReason: "seeded_from_kv_failed",
                 terminalEventType,
                 seededFromKv: true,
+                ...claimPatch,
               },
               now,
             ),
           };
         }
-        return { ok: true, changed: true, state: bump(state, { seededFromKv: true }, now) };
+        return { ok: true, changed: true, state: bump(state, { seededFromKv: true, ...claimPatch }, now) };
       }
       if (id && (op.kvStatus === "sent" || op.kvStatus === "pending")) {
         return {
           ok: true,
           changed: true,
-          state: bump(state, { printfulOrderId: id, lifecycle: "bound", seededFromKv: true }, now),
+          state: bump(
+            state,
+            { printfulOrderId: id, lifecycle: "bound", seededFromKv: true, ...claimPatch },
+            now,
+          ),
         };
       }
-      return { ok: true, changed: true, state: bump(state, { seededFromKv: true }, now) };
+      return { ok: true, changed: true, state: bump(state, { seededFromKv: true, ...claimPatch }, now) };
+    }
+    case "claim_alternate_dispatch": {
+      const dispatchId = typeof op.dispatchId === "string" ? op.dispatchId.trim() : "";
+      if (!dispatchId) return { ok: false, state, reason: "invalid_dispatch_id" };
+      if (state.lifecycle === "terminal_failed") {
+        return { ok: false, state, reason: "terminal_blocks_claim" };
+      }
+      if (state.alternateDispatchClaim) {
+        return {
+          ok: true,
+          state,
+          changed: false,
+          reason: "already_claimed",
+          claimAcquired: false,
+          alternateDispatchClaim: state.alternateDispatchClaim,
+        };
+      }
+      const now = op.now ?? Date.now();
+      const claim = { dispatchId, claimedAt: now };
+      return {
+        ok: true,
+        changed: true,
+        claimAcquired: true,
+        alternateDispatchClaim: claim,
+        state: bump(state, { alternateDispatchClaim: claim }, now),
+      };
     }
     case "bind_provider_order_id": {
       const id = normalizeAuthorityProviderOrderId(op.printfulOrderId);

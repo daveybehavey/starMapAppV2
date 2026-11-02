@@ -122,6 +122,24 @@ export type PrintOrderRecord = {
   operatorFailureAlertedAt?: number;
   operatorFailureAlertProvider?: string;
   operatorFailureAlertError?: string;
+  /**
+   * S96-1 F1: Printful placed this order on hold (`order_put_hold`).
+   * The record stays `sent` — the order was submitted, but Printful
+   * will not produce it until the hold is resolved there. First hold
+   * wins for `providerHoldAt`; the reason/status track the latest hold
+   * event. The hold fields are cleared when the order terminally
+   * fails, ships, or an operator resolves it. The scheduled hold sweep
+   * (printOrderHoldSweep.ts) retries a failed hold alert and escalates
+   * holds that age past the configured threshold.
+   */
+  providerHoldAt?: number;
+  providerHoldReason?: string;
+  providerHoldOrderStatus?: string;
+  operatorHoldAlertedAt?: number;
+  operatorHoldAlertProvider?: string;
+  operatorHoldAlertError?: string;
+  operatorHoldEscalatedAt?: number;
+  operatorHoldEscalationAlertError?: string;
   operatorResolvedAt?: number;
   operatorResolvedProvider?: "manual_printful" | "manual_other";
   operatorResolvedNote?: string;
@@ -386,6 +404,53 @@ export function resolvePrintOrderCreatedAt(
   if (!existing) return now;
   // Intentionally return malformed values unchanged for fail-closed retention.
   return existing.createdAt as number;
+}
+
+/**
+ * Sync hold annotations from the LATEST stored record onto a pending
+ * whole-record write. Hold state is owned by the stored record: it is
+ * written by the Printful webhook handler (and cleared by the terminal,
+ * operator-resolve, and shipment writers) on its own timeline, while
+ * other writers (the post-submit identity/review persists) build their
+ * records from snapshots that predate — or, after an earlier sync,
+ * postdate — the latest hold state. Syncing in both directions is what
+ * makes those writers safe: a hold recorded during their awaits is
+ * carried onto the write instead of being erased, and a hold CLEARED
+ * during their awaits is stripped from the write instead of being
+ * resurrected from the snapshot. Callers must pass the freshest read
+ * they can take immediately before persisting; the writers that
+ * deliberately end a hold never use this helper.
+ */
+export function preserveLatestHoldAnnotations(
+  next: PrintOrderRecord,
+  latest: PrintOrderRecord | null | undefined,
+): PrintOrderRecord {
+  if (!latest) return next;
+  if (!latest.providerHoldAt) {
+    if (!next.providerHoldAt) return next;
+    return {
+      ...next,
+      providerHoldAt: undefined,
+      providerHoldReason: undefined,
+      providerHoldOrderStatus: undefined,
+      operatorHoldAlertedAt: undefined,
+      operatorHoldAlertProvider: undefined,
+      operatorHoldAlertError: undefined,
+      operatorHoldEscalatedAt: undefined,
+      operatorHoldEscalationAlertError: undefined,
+    };
+  }
+  return {
+    ...next,
+    providerHoldAt: latest.providerHoldAt,
+    providerHoldReason: latest.providerHoldReason,
+    providerHoldOrderStatus: latest.providerHoldOrderStatus,
+    operatorHoldAlertedAt: latest.operatorHoldAlertedAt,
+    operatorHoldAlertProvider: latest.operatorHoldAlertProvider,
+    operatorHoldAlertError: latest.operatorHoldAlertError,
+    operatorHoldEscalatedAt: latest.operatorHoldEscalatedAt,
+    operatorHoldEscalationAlertError: latest.operatorHoldEscalationAlertError,
+  };
 }
 
 export async function persistPrintOrderRecord(

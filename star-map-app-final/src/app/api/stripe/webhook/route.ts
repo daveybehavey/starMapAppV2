@@ -58,8 +58,12 @@ import { sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
 import { extendPrintAssetTtlForFulfillment } from "@/lib/printAssetFulfillment";
 import { bindAcceptedPrintfulIdentityThenReview } from "@/lib/printFulfillmentPostSubmit";
 import {
+  claimAlternateFulfillmentDispatch,
   isPrintOrderAuthorityBindError,
+  isPrintOrderAuthorityClaimError,
   PrintOrderAuthorityBindError,
+  PrintOrderAuthorityClaimError,
+  seedPrintOrderAuthorityFromKv,
 } from "@/lib/printOrderAuthority";
 import { sendPrintOrderConfirmation } from "@/lib/printOrderConfirmation";
 import {
@@ -1815,6 +1819,19 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       ? { alternateDispatch: existing.alternateDispatch }
       : {}),
   };
+  // Gate fix (bot P2): a concurrent pass (an admin retry, or a parallel
+  // delivery of another event for this session) may have completed the
+  // order while this pass was reading and validating — re-check before
+  // the whole-record rebuild write so a stale pass never regresses a
+  // fulfilled `sent` record back to pending.
+  const freshBeforeWrite = await kv.get<PrintOrderRecord>(printOrderKey(session.id));
+  if (freshBeforeWrite?.status === "sent") {
+    void sendPrintOrderConfirmation(session.id).catch((error) => {
+      console.warn("Print confirmation email retry on sent order failed", error);
+    });
+    return;
+  }
+
   // Pending queue write must remain durable. Deleted/unretainable aborts before Printful.
   assertPrintOrderRetained(await persistPrintOrderRecord(session.id, payload));
 
@@ -2157,6 +2174,93 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     return;
   }
   if (alternateIsFulfiller) {
+    // S96-1 F2: the marker check above is check-then-write — two
+    // concurrent deliveries (or a delivery racing an admin retry) can
+    // both read the marker absent from KV and both dispatch. Before
+    // the marker write, this pass must WIN the atomic claim in the
+    // print-order authority (serialized by the DO): exactly one
+    // concurrent caller proceeds. Seed first so a pre-claim KV marker
+    // also stands as a claim. The claim loser never dispatches. It
+    // writes only in the stranded-claim case (the claim holder died
+    // before its marker write), and then only under a final re-read
+    // proving the order is still unmarked and uncompleted — a loser
+    // problem write must never land after a winner's `sent` write and
+    // regress a fulfilled order to `failed`.
+    await seedPrintOrderAuthorityFromKv(session.id, existing);
+    const claim = await claimAlternateFulfillmentDispatch(session.id, dispatchId);
+    if (!claim.ok) {
+      if (claim.reason === "terminal_blocks_claim") {
+        await persistProblemPrintOrder({
+          ...payload,
+          printAssetUrl,
+          status: "failed",
+          error: "alternate_dispatch_blocked_terminal_failure",
+          alternateDispatch: existingAlternateDispatch,
+        });
+        return;
+      }
+      // Authority unread (or the claim otherwise unresolvable): fail
+      // closed — nothing was dispatched, so the event stays retryable.
+      throw new PrintOrderAuthorityClaimError(claim.reason);
+    }
+    if (!claim.claimAcquired) {
+      // Gate rounds 1+5 (bot P2s): losing the claim has two causes
+      // that must not be handled alike.
+      //  - The winner completed, or holds an attempted marker (mid-
+      //    dispatch, or stuck AFTER marking): stand down and write
+      //    nothing. A stuck-after-marking winner is surfaced by the
+      //    next pass under the found-marker doctrine above, and any
+      //    write here could still race the winner's completion.
+      //  - NEITHER (stranded claim): the claim holder died between
+      //    winning the claim and writing its marker — e.g. its marker
+      //    persist failed transiently, its delivery correctly 503'd,
+      //    and every redelivery now loses the permanent claim.
+      //    Standing down silently would finalize a paid order as
+      //    pending forever: no marker, no problem record, no alert.
+      //    Surface it for reconciliation exactly like a found marker —
+      //    but the write is guarded: alert first (mirroring
+      //    persistProblemPrintOrder), then re-read, and persist only
+      //    if the order is STILL unmarked and uncompleted, so a
+      //    winner that was merely in the claim→marker gap is never
+      //    regressed by the surfacing write.
+      const fresh = await kv.get<PrintOrderRecord>(printOrderKey(session.id));
+      if (fresh?.status === "sent" || fresh?.alternateDispatch) {
+        console.warn("Alternate dispatch claim lost to a concurrent pass; standing down", {
+          sessionId: session.id,
+          dispatchId,
+        });
+        return;
+      }
+      const strandedRecord: PrintOrderRecord = {
+        ...payload,
+        printAssetUrl,
+        status: "failed",
+        error: "alternate_dispatch_reconciliation_required",
+        alternateDispatch: existingAlternateDispatch,
+        terminalEventType: null,
+      };
+      if (!strandedRecord.operatorFailureAlertedAt) {
+        const alertResult = await sendPrintOrderFailureAlert(strandedRecord);
+        if (alertResult.delivered) {
+          strandedRecord.operatorFailureAlertedAt = Date.now();
+          strandedRecord.operatorFailureAlertProvider = alertResult.provider;
+          strandedRecord.operatorFailureAlertError = undefined;
+        } else {
+          strandedRecord.operatorFailureAlertProvider = alertResult.provider;
+          strandedRecord.operatorFailureAlertError = alertResult.error;
+        }
+      }
+      const freshest = await kv.get<PrintOrderRecord>(printOrderKey(session.id));
+      if (freshest?.status === "sent" || freshest?.alternateDispatch) {
+        console.warn(
+          "Stranded-claim surfacing stood down: the claim holder progressed during the alert",
+          { sessionId: session.id, dispatchId },
+        );
+        return;
+      }
+      assertPrintOrderRetained(await persistPrintOrderRecord(session.id, strandedRecord));
+      return;
+    }
     payload = {
       ...payload,
       alternateDispatch: { dispatchId, state: "attempted", attemptedAt: Date.now() },
@@ -2551,6 +2655,15 @@ async function processCheckoutFulfillment(
     if (isPrintOrderAuthorityBindError(error)) {
       // Provider accepted but DO bind unread/conflicted — Stripe must retry; do not finalize dedupe.
       console.error("Print order authority bind failed after provider accept; Stripe event remains retryable", {
+        sessionId: session.id,
+        reason: error.reason,
+      });
+      return { retryable: true };
+    }
+    if (isPrintOrderAuthorityClaimError(error)) {
+      // S96-1 F2: the alternate-dispatch claim was unresolvable and
+      // nothing was dispatched — Stripe must retry; do not finalize dedupe.
+      console.error("Print order alternate dispatch claim failed; Stripe event remains retryable", {
         sessionId: session.id,
         reason: error.reason,
       });

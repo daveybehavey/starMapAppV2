@@ -1,5 +1,10 @@
 import type { PersistPrintOrderResult, PrintOrderRecord } from "@/lib/printOrders";
-import { persistPrintOrderRecord } from "@/lib/printOrders";
+import {
+  persistPrintOrderRecord,
+  preserveLatestHoldAnnotations,
+  printOrderKey,
+} from "@/lib/printOrders";
+import { kv } from "@/lib/kv";
 import { setPrintFulfillmentIndex } from "@/lib/printFulfillmentIndex";
 import { sendPrintOrderApprovalAlert, sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
 import {
@@ -150,7 +155,17 @@ export async function bindAcceptedPrintfulIdentityThenReview(input: {
     return emptyFail(classifyBindFailure(bind));
   }
 
-  const identityPersist = await persistPrintOrderRecord(sessionId, sentRecord, {
+  // A provider hold can be recorded by the Printful webhook at any
+  // moment after the provider order exists — including during this
+  // helper's awaits. Both persists below therefore re-read the stored
+  // record and carry its hold annotations over the (older) snapshot
+  // being written, so a recorded hold is never erased by a post-submit
+  // write (the aging sweep keys off those stamps).
+  const identityRecord = preserveLatestHoldAnnotations(
+    sentRecord,
+    await kv.get<PrintOrderRecord>(printOrderKey(sessionId)),
+  );
+  const identityPersist = await persistPrintOrderRecord(sessionId, identityRecord, {
     allowClearTerminalFailure: false,
   });
   let indexed = false;
@@ -166,7 +181,7 @@ export async function bindAcceptedPrintfulIdentityThenReview(input: {
       indexed = true;
     }
     return {
-      record: sentRecord,
+      record: identityRecord,
       identityPersist,
       reviewPersist: null,
       indexed,
@@ -177,7 +192,7 @@ export async function bindAcceptedPrintfulIdentityThenReview(input: {
   }
   if (identityPersist.outcome === "rejected_terminal_failure") {
     return {
-      record: sentRecord,
+      record: identityRecord,
       identityPersist,
       reviewPersist: null,
       indexed: false,
@@ -187,8 +202,8 @@ export async function bindAcceptedPrintfulIdentityThenReview(input: {
     };
   }
 
-  const beforeReview: PrintOrderRecord = { ...sentRecord };
-  const reviewed = await applyPrintfulPostSubmitReview(sentRecord);
+  const beforeReview: PrintOrderRecord = { ...identityRecord };
+  const reviewed = await applyPrintfulPostSubmitReview(identityRecord);
   if (!reviewAnnotatedRecord(beforeReview, reviewed)) {
     return {
       record: reviewed,
@@ -201,11 +216,15 @@ export async function bindAcceptedPrintfulIdentityThenReview(input: {
     };
   }
 
-  const reviewPersist = await persistPrintOrderRecord(sessionId, reviewed, {
+  const preservedReviewed = preserveLatestHoldAnnotations(
+    reviewed,
+    await kv.get<PrintOrderRecord>(printOrderKey(sessionId)),
+  );
+  const reviewPersist = await persistPrintOrderRecord(sessionId, preservedReviewed, {
     allowClearTerminalFailure: false,
   });
   return {
-    record: reviewed,
+    record: preservedReviewed,
     identityPersist,
     reviewPersist,
     indexed,

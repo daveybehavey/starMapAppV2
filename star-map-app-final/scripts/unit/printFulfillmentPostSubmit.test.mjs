@@ -242,7 +242,31 @@ test("AG-018 #4: healthy review persists approval metadata via new record snapsh
   assert.equal(stored.operatorAlertProvider, "resend");
   assert.match(postSubmitSource, /Return a new record/);
   assert.match(postSubmitSource, /const approved: PrintOrderRecord = \{ \.\.\.sentRecord \}/);
-  assert.match(postSubmitSource, /const beforeReview: PrintOrderRecord = \{ \.\.\.sentRecord \}/);
+  assert.match(postSubmitSource, /const beforeReview: PrintOrderRecord = \{ \.\.\.identityRecord \}/);
+});
+
+test("S96-1 (gate round 5): a hold recorded before the post-submit persists survives identity + review writes", async () => {
+  const kv = createMemoryKv();
+  await kv.set(printOrderKey(SESSION), {
+    ...baseSentRecord(),
+    providerHoldAt: 1_700_000_050_000,
+    providerHoldReason: "address_issue",
+    providerHoldOrderStatus: "onhold",
+    operatorHoldAlertedAt: 1_700_000_050_500,
+    operatorHoldAlertProvider: "resend",
+  });
+  const result = await bindAcceptedPrintfulIdentityThenReview({
+    sessionId: SESSION,
+    sentRecord: baseSentRecord(),
+    kv,
+    reviewResult: buildReviewFromStatuses([{ item: "a", type: "default", status: "ok" }]),
+  });
+  assert.equal(result.bindOk, true);
+  const stored = await kv.get(printOrderKey(SESSION));
+  assert.equal(stored.providerHoldAt, 1_700_000_050_000);
+  assert.equal(stored.providerHoldReason, "address_issue");
+  assert.ok(stored.operatorAlertedAt);
+  assert.equal(result.record.providerHoldAt, 1_700_000_050_000);
 });
 
 test("AG-018 #3: stale terminal KV projection skipped after operator recovery", async () => {

@@ -121,6 +121,15 @@ export async function POST(req: NextRequest) {
     error: undefined,
     terminalEventType: null,
     webhookStatus: existing.webhookStatus,
+    // S96-1 F1: an operator resolve ends any recorded Printful hold.
+    providerHoldAt: undefined,
+    providerHoldReason: undefined,
+    providerHoldOrderStatus: undefined,
+    operatorHoldAlertedAt: undefined,
+    operatorHoldAlertProvider: undefined,
+    operatorHoldAlertError: undefined,
+    operatorHoldEscalatedAt: undefined,
+    operatorHoldEscalationAlertError: undefined,
   };
 
   // AG-079: keep stale KV provider B as retry-discoverable cleanup intent until

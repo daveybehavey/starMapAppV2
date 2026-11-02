@@ -7,6 +7,9 @@
  * - markTerminalFailed (order_failed / order_canceled only)
  * - operatorRecover (explicit clear of terminal)
  * - seedFromKvMirror (lazy bootstrap; no production data mutation required)
+ * - claimAlternateDispatch (S96-1 F2: atomic first-dispatch claim for the
+ *   alternate fulfilment destination; serialized applies make concurrent
+ *   double fulfilment impossible — see applyClaimAlternateDispatch)
  */
 
 export type PrintOrderAuthorityLifecycle =
@@ -14,6 +17,19 @@ export type PrintOrderAuthorityLifecycle =
   | "bound"
   | "terminal_failed"
   | "operator_recovered";
+
+/**
+ * S96-1 F2: the atomic first-dispatch claim for the alternate fulfilment
+ * destination. The KV dispatch marker in printOrders.ts is check-then-write
+ * and cannot exclude two concurrent deliveries that both read it absent;
+ * this claim lives in the serialized authority instead. Once set it is
+ * never cleared by an apply — a stuck claim is operator-reconciled exactly
+ * like a stuck "attempted" marker.
+ */
+export type PrintOrderAlternateDispatchClaim = {
+  dispatchId: string;
+  claimedAt: number;
+};
 
 export type PrintOrderAuthorityState = {
   sessionId: string;
@@ -24,6 +40,7 @@ export type PrintOrderAuthorityState = {
   revision: number;
   updatedAt: number;
   seededFromKv: boolean;
+  alternateDispatchClaim: PrintOrderAlternateDispatchClaim | null;
 };
 
 export type PrintOrderAuthorityOp =
@@ -37,6 +54,20 @@ export type PrintOrderAuthorityOp =
        * Ordinary pre-provider / local validation failures must omit this.
        */
       terminalEventType?: string | null;
+      /**
+       * S96-1 F2: a KV alternate-dispatch marker that predates the atomic
+       * claim seeds the claim, so a legacy "attempted"/"accepted" marker
+       * keeps blocking dispatch after this gate deploys.
+       */
+      alternateDispatch?: {
+        dispatchId?: string | null;
+        attemptedAt?: number | null;
+      } | null;
+      now?: number;
+    }
+  | {
+      type: "claim_alternate_dispatch";
+      dispatchId: string;
       now?: number;
     }
   | {
@@ -71,14 +102,20 @@ export type PrintOrderAuthorityApplyResult =
       state: PrintOrderAuthorityState;
       changed: boolean;
       reason?: string;
+      /** claim_alternate_dispatch only: true when THIS apply won the claim. */
+      claimAcquired?: boolean;
+      /** claim_alternate_dispatch only: the standing claim after the apply. */
+      alternateDispatchClaim?: PrintOrderAlternateDispatchClaim | null;
     }
   | {
       ok: false;
       state: PrintOrderAuthorityState;
       reason:
         | "terminal_blocks_bind"
+        | "terminal_blocks_claim"
         | "conflicting_provider_id"
         | "invalid_provider_id"
+        | "invalid_dispatch_id"
         | "operator_recover_not_terminal"
         | "invalid_session";
     };
@@ -108,6 +145,7 @@ export function createUnboundAuthorityState(sessionId: string, now = Date.now())
     revision: 0,
     updatedAt: now,
     seededFromKv: false,
+    alternateDispatchClaim: null,
   };
 }
 
@@ -124,6 +162,22 @@ function bump(
   };
 }
 
+/** A pre-claim KV dispatch marker seeds the atomic claim verbatim (S96-1 F2). */
+function seededAlternateDispatchClaim(
+  op: Extract<PrintOrderAuthorityOp, { type: "seed_from_kv" }>,
+  now: number,
+): PrintOrderAlternateDispatchClaim | null {
+  const dispatchId = typeof op.alternateDispatch?.dispatchId === "string"
+    ? op.alternateDispatch.dispatchId.trim()
+    : "";
+  if (!dispatchId) return null;
+  const attemptedAt = op.alternateDispatch?.attemptedAt;
+  return {
+    dispatchId,
+    claimedAt: typeof attemptedAt === "number" && Number.isFinite(attemptedAt) ? attemptedAt : now,
+  };
+}
+
 function applySeedFromKv(
   state: PrintOrderAuthorityState,
   op: Extract<PrintOrderAuthorityOp, { type: "seed_from_kv" }>,
@@ -133,6 +187,8 @@ function applySeedFromKv(
   }
   const now = op.now ?? Date.now();
   const id = normalizeAuthorityProviderOrderId(op.printfulOrderId ?? null);
+  const seededClaim = seededAlternateDispatchClaim(op, now);
+  const claimPatch = seededClaim ? { alternateDispatchClaim: seededClaim } : {};
   if (op.kvStatus === "failed") {
     // AG-081: only true terminal provider evidence may seed terminal_failed.
     // Bare status:"failed" (retry/local validation) must remain retryable.
@@ -150,6 +206,7 @@ function applySeedFromKv(
             terminalReason: "seeded_from_kv_failed",
             terminalEventType,
             seededFromKv: true,
+            ...claimPatch,
           },
           now,
         ),
@@ -158,7 +215,7 @@ function applySeedFromKv(
     return {
       ok: true,
       changed: true,
-      state: bump(state, { seededFromKv: true }, now),
+      state: bump(state, { seededFromKv: true, ...claimPatch }, now),
     };
   }
   if (id && (op.kvStatus === "sent" || op.kvStatus === "pending")) {
@@ -171,6 +228,7 @@ function applySeedFromKv(
           printfulOrderId: id,
           lifecycle: "bound",
           seededFromKv: true,
+          ...claimPatch,
         },
         now,
       ),
@@ -179,7 +237,7 @@ function applySeedFromKv(
   return {
     ok: true,
     changed: true,
-    state: bump(state, { seededFromKv: true }, now),
+    state: bump(state, { seededFromKv: true, ...claimPatch }, now),
   };
 }
 
@@ -234,6 +292,48 @@ function applyBind(
       },
       now,
     ),
+  };
+}
+
+/**
+ * S96-1 F2: atomically claim the one alternate-destination dispatch for
+ * this order. Applies are serialized by the caller (DO single-thread /
+ * memory mutex), so exactly one concurrent caller observes
+ * `claimAcquired: true`; every later caller observes the standing claim
+ * and must refuse to dispatch (the winner may already have delivered
+ * the order to the receiver — an operator reconciles, per the KV
+ * marker doctrine in printOrders.ts). A terminally failed order can
+ * never be claimed: the provider already ended it.
+ */
+function applyClaimAlternateDispatch(
+  state: PrintOrderAuthorityState,
+  op: Extract<PrintOrderAuthorityOp, { type: "claim_alternate_dispatch" }>,
+): PrintOrderAuthorityApplyResult {
+  const dispatchId = typeof op.dispatchId === "string" ? op.dispatchId.trim() : "";
+  if (!dispatchId) {
+    return { ok: false, state, reason: "invalid_dispatch_id" };
+  }
+  if (state.lifecycle === "terminal_failed") {
+    return { ok: false, state, reason: "terminal_blocks_claim" };
+  }
+  if (state.alternateDispatchClaim) {
+    return {
+      ok: true,
+      state,
+      changed: false,
+      reason: "already_claimed",
+      claimAcquired: false,
+      alternateDispatchClaim: state.alternateDispatchClaim,
+    };
+  }
+  const now = op.now ?? Date.now();
+  const claim: PrintOrderAlternateDispatchClaim = { dispatchId, claimedAt: now };
+  return {
+    ok: true,
+    changed: true,
+    claimAcquired: true,
+    alternateDispatchClaim: claim,
+    state: bump(state, { alternateDispatchClaim: claim }, now),
   };
 }
 
@@ -393,6 +493,8 @@ export function applyPrintOrderAuthorityOp(
   switch (op.type) {
     case "seed_from_kv":
       return applySeedFromKv(state, op);
+    case "claim_alternate_dispatch":
+      return applyClaimAlternateDispatch(state, op);
     case "bind_provider_order_id":
       return applyBind(state, op);
     case "mark_terminal_failed":
