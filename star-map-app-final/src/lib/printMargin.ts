@@ -99,10 +99,42 @@ export function getSecondCopyShippingIncrementCents(
   return getPrintShippingEstimate(variant, country)?.amountCents ?? 0;
 }
 
+/**
+ * Guard config env read with the codebase's public-mirror pattern (same
+ * shape as getPrintFreeShippingThresholdCents in printFreeShipping.ts):
+ * the server reads the server var first and falls back to the
+ * NEXT_PUBLIC_ mirror; the browser can only see the mirror. The mirrors
+ * exist so purchase surfaces (the paywall rows) can preflight the SAME
+ * guard the checkout route enforces, before the buyer clicks — the pair
+ * must move together in wrangler.toml, exactly like the
+ * PRINT_CHECKOUT_ENABLED / NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED pair.
+ * The Stripe-fee knobs have no mirror and keep the server read (their
+ * code defaults govern in production).
+ *
+ * Every reference below MUST stay literal: Next.js only inlines a
+ * NEXT_PUBLIC_ var into the browser bundle when the member access is
+ * written out in full. A dynamically indexed process.env[name] read is
+ * invisible to the bundler and silently yields undefined in the
+ * browser, which would leave the guard reading as disabled client-side
+ * while the checkout route still enforces it (the October merch
+ * defect class — fix round 1 on PR #479). Pinned by
+ * paywallAvailabilityFriction.test.mjs.
+ */
+function readGuardEnv(serverName: "PRINT_MARGIN_GUARD_ENABLED" | "PRINT_MIN_MARGIN_CENTS"): string | undefined {
+  if (serverName === "PRINT_MARGIN_GUARD_ENABLED") {
+    return typeof window === "undefined"
+      ? process.env.PRINT_MARGIN_GUARD_ENABLED ?? process.env.NEXT_PUBLIC_PRINT_MARGIN_GUARD_ENABLED
+      : process.env.NEXT_PUBLIC_PRINT_MARGIN_GUARD_ENABLED;
+  }
+  return typeof window === "undefined"
+    ? process.env.PRINT_MIN_MARGIN_CENTS ?? process.env.NEXT_PUBLIC_PRINT_MIN_MARGIN_CENTS
+    : process.env.NEXT_PUBLIC_PRINT_MIN_MARGIN_CENTS;
+}
+
 export function getPrintMarginGuardConfig(): PrintMarginGuardConfig {
   return {
-    enabled: parseBool(process.env.PRINT_MARGIN_GUARD_ENABLED, false),
-    minMarginCents: parseIntValue(process.env.PRINT_MIN_MARGIN_CENTS, 0, 0),
+    enabled: parseBool(readGuardEnv("PRINT_MARGIN_GUARD_ENABLED"), false),
+    minMarginCents: parseIntValue(readGuardEnv("PRINT_MIN_MARGIN_CENTS"), 0, 0),
     stripePercent: parseFloatValue(process.env.PRINT_MARGIN_STRIPE_PERCENT, DEFAULT_STRIPE_PERCENT, 0),
     stripeFixedCents: parseIntValue(process.env.PRINT_MARGIN_STRIPE_FIXED_CENTS, DEFAULT_STRIPE_FIXED_CENTS, 0),
   };

@@ -1,17 +1,46 @@
 import type { PaywallPrintCheckoutRow } from "@/lib/printCatalog";
 import type { PrintVariant } from "@/lib/printCatalog";
 import { isSecondCopyEligibleVariant, resolvePaywallOfferRows } from "@/lib/printCatalog";
-import { formatPrice, getPrintPricingTiers } from "@/lib/pricing";
-import { formatPrintShippingEstimate } from "@/lib/printfulShipping";
+import { formatPrice, getPrintPricingTiers, getPrintSecondCopyPriceCents } from "@/lib/pricing";
+import { formatPrintShippingEstimate, getPrintShippingCountryLabel } from "@/lib/printfulShipping";
 import {
+  getPrintFreeShippingThresholdCents,
   getPrintMerchandiseSubtotalCents,
   qualifiesForPrintFreeShipping,
 } from "@/lib/printFreeShipping";
+import { evaluatePrintMarginForCheckout } from "@/lib/printMargin";
 
 export type PaywallPrintCheckoutPresentationRow = PaywallPrintCheckoutRow & {
   index: number;
   headline: string;
   secondaryLine: string;
+  /**
+   * S94-4-F2 preflight: false when the checkout route's margin guard
+   * would refuse this exact row for the selected shipping country, so
+   * the surface can say so BEFORE the buyer clicks instead of failing
+   * the checkout request. Always true when no country is selected (the
+   * surface already gates on country selection) or the guard is off.
+   */
+  checkoutAvailable: boolean;
+  /** Buyer-facing reason when checkoutAvailable is false; null otherwise. */
+  unavailableNote: string | null;
+  /**
+   * S94-4-F8 (Lever B progress): "Add $X more for free shipping" while
+   * this row's merchandise subtotal is below the free-shipping
+   * threshold; null once it qualifies (the secondary line already says
+   * "free shipping") or when the threshold is not configured.
+   */
+  freeShippingProgressLine: string | null;
+  /**
+   * Lever A (S94-4-F9, corrected in PR #479 fix round 1): THIS row's
+   * own second-copy price, from the canonical 90%-of-tier helper.
+   * The price lives on the row — never on the shared checkbox label —
+   * because each row buys its own variant: a label priced from the
+   * preferred variant advertised $89.10 (framed) beside an unframed
+   * row whose copy actually costs $44.10, and vice versa. Null for
+   * variants that cannot take a second copy.
+   */
+  secondCopyPriceLine: string | null;
 };
 
 export function getPaywallPrintCheckoutPresentation(
@@ -41,9 +70,47 @@ export function getPaywallPrintCheckoutPresentation(
       includeCardAddOn: row.includeCardAddOn,
       includeSecondCopy: rowIncludeSecondCopy,
     });
-    const shippingLabel = qualifiesForPrintFreeShipping(merchandiseSubtotalCents)
+    const qualifiesForFreeShipping = qualifiesForPrintFreeShipping(merchandiseSubtotalCents);
+    const shippingLabel = qualifiesForFreeShipping
       ? "free shipping"
       : formatPrintShippingEstimate(row.variant, printShippingCountry ?? null, "shipping");
+    // Lever B progress (S94-4-F8): the threshold is a USD merchandise
+    // figure in both markets (see printFreeShipping), so the remaining
+    // amount is formatted as USD exactly like the threshold label.
+    const freeShippingThresholdCents = getPrintFreeShippingThresholdCents();
+    const freeShippingProgressLine =
+      !qualifiesForFreeShipping &&
+      freeShippingThresholdCents !== null &&
+      merchandiseSubtotalCents < freeShippingThresholdCents
+        ? `Add ${formatPrice(freeShippingThresholdCents - merchandiseSubtotalCents, "usd")} more for free shipping`
+        : null;
+    // Margin-guard preflight (S94-4-F2): run the SAME evaluation the
+    // checkout route runs for this row + country, with the same
+    // shipping charge the route passes it — 0 once free shipping
+    // applies, otherwise the rate-table estimate (the evaluator's own
+    // fallback when shippingChargeCents is null, which is the dynamic
+    // rate path wrangler.toml declares). The promo case stays with the
+    // route: a code's discount is only known to Stripe, and the route
+    // answers it with its own promo-specific message. No country yet →
+    // no signal (the surface already asks for a country first).
+    let checkoutAvailable = true;
+    let unavailableNote: string | null = null;
+    if (printShippingCountry) {
+      const marginEvaluation = evaluatePrintMarginForCheckout({
+        variant: row.variant,
+        shippingCountry: printShippingCountry,
+        shippingChargeCents: qualifiesForFreeShipping ? 0 : null,
+        includeDigitalAddOn: row.includeDigitalAddOn,
+        includeCardAddOn: row.includeCardAddOn,
+        includeSecondCopy: rowIncludeSecondCopy,
+      });
+      if (!marginEvaluation.allowed) {
+        checkoutAvailable = false;
+        unavailableNote = `Not available for ${getPrintShippingCountryLabel(
+          printShippingCountry,
+        )} at this price — please pick a different country or format.`;
+      }
+    }
     // Bundle rows (print + add-on) lead with the bundle TOTAL, matching the
     // marketing pages' bundle lines (e.g. "$106.00 USD framed + HD · free
     // shipping" from getFramedHdBundlePriceLine); the headline names the
@@ -55,7 +122,22 @@ export function getPaywallPrintCheckoutPresentation(
       : isBundleRow
         ? `${formatPrice(merchandiseSubtotalCents, tier.currency)} · ${shippingLabel}`
         : [productPrice, shippingLabel].join(" + ");
-    return { ...row, index, headline, secondaryLine };
+    // Lever A: the copy's price for THIS row's variant, in the same
+    // book the row displays — the price and the purchase can never
+    // drift apart because both derive from row.variant.
+    const secondCopyPriceLine = isSecondCopyEligibleVariant(row.variant)
+      ? `Second copy: ${formatPrice(getPrintSecondCopyPriceCents(row.variant), tier.currency)}`
+      : null;
+    return {
+      ...row,
+      index,
+      headline,
+      secondaryLine,
+      checkoutAvailable,
+      unavailableNote,
+      freeShippingProgressLine,
+      secondCopyPriceLine,
+    };
   });
 }
 

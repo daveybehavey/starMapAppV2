@@ -25,10 +25,18 @@ test("M05: merch policy line carries the merch terms and shows at the purchase s
   assert.match(panel, /\{MERCH_POLICY_LINE\}/, "merch panel shows the merch policy at the checkout step");
 
   const modal = read("../../src/components/PaywallModal.tsx");
+  // UPDATED 2026-11-02 (S94-4-F5): the modal no longer repeats a policy
+  // line under every purchase row. The merch line renders ONCE per
+  // surface in the panel policy block, shown only when a mug row is on
+  // offer (hasMerchPrintRow), beside the Love-It line.
   assert.match(
     modal,
-    /row\.variant === "mug_11oz" \? MERCH_POLICY_LINE : LOVE_IT_GUARANTEE_LINE/,
-    "the mug row carries merch terms, print rows keep the Love-It line",
+    /hasMerchPrintRow \? <p>\{MERCH_POLICY_LINE\}<\/p> : null/,
+    "the merch line shows once in the panel policy block when a mug row is offered",
+  );
+  assert.ok(
+    !modal.includes('row.variant === "mug_11oz" ? MERCH_POLICY_LINE : LOVE_IT_GUARANTEE_LINE'),
+    "no per-row policy line under the purchase buttons",
   );
 });
 

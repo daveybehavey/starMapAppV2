@@ -88,6 +88,12 @@ PRINT_STANDARD_SHIPPING_MAX_BUSINESS_DAYS = "4"
 PRINT_DYNAMIC_SHIPPING = "true"
 PRINT_MARGIN_GUARD_ENABLED = "true"
 PRINT_MIN_MARGIN_CENTS = "1000"
+# Public mirrors of the margin guard pair: the paywall preflights the
+# same guard client-side so an unavailable format/country is surfaced
+# before the buyer clicks (S94-4-F2). Keep the pairs in sync — the
+# checkout route reads the server vars; the browser reads these.
+NEXT_PUBLIC_PRINT_MARGIN_GUARD_ENABLED = "true"
+NEXT_PUBLIC_PRINT_MIN_MARGIN_CENTS = "1000"
 PRINT_ORDER_SUBMISSION_ENABLED = "true"
 # Lever A second copy (10% off) — ship DARK: both switches stay "false" until
 # the activation step flips them together (server gate + public UI switch).
