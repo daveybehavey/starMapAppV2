@@ -31,10 +31,11 @@ import { register } from "node:module";
 
 register("./tsAliasLoader.mjs", import.meta.url);
 
-const { buildAutoCaption, upsertAutoCaptionBox, AUTO_CAPTION_BOX_ID } = await import(
-  "../../src/lib/autoCaption.ts"
-);
+const { buildAutoCaption, upsertAutoCaptionBox, resolveAutoCaptionRow, AUTO_CAPTION_BOX_ID } =
+  await import("../../src/lib/autoCaption.ts");
 const { normalizeEditorDraftData } = await import("../../src/lib/editorDraft.ts");
+const { STANDARD_TEXT_BOX_ROWS, DIAMOND_TEXT_BOX_ROWS, HEART_TEXT_BOX_ROWS, STAR_TEXT_BOX_ROWS } =
+  await import("../../src/lib/textFit.ts");
 
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), "utf8");
 
@@ -94,6 +95,39 @@ test("an empty or unrecognised timezone yields no caption, never a UTC-shifted d
   assert.equal(buildAutoCaption({ ...base, timezone: "" }), null);
   assert.equal(buildAutoCaption({ ...base, timezone: "   " }), null);
   assert.equal(buildAutoCaption({ ...base, timezone: "Not/AZone" }), null);
+});
+
+test("the caption's initial row sits one gap below the shape's dedication row, inside every mask", () => {
+  const caption = "Paris, France · 48.8566° N, 2.3522° E · June 15, 2024";
+  const rowFor = (layout) =>
+    upsertAutoCaptionBox([], caption, "navyGold", layout).find((b) => b.id === AUTO_CAPTION_BOX_ID)
+      .position.y;
+  const GAP = 0.05;
+  // Standard shapes keep the long-standing row, exactly (stored rows
+  // are recognised by exact equality in the default-row system).
+  assert.equal(rowFor(undefined), 0.95);
+  assert.equal(rowFor({ shape: "rectangle" }), 0.95);
+  assert.equal(rowFor({ shape: "circle" }), 0.95);
+  assert.ok(Math.abs(rowFor({ shape: "rectangle" }) - (STANDARD_TEXT_BOX_ROWS.dedication + GAP)) < 1e-9);
+  // Diamond: the standard 0.95 is below the bottom apex (0.94); the
+  // caption follows the diamond dedication row instead.
+  assert.equal(rowFor({ shape: "diamond" }), 0.69);
+  assert.ok(Math.abs(rowFor({ shape: "diamond" }) - (DIAMOND_TEXT_BOX_ROWS.dedication + GAP)) < 1e-9);
+  // Heart/star rows are mask-authored (dedication 0.65): verbatim
+  // without a footprint, converted through one with it.
+  assert.equal(rowFor({ shape: "heart" }), 0.7);
+  assert.equal(rowFor({ shape: "star" }), 0.7);
+  assert.ok(Math.abs(rowFor({ shape: "heart" }) - (HEART_TEXT_BOX_ROWS.dedication + GAP)) < 1e-9);
+  assert.ok(Math.abs(rowFor({ shape: "star" }) - (STAR_TEXT_BOX_ROWS.dedication + GAP)) < 1e-9);
+  assert.equal(
+    rowFor({
+      shape: "heart",
+      shapeMaskFootprint: { size: 800, offsetX: 100, offsetY: 200 },
+      canvasHeight: 1000,
+    }),
+    0.76, // (200 + 0.70 * 800) / 1000 — the designed rows' own conversion
+  );
+  assert.equal(resolveAutoCaptionRow({ shape: "diamond" }), 0.69);
 });
 
 test("a missing location name yields a coords + date caption", () => {

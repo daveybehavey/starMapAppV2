@@ -16,6 +16,7 @@ import { ShapeIcon } from "@/components/ShapeIcon";
 
 import { buildStarMapDownloadFilename } from "@/lib/downloadFilename";
 import { buildAutoCaption, upsertAutoCaptionBox } from "@/lib/autoCaption";
+import { resolveShapeMaskFootprint } from "@/lib/shapeLayout";
 import {
   createCheckoutHandoffToken,
   track,
@@ -337,7 +338,20 @@ export function EditorExperience({
   });
   const handleAddCaption = () => {
     if (!autoCaption) return;
-    const next = upsertAutoCaptionBox(textBoxes, autoCaption, selectedStyle);
+    // The caption's initial row is shape-aware (see @/lib/autoCaption);
+    // the footprint is resolved from the aspect parts exactly as the
+    // store's setShape resolves it for the designed rows.
+    const [aspectW, aspectH] =
+      aspectRatio === "square" ? [1, 1] : aspectRatio.split(":").map(Number);
+    const next = upsertAutoCaptionBox(textBoxes, autoCaption, selectedStyle, {
+      shape,
+      shapeMaskFootprint: resolveShapeMaskFootprint(
+        aspectW,
+        aspectH,
+        renderOptions.shapeLayoutVersion,
+      ),
+      canvasHeight: aspectH,
+    });
     if (next !== textBoxes) setTextBoxes(next);
   };
 

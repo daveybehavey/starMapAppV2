@@ -20,9 +20,11 @@
 // editor offers no button.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import type { ShapeMaskFootprint } from "./shapeLayout";
 import { getStyleTextDefaults } from "./styleDefaults";
 import type { StyleId, TextBox } from "./store";
 import { AUTOMATIC_TEXT_STYLE_BINDING } from "./textStyleBinding";
+import { maskRowToCanvasRow } from "./textFit";
 
 export const AUTO_CAPTION_BOX_ID = "caption";
 
@@ -86,6 +88,55 @@ export function buildAutoCaption(input: AutoCaptionInput): string | null {
   return segments.join(" · ");
 }
 
+/** The design layout the caption's initial row is resolved against. */
+export interface AutoCaptionLayout {
+  /** The design's selected shape (store state `shape`). */
+  shape?: string;
+  /** Mask footprint for the design's layout, when resolvable. */
+  shapeMaskFootprint?: ShapeMaskFootprint | null;
+  /** Height of the canvas the footprint was resolved for. */
+  canvasHeight?: number;
+}
+
+/**
+ * The caption's initial rows — one 0.05 gap below each shape's designed
+ * dedication row (textFit.ts: standard 0.9, diamond 0.64, heart/star
+ * 0.65 in mask space), written as literals of record rather than
+ * dedication + gap arithmetic: stored rows in the default-row system
+ * are recognised by exact equality, and float addition drifts the
+ * standard row off its canonical value (0.9 + 0.05 !== 0.95).
+ *
+ * The shape awareness is load-bearing, not cosmetic: the standard
+ * bottom row (0.95) is OUTSIDE the mask on shaped designs — below the
+ * diamond's bottom apex (0.94), below the heart's bottom tip (0.88),
+ * and in the star's bottom notch (centre outside below 0.745) — where
+ * the fit system can only shrink the caption to its floor and report
+ * overflow, never move it inside.
+ */
+const STANDARD_CAPTION_ROW = 0.95;
+const DIAMOND_CAPTION_ROW = 0.69;
+const HEART_CAPTION_MASK_ROW = 0.7;
+const STAR_CAPTION_MASK_ROW = 0.7;
+
+/**
+ * The caption's initial row for the design's shape. Heart/star rows
+ * are mask-authored, so theirs is converted through the footprint
+ * exactly like the designed rows themselves (verbatim without one:
+ * legacy layouts and square canvases).
+ */
+export function resolveAutoCaptionRow(layout?: AutoCaptionLayout): number {
+  const shape = layout?.shape;
+  if (shape === "heart" || shape === "star") {
+    return maskRowToCanvasRow(
+      shape === "heart" ? HEART_CAPTION_MASK_ROW : STAR_CAPTION_MASK_ROW,
+      layout?.shapeMaskFootprint,
+      layout?.canvasHeight,
+    );
+  }
+  if (shape === "diamond") return DIAMOND_CAPTION_ROW;
+  return STANDARD_CAPTION_ROW;
+}
+
 /**
  * Insert the caption as an ordinary text box, or refresh the text of
  * the existing caption box (preserving any styling/position edits the
@@ -96,12 +147,16 @@ export function buildAutoCaption(input: AutoCaptionInput): string | null {
  * style's text defaults, automatic style binding (so template switches
  * keep it readable), centred alignment anchor at x 0.5 — the stored
  * position is the alignment anchor the renderer draws from, like every
- * sibling row — placed just below the dedication row (y 0.9) at 0.95.
+ * sibling row — at the shape-aware initial row (resolveAutoCaptionRow):
+ * just below the shape's dedication row, inside the mask on every
+ * shape. Only the INITIAL row is shape-aware; once added, the caption
+ * is the user's box and refresh never moves it.
  */
 export function upsertAutoCaptionBox(
   textBoxes: readonly TextBox[],
   caption: string,
   selectedStyle: StyleId,
+  layout?: AutoCaptionLayout,
 ): TextBox[] {
   const existing = textBoxes.find((box) => box.id === AUTO_CAPTION_BOX_ID);
   if (existing) {
@@ -122,7 +177,7 @@ export function upsertAutoCaptionBox(
     align: "center",
     textShadow: false,
     textGlow: false,
-    position: { x: 0.5, y: 0.95 },
+    position: { x: 0.5, y: resolveAutoCaptionRow(layout) },
   };
   return [...textBoxes, captionBox];
 }
