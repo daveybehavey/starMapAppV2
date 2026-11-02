@@ -19,6 +19,10 @@ import {
   sendPrintOrderHoldEscalationAlert,
 } from "@/lib/printOrderAlerts";
 import {
+  readAuthorityLifecycleForMirrorGuard,
+  shouldRejectNonterminalKvMirror,
+} from "@/lib/printOrderAuthority";
+import {
   applyHoldSweepStampsToCurrent,
   resolvePrintOrderHoldSweepConfig,
   runPrintOrderHoldSweep,
@@ -71,6 +75,15 @@ export function createPrintOrderHoldSweepStore(ns: RawKvNamespace): PrintOrderHo
       const merged = applyHoldSweepStampsToCurrent(current, record);
       if (!merged) {
         return { outcome: "skipped", reason: "hold_state_changed" };
+      }
+      // Terminal-authority guard, identical in mechanism to
+      // persistPrintOrderRecord's: a terminal failure is authority state,
+      // re-checked after the merge read, so a failure landing mid-scan can
+      // never be mirrored over by this nonterminal (sent) write.
+      // Unreadable authority fails closed; the next tick retries.
+      const lifecycle = await readAuthorityLifecycleForMirrorGuard(sessionId);
+      if (shouldRejectNonterminalKvMirror(lifecycle)) {
+        return { outcome: "skipped", reason: "authority_terminal_failure" };
       }
       // A bare KV put would strip the record's creation-anchored TTL and
       // make a PII-bearing order record permanent — always re-apply the

@@ -304,4 +304,9 @@ test("sweep wiring is pinned in the worker + runtime sources", () => {
   // PII-bearing order records permanent.
   assert.match(runtimeSource, /resolvePrintOrderKvWrite/);
   assert.match(runtimeSource, /expirationTtl: plan\.ttlSeconds/);
+  // The stale-write protections ride the same adapter: stamps merge onto
+  // the current record, and the authority terminal guard re-checks before
+  // the put.
+  assert.match(runtimeSource, /applyHoldSweepStampsToCurrent/);
+  assert.match(runtimeSource, /readAuthorityLifecycleForMirrorGuard/);
 });
