@@ -59,6 +59,36 @@ export function createMemoryKv() {
   };
 }
 
+/** Mirror of preserveLatestHoldAnnotations in src/lib/printOrders.ts */
+export function preserveLatestHoldAnnotations(next, latest) {
+  if (!latest) return next;
+  if (!latest.providerHoldAt) {
+    if (!next.providerHoldAt) return next;
+    return {
+      ...next,
+      providerHoldAt: undefined,
+      providerHoldReason: undefined,
+      providerHoldOrderStatus: undefined,
+      operatorHoldAlertedAt: undefined,
+      operatorHoldAlertProvider: undefined,
+      operatorHoldAlertError: undefined,
+      operatorHoldEscalatedAt: undefined,
+      operatorHoldEscalationAlertError: undefined,
+    };
+  }
+  return {
+    ...next,
+    providerHoldAt: latest.providerHoldAt,
+    providerHoldReason: latest.providerHoldReason,
+    providerHoldOrderStatus: latest.providerHoldOrderStatus,
+    operatorHoldAlertedAt: latest.operatorHoldAlertedAt,
+    operatorHoldAlertProvider: latest.operatorHoldAlertProvider,
+    operatorHoldAlertError: latest.operatorHoldAlertError,
+    operatorHoldEscalatedAt: latest.operatorHoldEscalatedAt,
+    operatorHoldEscalationAlertError: latest.operatorHoldEscalationAlertError,
+  };
+}
+
 async function persistPrintOrderRecord(kv, authority, sessionId, record, options = {}) {
   if (record.status !== "failed" && !options.allowClearTerminalFailure) {
     const lifecycle = (await authority.get(sessionId)).lifecycle;
@@ -135,7 +165,11 @@ export async function bindAcceptedPrintfulIdentityThenReview(input) {
   }
 
   events.push({ step: "identity_persist" });
-  const identityPersist = await persistPrintOrderRecord(kv, authority, sessionId, sentRecord);
+  const identityRecord = preserveLatestHoldAnnotations(
+    sentRecord,
+    await kv.get(printOrderKey(sessionId)),
+  );
+  const identityPersist = await persistPrintOrderRecord(kv, authority, sessionId, identityRecord);
   let indexed = false;
   if (identityPersist.outcome === "persisted" && sentRecord.printfulOrderId) {
     events.push({ step: "index" });
@@ -145,7 +179,7 @@ export async function bindAcceptedPrintfulIdentityThenReview(input) {
 
   if (identityPersist.outcome !== "persisted") {
     return {
-      record: sentRecord,
+      record: identityRecord,
       identityPersist,
       reviewPersist: null,
       indexed,
@@ -162,17 +196,17 @@ export async function bindAcceptedPrintfulIdentityThenReview(input) {
   events.push({ step: "review_start" });
   if (reviewThrow) throw reviewThrow;
 
-  const beforeReview = { ...sentRecord };
+  const beforeReview = { ...identityRecord };
   const disposition = summarizePrintfulFileReview(reviewResult);
-  let reviewed = sentRecord;
+  let reviewed = identityRecord;
   if (disposition === "failed" && reviewResult) {
-    reviewed = { ...sentRecord, error: formatPrintfulFileFailureError(reviewResult) };
+    reviewed = { ...identityRecord, error: formatPrintfulFileFailureError(reviewResult) };
     alerts.push({ type: "failure" });
   } else if (disposition === "healthy") {
     // New object (not in-place mutation) so change detection persists approval fields.
     alerts.push({ type: "approval" });
     reviewed = {
-      ...sentRecord,
+      ...identityRecord,
       operatorAlertedAt: Date.now(),
       operatorAlertProvider: "resend",
       operatorAlertError: undefined,
@@ -180,17 +214,22 @@ export async function bindAcceptedPrintfulIdentityThenReview(input) {
   }
 
   let reviewPersist = null;
+  let finalRecord = reviewed;
   const annotated =
     beforeReview.error !== reviewed.error ||
     beforeReview.operatorAlertedAt !== reviewed.operatorAlertedAt ||
     beforeReview.operatorAlertProvider !== reviewed.operatorAlertProvider ||
     beforeReview.operatorAlertError !== reviewed.operatorAlertError;
   if (annotated) {
-    reviewPersist = await persistPrintOrderRecord(kv, authority, sessionId, reviewed);
+    finalRecord = preserveLatestHoldAnnotations(
+      reviewed,
+      await kv.get(printOrderKey(sessionId)),
+    );
+    reviewPersist = await persistPrintOrderRecord(kv, authority, sessionId, finalRecord);
   }
 
   return {
-    record: reviewed,
+    record: finalRecord,
     identityPersist,
     reviewPersist,
     indexed,
