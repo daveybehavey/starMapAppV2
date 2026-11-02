@@ -34,6 +34,7 @@ import {
   ENTITLEMENT_KV,
   ENTITLEMENT_R2,
   evaluateDigitalAccess,
+  type ClaimPointerRecord,
   type ClaimTokenRecord,
   type StripeSessionEntitlement,
 } from "@/lib/entitlementsStore";
@@ -47,12 +48,56 @@ export const runtime = "nodejs";
 const LOCAL_FALLBACK_DIR = process.env.STARMAP_DOWNLOAD_ARCHIVE_DIR?.trim() || path.join(process.cwd(), ".tmp", "download-archive");
 const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://starmapco.com").replace(/\/+$/, "");
 
+/**
+ * The session's governing claim token, resolved exactly as the claim
+ * route resolves it (PR #447 fix round 4): the claim pointer governs
+ * when it names a token whose claim record belongs to this session;
+ * the session record's inline `claimToken` is the fallback for legacy
+ * sessions the pointer never adopted, and a pointer whose claim record
+ * has expired no longer governs. Null when nothing governs — in that
+ * case no presented token is superseded and the ordinary checks decide.
+ */
+async function resolveGoverningClaimToken(
+  sessionId: string,
+  record: StripeSessionEntitlement,
+): Promise<string | null> {
+  let governingToken = record.claimToken ?? null;
+  const pointer = await kv.get<ClaimPointerRecord>(ENTITLEMENT_KV.claimPointer(sessionId));
+  if (pointer?.token) {
+    const pointerClaim = await kv.get<ClaimTokenRecord>(ENTITLEMENT_KV.claim(pointer.token));
+    if (pointerClaim?.sessionId === sessionId) {
+      governingToken = pointer.token;
+    }
+  }
+  return governingToken;
+}
+
+/**
+ * Revocation parity (DL-1 build plan, Slice 5: "superseded tokens die
+ * everywhere"): a presented token authorises this route only if it is
+ * the session's governing token. The claim route has enforced this
+ * since PR #447, but the archive route resolved any live claim record,
+ * so a superseded token kept archive access after a rotation the claim
+ * route already honoured. The check refuses ONLY the superseded case:
+ * when nothing governs, or the presented token is the governing one,
+ * behaviour is exactly as before.
+ */
+async function presentedTokenIsGoverning(
+  sessionId: string,
+  record: StripeSessionEntitlement,
+  token: string,
+): Promise<boolean> {
+  const governingToken = await resolveGoverningClaimToken(sessionId, record);
+  return !governingToken || governingToken === token;
+}
+
 async function requireEntitledSession(token: string) {
   const claim = await kv.get<ClaimTokenRecord>(ENTITLEMENT_KV.claim(token));
   if (!claim?.sessionId) return null;
 
   const record = await kv.get<StripeSessionEntitlement>(ENTITLEMENT_KV.stripeSession(claim.sessionId));
   if (!record || !evaluateDigitalAccess(record)) return null;
+  if (!(await presentedTokenIsGoverning(claim.sessionId, record, token))) return null;
 
   return { sessionId: claim.sessionId, record, mapId: claim.mapId ?? record.mapId ?? undefined };
 }
@@ -111,9 +156,12 @@ export async function GET(req: NextRequest) {
 /* ================= Legacy POST — the cutover boundary (area 7 P1) =================
  * The live legacy archive flow, preserved EXACTLY as at base (1a1113b)
  * behind the DL1_AUTHORITY_ROUTING_ENABLED flag: while the flag is OFF
- * (its state until the Slice 6 cutover — David's Sequence A), POST is
- * this handler and nothing else: descriptorless upload → legacy-key
- * storage → archive-ready email. The S4 publication protocol below
+ * (its state until the Slice 6 cutover — David's Sequence A), the
+ * legacy CLASS of POST — classified by shape at the POST export below
+ * (F-2.1) — is this handler and nothing else: descriptorless upload →
+ * legacy-key storage → archive-ready email. Protocol-class POSTs are
+ * refused at the route layer before this handler is reached (R-3(b)
+ * darkness, R-2.1). The S4 publication protocol below
  * serves POST only once the flag is ON. The flag is never set in this
  * slice's configuration; the gate's ruling (G-dot conformance verdict
  * 2026-10-24) is that an early flip at S4 merge is NOT acceptable. */
@@ -254,6 +302,9 @@ async function resolveSession(req: NextRequest): Promise<ResolvedSession | null>
       ENTITLEMENT_KV.stripeSession(claim.sessionId),
     );
     if (!record || !evaluateDigitalAccess(record)) return null;
+    // Revocation parity, as in requireEntitledSession: a superseded
+    // token does not resolve on the protocol path either.
+    if (!(await presentedTokenIsGoverning(claim.sessionId, record, token))) return null;
     return {
       sessionId: claim.sessionId,
       record,
@@ -813,9 +864,74 @@ async function handleReconcile(session: ResolvedSession, artifactId: string) {
  * OFF — its state until the Slice 6 cutover — POST is the legacy flow
  * exactly as at base. The S4 publication protocol serves POST only with
  * the flag ON. The flag is read per request, like the webhook's.
+ *
+ * R-3(b) darkness (repair fix round F-2.1, amending R-2): while the
+ * flag is OFF, every POST is classified by shape BEFORE any behaviour
+ * is selected. The legacy class — the descriptorless token + PNG byte
+ * form the shipped client sends — keeps exactly its S4 behaviour
+ * (R-2.2). The protocol class is refused at the route layer (R-2.1):
+ * no legacy write, no protocol judgement, no acknowledgement that a
+ * protocol surface exists here. Classification is total: a request
+ * that cannot be cleanly classified as the legacy form is protocol.
  */
+
+/** Capability syntax of record: `dl1cap.v<N>.<payload>.<signature>`
+ * (DL-1 build opening packet). Recognition is shape membership only —
+ * decoding and validation are the protocol's merits judgement, never
+ * the classifier's. */
+const CAPABILITY_SHAPED_CREDENTIAL = /^dl1cap\.v\d+\./;
+
+function carriesCapabilityShapedCredential(req: NextRequest): boolean {
+  // Query placement: any parameter value wearing the capability shape.
+  for (const value of req.nextUrl.searchParams.values()) {
+    if (CAPABILITY_SHAPED_CREDENTIAL.test(value.trim())) return true;
+  }
+  // Header placement: an Authorization credential in capability shape.
+  const authorization = (req.headers.get("authorization") ?? "")
+    .trim()
+    .replace(/^Bearer\s+/i, "");
+  if (CAPABILITY_SHAPED_CREDENTIAL.test(authorization)) return true;
+  // Cookie placement: any cookie value wearing the capability shape.
+  for (const cookie of req.cookies.getAll()) {
+    if (CAPABILITY_SHAPED_CREDENTIAL.test(cookie.value.trim())) return true;
+  }
+  return false;
+}
+
+function classifyArchivePost(req: NextRequest): "protocol" | "legacy" {
+  // A prepare descriptor in any state: a malformed descriptor is still
+  // protocol material — mixed/malformed classifies as protocol (F-2.1).
+  if (req.headers.has("x-prepare-descriptor")) return "protocol";
+  // The JSON operations (identify / reconcile) have no legacy form.
+  const contentType = req.headers.get("content-type")?.trim().toLowerCase() || "";
+  if (contentType.includes("application/json")) return "protocol";
+  // Protocol material in the query placement (F-2.1's cap/art markers)
+  // makes the credential set mixed, never legacy.
+  if (req.nextUrl.searchParams.has("cap") || req.nextUrl.searchParams.has("art")) {
+    return "protocol";
+  }
+  if (carriesCapabilityShapedCredential(req)) return "protocol";
+  // The fused form's cookie credential (§5.6) with no legacy token
+  // matches only a protocol form. The shipped legacy client always
+  // presents its token; an ambient cookie beside a token does not
+  // change the class (the token governs, exactly as the protocol
+  // resolver's precedence rule provides).
+  const token = req.nextUrl.searchParams.get("token")?.trim() || "";
+  if (!token && req.cookies.has(PREMIUM_COOKIE_NAME)) return "protocol";
+  return "legacy";
+}
+
+function protocolDarknessRefusal() {
+  // R-2.1: "a directly invoked request receives the same refusal as an
+  // unrouted path" — the route's own not-found shape, at 404.
+  return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
+}
+
 export async function POST(req: NextRequest) {
-  if (!isEntitlementAuthorityRoutingEnabled()) return handleLegacyPost(req);
+  if (!isEntitlementAuthorityRoutingEnabled()) {
+    if (classifyArchivePost(req) === "protocol") return protocolDarknessRefusal();
+    return handleLegacyPost(req);
+  }
   return handleProtocolPost(req);
 }
 
