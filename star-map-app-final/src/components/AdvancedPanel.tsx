@@ -215,6 +215,138 @@ export function AdvancedPanel({
         )}
       </div>
 
+      <div className="space-y-2 rounded-md border border-white/10 bg-white/5 p-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <label className="text-[11px] font-semibold text-neutral-100">Sky Elements</label>
+          <span className="text-[10px] text-white/60">Stars, planets & moon</span>
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-[11px] text-neutral-200">Star Intensity</label>
+          <div className="grid grid-cols-3 gap-2">
+            {(
+              [
+                { id: "subtle", label: "Subtle" },
+                { id: "normal", label: "Normal" },
+                { id: "bold", label: "Bold" },
+              ] as const
+            ).map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                onClick={() => applyCustomRenderOptions({ starIntensity: preset.id })}
+                className={`rounded-md border px-2 py-1.5 text-xs font-semibold transition ${
+                  renderOptions.starIntensity === preset.id
+                    ? "!text-midnight border-amber-300 bg-amber-100"
+                    : "border-white/15 bg-white/10 text-white"
+                }`}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[11px] text-neutral-200">Star Glow</span>
+          <button
+            type="button"
+            onClick={() => applyCustomRenderOptions({ starGlow: !renderOptions.starGlow })}
+            className={`rounded-md border px-2 py-1 text-[10px] font-semibold transition ${
+              renderOptions.starGlow
+                ? "!text-midnight border-amber-300 bg-amber-100"
+                : "border-white/15 bg-white/10 text-white"
+            }`}
+          >
+            {renderOptions.starGlow ? "On" : "Off"}
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[11px] text-neutral-200">Planets</span>
+          <button
+            type="button"
+            onClick={() => applyCustomRenderOptions({ showPlanets: !renderOptions.showPlanets })}
+            className={`rounded-md border px-2 py-1 text-[10px] font-semibold transition ${
+              renderOptions.showPlanets
+                ? "!text-midnight border-amber-300 bg-amber-100"
+                : "border-white/15 bg-white/10 text-white"
+            }`}
+          >
+            {renderOptions.showPlanets ? "On" : "Off"}
+          </button>
+        </div>
+
+        {renderOptions.showPlanets && (
+          <div className="space-y-1">
+            <label className="text-[11px] text-neutral-200">Planet Emphasis</label>
+            <div className="grid grid-cols-2 gap-2">
+              {(
+                [
+                  { id: "normal", label: "Normal" },
+                  { id: "highlighted", label: "Highlighted" },
+                ] as const
+              ).map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => applyCustomRenderOptions({ planetEmphasis: preset.id })}
+                  className={`rounded-md border px-2 py-1.5 text-xs font-semibold transition ${
+                    renderOptions.planetEmphasis === preset.id
+                      ? "!text-midnight border-amber-300 bg-amber-100"
+                      : "border-white/15 bg-white/10 text-white"
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[11px] text-neutral-200">Moon</span>
+          <button
+            type="button"
+            onClick={() => applyCustomRenderOptions({ showMoon: !renderOptions.showMoon })}
+            className={`rounded-md border px-2 py-1 text-[10px] font-semibold transition ${
+              renderOptions.showMoon
+                ? "!text-midnight border-amber-300 bg-amber-100"
+                : "border-white/15 bg-white/10 text-white"
+            }`}
+          >
+            {renderOptions.showMoon ? "On" : "Off"}
+          </button>
+        </div>
+
+        {renderOptions.showMoon && (
+          <div className="space-y-1">
+            <label className="text-[11px] text-neutral-200">Moon Size</label>
+            <div className="grid grid-cols-2 gap-2">
+              {(
+                [
+                  { id: "normal", label: "Normal" },
+                  { id: "large", label: "Large" },
+                ] as const
+              ).map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => applyCustomRenderOptions({ moonSize: preset.id })}
+                  className={`rounded-md border px-2 py-1.5 text-xs font-semibold transition ${
+                    renderOptions.moonSize === preset.id
+                      ? "!text-midnight border-amber-300 bg-amber-100"
+                      : "border-white/15 bg-white/10 text-white"
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
       <details className="rounded-md border border-white/10 bg-white/5 p-2.5">
         <summary className="flex cursor-pointer list-none items-center justify-between text-[11px] font-semibold text-neutral-100">
           Premium effects
