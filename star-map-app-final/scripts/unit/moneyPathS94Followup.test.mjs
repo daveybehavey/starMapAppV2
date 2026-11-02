@@ -71,12 +71,15 @@ globalThis.fetch = async (input, init) => {
 };
 
 const { NextRequest } = await import("next/server");
-const { kv, KvDurableWriteError } = await import("../../src/lib/kv.ts");
+const { kv, KvDurableWriteError, KvReadError } = await import("../../src/lib/kv.ts");
 const { ENTITLEMENT_KV } = await import("../../src/lib/entitlementsStore.ts");
 const { referralKey, referralRewardedKey } = await import("../../src/lib/referrals.ts");
-const { appendReferralEvent, getReferralEvents } = await import(
-  "../../src/lib/referralLedger.ts"
-);
+const {
+  appendReferralEvent,
+  appendReferralRewardGrant,
+  countRecentReferralRewardGrants,
+  getReferralEvents,
+} = await import("../../src/lib/referralLedger.ts");
 const { printOrderKey } = await import("../../src/lib/printOrders.ts");
 const { __resetPrintOrderAuthorityMemoryForTests } = await import(
   "../../src/lib/printOrderAuthority.ts"
@@ -884,33 +887,47 @@ test("F9: a dispatch with an unknown outcome (network failure) fails closed to r
   }
 });
 
-test("F9: a definitively rejected dispatch (receiver answered non-2xx) stays retryable", async () => {
+test("F9: a receiver that creates the order and then answers 500 has NOT provably rejected — the dispatch stays attempted (gate fix round 1 P1-C re-pin)", async () => {
+  // RE-PINNED in gate fix round 1 (Codex P1-C on PR #477): this test
+  // previously asserted that ANY non-2xx answer — the 500 below —
+  // marked the dispatch "rejected" and allowed a redispatch. That
+  // classification is the defect: a receiver can create the order and
+  // THEN fail (exactly what this responder models), and an
+  // intermediary can answer after the receiver accepted, so no
+  // non-2xx status proves rejection (the receiver's contract defines
+  // none, and receiver-side idempotency is optional). The dispatch
+  // now stays "attempted" and the next pass refuses — an operator
+  // reconciles instead of risking a duplicate physical order.
   installFakeKv();
   installFetchDouble();
   try {
     seedPrintOrder();
     stubStripeForRetry();
-    let call = 0;
+    let receiverCreations = 0;
     fulfillmentResponder = async () => {
-      call += 1;
-      if (call === 1) {
-        return new Response("no", { status: 500, headers: { "content-type": "text/plain" } });
-      }
-      return new Response(JSON.stringify({ ok: true }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
+      // The receiver creates the physical order, then its response
+      // path fails — the order exists receiver-side despite the 500.
+      receiverCreations += 1;
+      return new Response("internal error after create", {
+        status: 500,
+        headers: { "content-type": "text/plain" },
       });
     };
     const first = await printRetryRoute.POST(retryRequest());
     assert.equal(first.status, 502);
-    assert.equal(data.get(printOrderKey(F9_SESSION)).alternateDispatch?.state, "rejected");
+    const afterFirst = data.get(printOrderKey(F9_SESSION));
+    assert.equal(
+      afterFirst.alternateDispatch?.state,
+      "attempted",
+      "an ambiguous non-2xx never moves the marker to rejected",
+    );
+    assert.equal(afterFirst.alternateDispatch?.httpStatus, 500, "the response facts are recorded");
 
     const second = await printRetryRoute.POST(retryRequest());
-    assert.equal(second.status, 200);
-    const sent = data.get(printOrderKey(F9_SESSION));
-    assert.equal(sent.status, "sent");
-    assert.equal(sent.alternateDispatch?.state, "accepted");
-    assert.equal(fulfillmentCalls().length, 2, "a rejected dispatch may be retried exactly once more");
+    assert.equal(second.status, 409);
+    assert.equal((await second.json()).error, "alternate_dispatch_reconciliation_required");
+    assert.equal(fulfillmentCalls().length, 1, "no second outbound dispatch");
+    assert.equal(receiverCreations, 1, "the receiver never creates a duplicate");
   } finally {
     restoreKv();
   }
@@ -934,6 +951,425 @@ test("F9: a clean dispatch carries the stable dispatch identity in payload and h
     assert.equal(sent.status, "sent");
     assert.equal(sent.alternateDispatch?.state, "accepted");
     assert.equal(sent.alternateDispatch?.dispatchId, `alt-fulfillment:${F9_SESSION}`);
+  } finally {
+    restoreKv();
+  }
+});
+
+/* ================= Gate fix round 1 — P1-A (F3): revocation vs previously-sealed writers ================= */
+
+test("P1-A (F3): a consume that sealed before an authority outage cannot resurrect a revocation that landed unleased during it", async () => {
+  installFakeKv();
+  installFetchDouble();
+  process.env.STARMAP_ENTITLEMENT_AUTHORITY_LOCAL = "1";
+  try {
+    const { __resetEntitlementAuthorityMemoryForTests } = await import(
+      "../../src/lib/entitlementAuthority.ts"
+    );
+    __resetEntitlementAuthorityMemoryForTests();
+    const buyerId = "cs_consume_p1a";
+    seedPaidSession(buyerId, {
+      creditsRemaining: 2,
+      creditsTotal: 3,
+      paymentIntentId: "pi_p1a",
+      customerId: "cus_p1a",
+    });
+    data.set(ENTITLEMENT_KV.stripePaymentIntent("pi_p1a"), buyerId);
+
+    // Park the consume inside its record read — it already holds the
+    // accounting lease at this point and seals as soon as it resumes.
+    // Its snapshot is pre-revocation.
+    const park = armReadPark(sessionKey(buyerId));
+    const consumePromise = consumeRoute.POST(
+      cookieRequest("https://starmapco.test/api/entitlements/consume", buyerId, {
+        token: "consume-token-p1a",
+      }),
+    );
+    await park.enteredPromise;
+
+    // The authority drops. The in-memory lease state survives the
+    // outage (the consume's lease — and its seal when the authority
+    // returns — remain valid), which is exactly the previously-sealed
+    // window: the revocation can only proceed unleased, and
+    // markSessionRevoked's "seals fail closed during an outage"
+    // reasoning does not reach a writer that seals after it returns.
+    delete process.env.STARMAP_ENTITLEMENT_AUTHORITY_LOCAL;
+    const refund = await postEvent({
+      id: "evt_p1a_refund",
+      object: "event",
+      type: "charge.refunded",
+      data: {
+        object: {
+          id: "ch_p1a",
+          object: "charge",
+          amount_refunded: 2900,
+          refunded: true,
+          payment_intent: "pi_p1a",
+        },
+      },
+    });
+    assert.equal(
+      refund.status,
+      200,
+      `the revocation lands unleased during the outage: ${JSON.stringify(refund.body)}`,
+    );
+    assert.equal(
+      data.get(sessionKey(buyerId))?.revoked,
+      true,
+      "precondition: the revocation completed during the outage",
+    );
+    assert.equal(
+      data.get(ENTITLEMENT_KV.sessionRevoked(buyerId))?.revoked,
+      true,
+      "precondition: durable revocation evidence landed during the outage",
+    );
+
+    // The authority returns; the consume resumes, seals its lease,
+    // and — pre-fix — writes its stale pre-revocation snapshot,
+    // resurrecting the entitlement (paid, un-revoked, debited).
+    process.env.STARMAP_ENTITLEMENT_AUTHORITY_LOCAL = "1";
+    park.release();
+    const consumeRes = await consumePromise;
+    assert.equal(
+      consumeRes.status,
+      403,
+      "the previously-sealed consume must refuse once the revocation is durable",
+    );
+    const final = data.get(sessionKey(buyerId));
+    assert.equal(final.revoked, true, "the revocation is NOT resurrected by the sealed writer");
+    assert.equal(final.paid, false);
+    assert.equal(final.creditsRemaining, 2, "no debit landed over the revocation");
+  } finally {
+    delete process.env.STARMAP_ENTITLEMENT_AUTHORITY_LOCAL;
+    restoreKv();
+  }
+});
+
+/* ================= Gate fix round 1 — P1-B (F5): reversal landing after the evidence consult ================= */
+
+test("P1-B (F5): a reversal landing after the terminal evidence consult is merged by the terminal write, never erased", async () => {
+  installFakeKv();
+  installFetchDouble();
+  try {
+    seedPaidSession(REFERRER_ID);
+    seedReferralRecord();
+    const buyerId = "cs_buyer_main";
+    data.set(`stripe:pi:pi_buyer_main`, buyerId);
+    data.set(referralRewardedKey(buyerId), {
+      referralCode: REFERRAL_CODE,
+      referrerSessionId: REFERRER_ID,
+      phase: "grant_confirmed",
+      rewardGranted: 1,
+      conversionRecorded: false,
+      createdAt: 9,
+    });
+    // Strike AFTER the terminal evidence consult returns clean. The
+    // consult is the first error-preserving read of the buyer's
+    // revocation-evidence key that follows the bookkeeping aggregate
+    // write (visible in putLog) — every earlier evidence read belongs
+    // to the settlement/decision phase. The hook returns the clean
+    // snapshot, then lands the reversal exactly as the refund
+    // invocation writes it: revocation evidence first
+    // (markSessionRevoked), then the outcome-record flags and the
+    // aggregate decrement (reverseReferralReward; counted-ness is
+    // evidenced by the pass's own aggregate write). Pre-fix, the
+    // terminal write then finalises from its stale snapshot and
+    // erases the flags the reversal just wrote.
+    let struck = false;
+    epGetHook = async (key, read) => {
+      const value = read();
+      const aggregateWritten = putLog.some((entry) => entry.key === referralKey(REFERRAL_CODE));
+      if (
+        !struck &&
+        key === ENTITLEMENT_KV.sessionRevoked(buyerId) &&
+        aggregateWritten &&
+        value === null
+      ) {
+        struck = true;
+        data.set(ENTITLEMENT_KV.sessionRevoked(buyerId), {
+          schemaVersion: 1,
+          sessionId: buyerId,
+          revoked: true,
+          reason: "refund",
+          paymentIntentId: "pi_buyer_main",
+          revokedAt: 222,
+        });
+        const current = data.get(referralRewardedKey(buyerId));
+        data.set(referralRewardedKey(buyerId), {
+          ...current,
+          conversionReversed: true,
+          conversionReversedAt: 223,
+          rewardReversed: true,
+          rewardReversedAt: 223,
+          reversalReason: "refund",
+          rewardReclaimed: 0,
+        });
+        const referral = data.get(referralKey(REFERRAL_CODE));
+        data.set(referralKey(REFERRAL_CODE), {
+          ...referral,
+          conversions: Math.max(0, (referral.conversions ?? 0) - 1),
+          rewardsGranted: Math.max(0, (referral.rewardsGranted ?? 0) - 1),
+        });
+      }
+      return value;
+    };
+    const session = checkoutSessionFixture({
+      metadata: { plan: "pack3", credits: "3", qa_run: "true", ...referralMetadata() },
+    });
+    const first = await postEvent(completedEvent("evt_p1b_first", session));
+    assert.equal(
+      first.status,
+      200,
+      `the terminal write lands with the reversal merged: ${JSON.stringify(first.body)}`,
+    );
+    assert.ok(struck, "the interleave was actually driven (the evidence consult was struck)");
+    const afterFirst = data.get(referralRewardedKey(buyerId));
+    assert.equal(afterFirst.phase, "completed", "the conversion finalised");
+    assert.equal(
+      afterFirst.conversionReversed,
+      true,
+      "the reversal's flags survive the terminal write",
+    );
+    assert.equal(afterFirst.rewardReversed, true);
+    assert.equal(afterFirst.reversalReason, "refund");
+
+    // The refund event itself now finds the reversal already
+    // recorded: it must not decrement the aggregates a second time.
+    epGetHook = null;
+    const refund = await postEvent({
+      id: "evt_p1b_refund",
+      object: "event",
+      type: "charge.refunded",
+      created: 1_767_225_600,
+      data: {
+        object: {
+          id: "ch_buyer_main",
+          object: "charge",
+          payment_intent: "pi_buyer_main",
+          amount_refunded: 900,
+          refunded: true,
+        },
+      },
+    });
+    assert.equal(refund.status, 200, `refund completes: ${JSON.stringify(refund.body)}`);
+    const referralAfter = data.get(referralKey(REFERRAL_CODE));
+    assert.equal(referralAfter.conversions, 0, "aggregate decremented exactly once across the interleave");
+    assert.equal(referralAfter.rewardsGranted, 0, "reward counter decremented exactly once");
+    const final = data.get(referralRewardedKey(buyerId));
+    assert.equal(final.conversionReversed, true, "flags still stand after the refund delivery");
+    assert.equal(final.rewardReversed, true);
+  } finally {
+    restoreKv();
+  }
+});
+
+/* ================= Gate fix round 1 — BOT-P2 (F7): ledger history survives a failed read ================= */
+
+test("BOT-P2 (F7): a failed grants-ledger read never overwrites the persisted grant history", async () => {
+  installFakeKv();
+  installFetchDouble();
+  try {
+    const grantsKey = `referral:reward-grants:${REFERRAL_CODE}`;
+    const now = Date.now();
+    for (const buyer of ["cs_old_buyer_1", "cs_old_buyer_2"]) {
+      await appendReferralRewardGrant({
+        code: REFERRAL_CODE,
+        eventId: `reward_granted:${buyer}`,
+        createdAt: now - 60_000,
+        details: { checkoutSessionId: buyer, rewardGranted: 1 },
+      });
+    }
+    assert.equal((data.get(grantsKey) ?? []).length, 2, "precondition: two grants persisted");
+
+    // Transient read failure on the next append: the plain read
+    // degrades to null (kv.get's failure mode on a Cloudflare read
+    // error) and the error-preserving read throws (its failure
+    // mode). Pre-fix the append consumed the degraded null as an
+    // empty history and wrote it back over the persisted ledger,
+    // permanently erasing both in-window grants.
+    getHook = async (key, read) => (key === grantsKey ? null : read());
+    epGetHook = async (key, read) => {
+      if (key === grantsKey) throw new KvReadError("injected ledger read failure");
+      return read();
+    };
+    await assert.rejects(
+      () =>
+        appendReferralRewardGrant({
+          code: REFERRAL_CODE,
+          eventId: "reward_granted:cs_new_buyer",
+          createdAt: now,
+          details: { checkoutSessionId: "cs_new_buyer", rewardGranted: 1 },
+        }),
+      "the append fails closed instead of replacing history it could not read",
+    );
+    getHook = null;
+    epGetHook = null;
+
+    const stored = data.get(grantsKey) ?? [];
+    assert.deepEqual(
+      stored.map((entry) => entry.id).sort(),
+      ["reward_granted:cs_old_buyer_1", "reward_granted:cs_old_buyer_2"],
+      "the persisted grants survive the failed append untouched",
+    );
+    assert.equal(
+      await countRecentReferralRewardGrants(REFERRAL_CODE, 24 * 60 * 60 * 1000, now),
+      2,
+      "the cap count still sees the seeded grants",
+    );
+
+    // Once reads recover, the same grant appends WITHOUT losing the
+    // history the failed attempt preserved.
+    await appendReferralRewardGrant({
+      code: REFERRAL_CODE,
+      eventId: "reward_granted:cs_new_buyer",
+      createdAt: now,
+      details: { checkoutSessionId: "cs_new_buyer", rewardGranted: 1 },
+    });
+    assert.equal(
+      await countRecentReferralRewardGrants(REFERRAL_CODE, 24 * 60 * 60 * 1000, now),
+      3,
+      "the recovered append unions with the preserved history",
+    );
+  } finally {
+    restoreKv();
+  }
+});
+
+/* ================= Gate fix round 1 — F9 webhook path: BOT-P1 + P1-C ================= */
+
+const WH_PRINT_ASSET_ID = "123e4567-e89b-42d3-a456-426614174000";
+
+function printCheckoutSessionFixture(sessionId, overrides = {}) {
+  return checkoutSessionFixture({
+    id: sessionId,
+    payment_intent: `pi_${sessionId}`,
+    amount_total: 9900,
+    // No customer email: markSessionPaid's account-lite upsert needs a
+    // consistency-coordinator binding this harness does not provide,
+    // and nothing on the print path requires the email (the recipient
+    // comes from shipping_details).
+    customer_details: { email: null, name: "Buyer One" },
+    shipping_details: {
+      name: "Buyer One",
+      address: { line1: "1 Main St", city: "Victoria", state: "BC", country: "US", postal_code: "90210" },
+    },
+    metadata: {
+      order_type: "print",
+      print_variant: "poster_framed",
+      print_asset_id: WH_PRINT_ASSET_ID,
+      qa_run: "true",
+    },
+    ...overrides,
+  });
+}
+
+test("BOT-P1 (F9): the webhook's pending rebuild never erases the dispatch marker — a failed reconciliation write cannot reopen dispatch", async () => {
+  installFakeKv();
+  installFetchDouble();
+  try {
+    const sessionId = "cs_wh_botp1";
+    __resetPrintOrderAuthorityMemoryForTests();
+    // A prior delivery dispatched to the alternate receiver and its
+    // outcome was never durably resolved: the marker stands at
+    // "attempted" (the receiver may already hold the order).
+    data.set(printOrderKey(sessionId), {
+      status: "failed",
+      sessionId,
+      printVariant: "poster_framed",
+      includesDigitalAddOn: false,
+      amountTotal: 9900,
+      currency: "usd",
+      customerEmail: "buyer@example.com",
+      customerName: "Buyer One",
+      shippingDetails: {
+        name: "Buyer One",
+        address: { line1: "1 Main St", city: "Victoria", state: "BC", country: "US", postal_code: "90210" },
+      },
+      printAssetId: WH_PRINT_ASSET_ID,
+      attempts: 1,
+      error: "webhook_failed",
+      terminalEventType: null,
+      createdAt: Date.now(),
+      alternateDispatch: {
+        dispatchId: `alt-fulfillment:${sessionId}`,
+        state: "attempted",
+        attemptedAt: Date.now() - 60_000,
+      },
+    });
+    // The replay reaches the dispatch check and tries to persist the
+    // reconciliation problem record — that ONE write fails.
+    failRules.push({
+      op: "setDurable",
+      match: (key) => key === printOrderKey(sessionId),
+      valueMatch: (value) => value?.error === "alternate_dispatch_reconciliation_required",
+      times: 1,
+    });
+    const first = await postEvent(
+      completedEvent("evt_botp1_first", printCheckoutSessionFixture(sessionId)),
+    );
+    assert.notEqual(
+      first.status,
+      200,
+      `the failed reconciliation write leaves the event retryable: ${JSON.stringify(first.body)}`,
+    );
+    assert.equal(
+      data.get(printOrderKey(sessionId))?.alternateDispatch?.state,
+      "attempted",
+      "the marker survives the replay's rebuild writes even though the reconciliation write failed",
+    );
+
+    // Redelivery: the stored marker still refuses dispatch. Pre-fix
+    // the rebuild had already erased the marker, so this redelivery
+    // dispatched into a receiver that may already hold the order.
+    const second = await postEvent(
+      completedEvent("evt_botp1_second", printCheckoutSessionFixture(sessionId)),
+    );
+    assert.equal(second.status, 200, `redelivery finalises as a refusal: ${JSON.stringify(second.body)}`);
+    assert.equal(fulfillmentCalls().length, 0, "no outbound dispatch on either delivery");
+    assert.equal(
+      data.get(printOrderKey(sessionId))?.alternateDispatch?.state,
+      "attempted",
+      "the marker still stands for the operator",
+    );
+  } finally {
+    restoreKv();
+  }
+});
+
+test("P1-C (F9): a webhook dispatch answered 500 stays attempted and is never redispatched on redelivery", async () => {
+  installFakeKv();
+  installFetchDouble();
+  try {
+    const sessionId = "cs_wh_p1c";
+    __resetPrintOrderAuthorityMemoryForTests();
+    let receiverCreations = 0;
+    fulfillmentResponder = async () => {
+      // The receiver creates the order, then its response path fails.
+      receiverCreations += 1;
+      return new Response("internal error after create", {
+        status: 500,
+        headers: { "content-type": "text/plain" },
+      });
+    };
+    const first = await postEvent(
+      completedEvent("evt_p1c_first", printCheckoutSessionFixture(sessionId)),
+    );
+    assert.equal(first.status, 200, `first delivery completes: ${JSON.stringify(first.body)}`);
+    assert.equal(fulfillmentCalls().length, 1, "the first delivery dispatched once");
+    const afterFirst = data.get(printOrderKey(sessionId));
+    assert.equal(
+      afterFirst?.alternateDispatch?.state,
+      "attempted",
+      "an ambiguous non-2xx leaves the marker attempted, not rejected",
+    );
+    assert.equal(afterFirst?.alternateDispatch?.httpStatus, 500);
+
+    const second = await postEvent(
+      completedEvent("evt_p1c_second", printCheckoutSessionFixture(sessionId)),
+    );
+    assert.equal(second.status, 200, `redelivery completes: ${JSON.stringify(second.body)}`);
+    assert.equal(fulfillmentCalls().length, 1, "no second outbound dispatch on redelivery");
+    assert.equal(receiverCreations, 1, "the receiver never creates a duplicate");
   } finally {
     restoreKv();
   }

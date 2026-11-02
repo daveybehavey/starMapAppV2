@@ -1325,6 +1325,34 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
       throw new ReferralGrantTransientError("referral_reversal_in_flight");
     }
   }
+  // Gate fix round 1 (Codex P1-B on PR #477): the evidence consult
+  // above narrows the F5 window but does not close it — its clean
+  // answer is already stale when the terminal write runs, and a
+  // reversal landing after it (revocation evidence first, then the
+  // outcome-record flags — the order both handlers write them) was
+  // still erased by the write's stale snapshot. Another read alone
+  // would only move the window; instead the outcome record is
+  // re-read as the FINAL step before the write, and the freshest
+  // reversal state governs the write's reversal fields: a reversal
+  // that has landed by now is merged, never erased. A reversal
+  // still in flight past this read can only write its flags after
+  // this write, from the snapshot IT read — regressing the record
+  // to its resumable phase with the flags on it — so the redelivery
+  // converges through this same carry-over instead of the terminal
+  // write finalising over it.
+  let finalRewardState: ReferralConversionState | null = null;
+  try {
+    finalRewardState = await kv.getErrorPreserving<ReferralConversionState>(rewardStateKey);
+  } catch {
+    finalRewardState = null;
+  }
+  if (!finalRewardState) {
+    throw new ReferralGrantTransientError("referral_conversion_state_unreadable");
+  }
+  const finalReversalState =
+    finalRewardState.conversionReversed === true || finalRewardState.rewardReversed === true
+      ? finalRewardState
+      : terminalReversalState;
   await kv.setDurable(rewardStateKey, {
     ...stateBase,
     phase: rewardGranted > 0 ? "completed" : "terminal_skip",
@@ -1334,14 +1362,14 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
     conversionRecorded: true,
     aggregateApplied,
     rewarded: true,
-    ...(terminalReversalState
+    ...(finalReversalState
       ? {
-          conversionReversed: terminalReversalState.conversionReversed,
-          conversionReversedAt: terminalReversalState.conversionReversedAt,
-          rewardReversed: terminalReversalState.rewardReversed,
-          rewardReversedAt: terminalReversalState.rewardReversedAt,
-          reversalReason: terminalReversalState.reversalReason,
-          rewardReclaimed: terminalReversalState.rewardReclaimed,
+          conversionReversed: finalReversalState.conversionReversed,
+          conversionReversedAt: finalReversalState.conversionReversedAt,
+          rewardReversed: finalReversalState.rewardReversed,
+          rewardReversedAt: finalReversalState.rewardReversedAt,
+          reversalReason: finalReversalState.reversalReason,
+          rewardReclaimed: finalReversalState.rewardReclaimed,
         }
       : {}),
   });
@@ -1771,6 +1799,20 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     shippingDetails: extractShippingDetails(session),
     attempts: (existing?.attempts ?? 0) + 1,
     createdAt: resolvePrintOrderCreatedAt(existing),
+    // Gate fix round 1 (BOT-P1): an existing alternate-dispatch
+    // marker is the only acceptance evidence for an outbound side
+    // effect that may already have happened — this rebuild must
+    // carry it, never drop it. Every persist in this function
+    // spreads the payload (the pending rebuild, the recipient
+    // refresh, every problem/sent write), so the marker now survives
+    // them all: if the reconciliation problem-write at the dispatch
+    // check below fails and the webhook answers 503, the stored
+    // record still holds the marker, and the next redelivery's
+    // dispatch check refuses instead of dispatching into a receiver
+    // that may already hold the order.
+    ...(existing?.alternateDispatch
+      ? { alternateDispatch: existing.alternateDispatch }
+      : {}),
   };
   // Pending queue write must remain durable. Deleted/unretainable aborts before Printful.
   assertPrintOrderRetained(await persistPrintOrderRecord(session.id, payload));
@@ -2123,9 +2165,15 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
   }
 
   if (!webhookResponse.ok) {
-    // The receiver answered and did NOT accept the order: the dispatch
-    // is definitively rejected, and a later pass may dispatch again
-    // under the same dispatch identity.
+    // Gate fix round 1 (Codex P1-C on PR #477): a non-2xx answer
+    // does NOT prove the receiver rejected the dispatch — the
+    // receiver may have created the order before failing, or an
+    // intermediary may have answered after the receiver accepted.
+    // No status is provably a rejection (the receiver's contract
+    // defines none, and receiver-side idempotency is optional), so
+    // the attempt stays "attempted": the response facts are recorded
+    // for the operator, and any later pass refuses to redispatch
+    // until the dispatch is reconciled.
     const body = await webhookResponse.text().catch(() => "");
     if (!isPrintfulConfigured()) {
       await persistProblemPrintOrder({
@@ -2134,7 +2182,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
         status: "failed",
         alternateDispatch: {
           dispatchId,
-          state: "rejected",
+          state: "attempted",
           attemptedAt: payload.alternateDispatch?.attemptedAt ?? Date.now(),
           respondedAt: Date.now(),
           httpStatus: webhookResponse.status,

@@ -14,9 +14,17 @@ export type PrintOrderTerminalEventType = "order_failed" | "order_canceled";
  * here: the marker is persisted in state "attempted" BEFORE the
  * outbound call, and any later pass that finds "attempted" must refuse
  * to dispatch again (the receiver may already hold the order — an
- * operator reconciles). "rejected" means the receiver answered with a
- * non-2xx status (it did not accept; a retry may dispatch again);
- * "accepted" records the 2xx outcome. The dispatchId is stable per
+ * operator reconciles). "accepted" records the 2xx outcome.
+ * "rejected" is a legacy state from the original classification,
+ * which treated any non-2xx answer as proof the receiver did not
+ * accept; gate fix round 1 (Codex P1-C on PR #477) no longer writes
+ * it — a non-2xx answer does not prove rejection (the receiver may
+ * have created the order before failing, or an intermediary may
+ * have answered after acceptance, and the receiver's contract
+ * defines no provably-rejecting status), so a non-2xx outcome now
+ * stays "attempted" with the response facts recorded on the marker.
+ * Records already carrying "rejected" keep their retryable reading
+ * at both dispatch sites. The dispatchId is stable per
  * session and is sent as the payload's dispatchId and the request's
  * Idempotency-Key header so a receiver that does honour idempotency
  * can dedupe as well.

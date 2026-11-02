@@ -426,6 +426,37 @@ export async function readSessionRevocationEvidenceStrict(
 }
 
 /**
+ * Write-side revocation guard for the legacy whole-record accounting
+ * writers (consume / compensate), gate fix round 1 (Codex P1-A on
+ * PR #477, S94-1 F3). Those writers hold the authority accounting
+ * lease across load→mutate→write and seal immediately before their
+ * KV write — but the seal proves only lease ownership, not
+ * revocation freshness. A writer that sealed BEFORE an authority
+ * outage is not excluded by markSessionRevoked's unleased outage
+ * fallback: the revocation completes while the writer is paused,
+ * and the writer's stale snapshot would resurrect the entitlement
+ * (markSessionRevoked's "seals fail closed during an outage"
+ * reasoning reaches only writers that have not yet sealed). The
+ * guard re-reads the revocation state — the durable evidence and
+ * the record's own flag — strictly, after the seal and immediately
+ * before the write, so a completed revocation aborts the write.
+ * Read failures THROW (fail closed): an unreadable revocation state
+ * must never read as "not revoked" to a writer about to republish
+ * the whole record.
+ */
+export async function sessionIsRevokedForWriter(sessionId: string): Promise<boolean> {
+  const current = await kv.getErrorPreserving<
+    StripeSessionEntitlement & { paymentIntentId?: string | null }
+  >(ENTITLEMENT_KV.stripeSession(sessionId));
+  if (current?.revoked === true) return true;
+  const evidence = await readSessionRevocationEvidenceStrict(
+    sessionId,
+    current?.paymentIntentId ?? null,
+  );
+  return evidence.revoked;
+}
+
+/**
  * Read-only live-entitlement check for a settled session (fix round 3,
  * Codex P2 on PR #447): paid, not revoked — neither the record flag nor
  * the durable revocation evidence — with credits remaining or an active

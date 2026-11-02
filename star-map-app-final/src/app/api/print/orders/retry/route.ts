@@ -536,9 +536,16 @@ async function postRetryPrintOrder(req: NextRequest) {
   }
 
   if (!webhookResponse.ok) {
-    // The receiver answered and did NOT accept the order: the dispatch
-    // is definitively rejected, and a later retry may dispatch again
-    // under the same dispatch identity.
+    // Gate fix round 1 (Codex P1-C on PR #477): a non-2xx answer
+    // does NOT prove the receiver rejected the dispatch — the
+    // receiver may have created the order before failing, or an
+    // intermediary may have answered after the receiver accepted.
+    // No status is provably a rejection (the receiver's contract
+    // defines none, and receiver-side idempotency is optional), so
+    // the attempt stays "attempted": the response facts are recorded
+    // for the operator, and a later retry refuses with
+    // alternate_dispatch_reconciliation_required instead of risking
+    // a duplicate physical order.
     const body = await webhookResponse.text().catch(() => "");
     const failed = await persistFailedPrintOrder({
       ...dispatchAttempted,
@@ -547,7 +554,7 @@ async function postRetryPrintOrder(req: NextRequest) {
       webhookStatus: webhookResponse.status,
       alternateDispatch: {
         dispatchId,
-        state: "rejected",
+        state: "attempted",
         attemptedAt: now,
         respondedAt: Date.now(),
         httpStatus: webhookResponse.status,

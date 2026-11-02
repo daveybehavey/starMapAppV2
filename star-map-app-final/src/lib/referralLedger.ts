@@ -121,7 +121,15 @@ export async function appendReferralRewardGrant(input: {
   };
 
   const key = referralRewardGrantsKey(normalizedCode);
-  const existing = (await kv.get<ReferralEvent[]>(key)) ?? [];
+  // Gate fix round 1 (BOT-P2): this read must be error-preserving.
+  // A plain kv.get degrades to a local fallback / null on a transient
+  // Cloudflare read failure; treating that as an empty history and
+  // writing it back permanently erased every persisted in-window
+  // grant, and the cap under-enforced once those grants also aged
+  // out of the bounded feed. The strict read throws instead — the
+  // append fails closed, the ledger stays untouched, and the
+  // caller's conversion remains retryable.
+  const existing = (await kv.getErrorPreserving<ReferralEvent[]>(key)) ?? [];
   const cutoff = event.createdAt - REFERRAL_REWARD_GRANT_RETENTION_MS;
   const next = [
     event,
