@@ -110,6 +110,8 @@ export interface RenderOptions {
    */
   shapeLayoutVersion?: number;
   frameEnabled: boolean;
+  /** Background-only sky brightness: 1 darkest, 9 city sky; absent means 4.5. */
+  bortleClass?: number;
   backgroundColor?: string;
   constellationColor?: string;
   constellationLineScale?: number;
@@ -254,6 +256,7 @@ const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) =
     // = legacy) — see EditorExperience / SimplifiedEditor.
     shapeLayoutVersion: 2,
     frameEnabled: true,
+    bortleClass: 4.5,
     backgroundColor: "",
     constellationColor: "",
     constellationLineScale: 1.1,

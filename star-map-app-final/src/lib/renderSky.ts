@@ -767,6 +767,7 @@ export function buildRecipeFromState(input: {
       // (download normalize, checkout, hydration fingerprints).
       shapeLayoutVersion: input.renderOptions?.shapeLayoutVersion,
       frameEnabled: input.renderOptions?.frameEnabled ?? true,
+      bortleClass: input.renderOptions?.bortleClass ?? DEFAULT_BORTLE,
       backgroundColor: input.renderOptions?.backgroundColor ?? "",
       constellationColor: input.renderOptions?.constellationColor ?? "",
       constellationLineScale: input.renderOptions?.constellationLineScale ?? 1.1,
@@ -995,6 +996,23 @@ function drawBackground(
     edge.addColorStop(0, "rgba(0,0,0,0)");
     edge.addColorStop(1, "rgba(92,64,36,0.18)");
     ctx.fillStyle = edge;
+    ctx.fillRect(0, 0, width, height);
+    ctx.restore();
+  }
+
+  // Paint only the backing, before stars and other sky geometry. Keep the
+  // catalogue computation at DEFAULT_BORTLE: it also controls star radii/alpha.
+  // The historical default must issue no extra canvas operations.
+  const requestedBortle = renderOptions?.bortleClass;
+  const bortle = typeof requestedBortle === "number" && Number.isFinite(requestedBortle)
+    ? clamp(requestedBortle, 1, 9)
+    : DEFAULT_BORTLE;
+  if (bortle !== DEFAULT_BORTLE) {
+    ctx.save();
+    ctx.fillStyle = bortle < DEFAULT_BORTLE ? "#000000" : "#ffffff";
+    ctx.globalAlpha = bortle < DEFAULT_BORTLE
+      ? ((DEFAULT_BORTLE - bortle) / (DEFAULT_BORTLE - 1)) * 0.75
+      : ((bortle - DEFAULT_BORTLE) / (9 - DEFAULT_BORTLE)) * 0.28;
     ctx.fillRect(0, 0, width, height);
     ctx.restore();
   }
