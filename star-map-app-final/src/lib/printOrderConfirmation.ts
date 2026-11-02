@@ -1,5 +1,10 @@
 import { kv } from "@/lib/kv";
-import { persistPrintOrderRecord, printOrderKey, type PrintOrderRecord } from "@/lib/printOrders";
+import {
+  persistPrintOrderRecord,
+  preserveLatestHoldAnnotations,
+  printOrderKey,
+  type PrintOrderRecord,
+} from "@/lib/printOrders";
 import {
   formatPrintOrderAmount,
   formatPrintShippingSummary,
@@ -87,12 +92,21 @@ export async function sendPrintOrderConfirmation(sessionId: string): Promise<Pri
     },
   });
 
+  // Both outcome writes are built from the pre-send snapshot; a
+  // provider hold recorded while the email was in flight would be
+  // erased by them. Sync the hold annotations from the latest stored
+  // record immediately before each persist (same helper and doctrine
+  // as the post-submit identity/review writes).
   if (!sendResult.ok) {
     const failed: ExtendedPrintOrderRecord = {
       ...record,
       printConfirmationError: sendResult.error.slice(0, 320),
     };
-    await persistPrintOrderRecord(sessionId, failed);
+    const failedSynced = preserveLatestHoldAnnotations(
+      failed,
+      await kv.get<PrintOrderRecord>(key),
+    ) as ExtendedPrintOrderRecord;
+    await persistPrintOrderRecord(sessionId, failedSynced);
     console.warn("Print confirmation email failed", { sessionId, error: sendResult.error });
     return { ok: false, status: "failed", reason: sendResult.error, provider: "resend" };
   }
@@ -103,7 +117,11 @@ export async function sendPrintOrderConfirmation(sessionId: string): Promise<Pri
     printConfirmationMessageId: sendResult.id || undefined,
     printConfirmationError: undefined,
   };
-  await persistPrintOrderRecord(sessionId, sent);
+  const sentSynced = preserveLatestHoldAnnotations(
+    sent,
+    await kv.get<PrintOrderRecord>(key),
+  ) as ExtendedPrintOrderRecord;
+  await persistPrintOrderRecord(sessionId, sentSynced);
 
   return {
     ok: true,

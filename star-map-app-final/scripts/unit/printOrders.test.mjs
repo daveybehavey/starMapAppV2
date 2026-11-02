@@ -44,6 +44,10 @@ const postSubmitSource = fs.readFileSync(
   path.join(appRoot, "src/lib/printFulfillmentPostSubmit.ts"),
   "utf8",
 );
+const confirmationSource = fs.readFileSync(
+  path.join(appRoot, "src/lib/printOrderConfirmation.ts"),
+  "utf8",
+);
 const webhookRouteSource = fs.readFileSync(
   path.join(appRoot, "src/app/api/stripe/webhook/route.ts"),
   "utf8",
@@ -544,4 +548,8 @@ test("S96-1 (gate round 5): post-submit persists and the stranded-claim surfacin
   // The claim-loser surfacing: alert, final re-read, conditional write.
   assert.match(webhookRouteSource, /Stranded-claim surfacing stood down/);
   assert.match(webhookRouteSource, /freshest\?\.status === "sent" \|\| freshest\?\.alternateDispatch/);
+  // Gate round 9: the confirmation-email writer syncs hold annotations
+  // from the latest record before both of its outcome persists.
+  assert.match(confirmationSource, /preserveLatestHoldAnnotations\(\s+failed,/);
+  assert.match(confirmationSource, /preserveLatestHoldAnnotations\(\s+sent,/);
 });
