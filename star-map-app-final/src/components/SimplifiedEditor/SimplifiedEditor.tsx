@@ -239,6 +239,10 @@ export function SimplifiedEditor() {
           // without a version restores as legacy, never converted
           // by the merge against the fresh-session stamp.
           shapeLayoutVersion: draft.renderOptions.shapeLayoutVersion,
+          // Same pin for the Bortle class: a draft without one restores
+          // as the legacy default (absent), never inheriting the
+          // fresh-session value by the merge.
+          bortleClass: draft.renderOptions.bortleClass,
         });
         useStore.getState().setSampleDesignLastAutoSynced(draft.sampleDesignLastAutoSynced);
         setMode("customizing");
@@ -292,6 +296,10 @@ export function SimplifiedEditor() {
           // restore as legacy, not inherit the fresh-session stamp
           // through the merge.
           shapeLayoutVersion: parsed.renderOptions.shapeLayoutVersion,
+          // Same pin for the Bortle class: a draft without one restores
+          // as the legacy default (absent), never inheriting the
+          // fresh-session value by the merge.
+          bortleClass: parsed.renderOptions.bortleClass,
         });
       }
       const synced = parsed.sampleDesignLastAutoSynced;
