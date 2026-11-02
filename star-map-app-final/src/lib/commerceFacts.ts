@@ -40,6 +40,16 @@ export function getPrintDeliveryEstimateLine(input?: PrintDeliveryEstimateInput)
   return `Made to order — typical production takes ${PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS} before shipment. ${transit}; delivery dates are estimates, not guarantees.`;
 }
 
+/**
+ * Labeled-example delivery window for occasion / landing pages (W45-4 gap 2):
+ * production plus the U.S. standard transit example. The U.S. figure is always
+ * labeled as an example — destination-specific ranges live on the shipping
+ * page — so an unknown destination never silently inherits a U.S. window.
+ */
+export function getPrintDeliveryEstimateExampleLine(): string {
+  return `Made to order — typical production takes ${PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS} before shipment. Standard transit then depends on the destination — for example, ${PRINT_US_STANDARD_TRANSIT_BUSINESS_DAYS} within the United States. Delivery dates are estimates, not guarantees.`;
+}
+
 export function getPrintStandardShippingOnlyLine(): string {
   return "Standard shipping is the only print shipping option we offer today — express is not available for these poster and framed products.";
 }

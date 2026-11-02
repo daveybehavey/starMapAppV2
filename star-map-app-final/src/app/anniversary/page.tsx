@@ -30,6 +30,12 @@ import {
   getGiftLadderIntro,
 } from "@/lib/moneyPageGiftCheckout";
 import { getChristmasLandingPromo, getChristmasOrderBySummaryLines } from "@/lib/christmasCampaign";
+import {
+  PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS,
+  PRINT_US_STANDARD_TRANSIT_BUSINESS_DAYS,
+  getPrintDeliveryEstimateExampleLine,
+  getPrintUrgentHdUpsellLine,
+} from "@/lib/commerceFacts";
 import { getPricingTiers, getPrintPricingTiers } from "@/lib/pricing";
 import type { Metadata } from "next";
 
@@ -100,6 +106,10 @@ const anniversaryFaqItems = [
     question: "Is the preview really free?",
     answer:
       "Yes. You can create and view your map preview without an account or payment, and only pay if you choose a format.",
+  },
+  {
+    question: "How long does delivery take?",
+    answer: `${getPrintDeliveryEstimateExampleLine()} ${getPrintUrgentHdUpsellLine()}`,
   },
 ] as const;
 
@@ -216,6 +226,16 @@ export default function AnniversaryPage() {
         </div>
         <InstantHdHeroExtras source="anniversary-hero-instant" showButton={false} />
         <p className="text-xs text-neutral-300 sm:text-sm">Framed + HD bundle: {bundlePriceLine}</p>
+        <p className="text-xs text-neutral-300 sm:text-sm">
+          Made to order in {PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS} · U.S. transit typically{" "}
+          {PRINT_US_STANDARD_TRANSIT_BUSINESS_DAYS} ·{" "}
+          <Link
+            href="/shipping"
+            className="underline decoration-white/30 underline-offset-2 hover:text-white"
+          >
+            Delivery ranges by destination
+          </Link>
+        </p>
       </header>
 
       <GiftFormatLadder
