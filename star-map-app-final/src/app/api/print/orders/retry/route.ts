@@ -392,6 +392,17 @@ async function postRetryPrintOrder(req: NextRequest) {
         order: sanitizePrintOrderForOperatorResponse(boundOrder),
       });
     }
+    if (claimMoved) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "alternate_dispatch_reconciliation_required",
+          reason: "alternate_dispatch_claimed_during_retry",
+          dispatchId: alternateFulfillmentDispatchId(sessionId),
+        },
+        { status: 409 },
+      );
+    }
     return NextResponse.json(
       {
         ok: false,
