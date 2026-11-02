@@ -20,19 +20,26 @@ function readSrc(relPath) {
 
 register("./tsResolveHook.mjs", pathToFileURL(path.dirname(fileURLToPath(import.meta.url)) + "/"));
 
-test("F6: sitemap omits the redirecting /personalized-star-map and keeps the canonical target", async () => {
+test("F6: sitemap lists the self-canonical /personalized-star-map and keeps /best-personalized-star-map-gift", async () => {
+  // Premise corrected 2026-11-02 (S95-7): this test originally asserted
+  // /personalized-star-map 308-redirects and must stay out of the sitemap.
+  // At c79cc613 no redirect for it exists in next.config.mjs, middleware,
+  // _redirects, or wrangler.toml; the page declares a self-canonical and
+  // production serves it with HTTP 200. It is a self-canonical indexable
+  // commercial page, so the sitemap lists it alongside the distinct
+  // /best-personalized-star-map-gift page.
   const { buildSitemapEntries } = await import(
     pathToFileURL(path.join(ROOT, "src/lib/buildSitemapEntries.ts")).href
   );
   const entries = buildSitemapEntries({ baseUrl: "https://starmapco.com", blogPosts: [] });
   const urls = entries.map((entry) => entry.url);
   assert.ok(
-    !urls.some((url) => url.endsWith("/personalized-star-map")),
-    "sitemap must not list /personalized-star-map (308 redirect)"
+    urls.some((url) => url.endsWith("/personalized-star-map")),
+    "sitemap must list the self-canonical /personalized-star-map"
   );
   assert.ok(
     urls.some((url) => url.endsWith("/best-personalized-star-map-gift")),
-    "sitemap keeps the canonical /best-personalized-star-map-gift"
+    "sitemap keeps /best-personalized-star-map-gift"
   );
 });
 
