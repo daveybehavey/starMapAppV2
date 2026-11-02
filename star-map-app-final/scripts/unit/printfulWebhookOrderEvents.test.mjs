@@ -164,3 +164,10 @@ test("S96-1 F1 (gate round 6): a hold naming a different provider order than the
   assert.match(eventsSource, /holdProviderIdConflicts\(printfulOrderId, authority\.printfulOrderId\)/);
   assert.match(eventsSource, /reason: "conflicting_provider_id"/);
 });
+
+test("S96-1 F1 (gate round 7): an already-shipped record rejects the hold before any alert is sent", () => {
+  // superseded_by_shipment appears twice in the handler: the early
+  // pre-alert rejection and the post-alert merge mapping.
+  assert.ok(eventsSource.split("superseded_by_shipment").length >= 3);
+  assert.match(eventsSource, /if \(existing\.shippedAt\) \{/);
+});

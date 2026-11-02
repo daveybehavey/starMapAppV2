@@ -480,6 +480,22 @@ export async function applyPrintfulOrderHoldFromWebhook(input: {
     };
   }
 
+  if (existing.shippedAt) {
+    // A delayed hold for an order that already shipped is moot — and
+    // the shipment writer cleared the hold stamps, so without this
+    // check the pass would send a false "production blocked" alert
+    // below and, persisting nothing, re-send it on every redelivery.
+    // The merge check further down still covers a shipment landing
+    // during the alert await.
+    return {
+      ok: true,
+      status: "ignored",
+      reason: "superseded_by_shipment",
+      sessionId,
+      authority: authoritySnapshot,
+    };
+  }
+
   const now = Date.now();
   const holdReason =
     typeof input.reason === "string" && input.reason.trim()
