@@ -1301,7 +1301,7 @@ const MASK_ROW_SETS: ReadonlyArray<Record<DefaultTextBoxId, number>> = [
  */
 const MASK_ROW_RECOGNITION_EPSILON = 1e-9;
 
-function maskRowToCanvasRow(
+export function maskRowToCanvasRow(
   row: number,
   footprint: ShapeMaskFootprint | null | undefined,
   canvasHeight: number | undefined,
