@@ -309,4 +309,8 @@ test("sweep wiring is pinned in the worker + runtime sources", () => {
   // the put.
   assert.match(runtimeSource, /applyHoldSweepStampsToCurrent/);
   assert.match(runtimeSource, /readAuthorityLifecycleForMirrorGuard/);
+  // The sweep runs from the scheduled handler (no fetch context), so the
+  // guard must read the authority through the env-passed binding.
+  assert.match(runtimeSource, /readAuthorityLifecycleForMirrorGuardFromNamespace/);
+  assert.match(runtimeSource, /PRINT_ORDER_AUTHORITY/);
 });

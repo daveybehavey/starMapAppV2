@@ -20,7 +20,9 @@ import {
 } from "@/lib/printOrderAlerts";
 import {
   readAuthorityLifecycleForMirrorGuard,
+  readAuthorityLifecycleForMirrorGuardFromNamespace,
   shouldRejectNonterminalKvMirror,
+  type AuthorityNamespace,
 } from "@/lib/printOrderAuthority";
 import {
   applyHoldSweepStampsToCurrent,
@@ -47,7 +49,10 @@ type RawKvNamespace = {
 const HOLD_SWEEP_PAGE_SIZE = 100;
 
 /** Store adapter over the raw STAR_MAP_KV binding (scheduled/worker entry). */
-export function createPrintOrderHoldSweepStore(ns: RawKvNamespace): PrintOrderHoldSweepStore {
+export function createPrintOrderHoldSweepStore(
+  ns: RawKvNamespace,
+  authorityNamespace?: AuthorityNamespace | null,
+): PrintOrderHoldSweepStore {
   return {
     async listKeys(prefix, cursor) {
       const result = await ns.list({
@@ -80,8 +85,17 @@ export function createPrintOrderHoldSweepStore(ns: RawKvNamespace): PrintOrderHo
       // persistPrintOrderRecord's: a terminal failure is authority state,
       // re-checked after the merge read, so a failure landing mid-scan can
       // never be mirrored over by this nonterminal (sent) write.
-      // Unreadable authority fails closed; the next tick retries.
-      const lifecycle = await readAuthorityLifecycleForMirrorGuard(sessionId);
+      // Unreadable authority fails closed; the next tick retries. The
+      // sweep runs from the scheduled handler, outside any fetch request
+      // context, so the authority MUST be read through the binding passed
+      // in from the scheduled event's env — the context-based lookup
+      // cannot resolve it there and would report every order unreadable.
+      const lifecycle = authorityNamespace
+        ? await readAuthorityLifecycleForMirrorGuardFromNamespace(
+            authorityNamespace,
+            sessionId,
+          )
+        : await readAuthorityLifecycleForMirrorGuard(sessionId);
       if (shouldRejectNonterminalKvMirror(lifecycle)) {
         return { outcome: "skipped", reason: "authority_terminal_failure" };
       }
@@ -123,12 +137,18 @@ function envRecordFromBindings(env: unknown): Record<string, string | undefined>
 export async function runScheduledPrintOrderHoldSweep(
   env: unknown,
 ): Promise<PrintOrderHoldSweepSummary> {
-  const envRecord = (env ?? {}) as { STAR_MAP_KV?: RawKvNamespace };
+  const envRecord = (env ?? {}) as {
+    STAR_MAP_KV?: RawKvNamespace;
+    PRINT_ORDER_AUTHORITY?: AuthorityNamespace;
+  };
   if (!envRecord.STAR_MAP_KV) {
     throw new Error("STAR_MAP_KV binding missing for print-order hold sweep");
   }
   return runPrintOrderHoldSweep({
-    store: createPrintOrderHoldSweepStore(envRecord.STAR_MAP_KV),
+    store: createPrintOrderHoldSweepStore(
+      envRecord.STAR_MAP_KV,
+      envRecord.PRINT_ORDER_AUTHORITY,
+    ),
     config: resolvePrintOrderHoldSweepConfig(envRecordFromBindings(env)),
     sendHoldAlert: sendPrintOrderHoldAlert,
     sendHoldEscalationAlert: sendPrintOrderHoldEscalationAlert,

@@ -20,7 +20,7 @@ import {
   type PrintOrderRecord,
 } from "@/lib/printOrders";
 
-type AuthorityNamespace = {
+export type AuthorityNamespace = {
   idFromName(name: string): DurableObjectId;
   get(id: DurableObjectId): {
     getState(sessionId: string): Promise<PrintOrderAuthorityState>;
@@ -231,6 +231,31 @@ export async function readAuthorityLifecycleForMirrorGuard(
   // Production without a readable DO must fail closed. Local/CI may use memory.
   if (!isLocalAuthorityFallbackAllowed()) return "unread";
   return "unbound";
+}
+
+/**
+ * Mirror-guard lifecycle read against an EXPLICIT namespace, for callers
+ * running outside a fetch request context (scheduled handlers), where
+ * getCloudflareContext() cannot resolve the binding. Same fail-closed
+ * semantics as readAuthorityLifecycleForMirrorGuard: an unreadable
+ * authority in production reports "unread", never a guessed lifecycle.
+ */
+export async function readAuthorityLifecycleForMirrorGuardFromNamespace(
+  namespace: AuthorityNamespace | null | undefined,
+  sessionId: string,
+): Promise<PrintOrderAuthorityLifecycle | null | "unread"> {
+  if (!namespace) return readAuthorityLifecycleForMirrorGuard(sessionId);
+  const trimmed = sessionId.trim();
+  if (!trimmed) return "unread";
+  try {
+    const stub = namespace.get(namespace.idFromName(trimmed));
+    const state = await stub.getState(trimmed);
+    if (state) return state.lifecycle;
+  } catch {
+    // Fall through to the shared fail-closed tail.
+  }
+  if (!isLocalAuthorityFallbackAllowed()) return "unread";
+  return getMemoryState(trimmed).lifecycle;
 }
 
 export function shouldRejectNonterminalKvMirror(
