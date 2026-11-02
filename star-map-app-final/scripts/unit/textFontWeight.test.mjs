@@ -18,6 +18,10 @@
  * - The recipe builder carries a box's fontWeight through verbatim
  *   and leaves an unset weight unset (no silent defaulting upstream
  *   of the renderer).
+ * - The store's user-edit boundary marks a fontWeight payload as
+ *   explicit ownership, so a buyer-set weight is restored by
+ *   applyTierTypographyProtected instead of being overwritten by the
+ *   next tier change (Codex P2 on the gate).
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -32,6 +36,7 @@ const read = (rel) => readFileSync(new URL(rel, import.meta.url), "utf8");
 const editor = read("../../src/components/EditorExperience.tsx");
 const mobile = read("../../src/app/MobileCreate.tsx");
 const renderSky = read("../../src/lib/renderSky.ts");
+const store = read("../../src/lib/store.ts");
 
 test("renderer default weight is 600 when a box carries none", () => {
   assert.match(renderSky, /box\.fontWeight \?\? 600/);
@@ -90,4 +95,9 @@ test("recipe builder carries fontWeight verbatim, unset stays unset", () => {
 
   const unweighted = buildRecipeFromState({ ...base, textBoxes: [box] });
   assert.equal(unweighted.textBoxes[0].fontWeight, undefined);
+});
+
+test("store marks a fontWeight edit as explicit ownership (tier protection)", () => {
+  assert.match(store, /hasOwnProperty\.call\(payload, "fontWeight"\)/);
+  assert.match(store, /binding\.fontWeight = "explicit"/);
 });

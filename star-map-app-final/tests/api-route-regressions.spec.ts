@@ -181,6 +181,7 @@ test.describe("API route regressions", () => {
     expect(loaded.textBoxes[0].textStyleBinding).toEqual({
       color: "automatic",
       fontFamily: "explicit",
+      fontWeight: "automatic",
     });
   });
 

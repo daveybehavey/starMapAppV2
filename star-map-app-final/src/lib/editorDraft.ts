@@ -287,13 +287,23 @@ function textBoxFallback(index: number): TextBox {
  */
 function normalizeDraftTextStyleBinding(value: unknown): TextStyleBinding {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return { color: "explicit", fontFamily: "explicit" };
+    return { color: "explicit", fontFamily: "explicit", fontWeight: "explicit" };
   }
   const record = value as Record<string, unknown>;
-  return {
-    color: record.color === "automatic" ? "automatic" : "explicit",
-    fontFamily: record.fontFamily === "automatic" ? "automatic" : "explicit",
-  };
+  const color = record.color === "automatic" ? "automatic" : "explicit";
+  const fontFamily = record.fontFamily === "automatic" ? "automatic" : "explicit";
+  // fontWeight joined the binding with the editor weight control (#481).
+  // Bindings written before then carry no fontWeight key: a record that
+  // marks any property "automatic" was written by the binding machinery as
+  // a complete binding, and no user surface could set a weight before #481,
+  // so such a record's weight ownership was automatic. Anything else keeps
+  // the provenance-preserving explicit default.
+  let fontWeight: "automatic" | "explicit";
+  if (record.fontWeight === "automatic") fontWeight = "automatic";
+  else if (record.fontWeight === "explicit") fontWeight = "explicit";
+  else if (color === "automatic" || fontFamily === "automatic") fontWeight = "automatic";
+  else fontWeight = "explicit";
+  return { color, fontFamily, fontWeight };
 }
 
 function normalizeTextBoxes(value: unknown): ValidationResult<TextBox[]> {

@@ -7,7 +7,7 @@
  * and fonts the user had deliberately picked.
  *
  * Fix (SQ-66 design): every TextBox carries an optional textStyleBinding
- * marking colour and fontFamily independently "automatic" (follows style
+ * marking colour, fontFamily and fontWeight independently "automatic" (follows style
  * defaults / tier typography) or "explicit" (authored; automatic layers
  * must not touch it). Missing/malformed provenance resolves to explicit,
  * so legacy saved designs are never silently recoloured.
@@ -50,8 +50,8 @@ const here = dirname(fileURLToPath(import.meta.url));
 const appRoot = join(here, "../..");
 const read = (rel) => readFileSync(join(appRoot, rel), "utf8");
 
-const AUTO = { color: "automatic", fontFamily: "automatic" };
-const EXPLICIT = { color: "explicit", fontFamily: "explicit" };
+const AUTO = { color: "automatic", fontFamily: "automatic", fontWeight: "automatic" };
+const EXPLICIT = { color: "explicit", fontFamily: "explicit", fontWeight: "explicit" };
 
 const baseBox = (overrides = {}) => ({
   id: "custom-1",
@@ -119,10 +119,12 @@ test("normalizeTextStyleBinding: only literal 'automatic' grants automatic, per 
   assert.deepEqual(normalizeTextStyleBinding({ color: "automatic", fontFamily: "invalid" }), {
     color: "automatic",
     fontFamily: "explicit",
+    fontWeight: "automatic",
   });
   assert.deepEqual(normalizeTextStyleBinding({ color: "invalid", fontFamily: "automatic" }), {
     color: "explicit",
     fontFamily: "automatic",
+    fontWeight: "automatic",
   });
   assert.deepEqual(normalizeTextStyleBinding({ color: "explicit", fontFamily: "explicit" }), EXPLICIT);
 });
@@ -143,7 +145,7 @@ test("normalizeTextStyleBinding: missing or malformed resolves explicit/explicit
 test("clone helpers: normalize or pin explicit without changing typography", () => {
   const box = baseBox({ textStyleBinding: { color: "automatic", fontFamily: "bogus" } });
   const normalized = cloneTextBoxWithNormalizedBinding(box);
-  assert.deepEqual(normalized.textStyleBinding, { color: "automatic", fontFamily: "explicit" });
+  assert.deepEqual(normalized.textStyleBinding, { color: "automatic", fontFamily: "explicit", fontWeight: "automatic" });
   assert.equal(normalized.color, box.color);
   assert.equal(normalized.fontFamily, box.fontFamily);
   const pinned = cloneTextBoxWithExplicitBinding(box);
@@ -205,11 +207,15 @@ test("updateTextBox: colour/font payloads mark that property explicit (own-prope
   useStore.getState().updateTextBox("title", { color: "#ff3366" });
   let title = storeBoxes().find((b) => b.id === "title");
   assert.equal(title.color, "#ff3366");
-  assert.deepEqual(title.textStyleBinding, { color: "explicit", fontFamily: "automatic" });
+  assert.deepEqual(title.textStyleBinding, { color: "explicit", fontFamily: "automatic", fontWeight: "automatic" });
 
   useStore.getState().updateTextBox("title", { fontFamily: "playfair" });
   title = storeBoxes().find((b) => b.id === "title");
-  assert.deepEqual(title.textStyleBinding, EXPLICIT);
+  assert.deepEqual(title.textStyleBinding, {
+    color: "explicit",
+    fontFamily: "explicit",
+    fontWeight: "automatic",
+  });
 });
 
 test("updateTextBox: same-value edit still marks explicit; payload cannot smuggle a binding", () => {
@@ -248,6 +254,7 @@ test("setTextBoxes: bindings normalized per box, never merged from existing boxe
   assert.deepEqual(storeBoxes()[0].textStyleBinding, {
     color: "automatic",
     fontFamily: "explicit",
+    fontWeight: "automatic",
   });
 });
 
@@ -283,7 +290,7 @@ test("applyStyleDefaults: automatic properties follow the template, explicit one
   const { textBoxes: out } = applyStyleDefaults("midnightMinimal", [mixed]);
   assert.equal(out[0].color, "#ff3366", "explicit colour survives");
   assert.equal(out[0].fontFamily, "montserrat", "automatic font follows template");
-  assert.deepEqual(out[0].textStyleBinding, { color: "explicit", fontFamily: "automatic" });
+  assert.deepEqual(out[0].textStyleBinding, { color: "explicit", fontFamily: "automatic", fontWeight: "automatic" });
 
   const legacy = baseBox(); // no binding at all
   const legacyOut = applyStyleDefaults("navyGold", [legacy]).textBoxes;
@@ -393,6 +400,37 @@ test("protective wrapper: explicit colour/font restored, other tier effects reta
   const subtitle = out.find((b) => b.id === "subtitle");
   assert.equal(subtitle.fontFamily, "cormorant");
   assert.equal(subtitle.color, "#c8a662");
+});
+
+test("protective wrapper: an explicit fontWeight the user set survives tier typography (#481)", () => {
+  const boxes = knownBoxes();
+  boxes[0] = {
+    ...boxes[0],
+    fontWeight: 400,
+    textStyleBinding: { color: "automatic", fontFamily: "automatic", fontWeight: "explicit" },
+  };
+  const out = applyTierTypographyProtected("polished", "navyGold", boxes);
+  const title = out.find((b) => b.id === "title");
+  assert.equal(title.fontWeight, 400, "user-set weight survives the tier patch");
+  const raw = applyTierTypography("polished", "navyGold", boxes);
+  const subtitle = out.find((b) => b.id === "subtitle");
+  assert.equal(
+    subtitle.fontWeight,
+    raw.find((b) => b.id === "subtitle").fontWeight,
+    "automatic weight follows the tier table",
+  );
+});
+
+test("updateTextBox: a fontWeight payload marks weight ownership explicit (#481)", () => {
+  setStore({ selectedStyle: "navyGold", textBoxes: knownBoxes() });
+  useStore.getState().updateTextBox("title", { fontWeight: 700 });
+  const title = storeBoxes().find((b) => b.id === "title");
+  assert.equal(title.fontWeight, 700);
+  assert.deepEqual(title.textStyleBinding, {
+    color: "automatic",
+    fontFamily: "automatic",
+    fontWeight: "explicit",
+  });
 });
 
 test("protective wrapper: custom-* lines are never tier-patched, under any tier", () => {
@@ -541,6 +579,7 @@ test("editorDraft: malformed binding normalizes per property", () => {
   assert.deepEqual(parsed.data.textBoxes[0].textStyleBinding, {
     color: "automatic",
     fontFamily: "explicit",
+    fontWeight: "automatic",
   });
   assert.deepEqual(parsed.data.textBoxes[1].textStyleBinding, EXPLICIT);
 });
@@ -560,6 +599,7 @@ test("SimplifiedEditor save round trip: raw JSON of textBoxes -> setTextBoxes ke
   assert.deepEqual(byId.dedication.textStyleBinding, {
     color: "explicit",
     fontFamily: "automatic",
+    fontWeight: "automatic",
   });
   assert.equal(byId.dedication.color, "#ff3366");
 });
