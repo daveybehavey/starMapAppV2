@@ -31,6 +31,12 @@ export function mergeHoldAnnotationsIntoLatestRecord({ existing, fresh, annotati
   if (existing.providerHoldAt && !fresh.providerHoldAt) {
     return { outcome: "superseded", reason: "operator_resolve" };
   }
+  if (
+    typeof fresh.operatorResolvedAt === "number" &&
+    fresh.operatorResolvedAt !== existing.operatorResolvedAt
+  ) {
+    return { outcome: "superseded", reason: "operator_resolve" };
+  }
   const freshAlertLanded = Boolean(fresh.operatorHoldAlertedAt);
   return {
     outcome: "merged",

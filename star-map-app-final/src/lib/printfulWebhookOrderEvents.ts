@@ -344,6 +344,17 @@ export function mergeHoldAnnotationsIntoLatestRecord(args: {
   if (existing.providerHoldAt && !fresh.providerHoldAt) {
     return { outcome: "superseded", reason: "operator_resolve" };
   }
+  if (
+    typeof fresh.operatorResolvedAt === "number" &&
+    fresh.operatorResolvedAt !== existing.operatorResolvedAt
+  ) {
+    // An operator resolve landed during THIS pass (its stamp advanced
+    // past the snapshot's). This also covers the first-hold case,
+    // where no hold was persisted yet for the disappearance check
+    // above to see: the resolve cleared a record that never carried
+    // the hold, and merging would resurrect it onto a resolved order.
+    return { outcome: "superseded", reason: "operator_resolve" };
+  }
   const freshAlertLanded = Boolean(fresh.operatorHoldAlertedAt);
   return {
     outcome: "merged",

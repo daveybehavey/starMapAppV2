@@ -116,6 +116,25 @@ test("S96-1 F1 (gate round 3): an operator resolve that cleared a recorded hold 
   assert.deepEqual(merge, { outcome: "superseded", reason: "operator_resolve" });
 });
 
+test("S96-1 F1 (gate round 10): a resolve landing during the FIRST hold alert supersedes the hold write", () => {
+  // No hold was persisted when the pass began, so there is nothing to
+  // "disappear" — the advanced operatorResolvedAt stamp is the signal.
+  const merge = mergeHoldAnnotationsIntoLatestRecord({
+    existing: { ...holdBase },
+    fresh: { ...holdBase, operatorResolvedAt: 1_700_000_090_000 },
+    annotations: holdAnnotations,
+  });
+  assert.deepEqual(merge, { outcome: "superseded", reason: "operator_resolve" });
+  // A resolve from BEFORE this pass (stamp unchanged) does not block a
+  // genuinely new hold.
+  const later = mergeHoldAnnotationsIntoLatestRecord({
+    existing: { ...holdBase, operatorResolvedAt: 1_700_000_010_000 },
+    fresh: { ...holdBase, operatorResolvedAt: 1_700_000_010_000 },
+    annotations: holdAnnotations,
+  });
+  assert.equal(later.outcome, "merged");
+});
+
 test("S96-1 F1 (gate round 3): the merge keeps the fresh record's fields and applies only the annotations", () => {
   const merge = mergeHoldAnnotationsIntoLatestRecord({
     existing: holdBase,
