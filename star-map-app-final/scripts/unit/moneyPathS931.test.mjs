@@ -1552,6 +1552,262 @@ test("S94-1-F8: a birth-pending authority grant is paired with its reversal — 
   }
 });
 
+/* ======== S94-1 gate fix round 1 (PR #476) — Codex P1 + P2 ======== */
+
+test("S94-1 gate fix round 1 (P1): an accepted grant whose grant_confirmed write failed is reversed through the authority before the reversal may finalize — the sequence the F4 deferral assumed, closed", async () => {
+  installFakeKv();
+  installFetchDouble();
+  process.env.DL1_AUTHORITY_ROUTING_ENABLED = "1";
+  process.env.STARMAP_ENTITLEMENT_AUTHORITY_LOCAL = "1";
+  try {
+    const { createEntitlementAuthorityClient, __resetEntitlementAuthorityMemoryForTests } =
+      await import("../../src/lib/entitlementAuthority.ts");
+    __resetEntitlementAuthorityMemoryForTests();
+    seedPaidSession(REFERRER_ID);
+    seedReferralRecord();
+    const buyerId = "cs_buyer_s941fix_p1";
+    // Created after the referral migration snapshot, so the
+    // authority folds the grant immediately on native-admission
+    // evidence — the acceptance below is real, not seeded.
+    const session = checkoutSessionFixture({
+      id: buyerId,
+      payment_intent: "pi_buyer_s941fix_p1",
+      created: Math.floor(Date.now() / 1000) + 86400,
+      metadata: { plan: "pack3", credits: "3", qa_run: "true", ...referralMetadata() },
+    });
+    data.set(ENTITLEMENT_KV.stripePaymentIntent("pi_buyer_s941fix_p1"), buyerId);
+    const client = createEntitlementAuthorityClient();
+
+    // Delivery 1: authority acceptance SUCCEEDS; only the
+    // grant_confirmed write fails. The record stays in the pending
+    // checkpoint while the accepted grant is live in the bucket.
+    failRules.push({
+      op: "setDurable",
+      match: (key) => key === referralRewardedKey(buyerId),
+      valueMatch: (value) => value?.phase === "grant_confirmed",
+      times: 1,
+    });
+    const first = await postEvent(completedEvent("evt_s941fix_p1_1", session));
+    assert.equal(first.status, 503, "the failed grant_confirmed write stays retryable");
+    assert.equal(data.get(referralRewardedKey(buyerId))?.phase, "pending");
+    assert.equal(
+      (await client.getState(REFERRER_ID))?.rewardBucketBalance,
+      1,
+      "the authority accepted the grant — one reward credit is live",
+    );
+
+    // The refund arrives while the record is still pending. The
+    // reversal pairs the pending identity with the authority
+    // instead of deferring on the F4 premise ("a checkout
+    // redelivery will settle the record first"): the authority CAN
+    // answer — the grant folded — so the accepted grant is reversed
+    // on the spot and the reversal finalizes WITH the claw, never
+    // around it. Deferral remains the disposition exactly when the
+    // authority cannot answer (no baseline, journal pendency) —
+    // pinned by the F4 and F8 tests above.
+    const refund1 = await postEvent(refundEvent("evt_s941fix_p1_r1", "pi_buyer_s941fix_p1", "ch_s941fix_p1"));
+    assert.equal(refund1.status, 200, "the reversal finalizes only with the accepted grant reversed");
+    assert.equal(data.has(eventMarkerKey("evt_s941fix_p1_r1")), true, "dedupe finalized after reconciliation");
+    let state = data.get(referralRewardedKey(buyerId));
+    assert.equal(state.conversionReversed, true);
+    assert.equal(state.rewardReversed, true);
+    assert.equal(state.rewardReclaimed, 1, "the authority's clawed amount is recorded");
+    assert.equal(
+      (await client.getState(REFERRER_ID))?.rewardBucketBalance,
+      0,
+      "the accepted grant was clawed back through the authority",
+    );
+
+    // The checkout redelivery lands AFTER the refund: its settlement
+    // pass observes the revocation and never reaches the grant side —
+    // and it cannot resurrect anything. The record keeps its
+    // reversal disposition and the bucket stays empty. (Under the
+    // pre-fix F4 guard this ordering was the wedge: the redelivery
+    // could not settle the record, so the refund deferred forever
+    // with the accepted grant live behind it.)
+    const redelivery = await postEvent(completedEvent("evt_s941fix_p1_2", session));
+    assert.equal(redelivery.status, 200);
+    state = data.get(referralRewardedKey(buyerId));
+    assert.equal(state.conversionReversed, true);
+    assert.equal((await client.getState(REFERRER_ID))?.rewardBucketBalance, 0);
+
+    // The refund's redelivery is a clean no-op: no second claw, no
+    // duplicate ledger evidence.
+    const refund2 = await postEvent(refundEvent("evt_s941fix_p1_r2", "pi_buyer_s941fix_p1", "ch_s941fix_p1"));
+    assert.equal(refund2.status, 200);
+    state = data.get(referralRewardedKey(buyerId));
+    assert.equal(state.rewardReclaimed, 1);
+    assert.equal((await client.getState(REFERRER_ID))?.rewardBucketBalance, 0);
+    // The grant side never completed bookkeeping, so the aggregates
+    // carry no conversion to decrement, and the referrer's combined
+    // KV balance is never debited.
+    const referral = data.get(referralKey(REFERRAL_CODE));
+    assert.equal(referral.conversions, 0);
+    assert.equal(referral.rewardsGranted, 0);
+    assert.equal(data.get(sessionKey(REFERRER_ID)).creditsRemaining, 3);
+    assert.equal(referralEventsFor(buyerId, "conversion_reversed").length, 1);
+    assert.equal(referralEventsFor(buyerId, "reward_reversed").length, 1);
+  } finally {
+    delete process.env.STARMAP_ENTITLEMENT_AUTHORITY_LOCAL;
+    restoreKv();
+  }
+});
+
+test("S94-1 gate fix round 1 (P1): a purchaser_revoked skip over the pending checkpoint preserves the grant identity, and the refund reverses the accepted grant through it", async () => {
+  installFakeKv();
+  installFetchDouble();
+  process.env.DL1_AUTHORITY_ROUTING_ENABLED = "1";
+  process.env.STARMAP_ENTITLEMENT_AUTHORITY_LOCAL = "1";
+  try {
+    const { createEntitlementAuthorityClient, __resetEntitlementAuthorityMemoryForTests } =
+      await import("../../src/lib/entitlementAuthority.ts");
+    __resetEntitlementAuthorityMemoryForTests();
+    seedPaidSession(REFERRER_ID);
+    seedReferralRecord();
+    const buyerId = "cs_buyer_s941fix_p1skip";
+    const session = checkoutSessionFixture({
+      id: buyerId,
+      payment_intent: "pi_buyer_s941fix_p1skip",
+      created: Math.floor(Date.now() / 1000) + 86400,
+      metadata: { plan: "pack3", credits: "3", qa_run: "true", ...referralMetadata() },
+    });
+    data.set(ENTITLEMENT_KV.stripePaymentIntent("pi_buyer_s941fix_p1skip"), buyerId);
+    const client = createEntitlementAuthorityClient();
+
+    // Same opening as the sequence test: accepted grant, failed
+    // grant_confirmed write, record pending, bucket holds 1.
+    failRules.push({
+      op: "setDurable",
+      match: (key) => key === referralRewardedKey(buyerId),
+      valueMatch: (value) => value?.phase === "grant_confirmed",
+      times: 1,
+    });
+    const first = await postEvent(completedEvent("evt_s941fix_p1skip_1", session));
+    assert.equal(first.status, 503);
+    assert.equal((await client.getState(REFERRER_ID))?.rewardBucketBalance, 1);
+
+    // A checkout redelivery whose grant side observes the revocation
+    // MID-PASS — the refund's tombstone lands after this pass's
+    // settlement reads but before the grant side's checks (the
+    // interleave the item-5 tests model) — records the
+    // purchaser_revoked skip over the pending checkpoint.
+    let injected = false;
+    getHook = (key, read) => {
+      if (!injected && key === referralKey(REFERRAL_CODE)) {
+        injected = true;
+        data.set(piRevokedKey(session.payment_intent), {
+          schemaVersion: SETTLEMENT_SCHEMA_VERSION,
+          paymentIntentId: session.payment_intent,
+          revoked: true,
+          reason: "refund",
+          revokedAt: Date.now(),
+        });
+      }
+      return read();
+    };
+    const skipDelivery = await postEvent(completedEvent("evt_s941fix_p1skip_2", session));
+    getHook = null;
+    assert.equal(injected, true, "the interleave landed inside the grant side's pass");
+    assert.equal(skipDelivery.status, 200, "a validation skip is terminal, not retryable");
+    const skipped = data.get(referralRewardedKey(buyerId));
+    assert.equal(skipped.phase, "terminal_skip");
+    assert.equal(skipped.rewardSkipReason, "purchaser_revoked");
+    assert.equal(
+      skipped.authorityGrantUnresolved,
+      true,
+      "the skip preserves the unresolved grant identity instead of settling as an ordinary zero-grant decision",
+    );
+    assert.equal(
+      (await client.getState(REFERRER_ID))?.rewardBucketBalance,
+      1,
+      "the skip itself does not reverse the accepted grant",
+    );
+
+    // The refund finalizes ONLY by pairing the preserved identity
+    // with the authority: the accepted grant is reversed and the
+    // clawed amount recorded — never finalized around.
+    const refund = await postEvent(refundEvent("evt_s941fix_p1skip_r1", "pi_buyer_s941fix_p1skip", "ch_s941fix_p1skip"));
+    assert.equal(refund.status, 200);
+    const state = data.get(referralRewardedKey(buyerId));
+    assert.equal(state.conversionReversed, true);
+    assert.equal(state.rewardReversed, true);
+    assert.equal(state.rewardReclaimed, 1);
+    assert.equal(
+      (await client.getState(REFERRER_ID))?.rewardBucketBalance,
+      0,
+      "the accepted grant was clawed back through the authority",
+    );
+    assert.equal(data.get(sessionKey(REFERRER_ID)).creditsRemaining, 3, "the combined KV balance is never debited");
+  } finally {
+    delete process.env.STARMAP_ENTITLEMENT_AUTHORITY_LOCAL;
+    restoreKv();
+  }
+});
+
+test("S94-1 gate fix round 1 (P2): the F6 repair does not duplicate legacy random-id reversal events on redelivery", async () => {
+  installFakeKv();
+  installFetchDouble();
+  try {
+    seedPaidSession(REFERRER_ID);
+    // This conversion was counted at 6/6 and reversed BEFORE the
+    // deterministic-id repair existed: the state flags and the
+    // decremented aggregates (5/5) landed, and the ledger events
+    // were appended with random-UUID ids.
+    seedCountedReferralRecord({ conversions: 5, rewardsGranted: 5 });
+    const buyerId = "cs_buyer_s941fix_p2";
+    data.set(ENTITLEMENT_KV.stripePaymentIntent("pi_buyer_s941fix_p2"), buyerId);
+    const reversedAt = Date.now() - 86400000;
+    data.set(referralRewardedKey(buyerId), {
+      referralCode: REFERRAL_CODE,
+      referrerSessionId: REFERRER_ID,
+      rewarded: true,
+      rewardGranted: 1,
+      conversionRecorded: true,
+      conversionReversed: true,
+      conversionReversedAt: reversedAt,
+      rewardReversed: true,
+      rewardReversedAt: reversedAt,
+      rewardReclaimed: 1,
+      reversalReason: "charge_refunded",
+      source: "checkout",
+      createdAt: 7,
+    });
+    const legacyConversionEventId = "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d";
+    const legacyRewardEventId = "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed";
+    data.set(`referral:events:${REFERRAL_CODE}`, [
+      {
+        id: legacyRewardEventId,
+        code: REFERRAL_CODE,
+        type: "reward_reversed",
+        createdAt: reversedAt,
+        details: { checkoutSessionId: buyerId, reason: "charge_refunded", rewardGranted: 1, rewardReclaimed: 1 },
+      },
+      {
+        id: legacyConversionEventId,
+        code: REFERRAL_CODE,
+        type: "conversion_reversed",
+        createdAt: reversedAt,
+        details: { checkoutSessionId: buyerId, reason: "charge_refunded" },
+      },
+    ]);
+
+    const res = await postEvent(refundEvent("evt_s941fix_p2_r1", "pi_buyer_s941fix_p2", "ch_s941fix_p2"));
+    assert.equal(res.status, 200);
+    const conversions = referralEventsFor(buyerId, "conversion_reversed");
+    const rewards = referralEventsFor(buyerId, "reward_reversed");
+    assert.equal(conversions.length, 1, "no duplicate conversion_reversed alongside the legacy event");
+    assert.equal(rewards.length, 1, "no duplicate reward_reversed alongside the legacy event");
+    assert.equal(conversions[0].id, legacyConversionEventId, "the surviving event is the legacy original, unreplaced");
+    assert.equal(rewards[0].id, legacyRewardEventId, "the surviving event is the legacy original, unreplaced");
+    const referral = data.get(referralKey(REFERRAL_CODE));
+    assert.equal(referral.conversions, 5, "aggregates untouched by the no-op repair");
+    assert.equal(referral.rewardsGranted, 5);
+    assert.equal(data.get(sessionKey(REFERRER_ID)).creditsRemaining, 3, "no second debit of the referrer");
+  } finally {
+    restoreKv();
+  }
+});
+
 /* ============ Items 6/7 — subscription events + dedupe ============ */
 
 const SUB_ID = "sub_unit_1";

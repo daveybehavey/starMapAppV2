@@ -10,7 +10,7 @@ import {
   referralRewardedKey,
   type ReferralRecord,
 } from "@/lib/referrals";
-import { appendReferralEvent, getReferralEvents } from "@/lib/referralLedger";
+import { appendReferralEvent, getReferralEvents, type ReferralEvent } from "@/lib/referralLedger";
 import { createEntitlementAuthorityClient } from "@/lib/entitlementAuthority";
 import {
   ReferralGrantTransientError,
@@ -234,9 +234,24 @@ type ReferralConversionState = {
   rewardReversedAt?: number;
   reversalReason?: string;
   rewardReclaimed?: number;
+  /** Gate fix round 1 (Codex P1 on PR #476): a purchaser_revoked
+   *  skip recorded over a `pending` checkpoint may shadow an
+   *  authority grant the machine already accepted — the
+   *  grant_confirmed write is the only KV evidence of acceptance,
+   *  and it is exactly what may have failed. The skip preserves the
+   *  unresolved grant identity under this flag so the reversal side
+   *  pairs the record with the authority before finalizing instead
+   *  of settling the refund around a live grant. */
+  authorityGrantUnresolved?: boolean;
 };
 
 const sessionKey = (id: string) => `stripe:session:${id}`;
+/** The referral ledger's storage key (mirrors referralLedger). The
+ *  reversal-repair recognition in reverseReferralReward must see the
+ *  code's full stored history — including reversal events appended
+ *  before deterministic event ids existed — which the capped
+ *  getReferralEvents read cannot guarantee. */
+const referralEventsKey = (code: string) => `referral:events:${code}`;
 const paymentIntentKey = (id: string) => `stripe:pi:${id}`;
 const revokedPaymentIntentKey = (id: string) => `stripe:pi:revoked:${id}`;
 const chargeKey = (id: string) => `stripe:charge:${id}`;
@@ -827,6 +842,21 @@ async function applyReferralReward(session: Stripe.Checkout.Session) {
       rewardGranted: 0,
       conversionRecorded: false,
       rewarded: true,
+      // Gate fix round 1 (Codex P1 on PR #476): a purchaser_revoked
+      // skip recorded over a PENDING checkpoint does not prove no
+      // grant exists — a prior delivery may have run the grant seam,
+      // the authority may have accepted, and only the grant_confirmed
+      // write failed, leaving this record in `pending` as the sole
+      // trace. Preserve the unresolved grant identity on the skip so
+      // reverseReferralReward pairs it with the authority before
+      // finalizing; without the marker the skip settles as an
+      // ordinary zero-grant decision and the refund finalizes around
+      // the accepted grant, which then stays live and unreversed.
+      ...(reason === "purchaser_revoked" &&
+      existingRewardState?.phase === "pending" &&
+      isEntitlementAuthorityRoutingEnabled()
+        ? { authorityGrantUnresolved: true }
+        : {}),
     });
   };
 
@@ -1251,27 +1281,44 @@ async function reverseReferralReward(
     rewardState.phase === "grant_confirmed" ||
     rewardState.phase === "completed" ||
     (rewardState.rewardGranted ?? 0) > 0;
-  // S94-1-F4: with authority routing enabled, a record still in the
-  // pending checkpoint may name a grant the authority has ALREADY
-  // accepted whose grant_confirmed write is still outstanding.
-  // Answering a settled "nothing to reverse" here would finalize
-  // the refund around a live grant — the grant side's later
-  // purchaser_revoked skip records a decision but does not reverse
-  // an accepted grant. Defer instead: the checkout redelivery
-  // settles the record into grant_confirmed / completed /
-  // terminal_skip, each already dispositioned below, and the
-  // refund's redelivery then completes the reversal. With routing
-  // disabled no authority grant can be in flight (the grant path
-  // defers rather than granting), so the legacy disposition stands.
-  if (rewardState.phase === "pending" && isEntitlementAuthorityRoutingEnabled()) {
-    return { deferred: true };
+  const rewardGranted = Math.max(0, Math.floor(rewardState.rewardGranted ?? 0));
+  // S94-1-F4 + gate fix round 1 (Codex P1 on PR #476): with authority
+  // routing enabled, two record shapes name a grant the authority may
+  // ALREADY have accepted while the KV side cannot prove it:
+  // - a record still in the `pending` checkpoint (the grant_confirmed
+  //   write is the only KV evidence of acceptance, and it may be the
+  //   write that failed), and
+  // - a purchaser_revoked terminal skip carrying
+  //   authorityGrantUnresolved (the grant side recorded its decision
+  //   over such a checkpoint and preserved the identity).
+  // Neither may be answered with a settled "nothing to reverse", and
+  // a blanket deferral is not sufficient either: the checkout
+  // redelivery the F4 guard waited on settles the record only when
+  // its settlement pass reaches the grant side — a redelivery that
+  // observes the revocation first is suppressed there and leaves the
+  // record pending, so the deferral could strand the refund with the
+  // accepted grant live behind it. These identities therefore fall
+  // through to the authority consult below: an accepted grant is
+  // reversed on the spot and the reversal finalizes with the true
+  // clawed amount; the consult defers (dedupe unfinalized) only when
+  // the authority itself cannot yet answer — a grant still pending
+  // in its journal, or an absence the machine treats as unresolved.
+  // With routing disabled no authority grant can be in flight (the
+  // grant path defers rather than granting), so the legacy
+  // disposition stands.
+  const unresolvedAuthorityGrant =
+    isEntitlementAuthorityRoutingEnabled() &&
+    rewardGranted <= 0 &&
+    (rewardState.phase === "pending" || rewardState.authorityGrantUnresolved === true);
+  if (rewardState.rewarded !== true && !confirmedGrant && !unresolvedAuthorityGrant) {
+    return { deferred: false };
   }
-  if (rewardState.rewarded !== true && !confirmedGrant) return { deferred: false };
-  if (!confirmedGrant && rewardState.conversionRecorded !== true) return { deferred: false };
+  if (!confirmedGrant && rewardState.conversionRecorded !== true && !unresolvedAuthorityGrant) {
+    return { deferred: false };
+  }
 
   const referralCode = normalizeReferralCode(rewardState.referralCode);
   if (!referralCode) return { deferred: false };
-  const rewardGranted = Math.max(0, Math.floor(rewardState.rewardGranted ?? 0));
   const conversionAlreadyReversed = rewardState.conversionReversed === true;
   const rewardAlreadyReversed = rewardGranted <= 0 || rewardState.rewardReversed === true;
   if (conversionAlreadyReversed && rewardAlreadyReversed) {
@@ -1286,7 +1333,25 @@ async function reverseReferralReward(
     // not. The aggregate decrements are NOT repeated here: they
     // landed with the original reversal and their evidence is
     // unchanged.
-    if (conversionAlreadyReversed) {
+    // Gate fix round 1 (Codex P2 on PR #476): the re-issue may only
+    // repair events that are actually MISSING. Reversal events
+    // appended before S94-1-F6 carry random-UUID ids, so the
+    // deterministic-id dedupe cannot recognise them: re-issuing on
+    // redelivery of an already-reversed legacy record appended a
+    // duplicate conversion_reversed / reward_reversed alongside the
+    // legacy original (aggregates unaffected — no counter reads
+    // reversal events — but the ledger evidence duplicated). An
+    // event for the same checkout session and type IS the same
+    // ledger fact whatever id it carries, so the repair first reads
+    // the code's stored history and skips any type already recorded
+    // for this session.
+    const storedEvents =
+      (await kv.get<ReferralEvent[]>(referralEventsKey(referralCode))) ?? [];
+    const reversalEventRecorded = (type: ReferralEvent["type"]) =>
+      storedEvents.some(
+        (entry) => entry.type === type && entry.details?.checkoutSessionId === sessionId,
+      );
+    if (conversionAlreadyReversed && !reversalEventRecorded("conversion_reversed")) {
       await appendReferralEvent({
         code: referralCode,
         type: "conversion_reversed",
@@ -1306,8 +1371,9 @@ async function reverseReferralReward(
       });
     }
     if (
-      (rewardState.rewardReversed === true && rewardGranted > 0) ||
-      (rewardState.rewardReclaimed ?? 0) > 0
+      ((rewardState.rewardReversed === true && rewardGranted > 0) ||
+        (rewardState.rewardReclaimed ?? 0) > 0) &&
+      !reversalEventRecorded("reward_reversed")
     ) {
       await appendReferralEvent({
         code: referralCode,
@@ -1370,7 +1436,7 @@ async function reverseReferralReward(
   // later delivery that reaches this path for the session.
   let authorityClawed: number | null = null;
   let referrer: SessionRecord | null = null;
-  if ((!rewardAlreadyReversed && rewardGranted > 0) || pendingAuthorityGrant) {
+  if ((!rewardAlreadyReversed && rewardGranted > 0) || pendingAuthorityGrant || unresolvedAuthorityGrant) {
     referrer = await kv.get<SessionRecord>(sessionKey(rewardState.referrerSessionId));
     if (referrer && referrer.plan !== "subscription" && routingEnabled) {
       // DL-1 Slice 3 (R1-A): the clawback runs against the authority's
@@ -1467,17 +1533,21 @@ async function reverseReferralReward(
       // also republished the earlier-read referrer snapshot.
       rewardReclaimed = 0;
     }
-  } else if (pendingAuthorityGrant && authorityClawed !== null) {
+  } else if ((pendingAuthorityGrant || unresolvedAuthorityGrant) && authorityClawed !== null) {
     // The pending grant settled and folded before this reversal
-    // landed: the authority's claw is the true reclaimed amount,
-    // recorded here even though the KV grant side stood at 0.
+    // landed — or, gate fix round 1 (P1), the record names an
+    // unresolved authority grant (still in the pending checkpoint,
+    // or preserved through a purchaser_revoked skip): the
+    // authority's claw is the true reclaimed amount, recorded here
+    // even though the KV grant side stood at 0.
     rewardReclaimed = authorityClawed;
   }
 
   // The authority answered this record's reversal (granted path, or
   // a pending grant's terminal answer): the reversal is final and
   // is recorded as such, with the authority's amount.
-  const authorityReversalAnswered = pendingAuthorityGrant && authorityClawed !== null;
+  const authorityReversalAnswered =
+    (pendingAuthorityGrant || unresolvedAuthorityGrant) && authorityClawed !== null;
 
   await kv.set(rewardStateKey, {
     ...rewardState,
