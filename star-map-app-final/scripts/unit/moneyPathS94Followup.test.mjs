@@ -1467,3 +1467,129 @@ test("Gate round 2 (F9): a legacy 'rejected' marker refuses at BOTH dispatch sit
     restoreKv();
   }
 });
+
+/* ================= Gate fix round 3 — F9: a present marker with a missing/unrecognized state fails closed ================= */
+
+test("Gate round 3 (F9): a present dispatch marker whose state is missing or unrecognized refuses at BOTH dispatch sites — only an absent marker may dispatch", async (t) => {
+  // Gate confirmation P1 on round 2: alternateDispatchBlocksRedispatch
+  // compared the marker's state string, so a PRESENT durable marker
+  // whose state is absent or unrecognized returned false at both
+  // dispatch guards and fell through to redispatch. The TypeScript
+  // type requires `state`, but persisted KV data is not validated at
+  // runtime — a legacy, partial, or hand-written record can carry a
+  // marker with no usable state, and that marker is exactly as
+  // ambiguous as "attempted"/"rejected" (an outbound dispatch may
+  // already have happened). Round 3 fails closed: ANY present marker
+  // blocks redispatch, in every state — attempted, rejected,
+  // accepted, missing, or unrecognized — and outbound dispatch is
+  // permitted only when NO marker exists (the first-dispatch case).
+  installFakeKv();
+  installFetchDouble();
+  try {
+    const malformedMarkers = [
+      [
+        "missing state",
+        (sessionId) => ({
+          dispatchId: `alt-fulfillment:${sessionId}`,
+          attemptedAt: Date.now() - 60_000,
+        }),
+      ],
+      [
+        "unrecognized state",
+        (sessionId) => ({
+          dispatchId: `alt-fulfillment:${sessionId}`,
+          state: "dispatched_maybe",
+          attemptedAt: Date.now() - 60_000,
+          httpStatus: 500,
+        }),
+      ],
+    ];
+    for (const [label, markerFor] of malformedMarkers) {
+      await t.test(`${label}: operator retry route refuses`, async () => {
+        const callsBefore = fulfillmentCalls().length;
+        const seeded = seedPrintOrder();
+        data.set(printOrderKey(F9_SESSION), {
+          ...seeded,
+          alternateDispatch: markerFor(F9_SESSION),
+        });
+        stubStripeForRetry();
+        const retry = await printRetryRoute.POST(retryRequest());
+        assert.equal(
+          retry.status,
+          409,
+          "the retry route refuses a present marker with no usable state",
+        );
+        assert.equal(
+          (await retry.json()).error,
+          "alternate_dispatch_reconciliation_required",
+        );
+        assert.equal(
+          fulfillmentCalls().length,
+          callsBefore,
+          "the retry route never dispatches",
+        );
+        assert.equal(
+          data.get(printOrderKey(F9_SESSION))?.alternateDispatch?.dispatchId,
+          `alt-fulfillment:${F9_SESSION}`,
+          "the marker stands untouched for the operator",
+        );
+      });
+
+      await t.test(`${label}: webhook pass refuses`, async () => {
+        const callsBefore = fulfillmentCalls().length;
+        const sessionId =
+          label === "missing state" ? "cs_wh_gate3_nostate" : "cs_wh_gate3_badstate";
+        __resetPrintOrderAuthorityMemoryForTests();
+        data.set(printOrderKey(sessionId), {
+          status: "failed",
+          sessionId,
+          printVariant: "poster_framed",
+          includesDigitalAddOn: false,
+          amountTotal: 9900,
+          currency: "usd",
+          customerEmail: "buyer@example.com",
+          customerName: "Buyer One",
+          shippingDetails: {
+            name: "Buyer One",
+            address: { line1: "1 Main St", city: "Victoria", state: "BC", country: "US", postal_code: "90210" },
+          },
+          printAssetId: WH_PRINT_ASSET_ID,
+          attempts: 1,
+          error: "webhook_failed",
+          terminalEventType: null,
+          createdAt: Date.now(),
+          alternateDispatch: markerFor(sessionId),
+        });
+        const delivered = await postEvent(
+          completedEvent(
+            label === "missing state" ? "evt_gate3_nostate" : "evt_gate3_badstate",
+            printCheckoutSessionFixture(sessionId),
+          ),
+        );
+        assert.equal(
+          delivered.status,
+          200,
+          `the delivery finalises as a refusal: ${JSON.stringify(delivered.body)}`,
+        );
+        assert.equal(
+          fulfillmentCalls().length,
+          callsBefore,
+          "the webhook pass never dispatches either",
+        );
+        const stored = data.get(printOrderKey(sessionId));
+        assert.equal(
+          stored?.error,
+          "alternate_dispatch_reconciliation_required",
+          "the pass persists the reconciliation problem record",
+        );
+        assert.equal(
+          stored?.alternateDispatch?.dispatchId,
+          `alt-fulfillment:${sessionId}`,
+          "the marker survives the pass for the operator",
+        );
+      });
+    }
+  } finally {
+    restoreKv();
+  }
+});

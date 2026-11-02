@@ -28,6 +28,10 @@ export type PrintOrderTerminalEventType = "order_failed" | "order_canceled";
  * ambiguous response, so it is never read as licence to redispatch:
  * both dispatch sites refuse on it exactly like "attempted" (see
  * alternateDispatchBlocksRedispatch) and an operator reconciles.
+ * Gate fix round 3 (PR #477): the guard fails closed on ANY
+ * present marker — including a persisted marker whose state is
+ * missing or unrecognized, which the round-2 string comparison
+ * let fall through to redispatch; see the helper's doc.
  * The dispatchId is stable per session and is sent as the payload's
  * dispatchId and the request's Idempotency-Key header so a
  * receiver that does honour idempotency can dedupe as well.
@@ -45,17 +49,26 @@ export function alternateFulfillmentDispatchId(sessionId: string) {
 }
 
 /**
- * The marker states that block any further dispatch until an
- * operator reconciles: "attempted" (an outcome that was never
- * durably resolved) and the legacy "rejected" (an ambiguous non-2xx
- * answer, which under the round-1 doctrine does not prove the
- * receiver refused the order). Both refuse identically at every
- * dispatch site.
+ * Fail closed (gate fix round 3, PR #477): a PRESENT marker blocks
+ * any further dispatch until an operator reconciles, in EVERY
+ * state — "attempted" (an outcome that was never durably
+ * resolved), the legacy "rejected" (an ambiguous non-2xx answer,
+ * which under the round-1 doctrine does not prove the receiver
+ * refused the order), and "accepted" (which matches round 0's
+ * design: when the post-acceptance "sent" write failed, the next
+ * attempt must refuse, not redispatch — the "sent" early returns
+ * at both sites handle the consistent accepted+sent records
+ * before this guard is reached). The marker's state is never
+ * trusted as licence to dispatch: persisted KV data is not
+ * runtime-validated against the type above, so a marker whose
+ * state is missing or unrecognized blocks identically. Outbound
+ * dispatch is permitted only when NO marker exists — the
+ * first-dispatch case.
  */
 export function alternateDispatchBlocksRedispatch(
   dispatch?: AlternateFulfillmentDispatch | null,
 ): boolean {
-  return dispatch?.state === "attempted" || dispatch?.state === "rejected";
+  return dispatch != null;
 }
 
 export type PrintOrderRecord = {

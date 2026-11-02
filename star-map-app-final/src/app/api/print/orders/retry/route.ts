@@ -493,7 +493,10 @@ async function postRetryPrintOrder(req: NextRequest) {
   // outcome was never durably resolved refuses redispatch outright —
   // the receiver may already hold this order. Gate fix round 2
   // (PR #477): a legacy "rejected" marker refuses identically — it
-  // encodes an ambiguous response, not a proven refusal.
+  // encodes an ambiguous response, not a proven refusal. Gate fix
+  // round 3: ANY present marker refuses, including one whose
+  // persisted state is missing or unrecognized (fail closed) —
+  // dispatch happens only when no marker exists.
   const dispatchId = alternateFulfillmentDispatchId(sessionId);
   if (alternateDispatchBlocksRedispatch(hydrated.alternateDispatch)) {
     return NextResponse.json(

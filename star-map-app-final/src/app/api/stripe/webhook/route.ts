@@ -2114,7 +2114,10 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
   // never durably resolved refuses redispatch — the receiver may
   // already hold this order; an operator reconciles. Gate fix round 2
   // (PR #477): a legacy "rejected" marker refuses identically — it
-  // encodes an ambiguous response, not a proven refusal.
+  // encodes an ambiguous response, not a proven refusal. Gate fix
+  // round 3: ANY present marker refuses, including one whose
+  // persisted state is missing or unrecognized (fail closed) —
+  // dispatch happens only when no marker exists.
   const alternateIsFulfiller = !isPrintfulConfigured();
   const dispatchId = alternateFulfillmentDispatchId(session.id);
   const existingAlternateDispatch = existing?.alternateDispatch;
