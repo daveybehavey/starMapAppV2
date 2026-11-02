@@ -196,8 +196,12 @@ function readGuardEnv(serverName: "PRINT_MARGIN_GUARD_ENABLED" | "PRINT_MIN_MARG
 
 export function getPrintMarginGuardConfig(): PrintMarginGuardConfig {
   return {
-    enabled: parseBool(readGuardEnv("PRINT_MARGIN_GUARD_ENABLED"), false),
-    minMarginCents: parseIntValue(readGuardEnv("PRINT_MIN_MARGIN_CENTS"), 0, 0),
+    // Fail-safe defaults match production (guard enabled, $10.00 floor —
+    // wrangler.toml and the deployed Worker settings), so an env-less
+    // deploy stays guarded instead of silently unguarded (Slate 96 S96-6).
+    // Explicit env values still win, including an explicit opt-out.
+    enabled: parseBool(readGuardEnv("PRINT_MARGIN_GUARD_ENABLED"), true),
+    minMarginCents: parseIntValue(readGuardEnv("PRINT_MIN_MARGIN_CENTS"), 1000, 0),
     stripePercent: parseFloatValue(process.env.PRINT_MARGIN_STRIPE_PERCENT, DEFAULT_STRIPE_PERCENT, 0),
     stripeFixedCents: parseIntValue(process.env.PRINT_MARGIN_STRIPE_FIXED_CENTS, DEFAULT_STRIPE_FIXED_CENTS, 0),
   };
