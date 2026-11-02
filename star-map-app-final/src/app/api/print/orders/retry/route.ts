@@ -342,6 +342,27 @@ async function postRetryPrintOrder(req: NextRequest) {
           freshClaim.dispatchId !== passStartedClaim.dispatchId ||
           freshClaim.claimedAt !== passStartedClaim.claimedAt),
     );
+    // Cycle-2 evidence: passStartedClaim is not a reliable admission
+    // baseline in every interleave. When this pass's FIRST KV read (of
+    // `existing`, above) is parked mid-read, the authority seeding
+    // re-read that follows its resume already carries a concurrent
+    // winner's claim, so the fresh claim ends up compared against
+    // itself and claimMoved stays false even though the winner claimed
+    // during this pass. The admission KV snapshot does predate the
+    // winner — its value was computed before the parked read resumed:
+    // a fresh alternateDispatch marker in the "accepted" state that
+    // the admission snapshot does not carry (or carries with a
+    // different identity/state) can only have been written by the
+    // alternate dispatch that won during this pass.
+    const freshAlternateDispatch = freshExisting?.alternateDispatch ?? null;
+    const admissionAlternateDispatch = existing.alternateDispatch ?? null;
+    const alternateDispatchMoved = Boolean(
+      freshAlternateDispatch &&
+        freshAlternateDispatch.state === "accepted" &&
+        (!admissionAlternateDispatch ||
+          admissionAlternateDispatch.dispatchId !== freshAlternateDispatch.dispatchId ||
+          admissionAlternateDispatch.state !== freshAlternateDispatch.state),
+    );
     const lifecycleMoved =
       freshAuthority.lifecycle === "terminal_failed" ||
       freshAuthority.lifecycle === "bound" ||
@@ -354,7 +375,7 @@ async function postRetryPrintOrder(req: NextRequest) {
           (freshExisting.printfulOrderId &&
             String(freshExisting.printfulOrderId) !== String(existing.printfulOrderId ?? ""))),
     );
-    if (!lifecycleMoved && !kvMoved && !claimMoved) return null;
+    if (!lifecycleMoved && !kvMoved && !claimMoved && !alternateDispatchMoved) return null;
 
     const latestRecord = freshExisting ?? existing;
     if (freshAuthority.lifecycle === "terminal_failed") {
@@ -392,7 +413,7 @@ async function postRetryPrintOrder(req: NextRequest) {
         order: sanitizePrintOrderForOperatorResponse(boundOrder),
       });
     }
-    if (claimMoved) {
+    if (claimMoved || alternateDispatchMoved) {
       return NextResponse.json(
         {
           ok: false,
