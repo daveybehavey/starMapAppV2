@@ -8,6 +8,7 @@ type PresetOptions = {
   starGlow: RenderOptions["starGlow"];
   constellationLines: RenderOptions["constellationLines"];
   constellationLabels: RenderOptions["constellationLabels"];
+  planetLabels: RenderOptions["planetLabels"];
   showGrid: RenderOptions["showGrid"];
   showPlanets: RenderOptions["showPlanets"];
   premiumStars: RenderOptions["premiumStars"];
@@ -34,6 +35,7 @@ const PRESET_MATCH_KEYS = [
   "starGlow",
   "constellationLines",
   "constellationLabels",
+  "planetLabels",
   "showGrid",
   "showPlanets",
   "premiumStars",
@@ -59,6 +61,7 @@ const RENDER_PRESET_MAP: Record<RenderPresetId, RenderPreset> = {
         starGlow: true,
         constellationLines: "thin",
         constellationLabels: false,
+        planetLabels: false,
         showGrid: false,
         showPlanets: true,
         premiumStars: "off",
@@ -77,6 +80,7 @@ const RENDER_PRESET_MAP: Record<RenderPresetId, RenderPreset> = {
         starGlow: false,
         constellationLines: "thick",
         constellationLabels: false,
+        planetLabels: false,
         showGrid: false,
         showPlanets: true,
         premiumStars: "off",
@@ -95,6 +99,7 @@ const RENDER_PRESET_MAP: Record<RenderPresetId, RenderPreset> = {
         starGlow: false,
         constellationLines: "thick",
         constellationLabels: false,
+        planetLabels: false,
         showGrid: false,
         showPlanets: true,
         premiumStars: "off",
@@ -113,6 +118,7 @@ const RENDER_PRESET_MAP: Record<RenderPresetId, RenderPreset> = {
         starGlow: false,
         constellationLines: "thin",
         constellationLabels: false,
+        planetLabels: false,
         showGrid: false,
         showPlanets: true,
         premiumStars: "off",
@@ -138,6 +144,7 @@ const RENDER_PRESET_MAP: Record<RenderPresetId, RenderPreset> = {
         starGlow: false,
         constellationLines: "off",
         constellationLabels: false,
+        planetLabels: false,
         showGrid: false,
         showPlanets: false,
         premiumStars: "off",
@@ -156,6 +163,7 @@ const RENDER_PRESET_MAP: Record<RenderPresetId, RenderPreset> = {
         starGlow: false,
         constellationLines: "thin",
         constellationLabels: false,
+        planetLabels: false,
         showGrid: false,
         showPlanets: false,
         premiumStars: "off",
@@ -174,6 +182,7 @@ const RENDER_PRESET_MAP: Record<RenderPresetId, RenderPreset> = {
         starGlow: false,
         constellationLines: "off",
         constellationLabels: false,
+        planetLabels: false,
         showGrid: false,
         showPlanets: false,
         premiumStars: "off",
@@ -192,6 +201,7 @@ const RENDER_PRESET_MAP: Record<RenderPresetId, RenderPreset> = {
         starGlow: false,
         constellationLines: "off",
         constellationLabels: false,
+        planetLabels: false,
         showGrid: false,
         showPlanets: false,
         premiumStars: "off",

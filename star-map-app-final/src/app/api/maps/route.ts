@@ -215,6 +215,7 @@ function sanitizeRenderOptions(options: Record<string, unknown>) {
     "starGlow",
     "constellationLines",
     "constellationLabels",
+    "planetLabels",
     "showGrid",
     "showPlanets",
     "premiumStars",

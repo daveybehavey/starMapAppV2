@@ -304,6 +304,23 @@ export function AdvancedPanel({
           </div>
         )}
 
+        {renderOptions.showPlanets && (
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] text-neutral-200">Planet Names</span>
+            <button
+              type="button"
+              onClick={() => applyCustomRenderOptions({ planetLabels: !renderOptions.planetLabels })}
+              className={`rounded-md border px-2 py-1 text-[10px] font-semibold transition ${
+                renderOptions.planetLabels
+                  ? "!text-midnight border-amber-300 bg-amber-100"
+                  : "border-white/15 bg-white/10 text-white"
+              }`}
+            >
+              {renderOptions.planetLabels ? "Labels On" : "Labels Off"}
+            </button>
+          </div>
+        )}
+
         <div className="flex items-center justify-between gap-2">
           <span className="text-[11px] text-neutral-200">Moon</span>
           <button
