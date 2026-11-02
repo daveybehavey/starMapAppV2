@@ -145,7 +145,7 @@ test("upsert appends a plain caption TextBox built like sibling rows", () => {
   assert.equal(box.align, "center");
   assert.equal(box.size, 20);
   assert.deepEqual(box.position, { x: 0.5, y: 0.95 });
-  assert.deepEqual(box.textStyleBinding, { color: "automatic", fontFamily: "automatic" });
+  assert.deepEqual(box.textStyleBinding, { color: "automatic", fontFamily: "automatic", fontWeight: "automatic" });
   assert.equal(typeof box.fontFamily, "string");
   assert.equal(typeof box.color, "string");
   // Sibling rows are untouched.
