@@ -98,14 +98,42 @@ test("config: inert unless the flag is exactly true; threshold defaults to 24h",
   );
 });
 
-test("candidate: stamped pending is in; resolved, shipped, failed, and unbound are out", () => {
+test("candidate: stamped pending is in; resolved with delivered alerts, shipped, failed-status, and unbound are out", () => {
   assert.equal(printOrderReviewSweepCandidate(pendingRecord(), NOW), true);
-  assert.equal(printOrderReviewSweepCandidate(pendingRecord({ fileReviewState: "healthy" }), NOW), false);
-  assert.equal(printOrderReviewSweepCandidate(pendingRecord({ fileReviewState: "failed" }), NOW), false);
+  assert.equal(
+    printOrderReviewSweepCandidate(pendingRecord({ fileReviewState: "healthy", operatorAlertedAt: NOW - HOUR }), NOW),
+    false,
+  );
+  assert.equal(
+    printOrderReviewSweepCandidate(
+      pendingRecord({ fileReviewState: "failed", operatorFailureAlertedAt: NOW - HOUR }),
+      NOW,
+    ),
+    false,
+  );
   assert.equal(printOrderReviewSweepCandidate(pendingRecord({ shippedAt: NOW - HOUR }), NOW), false);
   assert.equal(printOrderReviewSweepCandidate(pendingRecord({ status: "failed" }), NOW), false);
   assert.equal(printOrderReviewSweepCandidate(pendingRecord({ printfulOrderId: undefined }), NOW), false);
   assert.equal(printOrderReviewSweepCandidate(null, NOW), false);
+});
+
+test("candidate: a resolved review stays eligible until its operator alert is delivered (gate fix)", () => {
+  assert.equal(
+    printOrderReviewSweepCandidate(
+      pendingRecord({ fileReviewState: "failed", operatorFailureAlertError: "print_alert_not_configured" }),
+      NOW,
+    ),
+    true,
+    "failed files with an undelivered failure alert keep the revisit",
+  );
+  assert.equal(
+    printOrderReviewSweepCandidate(
+      pendingRecord({ fileReviewState: "healthy", operatorAlertError: "print_alert_not_configured" }),
+      NOW,
+    ),
+    true,
+    "healthy with an undelivered approval alert keeps the revisit",
+  );
 });
 
 test("candidate: legacy unstamped records need the grace window and no recorded resolution", () => {
@@ -269,6 +297,41 @@ test("run: a refused persist counts as a skipped write; a bad record counts an e
   assert.equal(summary.resolvedFailed, 1);
   assert.equal(summary.writesSkipped, 1);
   assert.equal(summary.errors, 1);
+});
+
+test("run: a resolved-failed record is revisited until its failure alert lands, then never again", async () => {
+  const unalerted = pendingRecord({
+    fileReviewState: "failed",
+    fileReviewPendingSince: undefined,
+    error: "printful_files_failed:item",
+    operatorFailureAlertError: "print_alert_not_configured",
+  });
+  const store = memoryStore([unalerted]);
+  const summary = await runPrintOrderReviewSweep({
+    store,
+    config: enabledConfig,
+    now: () => NOW,
+    reviewOrder: async (r) => ({
+      ...r,
+      operatorFailureAlertedAt: NOW,
+      operatorFailureAlertError: undefined,
+    }),
+    sendReviewPendingAlert: async () => {
+      throw new Error("resolved records never get the pending alert");
+    },
+  });
+  assert.equal(summary.candidates, 1);
+  assert.equal(summary.resolvedFailed, 1);
+  assert.equal(store.persisted.length, 1);
+
+  const again = await runPrintOrderReviewSweep({
+    store,
+    config: enabledConfig,
+    now: () => NOW + HOUR,
+    reviewOrder: async (r) => r,
+    sendReviewPendingAlert: async () => ({ delivered: true, provider: "resend" }),
+  });
+  assert.equal(again.candidates, 0, "once the failure-alert stamp exists the record leaves the sweep");
 });
 
 test("source wiring: the worker schedules the sweep beside the hold sweep; the runtime merges via the shared helper", () => {

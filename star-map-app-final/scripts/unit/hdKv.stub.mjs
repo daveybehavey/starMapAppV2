@@ -10,10 +10,12 @@ export const kv = {
     return hdStubState.kv.get(key) ?? null;
   },
   async setDurable(key, value) {
+    if (hdStubState.kvSetThrows) throw new Error("kv_set_failed");
     hdStubState.kv.set(key, value);
     return "OK";
   },
   async deleteDurable(key) {
+    if (hdStubState.kvDeleteThrows) throw new Error("kv_delete_failed");
     hdStubState.kv.delete(key);
     return "OK";
   },

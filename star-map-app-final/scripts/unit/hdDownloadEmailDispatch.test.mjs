@@ -4,7 +4,10 @@
 // taken before dispatch and never released: one failed send made every
 // later pass read "already_sent" and the paid customer's download
 // email was permanently suppressed. The release must fire ONLY on a
-// recorded failure outcome in the per-variant sidecar.
+// recorded failure outcome in the per-variant sidecar, and the gate
+// round added: the failure evidence is CONSUMED (sidecar deleted)
+// before the claim is released, so a delivered retry whose own
+// outcome write fails cannot re-authorize another release.
 import assert from "node:assert/strict";
 import test from "node:test";
 import { register } from "node:module";
@@ -98,6 +101,72 @@ test("F5 archive-ready: a recorded failure releases the claim so the next pass r
   const third = await trySendHdArchiveReadyEmail({ siteOrigin: "https://starmapco.com", sessionId: SESSION });
   assert.equal(third.reason, "archive_already_emailed");
   assert.equal(hdStubState.sends.length, 2);
+});
+
+test("F5 initial: a delivered retry whose outcome write fails cannot re-authorize a release (no duplicate)", async () => {
+  resetHdStubState();
+  hdStubState.sendQueue = [
+    { delivered: false, provider: "resend", error: "resend_500" },
+    { delivered: true, provider: "resend" },
+  ];
+  const first = await trySendInitialHdPurchaseEmail(INPUT);
+  assert.equal(first.delivered, false);
+  assert.equal(hdStubState.sends.length, 1);
+
+  // The retry delivers, but recording its outcome fails. The pass-one
+  // failure evidence was consumed before the release, so nothing can
+  // authorize another release now.
+  hdStubState.kvSetThrows = true;
+  await assert.rejects(() => trySendInitialHdPurchaseEmail(INPUT), /kv_set_failed/);
+  assert.equal(hdStubState.sends.length, 2, "the retry did dispatch and deliver");
+  hdStubState.kvSetThrows = false;
+
+  const third = await trySendInitialHdPurchaseEmail(INPUT);
+  assert.equal(third.reason, "already_sent");
+  assert.equal(hdStubState.sends.length, 2, "no duplicate after an unrecorded delivery");
+});
+
+test("F5 initial: if consuming the failure evidence fails, nothing is released or sent", async () => {
+  resetHdStubState();
+  hdStubState.sendQueue = [
+    { delivered: false, provider: "resend", error: "resend_500" },
+    { delivered: true, provider: "resend" },
+  ];
+  const first = await trySendInitialHdPurchaseEmail(INPUT);
+  assert.equal(first.delivered, false);
+
+  hdStubState.kvDeleteThrows = true;
+  await assert.rejects(() => trySendInitialHdPurchaseEmail(INPUT), /kv_delete_failed/);
+  assert.equal(hdStubState.sends.length, 1, "no dispatch while the evidence cannot be consumed");
+  hdStubState.kvDeleteThrows = false;
+
+  const retry = await trySendInitialHdPurchaseEmail(INPUT);
+  assert.equal(retry.delivered, true, "the intact evidence still authorizes the retry once deletes work");
+  assert.equal(hdStubState.sends.length, 2);
+});
+
+test("F5 archive-ready: a delivered retry whose outcome write fails cannot re-authorize a release", async () => {
+  resetHdStubState();
+  seedArchiveSession();
+  hdStubState.sendQueue = [
+    { delivered: false, provider: "resend", error: "resend_500" },
+    { delivered: true, provider: "resend" },
+  ];
+  const first = await trySendHdArchiveReadyEmail({ siteOrigin: "https://starmapco.com", sessionId: SESSION });
+  assert.equal(first.delivered, false);
+  assert.equal(hdStubState.sends.length, 1);
+
+  hdStubState.kvSetThrows = true;
+  await assert.rejects(
+    () => trySendHdArchiveReadyEmail({ siteOrigin: "https://starmapco.com", sessionId: SESSION }),
+    /kv_set_failed/,
+  );
+  assert.equal(hdStubState.sends.length, 2, "the retry did dispatch and deliver");
+  hdStubState.kvSetThrows = false;
+
+  const third = await trySendHdArchiveReadyEmail({ siteOrigin: "https://starmapco.com", sessionId: SESSION });
+  assert.equal(third.reason, "archive_email_already_sent");
+  assert.equal(hdStubState.sends.length, 2, "no duplicate follow-up after an unrecorded delivery");
 });
 
 test("F5 archive-ready: an initial email that already carried the archive still suppresses the follow-up", async () => {

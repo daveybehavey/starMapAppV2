@@ -123,6 +123,15 @@ export async function trySendInitialHdPurchaseEmail(input: {
     priorInitialResult = null;
   }
   if (priorInitialResult != null && priorInitialResult.deliveredAt == null) {
+    // Consume the failure evidence BEFORE releasing the claim. If
+    // this pass delivers but its own outcome write then fails, a
+    // surviving failure sidecar would authorize the NEXT pass to
+    // release the fresh claim and send a duplicate customer email.
+    // With the sidecar deleted first, an unrecorded outcome leaves
+    // no evidence behind, and the absent-sidecar rule above keeps
+    // the claim — the accepted S93-1 residual. A failure of either
+    // delete propagates: no release, no dispatch, retry next pass.
+    await kv.deleteDurable(ENTITLEMENT_KV.hdInitialEmailResult(input.sessionId));
     await kv.deleteDurable(ENTITLEMENT_KV.accessEmailDedupe(input.sessionId));
   }
 
@@ -214,6 +223,10 @@ export async function trySendHdArchiveReadyEmail(input: {
   // carried the archive, and without the archive link a delivered
   // record still keeps its claim below (no duplicate follow-up).
   if (archiveEmailResult != null && archiveEmailResult.deliveredAt == null) {
+    // Consume the failure evidence BEFORE releasing the claim, as in
+    // the initial path: a delivered retry whose outcome write fails
+    // must not leave evidence behind that re-authorizes a release.
+    await kv.deleteDurable(ENTITLEMENT_KV.hdArchiveEmailResult(input.sessionId));
     await kv.deleteDurable(ENTITLEMENT_KV.hdArchiveEmailDedupe(input.sessionId));
   }
 

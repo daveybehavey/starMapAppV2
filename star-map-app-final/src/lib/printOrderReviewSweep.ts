@@ -105,10 +105,15 @@ export type PrintOrderReviewSweepAuthorityGate = (
  * The one candidacy decision the sweep makes per record. Only a `sent`,
  * unshipped order with a bound Printful id can have an outstanding
  * file review. A stamped record is a candidate exactly while its state
- * is "pending". An unstamped (legacy) record is a candidate only when
- * the submit is older than the grace window AND no review resolution
- * is recorded on it — a files-failed error or a delivered approval
- * alert means the one-shot review DID resolve, stamp or no stamp.
+ * is "pending". A resolved record stays a candidate until the
+ * resolving review's operator alert is delivered (approval stamp for
+ * healthy, failure stamp for failed): the resolution alert is part of
+ * what the revisit exists to guarantee, and a provider outage at the
+ * resolving tick must not drop it permanently. An unstamped (legacy)
+ * record is a candidate only when the submit is older than the grace
+ * window AND no review resolution is recorded on it — a files-failed
+ * error or a delivered approval alert means the one-shot review DID
+ * resolve, stamp or no stamp.
  */
 export function printOrderReviewSweepCandidate(
   record: PrintOrderRecord | null | undefined,
@@ -118,8 +123,16 @@ export function printOrderReviewSweepCandidate(
   if (record.status !== "sent" || record.shippedAt) return false;
   if (!record.printfulOrderId) return false;
   if (record.fileReviewState === "pending") return true;
-  if (record.fileReviewState === "healthy" || record.fileReviewState === "failed") {
-    return false;
+  if (record.fileReviewState === "failed") {
+    // Resolved, but the operator failure alert has not been delivered:
+    // stay eligible so a later tick re-runs the review, which retries
+    // the alert (it fires only while its stamp is unset). The file
+    // disposition itself is NOT treated as pending again — the merge
+    // in the persist path refuses to regress a resolved state.
+    return !record.operatorFailureAlertedAt;
+  }
+  if (record.fileReviewState === "healthy") {
+    return !record.operatorAlertedAt;
   }
   if (record.error?.startsWith("printful_files_failed")) return false;
   if (record.operatorAlertedAt) return false;
