@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { kv } from "@/lib/kv";
 
 export const LEGACY_SUBSCRIPTION_KEY = "promotions:emails";
@@ -79,10 +79,18 @@ export function verifyPromotionUnsubscribeToken(email: string, token: string) {
   const secret = getSigningSecret();
   if (!secret) return false;
   const expected = signatureFor(normalized, secret);
-  const givenBuffer = Buffer.from(trimmedToken);
-  const expectedBuffer = Buffer.from(expected);
-  if (givenBuffer.length !== expectedBuffer.length) return false;
-  return timingSafeEqual(givenBuffer, expectedBuffer);
+  // Rider (S96-6 observation): compare SHA-256 digests of both sides
+  // instead of the raw strings. The previous code early-exited when
+  // the supplied token's length differed from the expected
+  // signature's, so the constant-time comparison only ever ran on
+  // equal-length inputs and the length itself leaked through timing.
+  // Digests are fixed-length, the timingSafeEqual always runs, and
+  // the acceptance set is unchanged (digests are equal exactly when
+  // the tokens are). Same digest-first pattern as the OurImprint
+  // Printful webhook token comparison (PR #45).
+  const givenDigest = createHash("sha256").update(trimmedToken, "utf8").digest();
+  const expectedDigest = createHash("sha256").update(expected, "utf8").digest();
+  return timingSafeEqual(givenDigest, expectedDigest);
 }
 
 export function getPromotionUnsubscribeUrl(email: string) {
