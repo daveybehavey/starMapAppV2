@@ -1,0 +1,567 @@
+{
+  "fetchedAt": "2026-11-03T16:16:24.971Z",
+  "products": [
+    {
+      "url": "https://api.printful.com/products/1",
+      "httpStatus": 200,
+      "id": 1,
+      "name": "Enhanced Matte Paper Poster (in)",
+      "currency": "USD",
+      "variants": [
+        {
+          "id": 4464,
+          "size": "12″×12″",
+          "color": null,
+          "price": "9.50",
+          "in_stock": true,
+          "regions": {
+            "US": "United States",
+            "EU": "Europe",
+            "EU_LV": "Latvia",
+            "EU_ES": "Spain",
+            "CA": "Canada",
+            "UK": "United Kingdom",
+            "JP": "Japan",
+            "AU": "Australia"
+          }
+        },
+        {
+          "id": 1349,
+          "size": "12″×16″",
+          "color": null,
+          "price": "11.75",
+          "in_stock": true,
+          "regions": {
+            "US": "United States",
+            "EU": "Europe",
+            "EU_LV": "Latvia",
+            "EU_ES": "Spain",
+            "CA": "Canada",
+            "UK": "United Kingdom",
+            "JP": "Japan",
+            "AU": "Australia"
+          }
+        },
+        {
+          "id": 6240,
+          "size": "14″×14″",
+          "color": null,
+          "price": "10.75",
+          "in_stock": true,
+          "regions": {
+            "US": "United States",
+            "EU": "Europe",
+            "EU_LV": "Latvia",
+            "EU_ES": "Spain",
+            "CA": "Canada",
+            "UK": "United Kingdom",
+            "JP": "Japan",
+            "AU": "Australia"
+          }
+        },
+        {
+          "id": 4465,
+          "size": "16″×16″",
+          "color": null,
+          "price": "12.50",
+          "in_stock": true,
+          "regions": {
+            "US": "United States",
+            "EU": "Europe",
+            "EU_LV": "Latvia",
+            "EU_ES": "Spain",
+            "CA": "Canada",
+            "UK": "United Kingdom",
+            "JP": "Japan",
+            "AU": "Australia"
+          }
+        },
+        {
+          "id": 3877,
+          "size": "16″×20″",
+          "color": null,
+          "price": "12.75",
+          "in_stock": true,
+          "regions": {
+            "US": "United States",
+            "EU": "Europe",
+            "EU_LV": "Latvia",
+            "EU_ES": "Spain",
+            "CA": "Canada",
+            "UK": "United Kingdom",
+            "JP": "Japan",
+            "AU": "Australia"
+          }
+        },
+        {
+          "id": 6242,
+          "size": "18″×18″",
+          "color": null,
+          "price": "13.25",
+          "in_stock": true,
+          "regions": {
+            "US": "United States",
+            "EU": "Europe",
+            "EU_LV": "Latvia",
+            "EU_ES": "Spain",
+            "CA": "Canada",
+            "UK": "United Kingdom",
+            "JP": "Japan",
+            "AU": "Australia"
+          }
+        },
+        {
+          "id": 1,
+          "size": "18″×24″",
+          "color": null,
+          "price": "13.75",
+          "in_stock": true,
+          "regions": {
+            "US": "United States",
+            "EU": "Europe",
+            "EU_LV": "Latvia",
+            "EU_ES": "Spain",
+            "CA": "Canada",
+            "UK": "United Kingdom",
+            "JP": "Japan",
+            "AU": "Australia"
+          }
+        },
+        {
+          "id": 48496,
+          "size": "20″×20″",
+          "color": null,
+          "price": "13.75",
+          "in_stock": true,
+          "regions": {
+            "US": "United States",
+            "EU": "Europe",
+            "EU_LV": "Latvia",
+            "CA": "Canada",
+            "UK": "United Kingdom"
+          }
+        },
+        {
+          "id": 48499,
+          "size": "24″×24″",
+          "color": null,
+          "price": "16.25",
+          "in_stock": true,
+          "regions": {
+            "US": "United States",
+            "EU": "Europe",
+            "EU_LV": "Latvia",
+            "CA": "Canada",
+            "UK": "United Kingdom"
+          }
+        }
+      ]
+    },
+    {
+      "url": "https://api.printful.com/products/2",
+      "httpStatus": 200,
+      "id": 2,
+      "name": "Enhanced Matte Paper Framed Poster (in)",
+      "currency": "USD",
+      "variants": [
+        {
+          "id": 4653,
+          "size": "12″×12″",
+          "color": "Black",
+          "price": "29.08",
+          "in_stock": true,
+          "regions": {
+            "US": "United States",
+            "AU": "Australia"
+          }
+        },
+        {
+          "id": 1350,
+          "size": "12″×16″",
+          "color": "Black",
+          "price": "32.20",
+          "in_stock": true,
+          "regions": {
+            "US": "United States",
+            "EU": "Europe",
+            "EU_LV": "Latvia",
+            "CA": "Canada",
+            "UK": "United Kingdom",
+            "AU": "Australia"
+          }
+        },
+        {
+          "id": 4654,
+          "size": "14″×14″",
+          "color": "Black",
+          "price": "33.81",
+          "in_stock": true,
+          "regions": {
+            "US": "United States",
+            "AU": "Australia"
+          }
+        },
+        {
+          "id": 4655,
+          "size": "16″×16″",
+          "color": "Black",
+          "price": "37.72",
+          "in_stock": true,
+          "regions": {
+            "CA": "Canada",
+            "US": "United States",
+            "AU": "Australia"
+          }
+        },
+        {
+          "id": 4399,
+          "size": "16″×20″",
+          "color": "Black",
+          "price": "42.61",
+          "in_stock": true,
+          "regions": {
+            "US": "United States",
+            "EU": "Europe",
+            "EU_LV": "Latvia",
+            "CA": "Canada",
+            "UK": "United Kingdom",
+            "AU": "Australia"
+          }
+        },
+        {
+          "id": 4656,
+          "size": "18″×18″",
+          "color": "Black",
+          "price": "43.18",
+          "in_stock": true,
+          "regions": {
+            "US": "United States",
+            "AU": "Australia"
+          }
+        },
+        {
+          "id": 3,
+          "size": "18″×24″",
+          "color": "Black",
+          "price": "46.30",
+          "in_stock": true,
+          "regions": {
+            "US": "United States",
+            "EU": "Europe",
+            "EU_LV": "Latvia",
+            "CA": "Canada",
+            "UK": "United Kingdom",
+            "AU": "Australia"
+          }
+        },
+        {
+          "id": 15024,
+          "size": "12″×12″",
+          "color": "Red Oak",
+          "price": "29.08",
+          "in_stock": true,
+          "regions": {
+            "CA": "Canada",
+            "US": "United States"
+          }
+        },
+        {
+          "id": 15025,
+          "size": "12″×16″",
+          "color": "Red Oak",
+          "price": "32.20",
+          "in_stock": true,
+          "regions": {
+            "US": "United States",
+            "CA": "Canada"
+          }
+        },
+        {
+          "id": 15027,
+          "size": "14″×14″",
+          "color": "Red Oak",
+          "price": "33.81",
+          "in_stock": true,
+          "regions": {
+            "CA": "Canada",
+            "US": "United States"
+          }
+        },
+        {
+          "id": 15028,
+          "size": "16″×16″",
+          "color": "Red Oak",
+          "price": "37.72",
+          "in_stock": true,
+          "regions": {
+            "CA": "Canada",
+            "US": "United States"
+          }
+        },
+        {
+          "id": 15029,
+          "size": "16″×20″",
+          "color": "Red Oak",
+          "price": "42.61",
+          "in_stock": true,
+          "regions": {
+            "US": "United States",
+            "CA": "Canada"
+          }
+        },
+        {
+          "id": 15030,
+          "size": "18″×18″",
+          "color": "Red Oak",
+          "price": "43.18",
+          "in_stock": true,
+          "regions": {
+            "US": "United States"
+          }
+        },
+        {
+          "id": 15031,
+          "size": "18″×24″",
+          "color": "Red Oak",
+          "price": "46.30",
+          "in_stock": true,
+          "regions": {
+            "US": "United States",
+            "CA": "Canada"
+          }
+        },
+        {
+          "id": 10756,
+          "size": "12″×12″",
+          "color": "White",
+          "price": "29.08",
+          "in_stock": true,
+          "regions": {
+            "US": "United States",
+            "AU": "Australia"
+          }
+        },
+        {
+          "id": 10751,
+          "size": "12″×16″",
+          "color": "White",
+          "price": "32.20",
+          "in_stock": true,
+          "regions": {
+            "US": "United States",
+            "EU": "Europe",
+            "EU_LV": "Latvia",
+            "UK": "United Kingdom",
+            "AU": "Australia"
+          }
+        },
+        {
+          "id": 10757,
+          "size": "14″×14″",
+          "color": "White",
+          "price": "33.81",
+          "in_stock": true,
+          "regions": {
+            "US": "United States"
+          }
+        },
+        {
+          "id": 10758,
+          "size": "16″×16″",
+          "color": "White",
+          "price": "37.72",
+          "in_stock": true,
+          "regions": {
+            "US": "United States"
+          }
+        },
+        {
+          "id": 10753,
+          "size": "16″×20″",
+          "color": "White",
+          "price": "42.61",
+          "in_stock": true,
+          "regions": {
+            "US": "United States",
+            "EU": "Europe",
+            "EU_LV": "Latvia"
+          }
+        },
+        {
+          "id": 10759,
+          "size": "18″×18″",
+          "color": "White",
+          "price": "43.18",
+          "in_stock": true,
+          "regions": {
+            "US": "United States"
+          }
+        },
+        {
+          "id": 10749,
+          "size": "18″×24″",
+          "color": "White",
+          "price": "46.30",
+          "in_stock": true,
+          "regions": {
+            "US": "United States",
+            "UK": "United Kingdom",
+            "AU": "Australia"
+          }
+        }
+      ]
+    },
+    {
+      "url": "https://api.printful.com/products/3",
+      "httpStatus": 200,
+      "id": 3,
+      "name": "Canvas (in)",
+      "currency": "USD",
+      "variants": [
+        {
+          "id": 19302,
+          "size": "14″×14″",
+          "color": null,
+          "price": "18.75",
+          "in_stock": true,
+          "regions": {
+            "US": "United States",
+            "CA": "Canada",
+            "UK": "United Kingdom",
+            "EU": "Europe",
+            "EU_ES": "Spain",
+            "AU": "Australia"
+          }
+        },
+        {
+          "id": 19306,
+          "size": "18″×18″",
+          "color": null,
+          "price": "28.75",
+          "in_stock": true,
+          "regions": {
+            "US": "United States",
+            "CA": "Canada",
+            "UK": "United Kingdom",
+            "EU": "Europe",
+            "EU_ES": "Spain",
+            "AU": "Australia"
+          }
+        },
+        {
+          "id": 19308,
+          "size": "20″×20″",
+          "color": null,
+          "price": "33.50",
+          "in_stock": true,
+          "regions": {
+            "US": "United States",
+            "CA": "Canada",
+            "UK": "United Kingdom",
+            "EU": "Europe",
+            "EU_ES": "Spain",
+            "AU": "Australia"
+          }
+        },
+        {
+          "id": 19314,
+          "size": "24″×24″",
+          "color": null,
+          "price": "41.25",
+          "in_stock": true,
+          "regions": {
+            "US": "United States",
+            "CA": "Canada",
+            "UK": "United Kingdom",
+            "EU": "Europe",
+            "EU_ES": "Spain",
+            "AU": "Australia"
+          }
+        },
+        {
+          "id": 823,
+          "size": "12″×12″",
+          "color": null,
+          "price": "21.25",
+          "in_stock": true,
+          "regions": {
+            "US": "United States",
+            "CA": "Canada",
+            "UK": "United Kingdom",
+            "EU": "Europe",
+            "EU_ES": "Spain",
+            "AU": "Australia"
+          }
+        },
+        {
+          "id": 5,
+          "size": "12″×16″",
+          "color": null,
+          "price": "22.50",
+          "in_stock": true,
+          "regions": {
+            "US": "United States",
+            "CA": "Canada",
+            "UK": "United Kingdom",
+            "EU": "Europe",
+            "EU_ES": "Spain",
+            "AU": "Australia"
+          }
+        },
+        {
+          "id": 824,
+          "size": "16″×16″",
+          "color": null,
+          "price": "27.25",
+          "in_stock": true,
+          "regions": {
+            "US": "United States",
+            "CA": "Canada",
+            "UK": "United Kingdom",
+            "EU": "Europe",
+            "EU_ES": "Spain",
+            "AU": "Australia"
+          }
+        },
+        {
+          "id": 6,
+          "size": "16″×20″",
+          "color": null,
+          "price": "27.50",
+          "in_stock": true,
+          "regions": {
+            "US": "United States",
+            "CA": "Canada",
+            "UK": "United Kingdom",
+            "EU": "Europe",
+            "EU_ES": "Spain",
+            "AU": "Australia"
+          }
+        },
+        {
+          "id": 7,
+          "size": "18″×24″",
+          "color": null,
+          "price": "32.50",
+          "in_stock": true,
+          "regions": {
+            "US": "United States",
+            "CA": "Canada",
+            "UK": "United Kingdom",
+            "EU": "Europe",
+            "EU_ES": "Spain",
+            "AU": "Australia"
+          }
+        }
+      ]
+    }
+  ],
+  "fx": [
+    {
+      "d": "2026-11-02",
+      "FXUSDCAD": {
+        "v": "1.3978"
+      }
+    }
+  ]
+}
