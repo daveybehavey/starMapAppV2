@@ -173,7 +173,9 @@ test("bundle Product/Offer structured data derives same price basis as feed", ()
 test("generic /star-map-poster page remains framed/unframed money page (unchanged role)", () => {
   const poster = readFileSync(POSTER_PAGE_PATH, "utf8");
   assert.match(poster, /Framed starts at/);
-  assert.match(poster, /Unframed starts at/);
+  // B2-03 (Fix Lane F): the unframed starts-at card now names the true
+  // cheapest entry — the 16×16 — qualified by size.
+  assert.match(poster, /Unframed 16×16 starts at/);
   assert.match(poster, /print_variant=poster_framed/);
   assert.match(poster, /print_variant=poster_unframed/);
   assert.doesNotMatch(poster, /framed-hd-bundle/);

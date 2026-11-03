@@ -14,8 +14,11 @@
  *
  * The generation now lives in the store and advances inside the
  * mutation itself (a synchronous Zustand subscription in
- * src/lib/store.ts, plus the selectedOccasion setter wrapper in
- * useEditorLogic for the one hook-local field). These tests run
+ * src/lib/store.ts covering the recipe fields, the now
+ * store-resident selectedOccasion, and the recipe-intent fields
+ * renderMode / intensity / intensityDisplay). The editor's own
+ * automatic initialization writes run inside runAsSystemWrite
+ * and never advance it. These tests run
  * in plain Node — there is no React and no effect queue here at
  * all — so an advance observed immediately after a mutation call
  * can only have happened synchronously, inside the call. That is
@@ -28,9 +31,12 @@ import { register } from "node:module";
 
 register("./tsAliasLoader.mjs", import.meta.url);
 
-const { useStore, bumpEditGeneration } = await import(
-  "../../src/lib/store.ts"
-);
+const {
+  useStore,
+  bumpEditGeneration,
+  runAsSystemWrite,
+  seedEditorIntensityDefaults,
+} = await import("../../src/lib/store.ts");
 const { shouldApplyHydratedMapRecipe } = await import(
   "../../src/lib/editorHydrationGuard.ts"
 );
@@ -153,6 +159,42 @@ const fieldEdits = [
         .getState()
         .setRenderOptions({ starGlow: !useStore.getState().renderOptions.starGlow }),
   ],
+  [
+    "selectedOccasion",
+    () =>
+      useStore
+        .getState()
+        .setSelectedOccasion(
+          useStore.getState().selectedOccasion === "anniversary"
+            ? null
+            : "anniversary",
+        ),
+  ],
+  [
+    "renderMode",
+    () =>
+      useStore
+        .getState()
+        .setRenderMode(
+          otherThan(useStore.getState().renderMode, ["cinematic", "classic"]),
+        ),
+  ],
+  [
+    "intensity",
+    () =>
+      useStore
+        .getState()
+        .setIntensity(useStore.getState().intensity === 71 ? 72 : 71),
+  ],
+  [
+    "intensityDisplay",
+    () =>
+      useStore
+        .getState()
+        .setIntensityDisplay(
+          useStore.getState().intensityDisplay === 71 ? 72 : 71,
+        ),
+  ],
 ];
 
 for (const [field, edit] of fieldEdits) {
@@ -199,8 +241,91 @@ test("a write that changes no recipe field value does not advance the generation
   assert.equal(generation(), before);
 });
 
-test("bumpEditGeneration (the selectedOccasion seam) advances by exactly one and does not recurse", () => {
+test("bumpEditGeneration (the exported synchronous-advance seam) advances by exactly one and does not recurse", () => {
   const before = generation();
   bumpEditGeneration();
   assert.equal(generation(), before + 1);
+});
+
+test("runAsSystemWrite suppresses the advance for recipe, intent and seam writes alike", () => {
+  const before = generation();
+  const state = useStore.getState();
+  runAsSystemWrite(() => {
+    // A recipe-field write (the draft-restore seam class)…
+    state.setSelectedOccasion(
+      state.selectedOccasion === "wedding" ? null : "wedding",
+    );
+    // …an intent-field write (the first visual-options
+    // application class)…
+    state.setIntensity(state.intensity === 55 ? 56 : 55);
+    // …and the exported seam itself are all initialization
+    // while the scope is active: none of them is user work.
+    bumpEditGeneration();
+  });
+  assert.equal(
+    generation(),
+    before,
+    "automatic initialization inside a system-write scope must not advance the generation",
+  );
+  // The scope is exited synchronously: the very next user-path
+  // write counts again, by exactly one.
+  const afterScope = generation();
+  useStore.getState().setIntensity(useStore.getState().intensity === 57 ? 58 : 57);
+  assert.equal(generation(), afterScope + 1);
+});
+
+test("unpaid mount sequence: the automatic premium cap and its derivation are not user work (PR #549 P1)", () => {
+  // Simulate the fresh unpaid quick-editor mount: the seeded
+  // defaults sit at 70, the display→intensity sync mechanically
+  // caps intensity to 60 with no user gesture, and the
+  // visual-options derivation follows it. In the hook both
+  // writes run inside runAsSystemWrite (pinned by the B-family
+  // wiring tests), so the generation anchored at restore must
+  // not move and a saved-map response still applies.
+  const baseline = generation();
+  runAsSystemWrite(() => {
+    useStore.getState().setIntensity(60);
+  });
+  runAsSystemWrite(() => {
+    useStore.getState().setRenderOptions({ starIntensity: "bold" });
+  });
+  assert.equal(generation(), baseline);
+  assert.equal(
+    guardVerdict(baseline, generation()),
+    true,
+    "hydration must still apply after the automatic cap sequence",
+  );
+  // A genuine gesture right after still defeats it, by exactly
+  // one, and flips the verdict.
+  const display = useStore.getState().intensityDisplay;
+  useStore.getState().setIntensityDisplay(display === 61 ? 62 : 61);
+  assert.equal(generation(), baseline + 1);
+  assert.equal(guardVerdict(baseline, generation()), false);
+});
+
+// This test must stay LAST in this file: seeding is once-per-
+// process by design, and every earlier test relies on the
+// unseeded store.
+test("seedEditorIntensityDefaults seeds both intensity fields once, as a system write", () => {
+  const target =
+    useStore.getState().intensity === 33 &&
+    useStore.getState().intensityDisplay === 33
+      ? 34
+      : 33;
+  const before = generation();
+  seedEditorIntensityDefaults(target);
+  assert.equal(useStore.getState().intensity, target);
+  assert.equal(useStore.getState().intensityDisplay, target);
+  assert.equal(
+    generation(),
+    before,
+    "seeding is initialization and must not advance the generation",
+  );
+  // A second call — even with a different value — is a no-op:
+  // a later hook instance must not re-impose its own defaults
+  // over the shared store (audit B-04).
+  seedEditorIntensityDefaults(target === 33 ? 34 : 33);
+  assert.equal(useStore.getState().intensity, target);
+  assert.equal(useStore.getState().intensityDisplay, target);
+  assert.equal(generation(), before);
 });
