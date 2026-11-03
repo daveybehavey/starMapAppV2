@@ -1245,8 +1245,17 @@ test("S96-1 F9: an undelivered failure alert keeps the Stripe event retryable (s
   // The throw is scoped to records with no other discovery surface: a
   // standing alternate-dispatch marker refuses every later dispatch and
   // surfaces on the admin retry, and the S94-1 gate rounds pinned
-  // event finalization for those records.
-  assert.match(webhookSource, /failureAlertUndelivered && !nextRecord\.alternateDispatch/);
+  // event finalization for those records. Since the S96 follow-up
+  // integration the alert send lives in the shared failure-persistence
+  // helper, which reports this pass's alert outcome on its result;
+  // the webhook's throw condition reads that outcome against the
+  // standing (merged) record's marker.
+  assert.match(webhookSource, /outcome\.failureAlertUndelivered && !outcome\.record\.alternateDispatch/);
+  const failurePersistSource = fs.readFileSync(
+    path.join(appRoot, "src/lib/printOrderFailurePersist.ts"),
+    "utf8",
+  );
+  assert.match(failurePersistSource, /failureAlertUndelivered = true/);
   assert.match(webhookSource, /strandedAlertUndelivered && !strandedRecord\.alternateDispatch/);
   const authorityLibSource = fs.readFileSync(
     path.join(appRoot, "src/lib/printOrderAuthority.ts"),

@@ -39,7 +39,7 @@ test("P1-A: provider accepted → unretainable sent → event dedupe persisted b
   );
   assert.match(
     webhookSource,
-    /deleted_unretainable[\s\S]*?throw new PrintOrderUnretainableError\(sentPersist\.reason\)/,
+    /deleted_unretainable[\s\S]*?throw new PrintOrderUnretainableError\(completion\.result\.reason\)/,
   );
 });
 

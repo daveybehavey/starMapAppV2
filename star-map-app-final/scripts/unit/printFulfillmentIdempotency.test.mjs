@@ -140,8 +140,11 @@ test("E: normal retry after durable success skips duplicate provider create (sen
   // After provider success, unretainable sent-writes index then throw so event
   // dedupe is written immediately in the outer handler (no remint soft-return gap).
   assert.match(webhookSource, /durable record unretainable after provider success/);
-  assert.match(webhookSource, /sentPersist\.outcome === "deleted_unretainable"/);
-  assert.match(webhookSource, /throw new PrintOrderUnretainableError\(sentPersist\.reason\)/);
+  // F-9 (S96 follow-up): the webhook alternate sent-write goes
+  // through the shared latest-merged completion helper; the
+  // unretainable outcome is read off its persist result.
+  assert.match(webhookSource, /completion\.result\.outcome === "deleted_unretainable"/);
+  assert.match(webhookSource, /throw new PrintOrderUnretainableError\(completion\.result\.reason\)/);
 });
 
 test("F: definitive provider failure before any order exists remains retryable", async () => {
