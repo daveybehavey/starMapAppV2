@@ -1,0 +1,16 @@
+"use client";
+// Temporary local proof surface, removed by the runner. Never shipped.
+import { useEffect } from "react";
+import { buildRecipeFromState, renderStarMap } from "@/lib/renderSky";
+import { applyStyleDefaults } from "@/lib/styleDefaults";
+import { applyMapLookTier, applyTierTypographyProtected } from "@/lib/mapLookTiers";
+import { proPresets } from "@/lib/proPresets";
+import { normalizeEditorDraftData } from "@/lib/editorDraft";
+import { cloneTextBoxWithNormalizedBinding } from "@/lib/textStyleBinding";
+import { useStore } from "@/lib/store";
+export default function Proof() {
+  useEffect(() => {
+    Object.assign(window, { atlas: { buildRecipeFromState, renderStarMap, applyStyleDefaults, applyMapLookTier, applyTierTypographyProtected, proPresets, normalizeEditorDraftData, cloneTextBoxWithNormalizedBinding, useStore } });
+  }, []);
+  return <main><h1>Evergreen Atlas — internal application render proof</h1><div id="proof" /></main>;
+}

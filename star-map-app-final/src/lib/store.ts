@@ -23,6 +23,7 @@ import type { RenderModeId } from "./renderModes";
 export type StyleId =
   | "navyGold"
   | "vintageEngraving"
+  | "evergreenAtlas"
   | "parchmentScroll"
   | "midnightMinimal";
 

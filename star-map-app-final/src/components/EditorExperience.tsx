@@ -3236,6 +3236,10 @@ export function EditorExperience({
                                       <div className="grid grid-cols-1 gap-2">
                                         {styles.map((style) => {
                                           const styleClasses = {
+                                            evergreenAtlas:
+                                              selectedStyle === style.id
+                                                ? "border-[#C8D8BB] bg-[#071B17] text-[#E8F0DF]"
+                                                : "border-[#C8D8BB]/40 bg-[#071B17] text-[#C8D8BB]",
                                             navyGold:
                                               selectedStyle === style.id
                                                 ? "border-amber-400 bg-gradient-to-br from-[#0d1b2a] to-[#1b2838] text-amber-300 shadow-amber-500/20"

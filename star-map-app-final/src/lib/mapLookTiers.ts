@@ -57,6 +57,35 @@ const TIER_TYPOGRAPHY: Record<
   Partial<Record<StyleId, Partial<Record<KnownTextBoxId, Partial<TextBox>>>>>
 > = {
   minimal: {
+    evergreenAtlas: {
+      title: {
+        fontFamily: "cormorant",
+        fontWeight: 600,
+        size: 44,
+        color: "#E8F0DF",
+        align: "center",
+        textShadow: false,
+        textGlow: false,
+      },
+      subtitle: {
+        fontFamily: "montserrat",
+        fontWeight: 400,
+        size: 18,
+        color: "#C8D8BB",
+        align: "center",
+        textShadow: false,
+        textGlow: false,
+      },
+      dedication: {
+        fontFamily: "cormorant",
+        fontWeight: 400,
+        size: 20,
+        color: "#C8D8BB",
+        align: "center",
+        textShadow: false,
+        textGlow: false,
+      },
+    },
     navyGold: {
       title: {
         fontFamily: "bebasNeue",
@@ -157,6 +186,35 @@ const TIER_TYPOGRAPHY: Record<
     },
   },
   polished: {
+    evergreenAtlas: {
+      title: {
+        fontFamily: "cormorant",
+        fontWeight: 600,
+        size: 48,
+        color: "#E8F0DF",
+        align: "center",
+        textShadow: false,
+        textGlow: false,
+      },
+      subtitle: {
+        fontFamily: "montserrat",
+        fontWeight: 400,
+        size: 20,
+        color: "#C8D8BB",
+        align: "center",
+        textShadow: false,
+        textGlow: false,
+      },
+      dedication: {
+        fontFamily: "cormorant",
+        fontWeight: 400,
+        size: 22,
+        color: "#C8D8BB",
+        align: "center",
+        textShadow: false,
+        textGlow: false,
+      },
+    },
     navyGold: {
       title: {
         fontFamily: "cinzel",
