@@ -99,6 +99,7 @@ import {
 import {
   ENTITLEMENT_KV,
   readSessionRevocationEvidenceStrict,
+  sessionIsRevokedForPrintDispatch,
   refreshEntitledMapRecipeTtl,
   settleSessionPurchase,
   withSettlementMetadata,
@@ -1873,6 +1874,29 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     return;
   }
 
+  // A-01 (audit loop, 2026-11-03): revocation gate. Settlement could
+  // observe a revocation (refund / dispute tombstone) and correctly
+  // suppress the entitlement grants while this queue still
+  // manufactured the refunded order — no path into dispatch consulted
+  // revocation evidence. Consult it strictly here, after the sent
+  // re-checks and before the pending persist, so every destination
+  // below (Printful V2, Printful v1, the alternate webhook) is
+  // covered by the one gate: a revoked purchase is recorded as a
+  // durable problem order for the operator (with the failure alert)
+  // and NEVER dispatched. The strict reader throws on unreadable
+  // evidence; the throw propagates so the Stripe event stays
+  // retryable instead of dispatching on an unknown revocation state.
+  if (
+    await sessionIsRevokedForPrintDispatch(session.id, checkoutPaymentIntentId(session))
+  ) {
+    await persistProblemPrintOrder({
+      ...payload,
+      status: "failed",
+      error: "print_order_revocation_blocked",
+    });
+    return;
+  }
+
   // Pending queue write must remain durable. Deleted/unretainable aborts before Printful.
   assertPrintOrderRetained(await persistPrintOrderRecord(session.id, payload));
 
@@ -2731,7 +2755,13 @@ async function processCheckoutFulfillment(
         // The referral application for this pass is suppressed;
         // applyReferralReward also re-checks the evidence itself
         // before any grant, to cover evidence arriving later.
+        // A-01 (audit loop, 2026-11-03): the print queue is
+        // suppressed on the same outcome — a refunded print order
+        // must not reach the provider. queuePrintOrder additionally
+        // re-checks the durable evidence at its own gate, to cover
+        // evidence this pass's settlement did not surface.
         skipEntitlementGrants = true;
+        skipPrintOrder = true;
       }
     }
     if (!skipPrintOrder && paymentFulfillable) {
