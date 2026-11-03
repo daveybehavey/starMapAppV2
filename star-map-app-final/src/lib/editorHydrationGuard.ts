@@ -21,12 +21,14 @@
  *
  * The counter's timing is part of the guarantee (S96-2 F7): it
  * advances synchronously inside the store's mutation path (see
- * src/lib/store.ts) and inside the selectedOccasion setter (see
- * useEditorLogic), never in a passive effect. The component reads
- * it via useStore.getState() at fetch start and at response time,
- * so an edit made at any moment after the fetch starts — even one
- * whose React commit/effects have not run yet — is already
- * counted when the response is checked.
+ * src/lib/store.ts) — including the recipe-intent setters
+ * (renderMode, intensity, intensityDisplay), which count from the
+ * moment the user acts, not when their derived renderOptions
+ * write lands (audit B-05) — and never in a passive effect. The
+ * component reads it via useStore.getState() at fetch start and
+ * at response time, so an edit made at any moment after the fetch
+ * starts — even one whose React commit/effects have not run yet —
+ * is already counted when the response is checked.
  *
  * Pure and dependency-free so the plain-Node unit runner can
  * import it directly.
@@ -65,6 +67,17 @@ export type MapHydrationStartInput = {
   alreadyHandled: boolean;
   /** The map id the URL names, if any. */
   mapId: string | null;
+  /**
+   * The edit generation captured when the draft restore completed
+   * (audit B-01). The restore, the URL prefill and the visual
+   * initialization all run inside the store's system-write scope,
+   * so this value is the generation of the initialized state
+   * itself — no automatic write can move it. Optional: callers
+   * that do not track it keep the legacy table below.
+   */
+  editGenerationAtRestore?: number | null;
+  /** The edit generation at the moment this check runs. */
+  editGenerationNow?: number;
 };
 
 /**
@@ -90,6 +103,20 @@ export type MapHydrationStartInput = {
  * same applyVisualOptions path — still bumps the generation and
  * defeats application via shouldApplyHydratedMapRecipe.
  *
+ * Audit B-01 (2026-11-03) found the remaining hole in that
+ * sequencing: it protected only edits made AFTER the fetch
+ * started. A user edit that landed after the restore but before
+ * the ~150 ms initialization (fast hands, slow device) was swept
+ * into the fetch-start baseline and then overwritten by the
+ * response. The fix anchors a second baseline at restore
+ * completion: initialization writes run inside the store's
+ * system-write scope and never advance the generation, so ANY
+ * advance between restore and this check is user work, and the
+ * fetch must not start at all. (Refusing to start also leaves the
+ * handled-once ref unset; the generation can never return to the
+ * baseline, so hydration stays refused for the mount — the same
+ * safe direction as the apply-guard.)
+ *
  * Pure and dependency-free, like the guard above.
  */
 export function shouldStartMapHydration(
@@ -98,5 +125,13 @@ export function shouldStartMapHydration(
   if (!input.restored) return false;
   if (!input.visualOptionsInitialized) return false;
   if (input.alreadyHandled) return false;
-  return Boolean(input.mapId);
+  if (!input.mapId) return false;
+  if (
+    input.editGenerationAtRestore != null &&
+    input.editGenerationNow != null &&
+    input.editGenerationNow !== input.editGenerationAtRestore
+  ) {
+    return false;
+  }
+  return true;
 }
