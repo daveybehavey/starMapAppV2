@@ -360,6 +360,41 @@ test("F-9: completion is refused when a resolution landed mid-flight", async () 
 
 /* ---------------- Rider (a): unsubscribe token ---------------- */
 
+test("F-10 gate fix B: the release op clears only the caller's own claim (real authority module)", () => {
+  const sessionId = nextSession();
+  const dispatchId = `alt-fulfillment:${sessionId}`;
+  let state = createUnboundAuthorityState(sessionId, NOW);
+  const claimed = applyPrintOrderAuthorityOp(state, {
+    type: "claim_alternate_dispatch",
+    dispatchId,
+    now: NOW + 1,
+  });
+  assert.equal(claimed.claimAcquired, true);
+  state = claimed.state;
+  const foreign = applyPrintOrderAuthorityOp(state, {
+    type: "release_alternate_dispatch_claim",
+    dispatchId: "alt-fulfillment:someone-else",
+    now: NOW + 2,
+  });
+  assert.equal(foreign.changed, false);
+  assert.equal(foreign.reason, "claim_dispatch_mismatch");
+  assert.ok(foreign.state.alternateDispatchClaim, "a foreign release clears nothing");
+  const released = applyPrintOrderAuthorityOp(state, {
+    type: "release_alternate_dispatch_claim",
+    dispatchId,
+    now: NOW + 3,
+  });
+  assert.equal(released.changed, true);
+  assert.equal(released.reason, "claim_released");
+  assert.equal(released.state.alternateDispatchClaim, null);
+  const reclaimed = applyPrintOrderAuthorityOp(released.state, {
+    type: "claim_alternate_dispatch",
+    dispatchId,
+    now: NOW + 4,
+  });
+  assert.equal(reclaimed.claimAcquired, true, "a later retry can claim after the release");
+});
+
 /* ----- F-8 gate fix C (PR #505 review): sequential vs concurrent stamps ----- */
 
 test("F-8 gate fix C: a sequential reshipment's stamp replaces the previous shipment's stamp", async () => {

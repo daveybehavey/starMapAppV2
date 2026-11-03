@@ -171,8 +171,12 @@ export async function POST(req: NextRequest) {
     if (!fresh || !transitionStillOwned(fresh, authorityNow)) {
       return reconciliationNeeded();
     }
+    // The episode comparison runs against the HANDLER-START read
+    // (`existing`), not the phase-1 read: a hold episode that opened
+    // after the operator began this resolve — before OR during the
+    // index ops — postdates the operator action and survives.
     const holdEpisodeMoved =
-      (fresh.providerHoldAt ?? null) !== (freshBeforeIndex.providerHoldAt ?? null);
+      (fresh.providerHoldAt ?? null) !== (existing.providerHoldAt ?? null);
     const updated: PrintOrderRecord = {
       ...fresh,
       status: "sent",
