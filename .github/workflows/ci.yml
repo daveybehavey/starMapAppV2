@@ -11,14 +11,31 @@ on:
 permissions:
   contents: read
 
+env:
+  NODE_VERSION: "22"
+
 defaults:
   run:
     working-directory: star-map-app-final
 
 jobs:
+  # Preserve the branch-protected check name and fail if any component fails,
+  # is cancelled, or is skipped. Independent work runs on separate runners.
   build-and-commerce-smoke:
+    needs: [static-checks, ui-smoke, build-commerce-validation]
+    if: ${{ always() }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 5
+    steps:
+      - name: Require all validation jobs to pass
+        env:
+          RESULTS: ${{ join(needs.*.result, ',') }}
+        run: test "$RESULTS" = "success,success,success"
+        working-directory: .
+
+  static-checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
@@ -26,7 +43,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: star-map-app-final/package-lock.json
 
@@ -47,6 +64,53 @@ jobs:
 
       - name: Link integrity audit
         run: npm run qa:links
+
+  ui-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: star-map-app-final/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Cache browser binaries only; npm ci and OS dependency checks always run.
+      - name: Cache Playwright Chromium
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-node22-${{ hashFiles('star-map-app-final/package-lock.json') }}
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: UI Playwright smoke
+        run: npm run qa:smoke:ui
+
+  build-commerce-validation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: star-map-app-final/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Production build
         env:
@@ -77,11 +141,15 @@ jobs:
           npx --yes @sentry/cli@2 sourcemaps upload --release "$SENTRY_RELEASE" --url-prefix "~/_next/static" .next/static
           npx --yes @sentry/cli@2 releases finalize "$SENTRY_RELEASE"
 
+      # Cache browser binaries only; npm ci and OS dependency checks always run.
+      - name: Cache Playwright Chromium
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-node22-${{ hashFiles('star-map-app-final/package-lock.json') }}
+
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
-
-      - name: UI Playwright smoke
-        run: npm run qa:smoke:ui
 
       - name: Commerce Playwright smoke
         run: npm run qa:smoke:commerce
@@ -102,7 +170,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: star-map-app-final/package-lock.json
 
@@ -114,6 +182,13 @@ jobs:
           node --version
           npm --version
           npx playwright --version
+
+      # Cache browser binaries only; npm ci and OS dependency checks always run.
+      - name: Cache Playwright Chromium
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-node22-${{ hashFiles('star-map-app-final/package-lock.json') }}
 
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium

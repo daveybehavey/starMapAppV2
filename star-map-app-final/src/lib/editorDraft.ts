@@ -8,6 +8,15 @@ import type {
 } from "./store";
 import type { AspectRatio, Shape } from "./types";
 
+/**
+ * Text-box size bounds for the editor UI range (10–64). Defined here —
+ * rather than imported — because this module must stay dependency-free at
+ * runtime: several unit tests import it statically without the alias
+ * loader. textBoxConstraints.ts re-exports these for UI surfaces.
+ */
+export const TEXT_BOX_MIN_SIZE = 10;
+export const TEXT_BOX_MAX_SIZE = 64;
+
 export const EDITOR_DRAFT_STORAGE_KEY = "star-map-draft";
 export const EDITOR_DRAFT_SCHEMA_VERSION = 1 as const;
 
@@ -104,7 +113,7 @@ type ValidationResult<T> = { ok: true; value: T } | { ok: false; reason: EditorD
 
 type UnknownRecord = Record<string, unknown>;
 
-const VALID_STYLES = new Set<StyleId>(["navyGold", "vintageEngraving", "parchmentScroll", "midnightMinimal"]);
+const VALID_STYLES = new Set<StyleId>(["navyGold", "vintageEngraving", "parchmentScroll", "midnightMinimal", "evergreenAtlas"]);
 const VALID_ASPECT_RATIOS = new Set<AspectRatio>(["square", "3:4", "2:3", "4:5"]);
 const VALID_SHAPES = new Set<Shape>(["rectangle", "heart", "circle", "star", "diamond"]);
 const VALID_FONT_FAMILIES = new Set<TextBox["fontFamily"]>([
@@ -338,8 +347,13 @@ function normalizeTextBoxes(value: unknown): ValidationResult<TextBox[]> {
         ? (raw.fontFamily as TextBox["fontFamily"])
         : fallback.fontFamily;
     const color = typeof raw.color === "string" && raw.color.trim() ? raw.color.trim() : fallback.color;
+    // Audit #516 E1: restore clamps to the same 10–64 range every editor
+    // control offers (was 10–200, so an out-of-range stored size survived
+    // restore and sat outside all UI controls).
     const size =
-      typeof raw.size === "number" && Number.isFinite(raw.size) ? clamp(raw.size, 10, 200) : fallback.size;
+      typeof raw.size === "number" && Number.isFinite(raw.size)
+        ? clamp(raw.size, TEXT_BOX_MIN_SIZE, TEXT_BOX_MAX_SIZE)
+        : fallback.size;
     const align =
       typeof raw.align === "string" && VALID_TEXT_ALIGNMENTS.has(raw.align as TextBox["align"])
         ? (raw.align as TextBox["align"])
@@ -445,6 +459,7 @@ function normalizeRenderOptions(value: unknown): ValidationResult<Partial<Render
     mapLookTier: new Set(["minimal", "polished", "custom"]),
     visualMode: new Set(["astronomical", "enhanced", "illustrated"]),
     starIntensity: new Set(["subtle", "normal", "bold"]),
+    starColorMode: new Set(["fixed", "spectral"]),
     constellationLines: new Set(["off", "thin", "thick"]),
     premiumStars: new Set(["off", "subtle", "realistic"]),
     premiumPlanets: new Set(["off", "realistic"]),

@@ -15,7 +15,7 @@ const MIN_FONT_SIZE = 8;
 const MAX_FONT_SIZE = 200;
 
 // Valid enum values for strict validation
-const VALID_STYLES = new Set(["navyGold", "vintageEngraving", "parchmentScroll", "midnightMinimal"]);
+const VALID_STYLES = new Set(["navyGold", "vintageEngraving", "parchmentScroll", "midnightMinimal", "evergreenAtlas"]);
 const VALID_SHAPES = new Set(["rectangle", "heart", "circle", "star", "diamond"]);
 const VALID_ASPECT_RATIOS = new Set(["square", "3:4", "2:3", "4:5"]);
 const VALID_FONTS = new Set([
@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
     selectedStyle,
     aspectRatio,
     shape,
-    renderOptions: sanitizeRenderOptions(body.renderOptions || {}),
+    renderOptions: sanitizeRenderOptions(body.renderOptions || {}, selectedStyle),
   };
 
   const id = crypto.randomUUID();
@@ -219,11 +219,12 @@ function sanitizeTextBox(box: StoredTextBox): StoredTextBox {
   };
 }
 
-function sanitizeRenderOptions(options: Record<string, unknown>) {
+function sanitizeRenderOptions(options: Record<string, unknown>, styleId: string) {
   const allowedKeys = new Set([
     "visualMode",
     "starIntensity",
     "starGlow",
+    "starColorMode",
     "constellationLines",
     "constellationLabels",
     "planetLabels",
@@ -251,9 +252,17 @@ function sanitizeRenderOptions(options: Record<string, unknown>) {
     "mapLookTier",
   ]);
 
+  // #514: retain Evergreen's explicit mat/ring defaults and tier choices.
+  // Keep historical sanitization byte-identical for every pre-existing ID.
+  if (styleId === "evergreenAtlas") {
+    allowedKeys.add("transparentBackground");
+    allowedKeys.add("showTechnicalRing");
+  }
+
   const sanitized: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(options)) {
     if (!allowedKeys.has(key)) continue;
+    if (key === "starColorMode" && value !== "fixed" && value !== "spectral") continue;
     if (typeof value === "string") {
       sanitized[key] = value.slice(0, 80);
       continue;

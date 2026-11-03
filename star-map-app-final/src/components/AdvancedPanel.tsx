@@ -1,8 +1,9 @@
 "use client";
 
 import { BortleControl } from "@/components/BortleControl";
+import { StarColorControl } from "@/components/StarColorControl";
 import { constellationPresets, visualModes } from "@/lib/config";
-import { applyTierTypographyProtected, resolveMapLookTier } from "@/lib/mapLookTiers";
+import { applyTierTypographyProtected, resolveMapLookTier, withUserEditTier } from "@/lib/mapLookTiers";
 import { getRenderPresetOptions, renderPresets, resolveRenderPreset } from "@/lib/renderPresets";
 import type { RenderOptions, StyleId, TextBox } from "@/lib/store";
 
@@ -31,8 +32,12 @@ export function AdvancedPanel({
 }: AdvancedPanelProps) {
   const activePreset = resolveRenderPreset(renderOptions, selectedStyle);
   const activeTier = resolveMapLookTier(renderOptions, selectedStyle);
+  // Shared tier semantics (withUserEditTier): an explicit tier in the patch
+  // (Quick Look) wins; any other edit marks the look "custom". Previously
+  // the forced "custom" discarded the Quick Look handler's explicit tier
+  // (audit #516 E5).
   const applyCustomRenderOptions = (next: Partial<RenderOptions>) => {
-    setRenderOptions({ ...next, mapLookTier: "custom" });
+    setRenderOptions(withUserEditTier(next));
   };
 
   return (
@@ -52,6 +57,8 @@ export function AdvancedPanel({
       </div>
 
       <BortleControl renderOptions={renderOptions} setRenderOptions={setRenderOptions} />
+
+      <StarColorControl selectedStyle={selectedStyle} renderOptions={renderOptions} setRenderOptions={setRenderOptions} />
 
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1">
@@ -143,6 +150,8 @@ export function AdvancedPanel({
             onClick={() =>
               applyCustomRenderOptions({ showGrid: !renderOptions.showGrid })
             }
+            aria-pressed={renderOptions.showGrid}
+            aria-label="Coordinate grid"
             className={`rounded-md border px-2 py-1 text-[10px] font-semibold transition ${
               renderOptions.showGrid
                 ? "!text-midnight border-amber-300 bg-amber-100"
@@ -159,6 +168,8 @@ export function AdvancedPanel({
             onClick={() =>
               applyCustomRenderOptions({ showTechnicalRing: !renderOptions.showTechnicalRing })
             }
+            aria-pressed={renderOptions.showTechnicalRing}
+            aria-label="Technical ring"
             className={`rounded-md border px-2 py-1 text-[10px] font-semibold transition ${
               renderOptions.showTechnicalRing
                 ? "!text-midnight border-amber-300 bg-amber-100"
@@ -176,6 +187,8 @@ export function AdvancedPanel({
           <button
             type="button"
             onClick={() => applyCustomRenderOptions({ constellationLabels: !renderOptions.constellationLabels })}
+            aria-pressed={renderOptions.constellationLabels}
+            aria-label="Constellation labels"
             className={`rounded-md border px-2 py-1 text-[10px] font-semibold transition ${
               renderOptions.constellationLabels
                 ? "!text-midnight border-amber-300 bg-amber-100"
@@ -206,8 +219,9 @@ export function AdvancedPanel({
         {renderOptions.constellationLines !== "off" && (
           <div className="grid gap-2 md:grid-cols-2">
             <div className="space-y-1">
-              <label className="text-[11px] text-neutral-200">Line Color</label>
+              <label htmlFor="advanced-constellation-line-color" className="text-[11px] text-neutral-200">Line Color</label>
               <input
+                id="advanced-constellation-line-color"
                 type="color"
                 value={renderOptions.constellationColor || "#ffffff"}
                 onChange={(e) => applyCustomRenderOptions({ constellationColor: e.target.value })}
@@ -271,6 +285,8 @@ export function AdvancedPanel({
           <button
             type="button"
             onClick={() => applyCustomRenderOptions({ starGlow: !renderOptions.starGlow })}
+            aria-pressed={renderOptions.starGlow}
+            aria-label="Star glow"
             className={`rounded-md border px-2 py-1 text-[10px] font-semibold transition ${
               renderOptions.starGlow
                 ? "!text-midnight border-amber-300 bg-amber-100"
@@ -286,6 +302,8 @@ export function AdvancedPanel({
           <button
             type="button"
             onClick={() => applyCustomRenderOptions({ showPlanets: !renderOptions.showPlanets })}
+            aria-pressed={renderOptions.showPlanets}
+            aria-label="Planets"
             className={`rounded-md border px-2 py-1 text-[10px] font-semibold transition ${
               renderOptions.showPlanets
                 ? "!text-midnight border-amber-300 bg-amber-100"
@@ -329,6 +347,8 @@ export function AdvancedPanel({
             <button
               type="button"
               onClick={() => applyCustomRenderOptions({ planetLabels: !renderOptions.planetLabels })}
+              aria-pressed={renderOptions.planetLabels}
+              aria-label="Planet names"
               className={`rounded-md border px-2 py-1 text-[10px] font-semibold transition ${
                 renderOptions.planetLabels
                   ? "!text-midnight border-amber-300 bg-amber-100"
@@ -345,6 +365,8 @@ export function AdvancedPanel({
           <button
             type="button"
             onClick={() => applyCustomRenderOptions({ showMoon: !renderOptions.showMoon })}
+            aria-pressed={renderOptions.showMoon}
+            aria-label="Moon"
             className={`rounded-md border px-2 py-1 text-[10px] font-semibold transition ${
               renderOptions.showMoon
                 ? "!text-midnight border-amber-300 bg-amber-100"

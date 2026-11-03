@@ -57,6 +57,35 @@ const TIER_TYPOGRAPHY: Record<
   Partial<Record<StyleId, Partial<Record<KnownTextBoxId, Partial<TextBox>>>>>
 > = {
   minimal: {
+    evergreenAtlas: {
+      title: {
+        fontFamily: "cormorant",
+        fontWeight: 600,
+        size: 44,
+        color: "#E8F0DF",
+        align: "center",
+        textShadow: false,
+        textGlow: false,
+      },
+      subtitle: {
+        fontFamily: "montserrat",
+        fontWeight: 400,
+        size: 18,
+        color: "#C8D8BB",
+        align: "center",
+        textShadow: false,
+        textGlow: false,
+      },
+      dedication: {
+        fontFamily: "cormorant",
+        fontWeight: 400,
+        size: 20,
+        color: "#C8D8BB",
+        align: "center",
+        textShadow: false,
+        textGlow: false,
+      },
+    },
     navyGold: {
       title: {
         fontFamily: "bebasNeue",
@@ -157,6 +186,35 @@ const TIER_TYPOGRAPHY: Record<
     },
   },
   polished: {
+    evergreenAtlas: {
+      title: {
+        fontFamily: "cormorant",
+        fontWeight: 600,
+        size: 48,
+        color: "#E8F0DF",
+        align: "center",
+        textShadow: false,
+        textGlow: false,
+      },
+      subtitle: {
+        fontFamily: "montserrat",
+        fontWeight: 400,
+        size: 20,
+        color: "#C8D8BB",
+        align: "center",
+        textShadow: false,
+        textGlow: false,
+      },
+      dedication: {
+        fontFamily: "cormorant",
+        fontWeight: 400,
+        size: 22,
+        color: "#C8D8BB",
+        align: "center",
+        textShadow: false,
+        textGlow: false,
+      },
+    },
     navyGold: {
       title: {
         fontFamily: "cinzel",
@@ -398,6 +456,22 @@ export function applyMapLookTier(tier: MapLookTier, styleId: StyleId): Partial<R
     ...preset,
     ...tierOverrides,
   };
+}
+
+/**
+ * Shared tier semantics for user render-option edits, identical on every
+ * editor surface (desktop + mobile, via the shared AdvancedPanel):
+ * - a patch carrying an explicit mapLookTier applies that tier (Quick Look
+ *   presets, tier pickers, style changes);
+ * - any other user edit marks the look "custom", because the design no
+ *   longer matches a named tier's recipe.
+ * Audit #516 E5 / #518 M2: the desktop panel previously spread the patch
+ * and then forced "custom", discarding a Quick Look handler's explicit
+ * tier, while mobile writes left the tier untouched — the same edit
+ * resolved to different tiers (and different sky finishes) per surface.
+ */
+export function withUserEditTier(next: Partial<RenderOptions>): Partial<RenderOptions> {
+  return { ...next, mapLookTier: next.mapLookTier ?? "custom" };
 }
 
 /** Infer tier from current render options (for legacy saves without mapLookTier). */

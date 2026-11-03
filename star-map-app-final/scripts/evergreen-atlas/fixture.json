@@ -1,0 +1,10 @@
+{
+  "dateTime": "2026-11-04T05:00:00Z",
+  "location": { "name": "Victoria", "latitude": 48.4284, "longitude": -123.3656, "timezone": "America/Vancouver" },
+  "seed": "default",
+  "selectedStyle": "evergreenAtlas",
+  "shape": "circle",
+  "aspectRatio": "square",
+  "renderOptions": { "shapeLayoutVersion": 2 },
+  "text": ["Our Place in the Stars", "Victoria · November 3, 2026", "Every night, together"]
+}

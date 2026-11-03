@@ -12,6 +12,7 @@ import StickyCtaBar from "@/components/StickyCtaBar";
 import VariantFormatLinks from "@/components/VariantFormatLinks";
 import {
   formatPrintPriceWithShipping,
+  formatStandalonePrintPriceWithShipping,
   getPrintProductionReviewDisclosure,
   getPrintProductionReviewTrustPoint,
   getPrintFreeShippingShortTag,
@@ -62,13 +63,14 @@ export default function StarMapPosterPage() {
   // are second-copy eligible and land in the editor, whose purchase
   // panel exposes the choice — so one joint note covers both.
   const showSecondCopyOffer = resolveSecondCopyOfferVisibility();
-  const framedPrice = formatPrintPriceWithShipping(
-    printTiers.poster_framed.amountCents,
-    printTiers.poster_framed.currency
-  );
+  const framedPrice = formatStandalonePrintPriceWithShipping("poster_framed");
   const unframedPrice = formatPrintPriceWithShipping(
     printTiers.poster_unframed.amountCents,
     printTiers.poster_unframed.currency
+  );
+  const unframed16Price = formatPrintPriceWithShipping(
+    printTiers.poster_unframed_16x16.amountCents,
+    printTiers.poster_unframed_16x16.currency
   );
   const faqItems = [
     {
@@ -91,7 +93,7 @@ export default function StarMapPosterPage() {
     {
       question: "What sizes do star map posters come in?",
       answer:
-        "StarMapCo posters are made to order from your approved design. Framed 14×14 is the premium gift presentation; unframed 18×18 is the lower-cost option when you already have a frame plan. Preview first, then pick the format at checkout.",
+        "StarMapCo posters are made to order from your approved design. Framed 14×14 is the premium gift presentation; unframed posters come in 16×16 (the lowest-cost print entry) and 18×18. Preview first, then pick the format at checkout.",
     },
   ] as const;
   const schema = {
@@ -161,9 +163,9 @@ export default function StarMapPosterPage() {
                   detail: "Ready for gifting and finished presentation.",
                 },
                 {
-                  title: "Unframed starts at",
-                  value: unframedPrice,
-                  detail: "Lower total if you already plan to frame it yourself.",
+                  title: "Unframed 16×16 starts at",
+                  value: unframed16Price,
+                  detail: "The lowest-cost print entry. The larger 18×18 unframed poster is also available below.",
                 },
                 {
                   title: "Support stays direct",
@@ -192,10 +194,10 @@ export default function StarMapPosterPage() {
                 Start with framed print preview
               </Link>
               <Link
-                href="/editor?mode=quick&source=star-map-poster-hero-unframed&checkout=print&print_variant=poster_unframed"
+                href="/editor?mode=quick&source=star-map-poster-hero-unframed-16x16&checkout=print&print_variant=poster_unframed_16x16"
                 className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/8 px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-[1px] hover:bg-white/14"
               >
-                See unframed route
+                See 16×16 unframed route
               </Link>
             </div>
           </header>

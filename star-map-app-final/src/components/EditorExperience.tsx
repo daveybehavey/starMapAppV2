@@ -3,7 +3,7 @@
 import { isAndroidAppModeClient } from "@/lib/androidAppMode";
 import { useAndroidAppMode } from "@/hooks/useAndroidAppMode";
 import dynamic from "next/dynamic";
-import { TextBox, useStore } from "@/lib/store";
+import { TextBox, runAsSystemWrite, useStore } from "@/lib/store";
 import {
   aspectRatioToNumber,
   buildRecipeFromState,
@@ -13,7 +13,10 @@ import {
 import { getExportDimensions } from "@/lib/aspectRatio";
 import { ASPECT_OPTIONS } from "@/lib/aspectOptions";
 import { FRAME_STYLE_OPTIONS, resolveFrameStyle } from "@/lib/frameStyle";
+import { TEXT_BOX_MAX_TEXT_LENGTH } from "@/lib/textBoxConstraints";
+import { TextBoxSizeInput } from "@/components/TextBoxSizeInput";
 import { ShapeIcon } from "@/components/ShapeIcon";
+import { ApplyTextRowStyle } from "@/components/ApplyTextRowStyle";
 
 import { buildStarMapDownloadFilename } from "@/lib/downloadFilename";
 import { buildAutoCaption, upsertAutoCaptionBox } from "@/lib/autoCaption";
@@ -472,6 +475,11 @@ export function EditorExperience({
   // mutation (S96-2 F7 — see src/lib/store.ts); it is NOT counted
   // by an effect here anymore.
   const mapIdFromQueryRef = useRef(mapIdFromQuery);
+  // Edit generation captured when the draft restore completed
+  // (audit B-01): the saved-map hydration start gate compares the
+  // live generation against this baseline; any advance is user
+  // work that predates the hydration fetch.
+  const editGenerationAtRestoreRef = useRef<number | null>(null);
   const merchFamilyFromQuery = searchParams.get("merch_family");
   // M04: a merch-led landing (shop card click) must name the product the
   // shopper chose — the generic print line never mentions it. Only a
@@ -860,7 +868,10 @@ export function EditorExperience({
       const currentState = useStore.getState();
 
       // Validate the complete draft before atomically applying editor state.
-      useStore.setState({
+      // The restore is automatic initialization, not an edit: it
+      // runs inside the store's system-write scope so it never
+      // advances the edit generation (audit B-01).
+      runAsSystemWrite(() => useStore.setState({
         dateTime: draft.datetimeISO,
         // Reconstruct the untouched flag from the draft's persisted
         // provenance rather than assuming a restored date was picked:
@@ -890,14 +901,17 @@ export function EditorExperience({
           // restores as classic (absent), never inheriting a
           // Double/Fine value the shared store already carries.
           frameStyle: draft.renderOptions.frameStyle,
+          starColorMode: draft.renderOptions.starColorMode,
         },
         sampleDesignLastAutoSynced: draft.sampleDesignLastAutoSynced,
         // Same confirmed-location predicate as Generate / auto-reveal — a named
         // (0,0)/UTC draft must remount locked, not as a revealed wrong sky.
         revealed: hasConfirmedEditorLocation(draft.location),
+      }));
+      runAsSystemWrite(() => {
+        setSelectedOccasion(draft.selectedOccasion);
+        setCustomOccasion(resolveRestoredCustomOccasion(draft));
       });
-      setSelectedOccasion(draft.selectedOccasion);
-      setCustomOccasion(resolveRestoredCustomOccasion(draft));
     } else if (draftOutcome.status === "invalid" || draftOutcome.status === "storage-unavailable") {
       // Do not replace an unreadable or forward-version draft with defaults.
       draftWritesBlockedRef.current = true;
@@ -910,6 +924,13 @@ export function EditorExperience({
     } catch {
       // ignore storage errors (e.g. private browsing)
     }
+    // Hydration baseline (audit B-01): the restore above and the
+    // rest of the automatic initialization (URL prefill, the first
+    // visual-options application) run inside the system-write
+    // scope, so the generation still equals this value when
+    // initialization completes. Any later advance is user work and
+    // defeats saved-map hydration before its fetch even starts.
+    editGenerationAtRestoreRef.current = useStore.getState().editGeneration;
     setRestored(true);
     void refreshPaidStatus();
   }, [setRevealed, setCustomOccasion, setSelectedOccasion, refreshPaidStatus]);
@@ -931,133 +952,139 @@ export function EditorExperience({
 
   useEffect(() => {
     if (!restored || prefillAppliedRef.current) return;
-    const sourceParam = searchParams.get("source");
-    const dateParam = searchParams.get("date");
-    const locationParam = searchParams.get("location");
-    const checkoutParam = searchParams.get("checkout");
-    const utmCampaignParam = searchParams.get("utm_campaign");
-    const printVariantParam = parsePrintVariantParam(searchParams.get("print_variant"));
-    const includeDigitalAddOnParam = searchParams.get("include_digital_addon");
-    const includeSecondCopyParam = searchParams.get("include_second_copy");
-    const shippingCountryParam = parseShippingCountryParam(searchParams.get("shipping_country"));
-    if (
-      !dateParam &&
-      !locationParam &&
-      !sourceParam &&
-      !checkoutParam &&
-      !printVariantParam &&
-      !shippingCountryParam &&
-      !utmCampaignParam
-    ) {
-      return;
-    }
+    // URL prefill is automatic initialization, not user work: the
+    // whole application runs inside the store's system-write scope
+    // so its store writes cannot advance the edit generation past
+    // the restore baseline (audit B-01).
+    runAsSystemWrite(() => {
+      const sourceParam = searchParams.get("source");
+      const dateParam = searchParams.get("date");
+      const locationParam = searchParams.get("location");
+      const checkoutParam = searchParams.get("checkout");
+      const utmCampaignParam = searchParams.get("utm_campaign");
+      const printVariantParam = parsePrintVariantParam(searchParams.get("print_variant"));
+      const includeDigitalAddOnParam = searchParams.get("include_digital_addon");
+      const includeSecondCopyParam = searchParams.get("include_second_copy");
+      const shippingCountryParam = parseShippingCountryParam(searchParams.get("shipping_country"));
+      if (
+        !dateParam &&
+        !locationParam &&
+        !sourceParam &&
+        !checkoutParam &&
+        !printVariantParam &&
+        !shippingCountryParam &&
+        !utmCampaignParam
+      ) {
+        return;
+      }
 
-    let hasValidDate = false;
-    let hasLocation = false;
+      let hasValidDate = false;
+      let hasLocation = false;
 
-    // Apply location first so a coordinate-resolved city timezone can interpret the
-    // calendar date. Generic/name-only handoffs keep browser-local date parsing and
-    // must not invent/reveal a (0,0) sky or merge a new label onto restored coords.
-    let resolvedCityTimeZone: string | null = null;
-    if (locationParam && locationParam.trim()) {
-      const parsed = parseEditorLocationQuery(searchParams);
-      if (parsed) {
-        if (parsed.hasResolvedCoordinates) {
-          // Canonical city query: overwrite full location so stale draft coords cannot
-          // survive under the selected city name. Timezone is validated in the parser.
-          setLocation({
-            name: parsed.name,
-            latitude: parsed.latitude,
-            longitude: parsed.longitude,
-            timezone: parsed.timezone,
-          });
-          // Auto-reveal must use the same confirmed nonzero-coordinate predicate as
-          // Generate eligibility — explicit lat=0&lon=0 stays unresolved/locked.
-          hasLocation = hasConfirmedEditorLocation(parsed);
-          if (hasLocation) {
-            resolvedCityTimeZone = parsed.timezone;
-          } else {
-            // Numeric (0,0) (or otherwise unconfirmed) must not keep a prior reveal.
-            setRevealed(false);
-          }
-        } else {
-          // Name-only handoff: always unconfirmed until coordinates are newly
-          // confirmed. Never inherit restored coords (even for the same label),
-          // never write NaN into store, and always clear prior reveal.
-          const previous = useStore.getState().location;
-          const applied = applyEditorLocationQueryToState(previous, searchParams);
-          if (applied) {
+      // Apply location first so a coordinate-resolved city timezone can interpret the
+      // calendar date. Generic/name-only handoffs keep browser-local date parsing and
+      // must not invent/reveal a (0,0) sky or merge a new label onto restored coords.
+      let resolvedCityTimeZone: string | null = null;
+      if (locationParam && locationParam.trim()) {
+        const parsed = parseEditorLocationQuery(searchParams);
+        if (parsed) {
+          if (parsed.hasResolvedCoordinates) {
+            // Canonical city query: overwrite full location so stale draft coords cannot
+            // survive under the selected city name. Timezone is validated in the parser.
             setLocation({
-              name: applied.name,
-              latitude: applied.latitude,
-              longitude: applied.longitude,
-              timezone: applied.timezone,
+              name: parsed.name,
+              latitude: parsed.latitude,
+              longitude: parsed.longitude,
+              timezone: parsed.timezone,
             });
-            setRevealed(false);
+            // Auto-reveal must use the same confirmed nonzero-coordinate predicate as
+            // Generate eligibility — explicit lat=0&lon=0 stays unresolved/locked.
+            hasLocation = hasConfirmedEditorLocation(parsed);
+            if (hasLocation) {
+              resolvedCityTimeZone = parsed.timezone;
+            } else {
+              // Numeric (0,0) (or otherwise unconfirmed) must not keep a prior reveal.
+              setRevealed(false);
+            }
+          } else {
+            // Name-only handoff: always unconfirmed until coordinates are newly
+            // confirmed. Never inherit restored coords (even for the same label),
+            // never write NaN into store, and always clear prior reveal.
+            const previous = useStore.getState().location;
+            const applied = applyEditorLocationQueryToState(previous, searchParams);
+            if (applied) {
+              setLocation({
+                name: applied.name,
+                latitude: applied.latitude,
+                longitude: applied.longitude,
+                timezone: applied.timezone,
+              });
+              setRevealed(false);
+            }
           }
         }
       }
-    }
 
-    if (dateParam) {
-      const parsedISO = parseCalendarDateParamToIso(dateParam, resolvedCityTimeZone);
-      if (parsedISO) {
-        setDateTime(parsedISO);
-        hasValidDate = true;
+      if (dateParam) {
+        const parsedISO = parseCalendarDateParamToIso(dateParam, resolvedCityTimeZone);
+        if (parsedISO) {
+          setDateTime(parsedISO);
+          hasValidDate = true;
+        }
       }
-    }
 
-    if (hasValidDate && hasLocation) {
-      setRevealed(true);
-    }
-
-    const giftTraffic = resolveEditorGiftTrafficIntent({
-      source: sourceParam,
-      checkoutParam,
-      printVariantParam,
-      utmCampaign: utmCampaignParam,
-      explicitIncludeDigitalAddOn: /^(1|true|yes)$/i.test(includeDigitalAddOnParam ?? ""),
-    });
-
-    if (printVariantParam) {
-      setPreferredPrintVariant(printVariantParam);
-    } else if (giftTraffic.paywallIntent === "print") {
-      setPreferredPrintVariant(giftTraffic.preferredPrintVariant);
-    }
-
-    if (/^(1|true|yes)$/i.test(includeDigitalAddOnParam ?? "")) {
-      setPreferredIncludeDigitalAddOn(true);
-    } else if (giftTraffic.preferredIncludeDigitalAddOn) {
-      setPreferredIncludeDigitalAddOn(true);
-    }
-
-    if (/^(1|true|yes)$/i.test(includeSecondCopyParam ?? "")) {
-      setIncludeSecondCopy(true);
-    }
-
-    if (shippingCountryParam && printShippingCountries.includes(shippingCountryParam)) {
-      setPrintShippingCountryValue(shippingCountryParam, "query-param");
-    }
-    if (shouldAutoOpenEditorDigitalPaywall(sourceParam, checkoutParam)) {
-      setPaywallIntent("digital");
-    } else if (giftTraffic.paywallIntent === "print") {
-      setPaywallIntent("print");
-    }
-
-    trackFunnelStep("preview_started", {
-      source: sourceParam ?? "editor-direct",
-      hasDate: hasValidDate,
-      hasLocation,
-    });
-    try {
-      if (sourceParam) {
-        sessionStorage.setItem("preview_source", sourceParam);
+      if (hasValidDate && hasLocation) {
+        setRevealed(true);
       }
-    } catch {
-      // ignore storage errors
-    }
 
-    prefillAppliedRef.current = true;
+      const giftTraffic = resolveEditorGiftTrafficIntent({
+        source: sourceParam,
+        checkoutParam,
+        printVariantParam,
+        utmCampaign: utmCampaignParam,
+        explicitIncludeDigitalAddOn: /^(1|true|yes)$/i.test(includeDigitalAddOnParam ?? ""),
+      });
+
+      if (printVariantParam) {
+        setPreferredPrintVariant(printVariantParam);
+      } else if (giftTraffic.paywallIntent === "print") {
+        setPreferredPrintVariant(giftTraffic.preferredPrintVariant);
+      }
+
+      if (/^(1|true|yes)$/i.test(includeDigitalAddOnParam ?? "")) {
+        setPreferredIncludeDigitalAddOn(true);
+      } else if (giftTraffic.preferredIncludeDigitalAddOn) {
+        setPreferredIncludeDigitalAddOn(true);
+      }
+
+      if (/^(1|true|yes)$/i.test(includeSecondCopyParam ?? "")) {
+        setIncludeSecondCopy(true);
+      }
+
+      if (shippingCountryParam && printShippingCountries.includes(shippingCountryParam)) {
+        setPrintShippingCountryValue(shippingCountryParam, "query-param");
+      }
+      if (shouldAutoOpenEditorDigitalPaywall(sourceParam, checkoutParam)) {
+        setPaywallIntent("digital");
+      } else if (giftTraffic.paywallIntent === "print") {
+        setPaywallIntent("print");
+      }
+
+      trackFunnelStep("preview_started", {
+        source: sourceParam ?? "editor-direct",
+        hasDate: hasValidDate,
+        hasLocation,
+      });
+      try {
+        if (sourceParam) {
+          sessionStorage.setItem("preview_source", sourceParam);
+        }
+      } catch {
+        // ignore storage errors
+      }
+
+      prefillAppliedRef.current = true;
+    });
   }, [
     printShippingCountries,
     restored,
@@ -1095,7 +1122,10 @@ export function EditorExperience({
           // a Double/Fine selection from the draft-restored session
           // state this merge runs against.
           frameStyle: recipe.renderOptions.frameStyle,
+          starColorMode: recipe.renderOptions.starColorMode,
         });
+      } else {
+        setRenderOptions({ starColorMode: undefined });
       }
       if (recipe.selectedOccasion) {
         setSelectedOccasion(recipe.selectedOccasion);
@@ -1126,20 +1156,24 @@ export function EditorExperience({
   // state and arms hydration is reflected before the fetch
   // captures its baseline. The edit generation needs no effect:
   // it advances synchronously inside the store's mutation path
-  // (S96-2 F7), so by the time the fetch below captures it, every
-  // change made so far — restore and initialization included —
-  // is already counted.
+  // (S96-2 F7) for user work, while the restore and automatic
+  // initialization writes run inside the system-write scope and
+  // never advance it (audit B-01).
   useEffect(() => {
     mapIdFromQueryRef.current = mapIdFromQuery;
   }, [mapIdFromQuery]);
 
   useEffect(() => {
     // Start only once the draft is restored AND the automatic
-    // visual-options initialization has landed, so the generation
-    // captured below already includes the initialization write —
-    // a slow /api/maps response is then defeated only by changes
-    // made after the fetch started (user edits), never by the
-    // editor initializing itself (Codex P1, fix round 1).
+    // visual-options initialization has landed. The start gate
+    // compares the live edit generation with the baseline captured
+    // when the restore completed: any advance since then is user
+    // work that predates the fetch, so hydration must not start at
+    // all (audit B-01). Once the fetch starts, its own captured
+    // generation defeats a slow /api/maps response if the user
+    // edits while it is in flight — the editor's own automatic
+    // initialization can do neither, because those writes run
+    // inside the system-write scope (Codex P1, fix round 1).
     const requestedMapId = mapIdFromQuery;
     if (
       !requestedMapId ||
@@ -1148,6 +1182,8 @@ export function EditorExperience({
         visualOptionsInitialized,
         alreadyHandled: mapFromUrlHandledRef.current,
         mapId: requestedMapId,
+        editGenerationAtRestore: editGenerationAtRestoreRef.current,
+        editGenerationNow: useStore.getState().editGeneration,
       })
     ) {
       return;
@@ -2727,11 +2763,13 @@ export function EditorExperience({
                               </h3>
                             </div>
                             <div className="space-y-3">
+                              <p className="text-[11px] text-neutral-400">Up to 240 characters per line.</p>
                               {visibleTextBoxes.map((box) => (
                                 <div key={box.id} className="space-y-2">
                                   <label className="text-sm font-medium text-white">{box.label}</label>
                                   <input
                                     type="text"
+                                    maxLength={TEXT_BOX_MAX_TEXT_LENGTH}
                                     value={box.text}
                                     onChange={(e) => handleTextBoxTextChange(box.id, e.target.value)}
                                     className="h-10 w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm text-white shadow-inner shadow-black/20 transition outline-none focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
@@ -2882,8 +2920,10 @@ export function EditorExperience({
                                             </div>
                                             {!isCollapsed && (
                                               <div id={`text-style-${box.id}`} className="space-y-2">
+                                                <ApplyTextRowStyle sourceId={box.id} />
                                                 <input
                                                   type="text"
+                                                  maxLength={TEXT_BOX_MAX_TEXT_LENGTH}
                                                   value={box.text}
                                                   onChange={(e) =>
                                                     handleTextBoxTextChange(box.id, e.target.value)
@@ -2893,10 +2933,11 @@ export function EditorExperience({
                                                 />
                                                 <div className="grid grid-cols-2 gap-2">
                                                   <div className="space-y-1">
-                                                    <label className="text-[10px] text-neutral-300">
+                                                    <label htmlFor={`font-select-${box.id}`} className="text-[10px] text-neutral-300">
                                                       Font
                                                     </label>
                                                     <select
+                                                      id={`font-select-${box.id}`}
                                                       value={box.fontFamily}
                                                       onChange={(e) => {
                                                         const next = e.target.value as TextBox["fontFamily"];
@@ -2920,18 +2961,11 @@ export function EditorExperience({
                                                     <label htmlFor={`size-input-${box.id}`} className="text-[10px] text-neutral-300">
                                                       Size
                                                     </label>
-                                                    <input
+                                                    <TextBoxSizeInput
                                                       id={`size-input-${box.id}`}
-                                                      aria-label={`${box.label} size`}
-                                                      type="number"
-                                                      min={10}
-                                                      max={64}
+                                                      label={box.label}
                                                       value={box.size}
-                                                      onChange={(e) =>
-                                                        updateTextBox(box.id, {
-                                                          size: Number(e.target.value),
-                                                        })
-                                                      }
+                                                      onCommit={(size) => updateTextBox(box.id, { size })}
                                                       className="w-full rounded-md border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"
                                                     />
                                                     <input
@@ -2952,10 +2986,11 @@ export function EditorExperience({
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-2">
                                                   <div className="space-y-1">
-                                                    <label className="text-[10px] text-neutral-300">
+                                                    <label htmlFor={`color-input-${box.id}`} className="text-[10px] text-neutral-300">
                                                       Color
                                                     </label>
                                                     <input
+                                                      id={`color-input-${box.id}`}
                                                       type="color"
                                                       value={box.color}
                                                       onChange={(e) =>
@@ -2965,10 +3000,11 @@ export function EditorExperience({
                                                     />
                                                   </div>
                                                   <div className="space-y-1">
-                                                    <label className="text-[10px] text-neutral-300">
+                                                    <label htmlFor={`align-select-${box.id}`} className="text-[10px] text-neutral-300">
                                                       Align
                                                     </label>
                                                     <select
+                                                      id={`align-select-${box.id}`}
                                                       value={box.align}
                                                       onChange={(e) =>
                                                         updateTextBox(box.id, {
@@ -3200,6 +3236,10 @@ export function EditorExperience({
                                       <div className="grid grid-cols-1 gap-2">
                                         {styles.map((style) => {
                                           const styleClasses = {
+                                            evergreenAtlas:
+                                              selectedStyle === style.id
+                                                ? "border-[#C8D8BB] bg-[#071B17] text-[#E8F0DF]"
+                                                : "border-[#C8D8BB]/40 bg-[#071B17] text-[#C8D8BB]",
                                             navyGold:
                                               selectedStyle === style.id
                                                 ? "border-amber-400 bg-gradient-to-br from-[#0d1b2a] to-[#1b2838] text-amber-300 shadow-amber-500/20"

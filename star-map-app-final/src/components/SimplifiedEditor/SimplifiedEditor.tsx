@@ -248,6 +248,7 @@ export function SimplifiedEditor() {
           // restores as classic (absent), never inheriting a
           // Double/Fine value the shared store already carries.
           frameStyle: draft.renderOptions.frameStyle,
+          starColorMode: draft.renderOptions.starColorMode,
         });
         useStore.getState().setSampleDesignLastAutoSynced(draft.sampleDesignLastAutoSynced);
         setMode("customizing");
@@ -309,7 +310,10 @@ export function SimplifiedEditor() {
           // restores as classic (absent), never inheriting the
           // fresh-session value by the merge.
           frameStyle: parsed.renderOptions.frameStyle,
+          starColorMode: parsed.renderOptions.starColorMode,
         });
+      } else {
+        setRenderOptions({ starColorMode: undefined });
       }
       const synced = parsed.sampleDesignLastAutoSynced;
       useStore.getState().setSampleDesignLastAutoSynced({
@@ -843,6 +847,7 @@ export function SimplifiedEditor() {
   }, [hasValidLocation, revealed, setRevealed]);
 
   const styles: { id: StyleId; name: string; swatchClass: string }[] = [
+    { id: "evergreenAtlas", name: "Evergreen Atlas", swatchClass: "bg-[#071B17] border-[#C8D8BB]" },
     { id: "navyGold", name: "Navy & Gold", swatchClass: "bg-[#070b1b] border-[#d4af37]" },
     { id: "vintageEngraving", name: "Vintage", swatchClass: "bg-[#564531] border-[#c7a56d]" },
     { id: "parchmentScroll", name: "Parchment", swatchClass: "bg-[#e8d48b] border-[#111111]" },

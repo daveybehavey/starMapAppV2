@@ -18,10 +18,12 @@ import {
   normalizeTextStyleBinding,
 } from "./textStyleBinding";
 import type { AspectRatio, Shape } from "./types";
+import type { RenderModeId } from "./renderModes";
 
 export type StyleId =
   | "navyGold"
   | "vintageEngraving"
+  | "evergreenAtlas"
   | "parchmentScroll"
   | "midnightMinimal";
 
@@ -89,6 +91,8 @@ export interface RenderOptions {
   visualMode: VisualMode;
   starIntensity: "subtle" | "normal" | "bold";
   starGlow: boolean;
+  /** Absent preserves style defaults, including historical premium-star colors. */
+  starColorMode?: "fixed" | "spectral";
   constellationLines: ConstellationLines;
   constellationLabels: boolean;
   planetLabels: boolean;
@@ -155,20 +159,48 @@ export interface EditorState {
    * Monotonic count of recipe-state changes (S93-2 class 5 /
    * S96-2 F7). Advanced SYNCHRONOUSLY inside the store's setState
    * notification whenever a recipe field (dateTime, location,
-   * textBoxes, selectedStyle, aspectRatio, shape, renderOptions)
-   * actually changes — see the subscription below — and by
-   * bumpEditGeneration() for the one recipe field that lives
-   * outside this store (selectedOccasion, hook-local in
-   * useEditorLogic, whose setter bumps it synchronously too).
+   * textBoxes, selectedStyle, aspectRatio, shape, renderOptions,
+   * selectedOccasion) or a recipe-intent field (renderMode,
+   * intensity, intensityDisplay) actually changes — see the
+   * subscription below — or via bumpEditGeneration().
    * EditorExperience's hydration guard reads it via
    * useStore.getState() at fetch start and again when the response
    * arrives; because the advance happens inside the mutation call
    * itself, no response continuation can observe a pre-edit value.
+   * The editor's own automatic initialization writes (draft
+   * restore, URL prefill, the first visual-options application)
+   * run inside runAsSystemWrite() and never advance it, so the
+   * guard can anchor its baseline at restore completion and treat
+   * ANY later advance as user work (audit B-01).
    */
   editGeneration: number;
   previewFidelity: "standard" | "high";
   paid: boolean;
   revealed: boolean;
+  /**
+   * The persisted occasion selection (a recipe field — it is
+   * serialized into the draft). Store-resident so every editor
+   * surface reads and writes the SAME value: it lived in
+   * useEditorLogic's per-instance useState, and the desktop and
+   * mobile hook instances held divergent copies whose competing
+   * draft writes lost selections (audit B-03).
+   */
+  selectedOccasion: string | null;
+  /**
+   * Render-mode / intensity intent. These fields are not part of
+   * the persisted recipe — they DERIVE five renderOptions fields
+   * via useEditorLogic.applyVisualOptions — but they are design
+   * intent all the same: changing them must count as an edit the
+   * moment the setter runs, not ~150 ms later when the derived
+   * write lands (audit B-05, the S96-2 F7 class). Store-resident
+   * so the desktop and mobile surfaces share one mode/intensity
+   * instead of each hook instance initializing its own and the
+   * second instance's mount writes overwriting the first surface's
+   * choices in the shared store (audit B-04).
+   */
+  renderMode: RenderModeId;
+  intensity: number;
+  intensityDisplay: number;
   setDateTime: (dateTime: string) => void;
   setLocation: (location: Partial<LocationState>) => void;
   setTextBoxes: (boxes: TextBox[]) => void;
@@ -184,6 +216,10 @@ export interface EditorState {
   setPreviewFidelity: (fidelity: EditorState["previewFidelity"]) => void;
   setPaid: (paid: boolean) => void;
   setRevealed: (revealed: boolean) => void;
+  setSelectedOccasion: (id: string | null) => void;
+  setRenderMode: (mode: RenderModeId) => void;
+  setIntensity: (value: number) => void;
+  setIntensityDisplay: (value: number) => void;
 }
 
 const EMPTY_SAMPLE_DESIGN_LAST_AUTO_SYNCED: SampleDesignLastAutoSyncedState = {
@@ -290,6 +326,14 @@ const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) =
   previewFidelity: "standard",
   paid: false,
   revealed: false,
+  selectedOccasion: null,
+  // The quick variant's defaults (cinematic, 70) — the only
+  // variant mounted in production. The driving useEditorLogic
+  // instance seeds the full variant's 50 on first mount via
+  // seedEditorIntensityDefaults below.
+  renderMode: "cinematic",
+  intensity: 70,
+  intensityDisplay: 70,
   setDateTime: (dateTime) => set({ dateTime, dateTimeIsUntouchedDefault: false }),
   setLocation: (location) =>
     set((state) => {
@@ -429,6 +473,10 @@ const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) =
   setPreviewFidelity: (previewFidelity) => set({ previewFidelity }),
   setPaid: (paid) => set({ paid }),
   setRevealed: (revealed) => set({ revealed }),
+  setSelectedOccasion: (selectedOccasion) => set({ selectedOccasion }),
+  setRenderMode: (renderMode) => set({ renderMode }),
+  setIntensity: (intensity) => set({ intensity }),
+  setIntensityDisplay: (intensityDisplay) => set({ intensityDisplay }),
 });
 
 export const useStore = create<EditorState>(storeImpl);
@@ -448,15 +496,59 @@ const RECIPE_EDIT_FIELDS = [
   "aspectRatio",
   "shape",
   "renderOptions",
+  "selectedOccasion",
 ] as const satisfies readonly (keyof EditorState)[];
 
 /**
- * Advance the edit generation by one. Exported for the one recipe
- * field that lives outside this store (selectedOccasion in
- * useEditorLogic); store-resident fields advance it through the
- * subscription below, never by calling this directly.
+ * Recipe-INTENT fields: not persisted in the recipe itself, but a
+ * change to any of them is user design work the hydration guard
+ * must respect the moment it happens (audit B-05). They advance
+ * the same generation, through the same subscription.
+ */
+const INTENT_EDIT_FIELDS = [
+  "renderMode",
+  "intensity",
+  "intensityDisplay",
+] as const satisfies readonly (keyof EditorState)[];
+
+/**
+ * System-write scope (audit B-01). The editor's AUTOMATIC
+ * writes — the draft restore, the URL prefill, the hook's
+ * derived visual-options applications, and the display→intensity
+ * sync (whose unpaid premium cap fires with no user gesture) —
+ * run inside runAsSystemWrite(). While the scope is active the
+ * generation does not advance: initialization is not user work,
+ * and the hydration baseline is anchored at restore completion,
+ * so a user edit that lands at ANY point after restore — even
+ * before the hydration fetch starts — advances the generation
+ * past the baseline and defeats late hydration. Zustand notifies
+ * subscribers synchronously inside setState, so a synchronous
+ * try/finally scope is exact: every write performed by fn is
+ * observed inside the scope, and no write outside it can be.
+ * Callers must pass a fully synchronous fn — a write deferred
+ * past fn's return (timer, promise continuation) is a user-path
+ * write and counts as an edit.
+ */
+let systemWriteDepth = 0;
+
+export function runAsSystemWrite<T>(fn: () => T): T {
+  systemWriteDepth += 1;
+  try {
+    return fn();
+  } finally {
+    systemWriteDepth -= 1;
+  }
+}
+
+/**
+ * Advance the edit generation by one. Store-resident fields
+ * advance it through the subscription below, never by calling
+ * this directly; the export remains as the synchronous-advance
+ * seam for any future field that must live outside this store.
+ * A no-op inside a system-write scope.
  */
 export function bumpEditGeneration(): void {
+  if (systemWriteDepth > 0) return;
   useStore.setState((state) => ({
     editGeneration: state.editGeneration + 1,
   }));
@@ -477,15 +569,49 @@ export function bumpEditGeneration(): void {
 // actions, the draft restore's direct useStore.setState, and any
 // future caller. The bump's own setState changes only
 // editGeneration, so the listener observes no recipe-field change
-// for it and does not recurse.
+// for it and does not recurse. System writes (above) are the one
+// deliberate exception: they are initialization, not edits.
 useStore.subscribe((state, prevState) => {
+  if (systemWriteDepth > 0) return;
   for (const field of RECIPE_EDIT_FIELDS) {
     if (!Object.is(state[field], prevState[field])) {
       bumpEditGeneration();
       return;
     }
   }
+  for (const field of INTENT_EDIT_FIELDS) {
+    if (!Object.is(state[field], prevState[field])) {
+      bumpEditGeneration();
+      return;
+    }
+  }
 });
+
+let intensityDefaultsSeeded = false;
+
+/**
+ * Seed the intensity defaults for the editor variant in use, once
+ * per page session. The store's initial values carry the quick
+ * variant's defaults (cinematic mode at 70 — the variant mounted
+ * in production); the driving useEditorLogic instance calls this
+ * on mount with its own variant's default so the full variant
+ * still starts at 50 without every hook instance re-imposing its
+ * own initial values on mount (audit B-04). A system write:
+ * seeding is initialization, not an edit.
+ */
+export function seedEditorIntensityDefaults(value: number): void {
+  if (intensityDefaultsSeeded) return;
+  intensityDefaultsSeeded = true;
+  if (
+    useStore.getState().intensity === value &&
+    useStore.getState().intensityDisplay === value
+  ) {
+    return;
+  }
+  runAsSystemWrite(() => {
+    useStore.setState({ intensity: value, intensityDisplay: value });
+  });
+}
 
 // Expose store globally for testing/export scripts in development
 if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
