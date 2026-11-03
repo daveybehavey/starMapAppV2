@@ -25,7 +25,8 @@ export default function ChristmasBanner({ nowMs }: Props = {}) {
   const pathname = usePathname() || "";
   // Same route gate as the site nav: no sitewide chrome on the editor (or the
   // /m/ and /funnel flows), where the tool owns the first screen.
-  if (shouldHideSiteTopNav(pathname)) return null;
+  // The Black Friday landing owns its verified offer and order-by copy.
+  if (pathname === "/black-friday" || shouldHideSiteTopNav(pathname)) return null;
   const clockMs = resolveChristmasCampaignNowMs({ nowMs });
   const content = getChristmasBannerContent(clockMs, getInstantHdPriceLine());
   if (!content) return null;
