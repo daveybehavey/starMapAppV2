@@ -220,15 +220,28 @@ export function applyReviewOutcomeToCurrent(
     next.operatorFailureAlertProvider = reviewed.operatorFailureAlertProvider;
     next.operatorFailureAlertError = reviewed.operatorFailureAlertError;
   }
-  if (current.fileReviewState === "failed" && reviewed.fileReviewState === "healthy") {
-    // The failed episode is closed by the fresh healthy outcome: its
-    // file-failure error and its (never delivered) failure-alert error
-    // do not carry into the healthy record. The approval alert's
-    // delivered stamp merged above is preserved — it is what stops
-    // the next sweep tick from sending the approval email again.
-    next.error = undefined;
-    next.operatorFailureAlertError = undefined;
-    next.operatorFailureAlertProvider = undefined;
+  if (
+    reviewed.fileReviewState === "healthy" &&
+    (current.fileReviewState === "failed" || current.fileReviewState === "pending")
+  ) {
+    // A healthy outcome closes the review episode — including when a
+    // pending re-check landed in between (failed -> pending ->
+    // healthy), where the standing state at this merge is `pending`
+    // and a failed-only cleanup would never run (Codex P2 on
+    // PR #502). The failed episode's file-failure error and its
+    // UNDELIVERED failure-alert residue do not carry into the healthy
+    // record. Delivered stamps are history and stay: the approval
+    // stamp merged above (it is what stops the next sweep tick from
+    // re-sending the approval email) and a delivered failure alert's.
+    // The error clear is prefix-scoped to the file-review failure
+    // format so an unrelated error on the record is never erased.
+    if (typeof next.error === "string" && next.error.startsWith("printful_files_failed")) {
+      next.error = undefined;
+    }
+    if (!next.operatorFailureAlertedAt) {
+      next.operatorFailureAlertError = undefined;
+      next.operatorFailureAlertProvider = undefined;
+    }
   }
   return next;
 }

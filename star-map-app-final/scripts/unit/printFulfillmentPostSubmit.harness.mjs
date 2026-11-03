@@ -192,13 +192,22 @@ export function applyReviewOutcomeToCurrent(current, reviewed) {
     next.operatorFailureAlertProvider = reviewed.operatorFailureAlertProvider;
     next.operatorFailureAlertError = reviewed.operatorFailureAlertError;
   }
-  if (current.fileReviewState === "failed" && reviewed.fileReviewState === "healthy") {
-    // Mirror: the failed episode is closed by the fresh healthy
-    // outcome; its error and undelivered failure-alert error do not
-    // carry over. The delivered approval stamp merged above stays.
-    next.error = undefined;
-    next.operatorFailureAlertError = undefined;
-    next.operatorFailureAlertProvider = undefined;
+  if (
+    reviewed.fileReviewState === "healthy" &&
+    (current.fileReviewState === "failed" || current.fileReviewState === "pending")
+  ) {
+    // Mirror of printFulfillmentPostSubmit.ts: a healthy outcome
+    // closes the review episode even across an intermediate pending
+    // re-check (failed -> pending -> healthy). The file-failure
+    // error (prefix-scoped) and the undelivered failure-alert
+    // residue are cleared; delivered stamps stay as history.
+    if (typeof next.error === "string" && next.error.startsWith("printful_files_failed")) {
+      next.error = undefined;
+    }
+    if (!next.operatorFailureAlertedAt) {
+      next.operatorFailureAlertError = undefined;
+      next.operatorFailureAlertProvider = undefined;
+    }
   }
   return next;
 }

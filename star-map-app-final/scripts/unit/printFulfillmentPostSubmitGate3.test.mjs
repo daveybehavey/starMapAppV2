@@ -111,6 +111,83 @@ test("gate round 3: an equally fresh outcome may supersede (same-tick re-check)"
   assert.equal(merged.operatorAlertedAt, 100);
 });
 
+test("gate round 4: failed -> pending -> healthy clears the resolved file errors (Codex P2 repro)", () => {
+  // Tick 1: the fresh lookup is unavailable — a pending outcome is
+  // accepted over the failed resolution (fresher stamp). The episode
+  // is still open, so its error and alert residue legitimately stand.
+  const pending = applyReviewOutcomeToCurrent(FAILED_CURRENT, {
+    status: "sent",
+    printfulOrderId: "PF-1",
+    fileReviewState: "pending",
+    fileReviewCheckedAt: 200,
+    fileReviewPendingSince: 200,
+  });
+  assert.notEqual(pending, null);
+  assert.equal(pending.fileReviewState, "pending");
+  assert.equal(pending.error, "printful_files_failed: file rejected");
+
+  // Tick 2: the lookup is healthy. The standing state is `pending`,
+  // not `failed` — the episode cleanup must run anyway.
+  const healthy = applyReviewOutcomeToCurrent(pending, {
+    status: "sent",
+    printfulOrderId: "PF-1",
+    fileReviewState: "healthy",
+    fileReviewCheckedAt: 300,
+    operatorAlertedAt: 300,
+    operatorAlertProvider: "resend",
+  });
+  assert.notEqual(healthy, null);
+  assert.equal(healthy.fileReviewState, "healthy");
+  assert.equal(healthy.error, undefined, "the resolved file-failure error must not survive onto the healthy record");
+  assert.equal(healthy.operatorFailureAlertError, undefined, "the undelivered failure-alert residue must not survive");
+  assert.equal(healthy.operatorFailureAlertProvider, undefined);
+  assert.equal(healthy.operatorAlertedAt, 300, "the delivered approval stamp persists");
+});
+
+test("gate round 4: the healthy cleanup is prefix-scoped and preserves delivered failure-alert history", () => {
+  const unrelated = applyReviewOutcomeToCurrent(
+    {
+      status: "sent",
+      printfulOrderId: "PF-1",
+      fileReviewState: "pending",
+      fileReviewCheckedAt: 100,
+      error: "operator_note: manual check",
+    },
+    {
+      status: "sent",
+      printfulOrderId: "PF-1",
+      fileReviewState: "healthy",
+      fileReviewCheckedAt: 200,
+      operatorAlertedAt: 200,
+      operatorAlertProvider: "resend",
+    },
+  );
+  assert.equal(unrelated.error, "operator_note: manual check", "an unrelated error is never erased by the cleanup");
+
+  const delivered = applyReviewOutcomeToCurrent(
+    {
+      status: "sent",
+      printfulOrderId: "PF-1",
+      fileReviewState: "failed",
+      fileReviewCheckedAt: 100,
+      error: "printful_files_failed: file rejected",
+      operatorFailureAlertedAt: 110,
+      operatorFailureAlertProvider: "resend",
+    },
+    {
+      status: "sent",
+      printfulOrderId: "PF-1",
+      fileReviewState: "healthy",
+      fileReviewCheckedAt: 200,
+      operatorAlertedAt: 200,
+      operatorAlertProvider: "resend",
+    },
+  );
+  assert.equal(delivered.error, undefined, "the file-failure error still clears");
+  assert.equal(delivered.operatorFailureAlertedAt, 110, "a delivered failure alert remains as history");
+  assert.equal(delivered.operatorFailureAlertProvider, "resend");
+});
+
 test("gate round 3: a fresher failed outcome supersedes a healthy resolution and writes its error", () => {
   const healthyCurrent = {
     status: "sent",
