@@ -14,6 +14,7 @@ import type { RenderModeId } from "@/lib/renderModes";
 import { aspectRatioToNumber } from "@/lib/renderSky";
 import { BortleControl } from "@/components/BortleControl";
 import { ApplyTextRowStyle } from "@/components/ApplyTextRowStyle";
+import { StarColorControl } from "@/components/StarColorControl";
 import { ASPECT_OPTIONS } from "@/lib/aspectOptions";
 import { FRAME_STYLE_OPTIONS, resolveFrameStyle } from "@/lib/frameStyle";
 import { styles, fontOptions, visualModes, shapes, constellationPresets, mapLookTiers } from "@/lib/config";
@@ -1460,6 +1461,7 @@ export function MobileCreate({
             <section className="rounded-xl border border-white/10 bg-white/5 p-3">
               <h3 className="text-xs font-semibold text-white mb-2">Advanced</h3>
               <BortleControl renderOptions={renderOptions} setRenderOptions={setRenderOptions} />
+              <StarColorControl selectedStyle={selectedStyle} renderOptions={renderOptions} setRenderOptions={setRenderOptions} />
               <div className="space-y-3">
                 <div className="space-y-1">
                   <label className="text-[10px] text-neutral-300">Constellation Lines</label>

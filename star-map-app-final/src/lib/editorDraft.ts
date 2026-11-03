@@ -445,6 +445,7 @@ function normalizeRenderOptions(value: unknown): ValidationResult<Partial<Render
     mapLookTier: new Set(["minimal", "polished", "custom"]),
     visualMode: new Set(["astronomical", "enhanced", "illustrated"]),
     starIntensity: new Set(["subtle", "normal", "bold"]),
+    starColorMode: new Set(["fixed", "spectral"]),
     constellationLines: new Set(["off", "thin", "thick"]),
     premiumStars: new Set(["off", "subtle", "realistic"]),
     premiumPlanets: new Set(["off", "realistic"]),

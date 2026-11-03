@@ -1,6 +1,7 @@
 "use client";
 
 import { BortleControl } from "@/components/BortleControl";
+import { StarColorControl } from "@/components/StarColorControl";
 import { constellationPresets, visualModes } from "@/lib/config";
 import { applyTierTypographyProtected, resolveMapLookTier } from "@/lib/mapLookTiers";
 import { getRenderPresetOptions, renderPresets, resolveRenderPreset } from "@/lib/renderPresets";
@@ -52,6 +53,7 @@ export function AdvancedPanel({
       </div>
 
       <BortleControl renderOptions={renderOptions} setRenderOptions={setRenderOptions} />
+      <StarColorControl selectedStyle={selectedStyle} renderOptions={renderOptions} setRenderOptions={setRenderOptions} />
 
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1">

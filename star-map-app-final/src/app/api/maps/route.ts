@@ -224,6 +224,7 @@ function sanitizeRenderOptions(options: Record<string, unknown>) {
     "visualMode",
     "starIntensity",
     "starGlow",
+    "starColorMode",
     "constellationLines",
     "constellationLabels",
     "planetLabels",
@@ -254,6 +255,7 @@ function sanitizeRenderOptions(options: Record<string, unknown>) {
   const sanitized: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(options)) {
     if (!allowedKeys.has(key)) continue;
+    if (key === "starColorMode" && value !== "fixed" && value !== "spectral") continue;
     if (typeof value === "string") {
       sanitized[key] = value.slice(0, 80);
       continue;

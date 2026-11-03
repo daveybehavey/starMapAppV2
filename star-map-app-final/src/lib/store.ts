@@ -89,6 +89,8 @@ export interface RenderOptions {
   visualMode: VisualMode;
   starIntensity: "subtle" | "normal" | "bold";
   starGlow: boolean;
+  /** Absent preserves style defaults, including historical premium-star colors. */
+  starColorMode?: "fixed" | "spectral";
   constellationLines: ConstellationLines;
   constellationLabels: boolean;
   planetLabels: boolean;

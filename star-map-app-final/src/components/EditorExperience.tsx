@@ -891,6 +891,7 @@ export function EditorExperience({
           // restores as classic (absent), never inheriting a
           // Double/Fine value the shared store already carries.
           frameStyle: draft.renderOptions.frameStyle,
+          starColorMode: draft.renderOptions.starColorMode,
         },
         sampleDesignLastAutoSynced: draft.sampleDesignLastAutoSynced,
         // Same confirmed-location predicate as Generate / auto-reveal — a named
@@ -1096,7 +1097,10 @@ export function EditorExperience({
           // a Double/Fine selection from the draft-restored session
           // state this merge runs against.
           frameStyle: recipe.renderOptions.frameStyle,
+          starColorMode: recipe.renderOptions.starColorMode,
         });
+      } else {
+        setRenderOptions({ starColorMode: undefined });
       }
       if (recipe.selectedOccasion) {
         setSelectedOccasion(recipe.selectedOccasion);
