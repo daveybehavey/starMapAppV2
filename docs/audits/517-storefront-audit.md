@@ -81,3 +81,14 @@ Initial web-reader opens of Shop/poster/shipping returned mixed-age cached conte
 No Stripe-hosted checkout session was created or inspected; no Buy/checkout action was submitted; no email, address, payment, subscription, refund, or production order was entered. Hosted payment UI, real payment methods, tax totals, address validation, delivery fulfillment, confirmation emails, and download entitlement were not verified. All POSTs (including analytics) were blocked, so this run does not prove analytics delivery. UK/CAD/other-currency totals and locale/assistive-technology coverage remain unverified. Browser evidence is a point-in-time public-site observation, not proof that the deployed commit equals local main. No lint, typecheck, unit suite, build, commerce/render smoke, or CI validation was run for this read-only documentation audit.
 
 Prioritize B2-01 before campaign traffic, then reduce mobile choice friction (B2-02). B2-03/04 are trust-copy fixes subject to the same commercial fences. File separate implementation issues; never fix them within this audit PR.
+
+## Disposition — 2026-11-03 (post-audit; appended at the merge gate, historical text above unchanged)
+
+All four findings were fixed after this audit was written; the closing instruction to file separate implementation issues is **superseded** — do not file duplicates.
+
+- **B2-01 (P1)** — filed as issue #528 (CLOSED); fixed by PR #529, MERGED dd2bc218 (2026-11-03T17:16:14Z).
+- **B2-02 (P2)** — fixed by PR #546, MERGED 0732b485 (PaywallModal restructure; post-merge live probes verified).
+- **B2-03 (P2)** — fixed by PR #546, MERGED 0732b485 (size-qualified "Unframed 16x16 starts at" copy).
+- **B2-04 (P2)** — fixed by PR #546, MERGED 0732b485, plus rider PR #547, MERGED 6dc6679b (WhatYouReceiveModule framed card; the old framed shipping line was verified at 0 occurrences live).
+
+No implementation items from this audit remain open; the fix lanes' deployment verification (+5/+20 probes) is recorded in QUEUE.md. Full finding-by-finding mapping: the disposition comment on PR #525 (2026-11-03).
