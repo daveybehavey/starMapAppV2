@@ -16,6 +16,11 @@ import {
   resolveTextLineLayout,
   type TextFitLayout,
 } from "./textFit";
+import {
+  computeFrameStrokes,
+  computeShapeFrameStrokes,
+  resolveFrameStyle,
+} from "./frameStyle";
 import { resolveShapeTextProfile } from "./shapeTextProfile";
 import {
   moonIlluminationFraction,
@@ -547,12 +552,33 @@ export function renderStarMap({
   if (clipPath && showFrame && !transparentMat && shapeName !== "rectangle") {
     const theme = STYLE_THEME[recipe.selectedStyle];
     const frameColor = mode?.palette?.accent ?? theme.accent;
+    // Frame rule styles (#503): the outline mirrors the rectangle
+    // frame's outer rule; "double" strokes the same clip path again
+    // scaled about the canvas centre, one frame-gap inside the edge.
+    const shapeFrame = computeShapeFrameStrokes(
+      resolveFrameInsetPx(width, targetHeight),
+      width,
+      targetHeight,
+      scale,
+      resolveFrameStyle(recipe.renderOptions?.frameStyle),
+    );
     ctx.save();
     ctx.strokeStyle = frameColor;
-    ctx.lineWidth = 3 * scale;
+    ctx.lineWidth = shapeFrame.lineWidthPx;
     ctx.lineJoin = "round";
-    ctx.globalAlpha = 0.8;
+    ctx.globalAlpha = shapeFrame.alpha;
     ctx.stroke(clipPath);
+    if (shapeFrame.inner) {
+      const k = shapeFrame.inner.scaleFactor;
+      ctx.translate(width / 2, targetHeight / 2);
+      ctx.scale(k, k);
+      ctx.translate(-width / 2, -targetHeight / 2);
+      // The transform scales the painted width too; divide it back
+      // out so the inner rule matches the rectangle frame's width.
+      ctx.lineWidth = shapeFrame.inner.lineWidthPx / k;
+      ctx.globalAlpha = shapeFrame.inner.alpha;
+      ctx.stroke(clipPath);
+    }
     ctx.restore();
   }
 
@@ -773,6 +799,17 @@ export function buildRecipeFromState(input: {
       // (download normalize, checkout, hydration fingerprints).
       shapeLayoutVersion: input.renderOptions?.shapeLayoutVersion,
       frameEnabled: input.renderOptions?.frameEnabled ?? true,
+      // #503: the frame rule style rides through verbatim — including
+      // undefined (absent = classic at the renderer). Persisting a
+      // default here would silently rewrite every saved design that
+      // passes through a rebuild; persisting an unrecognised value
+      // would poison the recipe, so only the three known styles ride.
+      frameStyle:
+        input.renderOptions?.frameStyle === "classic" ||
+        input.renderOptions?.frameStyle === "double" ||
+        input.renderOptions?.frameStyle === "hairline"
+          ? input.renderOptions.frameStyle
+          : undefined,
       // Mirror editorDraft's validation: a non-finite value must not
       // persist into a recipe, and out-of-range values clamp to 1–9
       // (the renderer's own range) instead of riding through verbatim.
@@ -1123,12 +1160,28 @@ function drawBackground(
   // the same calculation this stroke uses — one source of
   // truth (fleet U06; #409: for a given width and height, the stroked
   // frame and the frame-aware fit bound use the same inset).
+  // Frame rule styles (#503) are computed by frameStyle.ts from that
+  // same inset: "classic" is exactly the historical single stroke, and
+  // "double" adds its second rule OUTSIDE the first, so the fit bound
+  // is never intruded on.
   if (showFrame && (!shape || shape === "rectangle")) {
     const inset = resolveFrameInsetPx(width, height);
+    const frameStrokes = computeFrameStrokes(
+      inset,
+      scale,
+      resolveFrameStyle(renderOptions?.frameStyle),
+    );
     ctx.strokeStyle = palette.accent;
-    ctx.lineWidth = 3 * scale;
-    ctx.globalAlpha = 0.8;
-    ctx.strokeRect(inset, inset, width - inset * 2, height - inset * 2);
+    for (const stroke of frameStrokes) {
+      ctx.lineWidth = stroke.lineWidthPx;
+      ctx.globalAlpha = stroke.alpha;
+      ctx.strokeRect(
+        stroke.insetPx,
+        stroke.insetPx,
+        width - stroke.insetPx * 2,
+        height - stroke.insetPx * 2,
+      );
+    }
     ctx.globalAlpha = 1;
   }
 }

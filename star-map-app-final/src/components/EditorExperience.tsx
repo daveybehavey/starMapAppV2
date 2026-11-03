@@ -12,6 +12,7 @@ import {
 } from "@/lib/renderSky";
 import { getExportDimensions } from "@/lib/aspectRatio";
 import { ASPECT_OPTIONS } from "@/lib/aspectOptions";
+import { FRAME_STYLE_OPTIONS, resolveFrameStyle } from "@/lib/frameStyle";
 import { ShapeIcon } from "@/components/ShapeIcon";
 
 import { buildStarMapDownloadFilename } from "@/lib/downloadFilename";
@@ -3362,6 +3363,29 @@ export function EditorExperience({
                                       >
                                         {renderOptions.frameEnabled ? "Frame Border On" : "Frame Border Off"}
                                       </button>
+                                      {renderOptions.frameEnabled && (
+                                        <div className="mt-2 grid grid-cols-3 gap-2">
+                                          {FRAME_STYLE_OPTIONS.map((option) => {
+                                            const isSelected =
+                                              resolveFrameStyle(renderOptions.frameStyle) === option.id;
+
+                                            return (
+                                              <button
+                                                key={option.id}
+                                                type="button"
+                                                onClick={() => setRenderOptions({ frameStyle: option.id })}
+                                                className={`flex items-center justify-center rounded-lg border px-2 py-2 text-xs font-semibold transition hover:-translate-y-[1px] hover:shadow-md ${
+                                                  isSelected
+                                                    ? "!text-midnight border-amber-400 bg-amber-400 shadow-amber-500/20"
+                                                    : "border-white/15 bg-white/5 text-white hover:border-amber-400/50"
+                                                }`}
+                                              >
+                                                {option.label}
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
                                     </>
                                   )}
                                 </section>
