@@ -400,6 +400,22 @@ export function applyMapLookTier(tier: MapLookTier, styleId: StyleId): Partial<R
   };
 }
 
+/**
+ * Shared tier semantics for user render-option edits, identical on every
+ * editor surface (desktop + mobile, via the shared AdvancedPanel):
+ * - a patch carrying an explicit mapLookTier applies that tier (Quick Look
+ *   presets, tier pickers, style changes);
+ * - any other user edit marks the look "custom", because the design no
+ *   longer matches a named tier's recipe.
+ * Audit #516 E5 / #518 M2: the desktop panel previously spread the patch
+ * and then forced "custom", discarding a Quick Look handler's explicit
+ * tier, while mobile writes left the tier untouched — the same edit
+ * resolved to different tiers (and different sky finishes) per surface.
+ */
+export function withUserEditTier(next: Partial<RenderOptions>): Partial<RenderOptions> {
+  return { ...next, mapLookTier: next.mapLookTier ?? "custom" };
+}
+
 /** Infer tier from current render options (for legacy saves without mapLookTier). */
 export function resolveMapLookTier(
   renderOptions: Partial<RenderOptions> | undefined,

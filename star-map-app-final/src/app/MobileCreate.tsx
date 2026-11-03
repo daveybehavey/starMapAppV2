@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { type TextBox, type RenderOptions } from "@/lib/store";
+import { type TextBox } from "@/lib/store";
 import DateTimeControls from "@/components/DateTimeControls";
 import LocationSearch from "@/components/LocationSearch";
 import PreviewCanvas from "@/components/PreviewCanvas";
@@ -12,12 +12,10 @@ import { buildAutoCaption, upsertAutoCaptionBox } from "@/lib/autoCaption";
 import { resolveShapeMaskFootprint } from "@/lib/shapeLayout";
 import type { RenderModeId } from "@/lib/renderModes";
 import { aspectRatioToNumber } from "@/lib/renderSky";
-import { BortleControl } from "@/components/BortleControl";
 import { ApplyTextRowStyle } from "@/components/ApplyTextRowStyle";
-import { StarColorControl } from "@/components/StarColorControl";
 import { ASPECT_OPTIONS } from "@/lib/aspectOptions";
 import { FRAME_STYLE_OPTIONS, resolveFrameStyle } from "@/lib/frameStyle";
-import { styles, fontOptions, visualModes, shapes, constellationPresets, mapLookTiers } from "@/lib/config";
+import { styles, fontOptions, shapes, mapLookTiers } from "@/lib/config";
 import { applyMapLookTier, applyTierTypographyProtected, resolveMapLookTier, type MapLookTier } from "@/lib/mapLookTiers";
 import { proPresets } from "@/lib/proPresets";
 import { applyStyleDefaults } from "@/lib/styleDefaults";
@@ -34,6 +32,14 @@ import {
 } from "@/lib/paywallPrintCheckout";
 import { getPrintShippingCountryLabel, getPrintShippingCountryOptions, PRINT_SHIPPING_COUNTRY_PLACEHOLDER_LABEL } from "@/lib/printfulShipping";
 import { PrintAspectMismatchNotice } from "@/components/PrintAspectMismatchNotice";
+import dynamic from "next/dynamic";
+import { TEXT_BOX_MAX_TEXT_LENGTH } from "@/lib/textBoxConstraints";
+import { TextBoxSizeInput } from "@/components/TextBoxSizeInput";
+
+const AdvancedPanel = dynamic(() => import("@/components/AdvancedPanel").then((mod) => mod.AdvancedPanel), {
+  ssr: false,
+  loading: () => <div className="mt-2 h-40 rounded-xl border border-white/15 bg-white/5" />,
+});
 import { MerchPurchasePanel } from "@/components/MerchPurchasePanel";
 import type { MerchFamily, MerchFamilyId } from "@/lib/merchCatalog";
 import { PrintGiftDecisionPanel } from "@/components/PrintGiftDecisionPanel";
@@ -985,11 +991,13 @@ export function MobileCreate({
               <h3 className="text-xs font-semibold text-white">Your Message</h3>
             </div>
             <div className="space-y-3">
+              <p className="text-[11px] text-neutral-400">Up to 240 characters per line.</p>
               {visibleTextBoxes.map((box) => (
                 <div key={box.id} className="space-y-2">
                   <label className="text-sm font-medium text-white">{box.label}</label>
                   <input
                     type="text"
+                    maxLength={TEXT_BOX_MAX_TEXT_LENGTH}
                     value={box.text}
                     onChange={(e) => handleTextBoxTextChange(box.id, e.target.value)}
                     className="h-10 w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
@@ -1080,11 +1088,13 @@ export function MobileCreate({
                 <h3 className="text-xs font-semibold text-white">Your Message</h3>
               </div>
               <div className="space-y-3">
+                <p className="text-[11px] text-neutral-400">Up to 240 characters per line.</p>
                 {textBoxes.map((box) => (
                   <div key={box.id} className="space-y-2">
                     <label className="text-sm font-medium text-white">{box.label}</label>
                     <input
                       type="text"
+                      maxLength={TEXT_BOX_MAX_TEXT_LENGTH}
                       value={box.text}
                       onChange={(e) => handleTextBoxTextChange(box.id, e.target.value)}
                       className="h-10 w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
@@ -1155,14 +1165,11 @@ export function MobileCreate({
                             </div>
                             <div className="space-y-1">
                               <label htmlFor={`size-input-${box.id}`} className="text-[10px] text-neutral-300">Size</label>
-                              <input
+                              <TextBoxSizeInput
                                 id={`size-input-${box.id}`}
-                                aria-label={`${box.label} size`}
-                                type="number"
-                                min={10}
-                                max={64}
+                                label={box.label}
                                 value={box.size}
-                                onChange={(e) => updateTextBox(box.id, { size: Number(e.target.value) })}
+                                onCommit={(size) => updateTextBox(box.id, { size })}
                                 className="w-full rounded-md border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"
                               />
                               <input
@@ -1457,176 +1464,26 @@ export function MobileCreate({
               )}
             </section>
 
-            {/* Advanced */}
+            {/* Advanced — the shared AdvancedPanel (audit #518 M1/M4):
+                one panel on both surfaces, so mobile gains Quick Look plus
+                the nine sky/typography controls it lacked (grid, ring, star
+                intensity, glow, planets, emphasis, planet names, moon, moon
+                size) with identical tier semantics (#518 M2). */}
             <section className="rounded-xl border border-white/10 bg-white/5 p-3">
               <h3 className="text-xs font-semibold text-white mb-2">Advanced</h3>
-              <BortleControl renderOptions={renderOptions} setRenderOptions={setRenderOptions} />
-              <StarColorControl selectedStyle={selectedStyle} renderOptions={renderOptions} setRenderOptions={setRenderOptions} />
-              <div className="space-y-3">
-                <div className="space-y-1">
-                  <label className="text-[10px] text-neutral-300">Constellation Lines</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {constellationPresets.map((preset) => (
-                      <button
-                        key={preset.id}
-                        type="button"
-                        onClick={() => setRenderOptions({ constellationLines: preset.id })}
-                        className={`rounded-md border px-2 py-1.5 text-[10px] font-semibold transition ${
-                          renderOptions.constellationLines === preset.id
-                          ? "border-amber-300 bg-amber-100 !text-midnight"
-                            : "border-white/15 bg-white/10 text-white"
-                        }`}
-                      >
-                        {preset.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {renderOptions.constellationLines !== "off" && (
-                  <>
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-neutral-300">Line Color</label>
-                      <input
-                        type="color"
-                        value={renderOptions.constellationColor || "#ffffff"}
-                        onChange={(e) => setRenderOptions({ constellationColor: e.target.value })}
-                        aria-label="Constellation line color"
-                        title="Constellation line color"
-                        className="w-full h-8 rounded-md border border-white/15 bg-white/10 cursor-pointer"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-neutral-300">
-                        Line Scale: {renderOptions.constellationLineScale || 1}
-                      </label>
-                      <input
-                        type="range"
-                        min={0.5}
-                        max={2}
-                        step={0.1}
-                        value={renderOptions.constellationLineScale || 1}
-                        onChange={(e) =>
-                          setRenderOptions({ constellationLineScale: Number(e.target.value) })
-                        }
-                        aria-label="Constellation line scale"
-                        aria-valuetext={`Line scale: ${renderOptions.constellationLineScale || 1}`}
-                        className="w-full accent-amber-400"
-                      />
-                    </div>
-                  </>
-                )}
-                <button
-                  type="button"
-                  onClick={() =>
-                    setRenderOptions({ constellationLabels: !renderOptions.constellationLabels })
-                  }
-                  className={`w-full rounded-md border px-3 py-2 text-xs font-semibold transition ${
-                    renderOptions.constellationLabels
-                    ? "border-amber-300 bg-amber-100 !text-midnight"
-                      : "border-white/15 bg-white/10 text-white"
-                  }`}
-                >
-                  {renderOptions.constellationLabels ? "Labels On" : "Labels Off"}
-                </button>
-                <div className="space-y-1">
-                  <label className="text-[10px] text-neutral-300">Visual Mode</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {visualModes.map((mode) => (
-                      <button
-                        key={mode.id}
-                        type="button"
-                        onClick={() => setRenderOptions({ visualMode: mode.id })}
-                        className={`rounded-md border px-2 py-1.5 text-[10px] font-semibold transition ${
-                          renderOptions.visualMode === mode.id
-                          ? "border-amber-300 bg-amber-100 !text-midnight"
-                            : "border-white/15 bg-white/10 text-white"
-                        }`}
-                      >
-                        {mode.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] text-neutral-300">Preview Fidelity</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { id: "standard", label: "Standard" },
-                      { id: "high", label: "High" },
-                    ].map((preset) => (
-                      <button
-                        key={preset.id}
-                        type="button"
-                        onClick={() => setPreviewFidelity(preset.id as "standard" | "high")}
-                        className={`rounded-md border px-2 py-1.5 text-[10px] font-semibold transition ${
-                          previewFidelity === preset.id
-                          ? "border-amber-300 bg-amber-100 !text-midnight"
-                            : "border-white/15 bg-white/10 text-white"
-                        }`}
-                      >
-                        {preset.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] text-neutral-300">Premium Stars</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { id: "off", label: "Off" },
-                      { id: "subtle", label: "Subtle" },
-                      { id: "realistic", label: "Realistic" },
-                    ].map((preset) => (
-                      <button
-                        key={preset.id}
-                        type="button"
-                        onClick={() => {
-                          setRenderOptions({ premiumStars: preset.id as RenderOptions["premiumStars"] });
-                          if (!paid && preset.id !== "off") {
-                            track("premium_preview_enabled", { feature: "stars", level: preset.id });
-                          }
-                        }}
-                        className={`rounded-md border px-2 py-1.5 text-[10px] font-semibold transition ${
-                          renderOptions.premiumStars === preset.id
-                          ? "border-amber-300 bg-amber-100 !text-midnight"
-                            : "border-white/15 bg-white/10 text-white"
-                        }`}
-                      >
-                        {!paid && preset.id !== "off" ? "🔒 " : ""}{preset.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] text-neutral-300">Premium Planets</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { id: "off", label: "Off" },
-                      { id: "realistic", label: "Realistic" },
-                    ].map((preset) => (
-                      <button
-                        key={preset.id}
-                        type="button"
-                        onClick={() => {
-                          setRenderOptions({ premiumPlanets: preset.id as RenderOptions["premiumPlanets"] });
-                          if (!paid && preset.id !== "off") {
-                            track("premium_preview_enabled", { feature: "planets", level: preset.id });
-                          }
-                        }}
-                        className={`rounded-md border px-2 py-1.5 text-[10px] font-semibold transition ${
-                          renderOptions.premiumPlanets === preset.id
-                          ? "border-amber-300 bg-amber-100 !text-midnight"
-                            : "border-white/15 bg-white/10 text-white"
-                        }`}
-                      >
-                        {!paid && preset.id !== "off" ? "🔒 " : ""}{preset.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              <AdvancedPanel
+                selectedStyle={selectedStyle}
+                renderOptions={renderOptions}
+                setRenderOptions={setRenderOptions}
+                textBoxes={textBoxes}
+                setTextBoxes={setTextBoxes}
+                previewFidelity={previewFidelity}
+                setPreviewFidelity={setPreviewFidelity}
+                paid={paid}
+                onPremiumPreview={(feature, level) =>
+                  track("premium_preview_enabled", { feature, level })
+                }
+              />
             </section>
           </div>
         </EditorDrawer>
