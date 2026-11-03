@@ -62,14 +62,17 @@ import { extendPrintAssetTtlForFulfillment } from "@/lib/printAssetFulfillment";
 import { bindAcceptedPrintfulIdentityThenReview } from "@/lib/printFulfillmentPostSubmit";
 import {
   claimAlternateFulfillmentDispatch,
+  getPrintOrderAuthorityState,
   isPrintOrderAuthorityBindError,
   isPrintOrderAuthorityClaimError,
   isPrintOrderFailureAlertError,
   PrintOrderAuthorityBindError,
   PrintOrderAuthorityClaimError,
   PrintOrderFailureAlertError,
+  projectPrintOrderWithAuthority,
   seedPrintOrderAuthorityFromKv,
 } from "@/lib/printOrderAuthority";
+import { setPrintFulfillmentIndex } from "@/lib/printFulfillmentIndex";
 import { sendPrintOrderConfirmation } from "@/lib/printOrderConfirmation";
 import {
   applyCheckoutRecoveryDeliveredSessionFields,
@@ -2036,6 +2039,122 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     });
     return;
   }
+
+  // #550 (fresh-eyes audit N1): the retry route's post-await
+  // stand-down (S96 follow-up F-1), mirrored for this pass. Every
+  // guard above ran BEFORE this pass's long awaits (the asset-TTL
+  // extensions, the optional recipient-refresh retrieve); an operator
+  // resolve landing during those awaits binds the manually fulfilled
+  // order in the authority and projects `sent` to KV, and the resolve
+  // route never calls Printful — so provider-side idempotency
+  // (external_id = session id) cannot reconcile the manual order, and
+  // submitting anyway would manufacture a SECOND confirmed order
+  // whose post-submit authority bind refuses only after the provider
+  // side effect. Re-read the authority AND the KV record here, at the
+  // read that decides dispatch, and stand down on any movement with
+  // the retry route's postures: bound repair projected onto the FRESH
+  // record, the resolved KV mirror left standing, a moved alternate
+  // claim surfaced for reconciliation like the found-marker refusal
+  // below. An unreadable authority fails closed — the throw keeps the
+  // Stripe event retryable and nothing is dispatched. Like the retry
+  // route, this narrows the window to the accepted final-read
+  // doctrine; it does not claim an atomic guarantee against a resolve
+  // landing between this re-read and the provider call itself.
+  const standDownIfFulfillmentMoved = async (): Promise<boolean> => {
+    const freshAuthority = await getPrintOrderAuthorityState(session.id);
+    if (!freshAuthority) {
+      throw new PrintOrderAuthorityClaimError("authority_unread");
+    }
+    const freshExisting = await kv.get<PrintOrderRecord>(printOrderKey(session.id));
+    // This pass has claimed nothing yet (the alternate claim belongs
+    // to the tail below), so ANY standing authority claim was made by
+    // a concurrent pass (an admin retry dispatching to the alternate
+    // destination, or a claim seeded from a standing KV marker).
+    const claimMoved = Boolean(freshAuthority.alternateDispatchClaim);
+    const freshAlternateDispatch = freshExisting?.alternateDispatch ?? null;
+    const admissionAlternateDispatch = existing?.alternateDispatch ?? null;
+    const alternateDispatchMoved = Boolean(
+      freshAlternateDispatch &&
+        freshAlternateDispatch.state === "accepted" &&
+        (!admissionAlternateDispatch ||
+          admissionAlternateDispatch.dispatchId !== freshAlternateDispatch.dispatchId ||
+          admissionAlternateDispatch.state !== freshAlternateDispatch.state),
+    );
+    const lifecycleMoved =
+      freshAuthority.lifecycle === "terminal_failed" ||
+      freshAuthority.lifecycle === "bound" ||
+      freshAuthority.lifecycle === "operator_recovered" ||
+      Boolean(freshAuthority.printfulOrderId);
+    const kvMoved = Boolean(
+      freshExisting &&
+        (freshExisting.operatorResolvedAt ||
+          freshExisting.status === "sent" ||
+          (freshExisting.printfulOrderId &&
+            String(freshExisting.printfulOrderId) !== String(existing?.printfulOrderId ?? ""))),
+    );
+    if (!lifecycleMoved && !kvMoved && !claimMoved && !alternateDispatchMoved) return false;
+
+    if (freshAuthority.lifecycle === "terminal_failed") {
+      // The terminal state is authority-owned (the Printful webhook's
+      // terminal handler persists it to KV); write nothing over it.
+      console.warn("Print order reached terminal failure during the webhook pass; standing down", {
+        sessionId: session.id,
+      });
+      return true;
+    }
+    if (
+      (freshAuthority.lifecycle === "bound" ||
+        freshAuthority.lifecycle === "operator_recovered") &&
+      freshAuthority.printfulOrderId &&
+      freshExisting
+    ) {
+      // Bound repair, projected onto the FRESH record so the repair
+      // cannot revert the resolve (or anything else) that landed
+      // mid-pass — the retry route's admission/stand-down posture.
+      const boundOrder = projectPrintOrderWithAuthority(freshExisting, freshAuthority);
+      assertPrintOrderRetained(
+        await persistPrintOrderRecord(session.id, boundOrder, { allowClearTerminalFailure: true }),
+      );
+      await setPrintFulfillmentIndex(freshAuthority.printfulOrderId, session.id);
+      void sendPrintOrderConfirmation(session.id).catch((error) => {
+        console.warn("Print confirmation email failed on moved-authority webhook stand-down", {
+          sessionId: session.id,
+          error,
+        });
+      });
+      return true;
+    }
+    if (claimMoved || alternateDispatchMoved) {
+      // A concurrent pass may already have dispatched this order to
+      // the alternate destination; surface it for reconciliation
+      // exactly like the found-marker refusal below. The problem
+      // persist goes through the latest-merged failure helper, so a
+      // completion landing during it still stands.
+      const movedMarker = freshAlternateDispatch ?? admissionAlternateDispatch;
+      await persistProblemPrintOrder({
+        ...payload,
+        printAssetUrl,
+        status: "failed",
+        error: "alternate_dispatch_reconciliation_required",
+        ...(movedMarker ? { alternateDispatch: movedMarker } : {}),
+      });
+      return true;
+    }
+    // KV-only movement: a resolve with no provider ID leaves the
+    // authority unbound, so the resolved KV mirror is the evidence —
+    // it stands untouched; write nothing over the operator's record.
+    if (freshExisting?.status === "sent") {
+      void sendPrintOrderConfirmation(session.id).catch((error) => {
+        console.warn("Print confirmation email retry on sent order failed", error);
+      });
+    }
+    console.warn("Print order fulfillment moved during the webhook pass; standing down", {
+      sessionId: session.id,
+    });
+    return true;
+  };
+
+  if (await standDownIfFulfillmentMoved()) return;
 
   if (payload.merchCatalogVariantId) {
     if (isPrintfulV2Configured()) {
