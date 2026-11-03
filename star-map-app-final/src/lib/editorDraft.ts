@@ -450,6 +450,7 @@ function normalizeRenderOptions(value: unknown): ValidationResult<Partial<Render
     premiumPlanets: new Set(["off", "realistic"]),
     planetEmphasis: new Set(["normal", "highlighted"]),
     moonSize: new Set(["normal", "large"]),
+    frameStyle: new Set(["classic", "double", "hairline"]),
     shapeMask: VALID_SHAPES,
   } as const;
 

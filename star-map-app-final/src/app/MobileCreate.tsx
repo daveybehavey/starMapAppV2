@@ -14,6 +14,7 @@ import type { RenderModeId } from "@/lib/renderModes";
 import { aspectRatioToNumber } from "@/lib/renderSky";
 import { BortleControl } from "@/components/BortleControl";
 import { ASPECT_OPTIONS } from "@/lib/aspectOptions";
+import { FRAME_STYLE_OPTIONS, resolveFrameStyle } from "@/lib/frameStyle";
 import { styles, fontOptions, visualModes, shapes, constellationPresets, mapLookTiers } from "@/lib/config";
 import { applyMapLookTier, applyTierTypographyProtected, resolveMapLookTier, type MapLookTier } from "@/lib/mapLookTiers";
 import { proPresets } from "@/lib/proPresets";
@@ -1422,6 +1423,24 @@ export function MobileCreate({
               >
                 {renderOptions.frameEnabled ? "Frame Border On" : "Frame Border Off"}
               </button>
+              {renderOptions.frameEnabled && (
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  {FRAME_STYLE_OPTIONS.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => setRenderOptions({ frameStyle: option.id })}
+                      className={`flex items-center justify-center rounded-lg border px-2 py-2 text-xs font-semibold transition active:scale-95 ${
+                        resolveFrameStyle(renderOptions.frameStyle) === option.id
+                          ? "border-amber-400 bg-amber-400 !text-midnight"
+                          : "border-white/15 bg-white/5 text-white"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </section>
 
             {/* Advanced */}

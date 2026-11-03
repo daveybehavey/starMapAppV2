@@ -240,6 +240,10 @@ function sanitizeRenderOptions(options: Record<string, unknown>) {
     // legacy (and a legacy design must stay absent, not gain a key).
     "shapeLayoutVersion",
     "frameEnabled",
+    // #503: persisted so a saved design keeps its frame rule style —
+    // without it a Double/Fine design comes back from the server as
+    // Classic (the sanitizer drops every unlisted key).
+    "frameStyle",
     "bortleClass",
     "backgroundColor",
     "constellationColor",

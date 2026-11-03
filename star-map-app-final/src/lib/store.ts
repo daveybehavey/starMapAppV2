@@ -111,6 +111,14 @@ export interface RenderOptions {
    */
   shapeLayoutVersion?: number;
   frameEnabled: boolean;
+  /**
+   * Frame rule style (PROD-SM W3-5, #503): "classic" is the single
+   * rule every design has always rendered; "double" adds a second
+   * hairline rule outside it; "hairline" is a single fine rule.
+   * Absent means classic — a saved design's stored value, including
+   * its absence, is carried verbatim (see frameStyle.ts).
+   */
+  frameStyle?: "classic" | "double" | "hairline";
   /** Background-only sky brightness: 1 darkest, 9 city sky; absent means 4.5. */
   bortleClass?: number;
   backgroundColor?: string;

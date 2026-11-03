@@ -12,6 +12,7 @@ import {
 } from "@/lib/renderSky";
 import { getExportDimensions } from "@/lib/aspectRatio";
 import { ASPECT_OPTIONS } from "@/lib/aspectOptions";
+import { FRAME_STYLE_OPTIONS, resolveFrameStyle } from "@/lib/frameStyle";
 import { ShapeIcon } from "@/components/ShapeIcon";
 
 import { buildStarMapDownloadFilename } from "@/lib/downloadFilename";
@@ -885,6 +886,10 @@ export function EditorExperience({
           // as the legacy default (absent), never inheriting the
           // fresh-session value by the merge.
           bortleClass: draft.renderOptions.bortleClass,
+          // Same pin for the frame style (#503): a draft without one
+          // restores as classic (absent), never inheriting a
+          // Double/Fine value the shared store already carries.
+          frameStyle: draft.renderOptions.frameStyle,
         },
         sampleDesignLastAutoSynced: draft.sampleDesignLastAutoSynced,
         // Same confirmed-location predicate as Generate / auto-reveal — a named
@@ -1085,6 +1090,11 @@ export function EditorExperience({
           // a non-default value from the draft-restored session state
           // this merge runs against.
           bortleClass: recipe.renderOptions.bortleClass,
+          // Same pin for the frame style (#503): a saved design
+          // without one hydrates as classic (absent), never inheriting
+          // a Double/Fine selection from the draft-restored session
+          // state this merge runs against.
+          frameStyle: recipe.renderOptions.frameStyle,
         });
       }
       if (recipe.selectedOccasion) {
@@ -3362,6 +3372,29 @@ export function EditorExperience({
                                       >
                                         {renderOptions.frameEnabled ? "Frame Border On" : "Frame Border Off"}
                                       </button>
+                                      {renderOptions.frameEnabled && (
+                                        <div className="mt-2 grid grid-cols-3 gap-2">
+                                          {FRAME_STYLE_OPTIONS.map((option) => {
+                                            const isSelected =
+                                              resolveFrameStyle(renderOptions.frameStyle) === option.id;
+
+                                            return (
+                                              <button
+                                                key={option.id}
+                                                type="button"
+                                                onClick={() => setRenderOptions({ frameStyle: option.id })}
+                                                className={`flex items-center justify-center rounded-lg border px-2 py-2 text-xs font-semibold transition hover:-translate-y-[1px] hover:shadow-md ${
+                                                  isSelected
+                                                    ? "!text-midnight border-amber-400 bg-amber-400 shadow-amber-500/20"
+                                                    : "border-white/15 bg-white/5 text-white hover:border-amber-400/50"
+                                                }`}
+                                              >
+                                                {option.label}
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
                                     </>
                                   )}
                                 </section>
