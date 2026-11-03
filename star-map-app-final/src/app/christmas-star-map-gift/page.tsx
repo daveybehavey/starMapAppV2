@@ -37,10 +37,6 @@ import type { Metadata } from "next";
 
 export const revalidate = 86400;
 
-type PageProps = {
-  searchParams?: Promise<{ christmas_now?: string }>;
-};
-
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 const ogImage = `${siteUrl}/custom-star-map-anniversary.webp`;
 const breadcrumbs = [
@@ -68,9 +64,10 @@ export const metadata: Metadata = {
 
 const loveItFaq = getLoveItGuaranteeFaq();
 
-export default async function ChristmasStarMapGiftPage({ searchParams }: PageProps) {
-  const params = (await searchParams) ?? {};
-  const clockMs = resolveChristmasCampaignNowMs({ override: params.christmas_now });
+export default async function ChristmasStarMapGiftPage() {
+  // Real clock only: the campaign phase must never be visitor-controllable
+  // (a `christmas_now` search param override shipped until 2026-11-03 — #531).
+  const clockMs = resolveChristmasCampaignNowMs();
   const shippingDisclosure = getPrintShippingDisclosure();
   const productionReviewTrustPoint = getPrintProductionReviewTrustPoint();
   const bundlePriceLine = getFramedHdBundlePriceLine();
