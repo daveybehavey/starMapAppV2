@@ -9,6 +9,7 @@ import {
   isPrintfulOrderHoldWebhookType,
   holdProviderIdConflicts,
   mergeHoldAnnotationsIntoLatestRecord,
+  mergeTerminalFailureIntoLatestRecord,
   PRINTFUL_ORDER_FAILURE_WEBHOOK_TYPES,
   PRINTFUL_ORDER_HOLD_WEBHOOK_TYPE,
 } from "./printfulWebhookOrderEvents.harness.mjs";
@@ -202,6 +203,118 @@ test("S96-1 F7: package_shipped with an unresolved session is retryable (503), n
   // The pre-F7 shape — a 200 "ignored" ACK for the unresolved case —
   // must not return: it dropped the shipment notification permanently.
   assert.doesNotMatch(handler, /status: "ignored",\s+reason: "session_unresolved"/);
+});
+
+/* ================= #551 N2 — terminal persist merges onto the latest record ================= */
+
+const terminalBase = {
+  sessionId: "cs_terminal_merge",
+  status: "sent",
+  printfulOrderId: "8811",
+  createdAt: 1_700_000_000_000,
+};
+const terminalProjection = {
+  ...terminalBase,
+  status: "failed",
+  error: "printful_order_failed:status=failed",
+  terminalEventType: "order_failed",
+  operatorFailureAlertedAt: 1_700_000_100_000,
+  operatorFailureAlertProvider: "resend",
+  operatorFailureAlertError: undefined,
+};
+
+test("#551 N2: shipment annotations landing during the review/alert awaits survive the terminal persist", () => {
+  // The shipping writer anchors the shipment fact + delivered-email
+  // stamp onto the (failed) record while the terminal pass is suspended
+  // in its file review / alert awaits. The merge must keep them, or the
+  // persist erases the shipment and a later event resends the email.
+  const merged = mergeTerminalFailureIntoLatestRecord({
+    fresh: {
+      ...terminalBase,
+      shippedAt: 1_700_000_090_000,
+      shippingNotificationSentAt: 1_700_000_091_000,
+      shippingNotificationProvider: "resend",
+      shippingNotificationTrackingNumber: "9400111899223856928499",
+      shippingNotificationMessageId: "msg_ship_1",
+    },
+    terminal: terminalProjection,
+  });
+  assert.equal(merged.status, "failed");
+  assert.equal(merged.error, "printful_order_failed:status=failed");
+  assert.equal(merged.terminalEventType, "order_failed");
+  assert.equal(merged.shippedAt, 1_700_000_090_000);
+  assert.equal(merged.shippingNotificationSentAt, 1_700_000_091_000);
+  assert.equal(merged.shippingNotificationTrackingNumber, "9400111899223856928499");
+  assert.equal(merged.shippingNotificationMessageId, "msg_ship_1");
+  assert.equal(merged.operatorFailureAlertedAt, 1_700_000_100_000);
+});
+
+test("#551 N2: the terminal projection clears a hold episode recorded on the fresh record", () => {
+  const merged = mergeTerminalFailureIntoLatestRecord({
+    fresh: {
+      ...terminalBase,
+      providerHoldAt: 1_700_000_050_000,
+      providerHoldReason: "address_issue",
+      providerHoldOrderStatus: "onhold",
+      operatorHoldAlertedAt: 1_700_000_050_500,
+      operatorHoldAlertProvider: "resend",
+      operatorHoldEscalatedAt: 1_700_000_060_000,
+    },
+    terminal: terminalProjection,
+  });
+  assert.equal(merged.providerHoldAt, undefined);
+  assert.equal(merged.providerHoldReason, undefined);
+  assert.equal(merged.providerHoldOrderStatus, undefined);
+  assert.equal(merged.operatorHoldAlertedAt, undefined);
+  assert.equal(merged.operatorHoldEscalatedAt, undefined);
+});
+
+test("#551 N2: a concurrent delivery's failure-alert success is never regressed by this pass's alert error", () => {
+  const merged = mergeTerminalFailureIntoLatestRecord({
+    fresh: {
+      ...terminalBase,
+      operatorFailureAlertedAt: 1_700_000_099_500,
+      operatorFailureAlertProvider: "resend",
+    },
+    terminal: {
+      ...terminalProjection,
+      operatorFailureAlertedAt: undefined,
+      operatorFailureAlertProvider: "resend",
+      operatorFailureAlertError: "print_alert_not_configured",
+    },
+  });
+  assert.equal(merged.operatorFailureAlertedAt, 1_700_000_099_500);
+  assert.equal(merged.operatorFailureAlertProvider, "resend");
+  assert.equal(merged.operatorFailureAlertError, undefined);
+});
+
+test("#551 N2: unrelated fresh fields (resolve stamps, file-review state) survive untouched", () => {
+  const merged = mergeTerminalFailureIntoLatestRecord({
+    fresh: {
+      ...terminalBase,
+      operatorResolvedAt: 1_700_000_080_000,
+      operatorResolvedNote: "refunded via Stripe",
+      fileReviewState: "failed",
+      fileReviewCheckedAt: 1_700_000_085_000,
+    },
+    terminal: terminalProjection,
+  });
+  assert.equal(merged.operatorResolvedAt, 1_700_000_080_000);
+  assert.equal(merged.operatorResolvedNote, "refunded via Stripe");
+  assert.equal(merged.fileReviewState, "failed");
+  assert.equal(merged.fileReviewCheckedAt, 1_700_000_085_000);
+});
+
+test("#551 N2: the terminal handler re-reads and merges before persisting (pinned in source)", () => {
+  assert.match(eventsSource, /mergeTerminalFailureIntoLatestRecord\(\{ fresh, terminal: nextRecord \}\)/);
+  assert.match(
+    eventsSource,
+    /persistPrintOrderRecord\(sessionId, recordToPersist, \{ allowClearTerminalFailure: true \}\)/,
+  );
+  // The alert_failed outcome is decided on the MERGED record, so a
+  // concurrent delivery's recorded success does not surface as a
+  // retryable alert failure for this pass.
+  assert.match(eventsSource, /if \(recordToPersist\.operatorFailureAlertError\)/);
 });
 
 test("S96-1 F7: package_shipped with a resolved session but no tracking stays a 200 ignore (pinned, deliberate)", () => {

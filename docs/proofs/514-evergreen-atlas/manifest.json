@@ -1,0 +1,594 @@
+{
+  "baseline": "f420491c298c3b259f9e56973ee6a36c23f2770a",
+  "browser": "Chromium 154.0.8037.57 built on Debian GNU/Linux 13 (trixie)",
+  "node": "v24.19.0",
+  "platform": "linux",
+  "fonts": [
+    {
+      "file": "src/fonts/abril-fatface/latin-400-normal.woff2",
+      "sha256": "a177f542e3506952479f8ee19c5f3fd6d20ac2e030b17e86c39a473931c990bf"
+    },
+    {
+      "file": "src/fonts/bebas-neue/latin-400-normal.woff2",
+      "sha256": "02f5dfc0c21e92f3c724260f035833e627513a1b91230cc490a1ea756c95e5e5"
+    },
+    {
+      "file": "src/fonts/cinzel/latin-600-normal.woff2",
+      "sha256": "1c7206d2e9bc595f6b43967784e9be40d562a4744e77351a57ae674a355b9f77"
+    },
+    {
+      "file": "src/fonts/cinzel/latin-700-normal.woff2",
+      "sha256": "f763485b99e209a68b3242ffd83cdf30805fec91a112c8928c4f2e08daa962e2"
+    },
+    {
+      "file": "src/fonts/cormorant-garamond/latin-400-normal.woff2",
+      "sha256": "a9ff7df676353c21f7159a220f19b7d60b53910351ae822322b5280f30664acf"
+    },
+    {
+      "file": "src/fonts/cormorant-garamond/latin-600-normal.woff2",
+      "sha256": "066ec1ac2852906b7e7253ee3c129e0efd2343d8671712db064502f03228ccb0"
+    },
+    {
+      "file": "src/fonts/cormorant-garamond/latin-700-normal.woff2",
+      "sha256": "e15b441759854e4477fe214540848ceb993199d31c04bc59691dde7ed5621eb7"
+    },
+    {
+      "file": "src/fonts/crimson-text/latin-400-normal.woff2",
+      "sha256": "538c7067580f457dd3dd98ebaabeb19405c12bdd01674d3db8fd9948ee73c862"
+    },
+    {
+      "file": "src/fonts/crimson-text/latin-600-normal.woff2",
+      "sha256": "e2ca4f57a77f4db70d61c4d16e748545ce2000e0252be1f67fa1c964040f9b9b"
+    },
+    {
+      "file": "src/fonts/crimson-text/latin-700-normal.woff2",
+      "sha256": "60b9b9640fc716abd752df41f38ad81052f4905e42be2ff3c1f78e851863aee0"
+    },
+    {
+      "file": "src/fonts/dancing-script/latin-400-normal.woff2",
+      "sha256": "3270680fc889eabfb9c410ee690161071f237679a90171a0a67b09142b8d382c"
+    },
+    {
+      "file": "src/fonts/dancing-script/latin-700-normal.woff2",
+      "sha256": "5d4be9b48daf94c066be36452f1deefac642838b4d837823c609fc2487ea586c"
+    },
+    {
+      "file": "src/fonts/eb-garamond/latin-400-normal.woff2",
+      "sha256": "84c17105788a238a73b3eb0bfb1014d86bca1cb71e3f35fe2a4f3ff07b0061f8"
+    },
+    {
+      "file": "src/fonts/eb-garamond/latin-600-normal.woff2",
+      "sha256": "f5f13371c1a292322fdc2ff105eb945e7affc034274f40aaee7a3a3e632433b9"
+    },
+    {
+      "file": "src/fonts/eb-garamond/latin-700-normal.woff2",
+      "sha256": "1fcc7725dd505ac22fa021eb5cb4ed1df855eafecc3cf25bc30b451f6452a9f2"
+    },
+    {
+      "file": "src/fonts/great-vibes/latin-400-normal.woff2",
+      "sha256": "e8c62da52a549f8c58a539d4042f306d099235a23acee00e4015e825d573b50d"
+    },
+    {
+      "file": "src/fonts/libre-baskerville/latin-400-normal.woff2",
+      "sha256": "6c6c9c3fad669c3d32227f5cc3467735c8211ddcf4f8c184c2e62e7f3ef7af44"
+    },
+    {
+      "file": "src/fonts/libre-baskerville/latin-700-normal.woff2",
+      "sha256": "658cbf469e751ade6d30b701fc7ca00b3403329481955d30acb721ca38b45d99"
+    },
+    {
+      "file": "src/fonts/lora/latin-400-normal.woff2",
+      "sha256": "5aaa941328e6c9b4c140a8dfb8ab73187627cbf522c4b3309c71ec68be0b6325"
+    },
+    {
+      "file": "src/fonts/lora/latin-600-normal.woff2",
+      "sha256": "9e964a36ee21838ed041f66806e9e412e4362e2c4c26f6cd719288ec71b33ead"
+    },
+    {
+      "file": "src/fonts/lora/latin-700-normal.woff2",
+      "sha256": "d359880fa99ef4c99b45828b69ea479bbe8a98acad2dab05fa033fdcf161101c"
+    },
+    {
+      "file": "src/fonts/montserrat/latin-400-normal.woff2",
+      "sha256": "1c9c85d0b73b7321eb8ed22e0b6bcd577478dd5f99d1379a5d4cea10884033ac"
+    },
+    {
+      "file": "src/fonts/montserrat/latin-600-normal.woff2",
+      "sha256": "8adb87ca2ec37af37dfb66aacc7f841b279b0420299491f5371225a4dc8fb3ba"
+    },
+    {
+      "file": "src/fonts/montserrat/latin-700-normal.woff2",
+      "sha256": "1c162da32d36f79b447183d7c9d7b3888c2e4d44abf36c63550898f8f32bcb88"
+    },
+    {
+      "file": "src/fonts/parisienne/latin-400-normal.woff2",
+      "sha256": "cf3c285d1ec1ee935746c475ca71e20d9f1fc3b5d62166e2523acdd0737e239c"
+    },
+    {
+      "file": "src/fonts/playfair-display/latin-400-normal.woff2",
+      "sha256": "51c8eae79bf05bbcc1811da8cb56ff69d87d40bafdce8282fea8a43259b4afcb"
+    },
+    {
+      "file": "src/fonts/playfair-display/latin-600-normal.woff2",
+      "sha256": "4ac034337b5b7e75044750ffda722eb16047029742831f753a65f77840dfd538"
+    },
+    {
+      "file": "src/fonts/playfair-display/latin-700-normal.woff2",
+      "sha256": "1b84e1dfe5a2e44e2252547b665a68b2c6d2b9108e06a4937c3afb5f3090ba9a"
+    },
+    {
+      "file": "src/fonts/poppins/latin-400-normal.woff2",
+      "sha256": "7d93459d86585bfcdbb7e0376056226adb25821ee54b96236fe2123e9560929f"
+    },
+    {
+      "file": "src/fonts/poppins/latin-600-normal.woff2",
+      "sha256": "f4e80d9dfd374d02989b87a27b5ed4cb78fbb177c27f1478e9a8b0afb7513149"
+    },
+    {
+      "file": "src/fonts/poppins/latin-700-normal.woff2",
+      "sha256": "9338e65fc077355c7a87ae0d64cc101e23b9bf8ad78ae65f0f319c857311b526"
+    },
+    {
+      "file": "src/fonts/raleway/latin-400-normal.woff2",
+      "sha256": "3e44fb721d3be9376c6e5e946109067a04da84ae10b3f27a03ada7a3731e515c"
+    },
+    {
+      "file": "src/fonts/raleway/latin-600-normal.woff2",
+      "sha256": "17168fb5bddeac8a2d5fa5eb5d13f5cb4c6e380fb68f9202740a8e645bd1d7fd"
+    },
+    {
+      "file": "src/fonts/raleway/latin-700-normal.woff2",
+      "sha256": "109736135dc84f02f379825bd2b48998e17068eaf1f085df5f52e80537a4257d"
+    }
+  ],
+  "files": [
+    {
+      "file": "baseline.json",
+      "sha256": "158023318937e132fd627fb423bee925db40fd40795af4da8a20901d8c6f2e19"
+    },
+    {
+      "file": "contact-sheet.png",
+      "sha256": "5ff94173fda767e2441103d49b37230045aa2f73752d26d07d15a3445d967052"
+    },
+    {
+      "file": "contrast.json",
+      "sha256": "1c0e527f21b49d413a8dc521d9141aa7596365294feb0c3a82309a086ab71176"
+    },
+    {
+      "file": "digital-6000.json",
+      "sha256": "230a9b3f0418e15de2fe0aa165aac362e7baf93d86ccc2a651f53691fbf97db5"
+    },
+    {
+      "file": "evergreenAtlas-6000.png",
+      "sha256": "c945783b307369a09ce215ba8b5fb00e01be06f57357bc74c80e45a403c067b2"
+    },
+    {
+      "file": "evergreenAtlas-circle.png",
+      "sha256": "03dba7747cc959ff5d8be6f26281ba4324e4d1b91a3b03f96b30d7fffc53af6a"
+    },
+    {
+      "file": "evergreenAtlas-rectangle.png",
+      "sha256": "f5606bfdcea0c8768e611243ab14beeb73e02cf24dfa54efd9bac4b7014af233"
+    },
+    {
+      "file": "fixture-recipe.json",
+      "sha256": "34bf018e08612a17488adc170be8dabfbdeb72e2183034f673783f6330ba4926"
+    },
+    {
+      "file": "identity.json",
+      "sha256": "76a67bad6ef12e762ca5696c707c3bb0821730680672b548614b9b6274c8ff57"
+    },
+    {
+      "file": "label-contrast.json",
+      "sha256": "cb64756f1509359a445a447205311fb00271504e75e994cf3f8f3628b16de03b"
+    },
+    {
+      "file": "midnightMinimal-circle.png",
+      "sha256": "87bbd097a3fcb50e8c6b4451559485208857144d4b188c27f3b98c5156419457"
+    },
+    {
+      "file": "midnightMinimal-rectangle.png",
+      "sha256": "4e19074b758e4415ef545c6ca7f59603c0d76b432cf51da0977f5b3cf60f846a"
+    },
+    {
+      "file": "mode-contact-sheet.png",
+      "sha256": "25ca704f25683c8c8998767ca69d9e3a9b7003a4f81f183203dbfbd877fd7406"
+    },
+    {
+      "file": "mode-custom-astronomical-blueprint.png",
+      "sha256": "3e883856479b3e2822de1a038ecb3b56a2217be99719260e428a17b2362496d4"
+    },
+    {
+      "file": "mode-custom-astronomical-cinematic.png",
+      "sha256": "de16e8acb352893024287143f00aa9009c84823485ff3749ddbef7ead8ffaf41"
+    },
+    {
+      "file": "mode-custom-astronomical-classic.png",
+      "sha256": "ec19f5732129b92767cb8cbf61e0137495984217e93819d35a9afc361bcc6c03"
+    },
+    {
+      "file": "mode-custom-astronomical-luxe.png",
+      "sha256": "ec19f5732129b92767cb8cbf61e0137495984217e93819d35a9afc361bcc6c03"
+    },
+    {
+      "file": "mode-custom-enhanced-blueprint.png",
+      "sha256": "6dcf2b0326a28144d8144af1d269625c7e64b4e638c519d910611d3ace4697ea"
+    },
+    {
+      "file": "mode-custom-enhanced-cinematic.png",
+      "sha256": "6607f32c1b4d1904994c059bea46f2ca1ec2ee7ee5b78fd3f33027153e372020"
+    },
+    {
+      "file": "mode-custom-enhanced-classic.png",
+      "sha256": "30fda64a80da00a173ea2b6e3c99175fb6c435e6fadfc3f224c791ff81a44b3d"
+    },
+    {
+      "file": "mode-custom-enhanced-luxe.png",
+      "sha256": "30fda64a80da00a173ea2b6e3c99175fb6c435e6fadfc3f224c791ff81a44b3d"
+    },
+    {
+      "file": "mode-custom-illustrated-blueprint.png",
+      "sha256": "c6b77480b771245b77bda78452d311a45850a7e1e27aca20ccd276e1b55037b4"
+    },
+    {
+      "file": "mode-custom-illustrated-cinematic.png",
+      "sha256": "311dea8a15d573eafc65658fc2b724216e471d1c374437e3ac74e40ff70ea395"
+    },
+    {
+      "file": "mode-custom-illustrated-classic.png",
+      "sha256": "e4a182ca33731f1358abcb7200e0494e25fa582588cd4d9d918df92a60e12744"
+    },
+    {
+      "file": "mode-custom-illustrated-luxe.png",
+      "sha256": "e4a182ca33731f1358abcb7200e0494e25fa582588cd4d9d918df92a60e12744"
+    },
+    {
+      "file": "mode-matrix.json",
+      "sha256": "4bc8b2562ba15cff11ed758731f101c07ad236a27aa055ae6024363dd37597d2"
+    },
+    {
+      "file": "mode-minimal-astronomical-blueprint.png",
+      "sha256": "608803c989a13f0f3a7f3b5513acdde5d063fdad46192bc8d597a88cd43ff6b5"
+    },
+    {
+      "file": "mode-minimal-astronomical-cinematic.png",
+      "sha256": "522e83556f983aa66f2b0db326f657f30fd9ed8931ea9f7cd65c7b26750ee69d"
+    },
+    {
+      "file": "mode-minimal-astronomical-classic.png",
+      "sha256": "b63edc1e7ec4a10201dc1e8e38fb3c10a630ff0168110f0c02db739faf2d0306"
+    },
+    {
+      "file": "mode-minimal-astronomical-luxe.png",
+      "sha256": "b63edc1e7ec4a10201dc1e8e38fb3c10a630ff0168110f0c02db739faf2d0306"
+    },
+    {
+      "file": "mode-minimal-enhanced-blueprint.png",
+      "sha256": "df9dcf1bb7cb7c731eb130ad11ca90edf813cc0238f66c0c62b9cf04444cf3c5"
+    },
+    {
+      "file": "mode-minimal-enhanced-cinematic.png",
+      "sha256": "74bb6b9a649a2bb4eaa076eb52b2c21def6b9be968431a3efc5fb38a519ed52a"
+    },
+    {
+      "file": "mode-minimal-enhanced-classic.png",
+      "sha256": "b532484bc0f6862b4dfe74e646f4c20c33e753deff9449b9473f177057dcd4ec"
+    },
+    {
+      "file": "mode-minimal-enhanced-luxe.png",
+      "sha256": "b532484bc0f6862b4dfe74e646f4c20c33e753deff9449b9473f177057dcd4ec"
+    },
+    {
+      "file": "mode-minimal-illustrated-blueprint.png",
+      "sha256": "12b46cc9b34fe19915d679587bd2b8cb99ca643d68ca5d34a76b317ee03c7e65"
+    },
+    {
+      "file": "mode-minimal-illustrated-cinematic.png",
+      "sha256": "2b9a2b20eefeb45add1d8a044cf35d916a1b969c3f9076da74448de99f4d4716"
+    },
+    {
+      "file": "mode-minimal-illustrated-classic.png",
+      "sha256": "36deff4bfb2a2d765bfe11632af01aaeeff232cee4729d2453a8e97db4e74652"
+    },
+    {
+      "file": "mode-minimal-illustrated-luxe.png",
+      "sha256": "36deff4bfb2a2d765bfe11632af01aaeeff232cee4729d2453a8e97db4e74652"
+    },
+    {
+      "file": "mode-polished-astronomical-blueprint.png",
+      "sha256": "6fea87c53d366c7802c989be6aacfac0811c229fe66fd4722bbed4d5ff53e95f"
+    },
+    {
+      "file": "mode-polished-astronomical-cinematic.png",
+      "sha256": "c6fc61587396cc06939f29ed1e14fadc35eb9d3c8790bb22371409c3e6f0a221"
+    },
+    {
+      "file": "mode-polished-astronomical-classic.png",
+      "sha256": "4f5bb0488b1635cea28821e372d4aedefbd672cd751b434878835f8d10714e20"
+    },
+    {
+      "file": "mode-polished-astronomical-luxe.png",
+      "sha256": "4f5bb0488b1635cea28821e372d4aedefbd672cd751b434878835f8d10714e20"
+    },
+    {
+      "file": "mode-polished-enhanced-blueprint.png",
+      "sha256": "1c346d4a1cbfec0427c77a176c2550dcb6168cc2a8b6e03887068b5f7be901ed"
+    },
+    {
+      "file": "mode-polished-enhanced-cinematic.png",
+      "sha256": "597fd83b49b526ea719b1f3932a12cbe4aefc6e28d43e93bd76d4de3875677fe"
+    },
+    {
+      "file": "mode-polished-enhanced-classic.png",
+      "sha256": "dc5e3b9e366efab25a27f971f09cab183289efcaf744b0b8b3e19cca7a8f1c09"
+    },
+    {
+      "file": "mode-polished-enhanced-luxe.png",
+      "sha256": "dc5e3b9e366efab25a27f971f09cab183289efcaf744b0b8b3e19cca7a8f1c09"
+    },
+    {
+      "file": "mode-polished-illustrated-blueprint.png",
+      "sha256": "941c32872f2a80842d44ae89ff7b41467f0a2a6203f33a3034532f0266bb54d3"
+    },
+    {
+      "file": "mode-polished-illustrated-cinematic.png",
+      "sha256": "9fbb3a851c089ace1f35088ccb28280d1d8fa8745f22d3ae05e6f24836a48f00"
+    },
+    {
+      "file": "mode-polished-illustrated-classic.png",
+      "sha256": "d2bcdcbf9680d230c28bc579fe559169119ab97319b473f151c165c0e60433e2"
+    },
+    {
+      "file": "mode-polished-illustrated-luxe.png",
+      "sha256": "d2bcdcbf9680d230c28bc579fe559169119ab97319b473f151c165c0e60433e2"
+    },
+    {
+      "file": "navyGold-circle.png",
+      "sha256": "9c81c6358a1f2418a4f1e0da4ed8e9b52234d31a432b9bb9edf4daee6a8f4268"
+    },
+    {
+      "file": "navyGold-rectangle.png",
+      "sha256": "245a07f21a12797201fe8cdd0f944499f7a9b0c68e0a573ab4391517491aaaf2"
+    },
+    {
+      "file": "old-catalog-identity.json",
+      "sha256": "512cd452f36e1884607a2758b5ebc056e4f8ddabefb76f1e3c9bbcfc11ce22b5"
+    },
+    {
+      "file": "parchmentScroll-circle.png",
+      "sha256": "99ac8e96a26b997103ccbdeca271bc6a1a46cb79ae83fd64dd92448e27c0719f"
+    },
+    {
+      "file": "parchmentScroll-rectangle.png",
+      "sha256": "f8acd40c77257e9fb4874892fe0135f45c3c12b860eac5b1a9103c462ac1fd4b"
+    },
+    {
+      "file": "preset-desktop.png",
+      "sha256": "18a6ecb409970004082c939a2d91e7af098c9dc632e8dc549e010b77c46c4fa5"
+    },
+    {
+      "file": "preset-mobile.png",
+      "sha256": "02ed26326c229908c4aee6eb64001f52641283eeee39603cddd8327b3e2a5afc"
+    },
+    {
+      "file": "proof-1440.png",
+      "sha256": "f83978834ceff82a942848ab7d21da90975423e9cc5f75cff732fc7866110972"
+    },
+    {
+      "file": "proof-390.png",
+      "sha256": "fdb445f186c73934ad0e3d13b3fda76b6143c42c7e4e5db355470086426dff21"
+    },
+    {
+      "file": "selector-desktop.png",
+      "sha256": "8f6ab1624a93334dd596cf12c1d1c7814d7abfb5ca15a466c776e14501b6d0f4"
+    },
+    {
+      "file": "selector-mobile.png",
+      "sha256": "568f6439f62392611e8d06e75fc9f87c957d381d284d132fe27c55c714c3e3bf"
+    },
+    {
+      "file": "shape-circle-2x3-legacy.png",
+      "sha256": "537a147ca7a868d6aad70a3449844e16fcc98d941f375fb9096aa84fea042591"
+    },
+    {
+      "file": "shape-circle-2x3-v2.png",
+      "sha256": "537a147ca7a868d6aad70a3449844e16fcc98d941f375fb9096aa84fea042591"
+    },
+    {
+      "file": "shape-circle-3x4-legacy.png",
+      "sha256": "05ce4f8654f06e3331b9f34964a98624cad9be31948fcabcd264aaa5f0eaf1ce"
+    },
+    {
+      "file": "shape-circle-3x4-v2.png",
+      "sha256": "05ce4f8654f06e3331b9f34964a98624cad9be31948fcabcd264aaa5f0eaf1ce"
+    },
+    {
+      "file": "shape-circle-4x5-legacy.png",
+      "sha256": "6a4656df815d465bb5d98a9babcb4f08eff0d8d2c6ccfb464d8592ca9d6e810c"
+    },
+    {
+      "file": "shape-circle-4x5-v2.png",
+      "sha256": "6a4656df815d465bb5d98a9babcb4f08eff0d8d2c6ccfb464d8592ca9d6e810c"
+    },
+    {
+      "file": "shape-circle-square-legacy.png",
+      "sha256": "6e47d1a36896c1168281f3f7583c5914a648a5e6ce4416fe2a7daeecc72983cb"
+    },
+    {
+      "file": "shape-circle-square-v2.png",
+      "sha256": "6e47d1a36896c1168281f3f7583c5914a648a5e6ce4416fe2a7daeecc72983cb"
+    },
+    {
+      "file": "shape-contact-sheet.png",
+      "sha256": "0502cef420f2fb58fefa6a9fe883d895f116b548431ab3acb08c4f55a4b09b61"
+    },
+    {
+      "file": "shape-diamond-2x3-legacy.png",
+      "sha256": "623a9f5df18ba0e9eeafdedf4660ac3593253b2ccff3e25ddcbd57ec1efcaca9"
+    },
+    {
+      "file": "shape-diamond-2x3-v2.png",
+      "sha256": "c27fed11d438ae2631e5c2d569e7e11eb786823160d6fc5a2c13e65c2e4057cd"
+    },
+    {
+      "file": "shape-diamond-3x4-legacy.png",
+      "sha256": "de27783021634d878cc4608e551e7570656519f76a10421291cfd21ccd9683d4"
+    },
+    {
+      "file": "shape-diamond-3x4-v2.png",
+      "sha256": "e4bb658598e2dfe52b5f92152f6b8e4bb44d309bfde46f47ffc869d377cb96f1"
+    },
+    {
+      "file": "shape-diamond-4x5-legacy.png",
+      "sha256": "06c2153d435e39f97224584bd4093b57b55873fac899f4bb2d48d7d879e2f846"
+    },
+    {
+      "file": "shape-diamond-4x5-v2.png",
+      "sha256": "2b68d6c5c4cbe7db00581d004331bf7070a0d3f0c2a7f82aab8227311a772a8c"
+    },
+    {
+      "file": "shape-diamond-square-legacy.png",
+      "sha256": "3585f448b32f2367ae1a2a778b551dae2dde185bc60295258dd18a60e5728d57"
+    },
+    {
+      "file": "shape-diamond-square-v2.png",
+      "sha256": "3585f448b32f2367ae1a2a778b551dae2dde185bc60295258dd18a60e5728d57"
+    },
+    {
+      "file": "shape-heart-2x3-legacy.png",
+      "sha256": "ea1f36ba6993dc90bfcb6934d578f8aaf510209bf7c2627ddf0e1a67052225cb"
+    },
+    {
+      "file": "shape-heart-2x3-v2.png",
+      "sha256": "ac20cdc367ce384be5857e4ff2ec273c50a9e656b807ec277e4299b07bd3fa21"
+    },
+    {
+      "file": "shape-heart-3x4-legacy.png",
+      "sha256": "7d39b2c82f332eecbeb3ced13e8d3e8b085c68f4a82a297c7cd4a9f37646deed"
+    },
+    {
+      "file": "shape-heart-3x4-v2.png",
+      "sha256": "352c04aa796407ae9d843ff732b789234440a520013dd12f521f7033dd5e7e78"
+    },
+    {
+      "file": "shape-heart-4x5-legacy.png",
+      "sha256": "5359866758be5da6895207f80552d9fc9909d291f3f1ce8c79b3aa69954735a8"
+    },
+    {
+      "file": "shape-heart-4x5-v2.png",
+      "sha256": "3924f7f698f0c7d69b57cc7aa6f60a0971ea873cfc691e028ec095888961ca06"
+    },
+    {
+      "file": "shape-heart-square-legacy.png",
+      "sha256": "cf1dc0b94c5f3f61787565361ffa1ab80236c4fafb8d02ec141b626695752ff3"
+    },
+    {
+      "file": "shape-heart-square-v2.png",
+      "sha256": "cf1dc0b94c5f3f61787565361ffa1ab80236c4fafb8d02ec141b626695752ff3"
+    },
+    {
+      "file": "shape-matrix.json",
+      "sha256": "ab3fea72f67c4ba05d1b5adac9850fccbc6b45b1617dd39812beb2b72871630d"
+    },
+    {
+      "file": "shape-rectangle-2x3-legacy.png",
+      "sha256": "18fe1f525b496ac04ba7265635b126e53775b0000cf9055baa58f8268fec7588"
+    },
+    {
+      "file": "shape-rectangle-2x3-v2.png",
+      "sha256": "18fe1f525b496ac04ba7265635b126e53775b0000cf9055baa58f8268fec7588"
+    },
+    {
+      "file": "shape-rectangle-3x4-legacy.png",
+      "sha256": "71dfe82b9a5cfdbdaf416b0607ffb96d73e84f5a9c85fe0422491e0f1cfe2df9"
+    },
+    {
+      "file": "shape-rectangle-3x4-v2.png",
+      "sha256": "71dfe82b9a5cfdbdaf416b0607ffb96d73e84f5a9c85fe0422491e0f1cfe2df9"
+    },
+    {
+      "file": "shape-rectangle-4x5-legacy.png",
+      "sha256": "0a6925b2b2351ebad336d50be053bc1811fdb347aba44cc07dfa89cd70aa708f"
+    },
+    {
+      "file": "shape-rectangle-4x5-v2.png",
+      "sha256": "0a6925b2b2351ebad336d50be053bc1811fdb347aba44cc07dfa89cd70aa708f"
+    },
+    {
+      "file": "shape-rectangle-square-legacy.png",
+      "sha256": "49fe498352ffd85b781b85426e9146be3ed46331cbcf2257d86988d649cf8093"
+    },
+    {
+      "file": "shape-rectangle-square-v2.png",
+      "sha256": "49fe498352ffd85b781b85426e9146be3ed46331cbcf2257d86988d649cf8093"
+    },
+    {
+      "file": "shape-star-2x3-legacy.png",
+      "sha256": "7f3ee4a47b142741fd958cccaec9c8e37f90b8aefdc530e5603d0c84383edcef"
+    },
+    {
+      "file": "shape-star-2x3-v2.png",
+      "sha256": "63c15709afe67889575021777b3ec804525cc3b13329faa73106d093f4d1223a"
+    },
+    {
+      "file": "shape-star-3x4-legacy.png",
+      "sha256": "3dac70db499d4f9e0dd038975d2c904519c81b0974ca9b5a0b1b13bb07d79dda"
+    },
+    {
+      "file": "shape-star-3x4-v2.png",
+      "sha256": "ddc3492f4d29e680bda14b39aba44085377b57a622c84adb49279b123368061a"
+    },
+    {
+      "file": "shape-star-4x5-legacy.png",
+      "sha256": "f506f7db76870911c48328bce2ac17eca3348d9d50c3902e6bafc7237d0c194c"
+    },
+    {
+      "file": "shape-star-4x5-v2.png",
+      "sha256": "8ea452ef789f08c2574ad09841f36c6c0ff7a3b052ad35034f3a35677da028a8"
+    },
+    {
+      "file": "shape-star-square-legacy.png",
+      "sha256": "1497aa910605ce0bad0a22ed99e8eb6d5627938a1e41b17e8888a5a7402f9a69"
+    },
+    {
+      "file": "shape-star-square-v2.png",
+      "sha256": "1497aa910605ce0bad0a22ed99e8eb6d5627938a1e41b17e8888a5a7402f9a69"
+    },
+    {
+      "file": "source-identity.json",
+      "sha256": "cc4773c10425b88309e1646c5b1b9f321ffa4a86a4ed8f6f12d833bc6d631db2"
+    },
+    {
+      "file": "stars-false-off.png",
+      "sha256": "ddcf6100dede527914da118e3689471866aea1582cb8428bc5f60612e58d333f"
+    },
+    {
+      "file": "stars-false-realistic.png",
+      "sha256": "ddcf6100dede527914da118e3689471866aea1582cb8428bc5f60612e58d333f"
+    },
+    {
+      "file": "stars-false-subtle.png",
+      "sha256": "ddcf6100dede527914da118e3689471866aea1582cb8428bc5f60612e58d333f"
+    },
+    {
+      "file": "stars-true-off.png",
+      "sha256": "ddcf6100dede527914da118e3689471866aea1582cb8428bc5f60612e58d333f"
+    },
+    {
+      "file": "stars-true-realistic.png",
+      "sha256": "7261c6cddfd82386f285ffe07cc1a126c91f38579a5212152049e954e897900d"
+    },
+    {
+      "file": "stars-true-subtle.png",
+      "sha256": "e69e6340abdf9a9adc92374b41cb716bdf325912565b3cd478555935cc31bca9"
+    },
+    {
+      "file": "vintageEngraving-circle.png",
+      "sha256": "392a22483d3cf8ead10711a3d1845de393ddd0d96507697b88d1de8f99d11383"
+    },
+    {
+      "file": "vintageEngraving-rectangle.png",
+      "sha256": "bbc236846acdfd767bb931cb4913a6af4b65f9003a9ea2e1fc861b20aba698d0"
+    }
+  ]
+}

@@ -16,7 +16,10 @@ import { track } from "@/lib/analytics";
 import { hasConfirmedEditorLocation } from "@/lib/editorLocationPrefill";
 import { formatDateTimeForLocation } from "@/lib/dateTime";
 import { resolvePresetTextBoxesOnApply, shouldAutofillPresetSky } from "@/lib/sampleDesignTextSync";
-import { cloneTextBoxWithExplicitBinding } from "@/lib/textStyleBinding";
+import {
+  cloneTextBoxWithExplicitBinding,
+  cloneTextBoxWithNormalizedBinding,
+} from "@/lib/textStyleBinding";
 
 export interface UseEditorLogicOptions {
   /** Editor variant affects default intensity value */
@@ -417,9 +420,13 @@ export function useEditorLogic(options: UseEditorLogicOptions = {}): UseEditorLo
       setSelectedOccasion(id);
       setCustomOccasion(false);
       setStyle(preset.style);
-      // Pro preset typography is authored content (#408): commit explicit
-      // clones so later style/tier actions cannot recolour them.
-      const explicitPresetTextBoxes = preset.textBoxes.map(cloneTextBoxWithExplicitBinding);
+      // Existing presets retain authored typography (#408). Evergreen
+      // intentionally follows automatic style/tier typography (#514).
+      const explicitPresetTextBoxes = preset.textBoxes.map(
+        preset.style === "evergreenAtlas"
+          ? cloneTextBoxWithNormalizedBinding
+          : cloneTextBoxWithExplicitBinding,
+      );
       const styleDefaults = applyStyleDefaults(preset.style, explicitPresetTextBoxes);
       if (Object.keys(styleDefaults.renderOptions).length) {
         setRenderOptions(styleDefaults.renderOptions);

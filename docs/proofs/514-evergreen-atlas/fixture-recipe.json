@@ -1,0 +1,104 @@
+{
+  "version": 1,
+  "seed": "default",
+  "datetimeISO": "2026-11-04T05:00:00Z",
+  "location": {
+    "name": "Victoria",
+    "latitude": 48.4284,
+    "longitude": -123.3656,
+    "timezone": "America/Vancouver"
+  },
+  "textBoxes": [
+    {
+      "id": "title",
+      "label": "Title",
+      "text": "Our Place in the Stars",
+      "fontFamily": "cormorant",
+      "fontWeight": 600,
+      "size": 48,
+      "color": "#E8F0DF",
+      "align": "center",
+      "textShadow": false,
+      "textGlow": false,
+      "position": {
+        "x": 0.5,
+        "y": 0.12
+      },
+      "textStyleBinding": {
+        "color": "automatic",
+        "fontFamily": "automatic",
+        "fontWeight": "automatic"
+      }
+    },
+    {
+      "id": "subtitle",
+      "label": "Subtitle",
+      "text": "Victoria · November 3, 2026",
+      "fontFamily": "montserrat",
+      "fontWeight": 400,
+      "size": 20,
+      "color": "#C8D8BB",
+      "align": "center",
+      "textShadow": false,
+      "textGlow": false,
+      "position": {
+        "x": 0.5,
+        "y": 0.18
+      },
+      "textStyleBinding": {
+        "color": "automatic",
+        "fontFamily": "automatic",
+        "fontWeight": "automatic"
+      }
+    },
+    {
+      "id": "dedication",
+      "label": "Dedication",
+      "text": "Every night, together",
+      "fontFamily": "cormorant",
+      "fontWeight": 400,
+      "size": 22,
+      "color": "#C8D8BB",
+      "align": "center",
+      "textShadow": false,
+      "textGlow": false,
+      "position": {
+        "x": 0.5,
+        "y": 0.88
+      },
+      "textStyleBinding": {
+        "color": "automatic",
+        "fontFamily": "automatic",
+        "fontWeight": "automatic"
+      }
+    }
+  ],
+  "selectedStyle": "evergreenAtlas",
+  "shape": "circle",
+  "aspectRatio": "square",
+  "renderOptions": {
+    "mapLookTier": "polished",
+    "visualMode": "enhanced",
+    "starIntensity": "normal",
+    "starGlow": false,
+    "constellationLines": "thin",
+    "constellationLabels": false,
+    "planetLabels": false,
+    "showGrid": false,
+    "showPlanets": true,
+    "premiumStars": "off",
+    "premiumPlanets": "off",
+    "planetEmphasis": "normal",
+    "showMoon": true,
+    "moonSize": "normal",
+    "shapeMask": "circle",
+    "shapeLayoutVersion": 2,
+    "frameEnabled": true,
+    "bortleClass": 4.5,
+    "backgroundColor": "",
+    "constellationColor": "",
+    "constellationLineScale": 1,
+    "transparentBackground": false,
+    "showTechnicalRing": false
+  }
+}

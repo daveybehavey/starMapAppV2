@@ -1,0 +1,1058 @@
+{
+  "baseline": {
+    "presets": [
+      {
+        "id": "aurora",
+        "label": "Aurora Night",
+        "note": "Cinematic glow + gold",
+        "thumbnail": "/presets/preset-aurora.svg",
+        "style": "navyGold",
+        "renderMode": "cinematic",
+        "intensity": 85,
+        "shape": "circle",
+        "aspectRatio": "square",
+        "renderOptions": {
+          "frameEnabled": true,
+          "constellationLineScale": 1.2,
+          "showMoon": true
+        },
+        "textBoxes": [
+          {
+            "id": "title",
+            "label": "Title",
+            "text": "The Aurora Sky",
+            "fontFamily": "cinzel",
+            "color": "#d7b56c",
+            "size": 48,
+            "align": "center",
+            "position": {
+              "x": 0.5,
+              "y": 0.12
+            }
+          },
+          {
+            "id": "subtitle",
+            "label": "Subtitle",
+            "text": "Reykjavik • 17.03.2024",
+            "fontFamily": "raleway",
+            "color": "#c8a662",
+            "size": 26,
+            "align": "center",
+            "position": {
+              "x": 0.5,
+              "y": 0.18
+            }
+          },
+          {
+            "id": "dedication",
+            "label": "Dedication",
+            "text": "A moment framed in starlight.",
+            "fontFamily": "script",
+            "color": "#b98a3d",
+            "size": 26,
+            "align": "center",
+            "position": {
+              "x": 0.5,
+              "y": 0.9
+            }
+          }
+        ]
+      },
+      {
+        "id": "noir",
+        "label": "Noir Minimal",
+        "note": "Clean, high contrast",
+        "thumbnail": "/presets/preset-noir.svg",
+        "style": "midnightMinimal",
+        "renderMode": "classic",
+        "intensity": 45,
+        "shape": "rectangle",
+        "aspectRatio": "4:5",
+        "renderOptions": {
+          "frameEnabled": true,
+          "constellationLineScale": 0.9,
+          "showMoon": false
+        },
+        "textBoxes": [
+          {
+            "id": "title",
+            "label": "Title",
+            "text": "Midnight",
+            "fontFamily": "bebasNeue",
+            "color": "#e5eefb",
+            "size": 54,
+            "align": "center",
+            "position": {
+              "x": 0.5,
+              "y": 0.14
+            }
+          },
+          {
+            "id": "subtitle",
+            "label": "Subtitle",
+            "text": "New York • 11.12.2011",
+            "fontFamily": "montserrat",
+            "color": "#b6c7e6",
+            "size": 20,
+            "align": "center",
+            "position": {
+              "x": 0.5,
+              "y": 0.2
+            }
+          },
+          {
+            "id": "dedication",
+            "label": "Dedication",
+            "text": "Under a quiet sky.",
+            "fontFamily": "crimsonText",
+            "color": "#94a8c7",
+            "size": 22,
+            "align": "center",
+            "position": {
+              "x": 0.5,
+              "y": 0.9
+            }
+          }
+        ]
+      },
+      {
+        "id": "heirloom",
+        "label": "Heirloom",
+        "note": "Warm vintage glow",
+        "thumbnail": "/presets/preset-heirloom.svg",
+        "style": "parchmentScroll",
+        "renderMode": "luxe",
+        "intensity": 70,
+        "shape": "rectangle",
+        "aspectRatio": "square",
+        "renderOptions": {
+          "frameEnabled": true,
+          "constellationLineScale": 1.05,
+          "showMoon": true
+        },
+        "textBoxes": [
+          {
+            "id": "title",
+            "label": "Title",
+            "text": "Forever",
+            "fontFamily": "abrilFatface",
+            "color": "#7b5c24",
+            "size": 46,
+            "align": "center",
+            "position": {
+              "x": 0.5,
+              "y": 0.14
+            }
+          },
+          {
+            "id": "subtitle",
+            "label": "Subtitle",
+            "text": "Florence • 02.09.1999",
+            "fontFamily": "cormorant",
+            "color": "#8c6b31",
+            "size": 24,
+            "align": "center",
+            "position": {
+              "x": 0.5,
+              "y": 0.2
+            }
+          },
+          {
+            "id": "dedication",
+            "label": "Dedication",
+            "text": "An heirloom in the making.",
+            "fontFamily": "parisienne",
+            "color": "#7b5c24",
+            "size": 26,
+            "align": "center",
+            "position": {
+              "x": 0.5,
+              "y": 0.88
+            }
+          }
+        ]
+      },
+      {
+        "id": "starlace",
+        "label": "Starlace",
+        "note": "Fine lines, airy text",
+        "thumbnail": "/presets/preset-starlace.svg",
+        "style": "vintageEngraving",
+        "renderMode": "blueprint",
+        "intensity": 60,
+        "shape": "circle",
+        "aspectRatio": "square",
+        "renderOptions": {
+          "frameEnabled": false,
+          "constellationLineScale": 1.4,
+          "showMoon": true
+        },
+        "textBoxes": [
+          {
+            "id": "title",
+            "label": "Title",
+            "text": "Starlace",
+            "fontFamily": "playfair",
+            "color": "#d9d2c3",
+            "size": 42,
+            "align": "center",
+            "position": {
+              "x": 0.5,
+              "y": 0.12
+            }
+          },
+          {
+            "id": "subtitle",
+            "label": "Subtitle",
+            "text": "Oslo • 06.01.2020",
+            "fontFamily": "lora",
+            "color": "#c3b8a6",
+            "size": 20,
+            "align": "center",
+            "position": {
+              "x": 0.5,
+              "y": 0.18
+            }
+          },
+          {
+            "id": "dedication",
+            "label": "Dedication",
+            "text": "Fine lines, endless memories.",
+            "fontFamily": "crimsonText",
+            "color": "#b6ab98",
+            "size": 20,
+            "align": "center",
+            "position": {
+              "x": 0.5,
+              "y": 0.9
+            }
+          }
+        ]
+      }
+    ],
+    "defaults": [
+      {
+        "renderOptions": {
+          "mapLookTier": "polished",
+          "visualMode": "enhanced",
+          "starIntensity": "normal",
+          "starGlow": true,
+          "constellationLines": "thin",
+          "constellationLabels": false,
+          "planetLabels": false,
+          "showGrid": false,
+          "showPlanets": true,
+          "premiumStars": "off",
+          "premiumPlanets": "off",
+          "planetEmphasis": "highlighted",
+          "showMoon": true,
+          "moonSize": "large",
+          "frameEnabled": true,
+          "backgroundColor": "",
+          "constellationColor": "",
+          "constellationLineScale": 1.1
+        },
+        "textBoxes": []
+      },
+      {
+        "renderOptions": {
+          "visualMode": "enhanced",
+          "starIntensity": "normal",
+          "starGlow": false,
+          "constellationLines": "thin",
+          "constellationLabels": false,
+          "planetLabels": false,
+          "showGrid": false,
+          "showPlanets": true,
+          "premiumStars": "off",
+          "premiumPlanets": "off",
+          "planetEmphasis": "normal",
+          "showMoon": true,
+          "moonSize": "normal",
+          "frameEnabled": true,
+          "backgroundColor": "",
+          "constellationColor": "",
+          "constellationLineScale": 1
+        },
+        "textBoxes": []
+      },
+      {
+        "renderOptions": {
+          "visualMode": "enhanced",
+          "starIntensity": "normal",
+          "starGlow": false,
+          "constellationLines": "thin",
+          "constellationLabels": false,
+          "planetLabels": false,
+          "showGrid": false,
+          "showPlanets": true,
+          "premiumStars": "off",
+          "premiumPlanets": "off",
+          "planetEmphasis": "normal",
+          "showMoon": false,
+          "moonSize": "normal",
+          "frameEnabled": true,
+          "backgroundColor": "#e9d3a5",
+          "constellationColor": "#5a3f25",
+          "constellationLineScale": 1.2
+        },
+        "textBoxes": []
+      },
+      {
+        "renderOptions": {
+          "mapLookTier": "minimal",
+          "visualMode": "enhanced",
+          "starIntensity": "bold",
+          "starGlow": false,
+          "constellationLines": "off",
+          "constellationLabels": false,
+          "planetLabels": false,
+          "showGrid": false,
+          "showPlanets": false,
+          "premiumStars": "off",
+          "premiumPlanets": "off",
+          "planetEmphasis": "normal",
+          "showMoon": false,
+          "moonSize": "normal",
+          "frameEnabled": false,
+          "backgroundColor": "",
+          "constellationColor": "",
+          "constellationLineScale": 1
+        },
+        "textBoxes": []
+      }
+    ],
+    "tiers": [
+      [
+        {
+          "mapLookTier": "minimal",
+          "visualMode": "enhanced",
+          "starIntensity": "normal",
+          "starGlow": false,
+          "constellationLines": "off",
+          "constellationLabels": false,
+          "planetLabels": false,
+          "showGrid": false,
+          "showPlanets": false,
+          "premiumStars": "off",
+          "premiumPlanets": "off",
+          "showMoon": false,
+          "planetEmphasis": "normal",
+          "moonSize": "normal",
+          "frameEnabled": false,
+          "backgroundColor": "#0a1330",
+          "constellationColor": "",
+          "constellationLineScale": 1,
+          "transparentBackground": true,
+          "showTechnicalRing": false
+        },
+        {
+          "mapLookTier": "polished",
+          "visualMode": "illustrated",
+          "starIntensity": "bold",
+          "starGlow": true,
+          "constellationLines": "thin",
+          "constellationLabels": false,
+          "planetLabels": false,
+          "showGrid": false,
+          "showPlanets": true,
+          "premiumStars": "off",
+          "premiumPlanets": "off",
+          "showMoon": true,
+          "planetEmphasis": "highlighted",
+          "moonSize": "large",
+          "frameEnabled": true,
+          "backgroundColor": "",
+          "constellationColor": "",
+          "constellationLineScale": 1.1,
+          "transparentBackground": false,
+          "showTechnicalRing": true
+        },
+        {
+          "mapLookTier": "custom",
+          "transparentBackground": false
+        }
+      ],
+      [
+        {
+          "mapLookTier": "minimal",
+          "visualMode": "enhanced",
+          "starIntensity": "subtle",
+          "starGlow": false,
+          "constellationLines": "thin",
+          "constellationLabels": false,
+          "planetLabels": false,
+          "showGrid": false,
+          "showPlanets": false,
+          "premiumStars": "off",
+          "premiumPlanets": "off",
+          "showMoon": false,
+          "planetEmphasis": "normal",
+          "moonSize": "normal",
+          "frameEnabled": false,
+          "backgroundColor": "#151515",
+          "constellationColor": "#a49b8d",
+          "constellationLineScale": 0.85,
+          "transparentBackground": true,
+          "showTechnicalRing": false
+        },
+        {
+          "mapLookTier": "polished",
+          "visualMode": "illustrated",
+          "starIntensity": "bold",
+          "starGlow": false,
+          "constellationLines": "thick",
+          "constellationLabels": false,
+          "planetLabels": false,
+          "showGrid": false,
+          "showPlanets": true,
+          "premiumStars": "off",
+          "premiumPlanets": "off",
+          "showMoon": true,
+          "planetEmphasis": "highlighted",
+          "moonSize": "normal",
+          "frameEnabled": true,
+          "backgroundColor": "",
+          "constellationColor": "#d8cfbd",
+          "constellationLineScale": 1.15,
+          "transparentBackground": false,
+          "showTechnicalRing": true
+        },
+        {
+          "mapLookTier": "custom",
+          "transparentBackground": false
+        }
+      ],
+      [
+        {
+          "mapLookTier": "minimal",
+          "visualMode": "enhanced",
+          "starIntensity": "subtle",
+          "starGlow": false,
+          "constellationLines": "off",
+          "constellationLabels": false,
+          "planetLabels": false,
+          "showGrid": false,
+          "showPlanets": false,
+          "premiumStars": "off",
+          "premiumPlanets": "off",
+          "showMoon": false,
+          "planetEmphasis": "normal",
+          "moonSize": "normal",
+          "frameEnabled": false,
+          "constellationLineScale": 0.9,
+          "backgroundColor": "#efe0bf",
+          "constellationColor": "#5a3f25",
+          "transparentBackground": true,
+          "showTechnicalRing": false
+        },
+        {
+          "mapLookTier": "polished",
+          "visualMode": "illustrated",
+          "starIntensity": "bold",
+          "starGlow": false,
+          "constellationLines": "thick",
+          "constellationLabels": false,
+          "planetLabels": false,
+          "showGrid": false,
+          "showPlanets": true,
+          "premiumStars": "off",
+          "premiumPlanets": "off",
+          "showMoon": false,
+          "planetEmphasis": "highlighted",
+          "moonSize": "normal",
+          "frameEnabled": true,
+          "constellationLineScale": 1.35,
+          "backgroundColor": "#ead8b3",
+          "constellationColor": "#5f4428",
+          "transparentBackground": false,
+          "showTechnicalRing": false
+        },
+        {
+          "mapLookTier": "custom",
+          "transparentBackground": false
+        }
+      ],
+      [
+        {
+          "mapLookTier": "minimal",
+          "visualMode": "enhanced",
+          "starIntensity": "subtle",
+          "starGlow": false,
+          "constellationLines": "off",
+          "constellationLabels": false,
+          "planetLabels": false,
+          "showGrid": false,
+          "showPlanets": false,
+          "premiumStars": "off",
+          "premiumPlanets": "off",
+          "showMoon": false,
+          "planetEmphasis": "normal",
+          "moonSize": "normal",
+          "frameEnabled": false,
+          "backgroundColor": "#02040b",
+          "constellationColor": "",
+          "constellationLineScale": 1,
+          "transparentBackground": true,
+          "showTechnicalRing": false
+        },
+        {
+          "mapLookTier": "polished",
+          "visualMode": "enhanced",
+          "starIntensity": "normal",
+          "starGlow": false,
+          "constellationLines": "thin",
+          "constellationLabels": false,
+          "planetLabels": false,
+          "showGrid": false,
+          "showPlanets": true,
+          "premiumStars": "off",
+          "premiumPlanets": "off",
+          "showMoon": false,
+          "planetEmphasis": "highlighted",
+          "moonSize": "normal",
+          "frameEnabled": true,
+          "backgroundColor": "",
+          "constellationColor": "#9fb3d2",
+          "constellationLineScale": 0.9,
+          "transparentBackground": false,
+          "showTechnicalRing": false
+        },
+        {
+          "mapLookTier": "custom",
+          "transparentBackground": false
+        }
+      ]
+    ]
+  },
+  "candidate": {
+    "presets": [
+      {
+        "id": "aurora",
+        "label": "Aurora Night",
+        "note": "Cinematic glow + gold",
+        "thumbnail": "/presets/preset-aurora.svg",
+        "style": "navyGold",
+        "renderMode": "cinematic",
+        "intensity": 85,
+        "shape": "circle",
+        "aspectRatio": "square",
+        "renderOptions": {
+          "frameEnabled": true,
+          "constellationLineScale": 1.2,
+          "showMoon": true
+        },
+        "textBoxes": [
+          {
+            "id": "title",
+            "label": "Title",
+            "text": "The Aurora Sky",
+            "fontFamily": "cinzel",
+            "color": "#d7b56c",
+            "size": 48,
+            "align": "center",
+            "position": {
+              "x": 0.5,
+              "y": 0.12
+            }
+          },
+          {
+            "id": "subtitle",
+            "label": "Subtitle",
+            "text": "Reykjavik • 17.03.2024",
+            "fontFamily": "raleway",
+            "color": "#c8a662",
+            "size": 26,
+            "align": "center",
+            "position": {
+              "x": 0.5,
+              "y": 0.18
+            }
+          },
+          {
+            "id": "dedication",
+            "label": "Dedication",
+            "text": "A moment framed in starlight.",
+            "fontFamily": "script",
+            "color": "#b98a3d",
+            "size": 26,
+            "align": "center",
+            "position": {
+              "x": 0.5,
+              "y": 0.9
+            }
+          }
+        ]
+      },
+      {
+        "id": "noir",
+        "label": "Noir Minimal",
+        "note": "Clean, high contrast",
+        "thumbnail": "/presets/preset-noir.svg",
+        "style": "midnightMinimal",
+        "renderMode": "classic",
+        "intensity": 45,
+        "shape": "rectangle",
+        "aspectRatio": "4:5",
+        "renderOptions": {
+          "frameEnabled": true,
+          "constellationLineScale": 0.9,
+          "showMoon": false
+        },
+        "textBoxes": [
+          {
+            "id": "title",
+            "label": "Title",
+            "text": "Midnight",
+            "fontFamily": "bebasNeue",
+            "color": "#e5eefb",
+            "size": 54,
+            "align": "center",
+            "position": {
+              "x": 0.5,
+              "y": 0.14
+            }
+          },
+          {
+            "id": "subtitle",
+            "label": "Subtitle",
+            "text": "New York • 11.12.2011",
+            "fontFamily": "montserrat",
+            "color": "#b6c7e6",
+            "size": 20,
+            "align": "center",
+            "position": {
+              "x": 0.5,
+              "y": 0.2
+            }
+          },
+          {
+            "id": "dedication",
+            "label": "Dedication",
+            "text": "Under a quiet sky.",
+            "fontFamily": "crimsonText",
+            "color": "#94a8c7",
+            "size": 22,
+            "align": "center",
+            "position": {
+              "x": 0.5,
+              "y": 0.9
+            }
+          }
+        ]
+      },
+      {
+        "id": "heirloom",
+        "label": "Heirloom",
+        "note": "Warm vintage glow",
+        "thumbnail": "/presets/preset-heirloom.svg",
+        "style": "parchmentScroll",
+        "renderMode": "luxe",
+        "intensity": 70,
+        "shape": "rectangle",
+        "aspectRatio": "square",
+        "renderOptions": {
+          "frameEnabled": true,
+          "constellationLineScale": 1.05,
+          "showMoon": true
+        },
+        "textBoxes": [
+          {
+            "id": "title",
+            "label": "Title",
+            "text": "Forever",
+            "fontFamily": "abrilFatface",
+            "color": "#7b5c24",
+            "size": 46,
+            "align": "center",
+            "position": {
+              "x": 0.5,
+              "y": 0.14
+            }
+          },
+          {
+            "id": "subtitle",
+            "label": "Subtitle",
+            "text": "Florence • 02.09.1999",
+            "fontFamily": "cormorant",
+            "color": "#8c6b31",
+            "size": 24,
+            "align": "center",
+            "position": {
+              "x": 0.5,
+              "y": 0.2
+            }
+          },
+          {
+            "id": "dedication",
+            "label": "Dedication",
+            "text": "An heirloom in the making.",
+            "fontFamily": "parisienne",
+            "color": "#7b5c24",
+            "size": 26,
+            "align": "center",
+            "position": {
+              "x": 0.5,
+              "y": 0.88
+            }
+          }
+        ]
+      },
+      {
+        "id": "starlace",
+        "label": "Starlace",
+        "note": "Fine lines, airy text",
+        "thumbnail": "/presets/preset-starlace.svg",
+        "style": "vintageEngraving",
+        "renderMode": "blueprint",
+        "intensity": 60,
+        "shape": "circle",
+        "aspectRatio": "square",
+        "renderOptions": {
+          "frameEnabled": false,
+          "constellationLineScale": 1.4,
+          "showMoon": true
+        },
+        "textBoxes": [
+          {
+            "id": "title",
+            "label": "Title",
+            "text": "Starlace",
+            "fontFamily": "playfair",
+            "color": "#d9d2c3",
+            "size": 42,
+            "align": "center",
+            "position": {
+              "x": 0.5,
+              "y": 0.12
+            }
+          },
+          {
+            "id": "subtitle",
+            "label": "Subtitle",
+            "text": "Oslo • 06.01.2020",
+            "fontFamily": "lora",
+            "color": "#c3b8a6",
+            "size": 20,
+            "align": "center",
+            "position": {
+              "x": 0.5,
+              "y": 0.18
+            }
+          },
+          {
+            "id": "dedication",
+            "label": "Dedication",
+            "text": "Fine lines, endless memories.",
+            "fontFamily": "crimsonText",
+            "color": "#b6ab98",
+            "size": 20,
+            "align": "center",
+            "position": {
+              "x": 0.5,
+              "y": 0.9
+            }
+          }
+        ]
+      }
+    ],
+    "defaults": [
+      {
+        "renderOptions": {
+          "mapLookTier": "polished",
+          "visualMode": "enhanced",
+          "starIntensity": "normal",
+          "starGlow": true,
+          "constellationLines": "thin",
+          "constellationLabels": false,
+          "planetLabels": false,
+          "showGrid": false,
+          "showPlanets": true,
+          "premiumStars": "off",
+          "premiumPlanets": "off",
+          "planetEmphasis": "highlighted",
+          "showMoon": true,
+          "moonSize": "large",
+          "frameEnabled": true,
+          "backgroundColor": "",
+          "constellationColor": "",
+          "constellationLineScale": 1.1
+        },
+        "textBoxes": []
+      },
+      {
+        "renderOptions": {
+          "visualMode": "enhanced",
+          "starIntensity": "normal",
+          "starGlow": false,
+          "constellationLines": "thin",
+          "constellationLabels": false,
+          "planetLabels": false,
+          "showGrid": false,
+          "showPlanets": true,
+          "premiumStars": "off",
+          "premiumPlanets": "off",
+          "planetEmphasis": "normal",
+          "showMoon": true,
+          "moonSize": "normal",
+          "frameEnabled": true,
+          "backgroundColor": "",
+          "constellationColor": "",
+          "constellationLineScale": 1
+        },
+        "textBoxes": []
+      },
+      {
+        "renderOptions": {
+          "visualMode": "enhanced",
+          "starIntensity": "normal",
+          "starGlow": false,
+          "constellationLines": "thin",
+          "constellationLabels": false,
+          "planetLabels": false,
+          "showGrid": false,
+          "showPlanets": true,
+          "premiumStars": "off",
+          "premiumPlanets": "off",
+          "planetEmphasis": "normal",
+          "showMoon": false,
+          "moonSize": "normal",
+          "frameEnabled": true,
+          "backgroundColor": "#e9d3a5",
+          "constellationColor": "#5a3f25",
+          "constellationLineScale": 1.2
+        },
+        "textBoxes": []
+      },
+      {
+        "renderOptions": {
+          "mapLookTier": "minimal",
+          "visualMode": "enhanced",
+          "starIntensity": "bold",
+          "starGlow": false,
+          "constellationLines": "off",
+          "constellationLabels": false,
+          "planetLabels": false,
+          "showGrid": false,
+          "showPlanets": false,
+          "premiumStars": "off",
+          "premiumPlanets": "off",
+          "planetEmphasis": "normal",
+          "showMoon": false,
+          "moonSize": "normal",
+          "frameEnabled": false,
+          "backgroundColor": "",
+          "constellationColor": "",
+          "constellationLineScale": 1
+        },
+        "textBoxes": []
+      }
+    ],
+    "tiers": [
+      [
+        {
+          "mapLookTier": "minimal",
+          "visualMode": "enhanced",
+          "starIntensity": "normal",
+          "starGlow": false,
+          "constellationLines": "off",
+          "constellationLabels": false,
+          "planetLabels": false,
+          "showGrid": false,
+          "showPlanets": false,
+          "premiumStars": "off",
+          "premiumPlanets": "off",
+          "showMoon": false,
+          "planetEmphasis": "normal",
+          "moonSize": "normal",
+          "frameEnabled": false,
+          "backgroundColor": "#0a1330",
+          "constellationColor": "",
+          "constellationLineScale": 1,
+          "transparentBackground": true,
+          "showTechnicalRing": false
+        },
+        {
+          "mapLookTier": "polished",
+          "visualMode": "illustrated",
+          "starIntensity": "bold",
+          "starGlow": true,
+          "constellationLines": "thin",
+          "constellationLabels": false,
+          "planetLabels": false,
+          "showGrid": false,
+          "showPlanets": true,
+          "premiumStars": "off",
+          "premiumPlanets": "off",
+          "showMoon": true,
+          "planetEmphasis": "highlighted",
+          "moonSize": "large",
+          "frameEnabled": true,
+          "backgroundColor": "",
+          "constellationColor": "",
+          "constellationLineScale": 1.1,
+          "transparentBackground": false,
+          "showTechnicalRing": true
+        },
+        {
+          "mapLookTier": "custom",
+          "transparentBackground": false
+        }
+      ],
+      [
+        {
+          "mapLookTier": "minimal",
+          "visualMode": "enhanced",
+          "starIntensity": "subtle",
+          "starGlow": false,
+          "constellationLines": "thin",
+          "constellationLabels": false,
+          "planetLabels": false,
+          "showGrid": false,
+          "showPlanets": false,
+          "premiumStars": "off",
+          "premiumPlanets": "off",
+          "showMoon": false,
+          "planetEmphasis": "normal",
+          "moonSize": "normal",
+          "frameEnabled": false,
+          "backgroundColor": "#151515",
+          "constellationColor": "#a49b8d",
+          "constellationLineScale": 0.85,
+          "transparentBackground": true,
+          "showTechnicalRing": false
+        },
+        {
+          "mapLookTier": "polished",
+          "visualMode": "illustrated",
+          "starIntensity": "bold",
+          "starGlow": false,
+          "constellationLines": "thick",
+          "constellationLabels": false,
+          "planetLabels": false,
+          "showGrid": false,
+          "showPlanets": true,
+          "premiumStars": "off",
+          "premiumPlanets": "off",
+          "showMoon": true,
+          "planetEmphasis": "highlighted",
+          "moonSize": "normal",
+          "frameEnabled": true,
+          "backgroundColor": "",
+          "constellationColor": "#d8cfbd",
+          "constellationLineScale": 1.15,
+          "transparentBackground": false,
+          "showTechnicalRing": true
+        },
+        {
+          "mapLookTier": "custom",
+          "transparentBackground": false
+        }
+      ],
+      [
+        {
+          "mapLookTier": "minimal",
+          "visualMode": "enhanced",
+          "starIntensity": "subtle",
+          "starGlow": false,
+          "constellationLines": "off",
+          "constellationLabels": false,
+          "planetLabels": false,
+          "showGrid": false,
+          "showPlanets": false,
+          "premiumStars": "off",
+          "premiumPlanets": "off",
+          "showMoon": false,
+          "planetEmphasis": "normal",
+          "moonSize": "normal",
+          "frameEnabled": false,
+          "constellationLineScale": 0.9,
+          "backgroundColor": "#efe0bf",
+          "constellationColor": "#5a3f25",
+          "transparentBackground": true,
+          "showTechnicalRing": false
+        },
+        {
+          "mapLookTier": "polished",
+          "visualMode": "illustrated",
+          "starIntensity": "bold",
+          "starGlow": false,
+          "constellationLines": "thick",
+          "constellationLabels": false,
+          "planetLabels": false,
+          "showGrid": false,
+          "showPlanets": true,
+          "premiumStars": "off",
+          "premiumPlanets": "off",
+          "showMoon": false,
+          "planetEmphasis": "highlighted",
+          "moonSize": "normal",
+          "frameEnabled": true,
+          "constellationLineScale": 1.35,
+          "backgroundColor": "#ead8b3",
+          "constellationColor": "#5f4428",
+          "transparentBackground": false,
+          "showTechnicalRing": false
+        },
+        {
+          "mapLookTier": "custom",
+          "transparentBackground": false
+        }
+      ],
+      [
+        {
+          "mapLookTier": "minimal",
+          "visualMode": "enhanced",
+          "starIntensity": "subtle",
+          "starGlow": false,
+          "constellationLines": "off",
+          "constellationLabels": false,
+          "planetLabels": false,
+          "showGrid": false,
+          "showPlanets": false,
+          "premiumStars": "off",
+          "premiumPlanets": "off",
+          "showMoon": false,
+          "planetEmphasis": "normal",
+          "moonSize": "normal",
+          "frameEnabled": false,
+          "backgroundColor": "#02040b",
+          "constellationColor": "",
+          "constellationLineScale": 1,
+          "transparentBackground": true,
+          "showTechnicalRing": false
+        },
+        {
+          "mapLookTier": "polished",
+          "visualMode": "enhanced",
+          "starIntensity": "normal",
+          "starGlow": false,
+          "constellationLines": "thin",
+          "constellationLabels": false,
+          "planetLabels": false,
+          "showGrid": false,
+          "showPlanets": true,
+          "premiumStars": "off",
+          "premiumPlanets": "off",
+          "showMoon": false,
+          "planetEmphasis": "highlighted",
+          "moonSize": "normal",
+          "frameEnabled": true,
+          "backgroundColor": "",
+          "constellationColor": "#9fb3d2",
+          "constellationLineScale": 0.9,
+          "transparentBackground": false,
+          "showTechnicalRing": false
+        },
+        {
+          "mapLookTier": "custom",
+          "transparentBackground": false
+        }
+      ]
+    ]
+  },
+  "sha256": {
+    "baseline": "f2edf31a2f505aaf301bb622825502813bbb9d4b5b5cbc290c17f0a2013dcc25",
+    "candidate": "f2edf31a2f505aaf301bb622825502813bbb9d4b5b5cbc290c17f0a2013dcc25"
+  }
+}

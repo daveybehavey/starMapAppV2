@@ -19,6 +19,47 @@ type ParsedEmailAddress = {
   name?: string;
 };
 
+/**
+ * #551 N4: deterministic provider idempotency key for one alert
+ * episode. Concurrent webhook deliveries can both pass the record's
+ * unstamped check and both reach the send before either persists its
+ * stamp; a key derived from the alert's own identity makes the
+ * provider collapse those retries into a single delivery.
+ *
+ * The key carries a stable per-episode discriminator, because Resend
+ * suppresses (or 409-rejects) a second send under a recent key: an
+ * operator resolve followed by a genuinely NEW episode of the same
+ * kind must not reuse the previous episode's key. Each kind's anchor
+ * is constant for every retry inside the episode and is replaced when
+ * a new episode begins:
+ * - hold / hold_escalation: `providerHoldAt` — first-hold-wins inside
+ *   the episode, cleared on resolve/ship/terminal failure, so a
+ *   re-hold stamps a new value. The escalation keys as its own
+ *   episode kind so both notices stay deliverable.
+ * - review_pending: `fileReviewPendingSince` — the pending episode's
+ *   first-observed stamp.
+ * - failure / approval: `attempts` — incremented on every
+ *   (re)submission, and webhook handling never changes it, so twin
+ *   deliveries of one event read the same value.
+ * Wall-clock send times and delivery-attempt counts are deliberately
+ * excluded: any re-send of the same episode (retry, redelivery, twin
+ * invocation) must produce the identical key.
+ */
+export function buildPrintOrderAlertIdempotencyKey(
+  order: PrintOrderRecord,
+  kind: PrintOrderAlertKind,
+  options?: PrintOrderAlertOptions,
+): string {
+  const episode = kind === "hold" && options?.escalated ? "hold_escalation" : kind;
+  const episodeStamp =
+    kind === "hold"
+      ? (order.providerHoldAt ?? 0)
+      : kind === "review_pending"
+        ? (order.fileReviewPendingSince ?? order.createdAt ?? 0)
+        : (order.attempts ?? 0);
+  return `print-order-alert:${episode}:${order.sessionId}:${episodeStamp}`;
+}
+
 function escapeHtml(value: string) {
   return value
     .replace(/&/g, "&amp;")
@@ -291,6 +332,8 @@ async function sendWithResend(order: PrintOrderRecord, kind: PrintOrderAlertKind
     headers: {
       Authorization: `Bearer ${resendApiKey}`,
       "Content-Type": "application/json",
+      // #551 N4: Resend dedupes retries carrying the same key.
+      "Idempotency-Key": buildPrintOrderAlertIdempotencyKey(order, kind, options),
     },
     body: JSON.stringify(payload),
   });
@@ -326,6 +369,12 @@ async function sendWithSendgrid(order: PrintOrderRecord, kind: PrintOrderAlertKi
       { type: "text/plain", value: copy.text },
       { type: "text/html", value: copy.html },
     ],
+    // #551 N4: SendGrid exposes no send-side dedupe, so the episode key
+    // is carried as a custom arg — traceable in the event webhook and
+    // identical to the key the (primary) Resend path dedupes on.
+    custom_args: {
+      print_order_alert_idempotency_key: buildPrintOrderAlertIdempotencyKey(order, kind, options),
+    },
     ...(replyTo ? { reply_to: replyTo } : {}),
   };
 
