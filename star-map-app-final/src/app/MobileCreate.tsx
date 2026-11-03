@@ -1154,12 +1154,23 @@ export function MobileCreate({
                               <label htmlFor={`size-input-${box.id}`} className="text-[10px] text-neutral-300">Size</label>
                               <input
                                 id={`size-input-${box.id}`}
+                                aria-label={`${box.label} size`}
                                 type="number"
                                 min={10}
                                 max={64}
                                 value={box.size}
                                 onChange={(e) => updateTextBox(box.id, { size: Number(e.target.value) })}
                                 className="w-full rounded-md border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"
+                              />
+                              <input
+                                type="range"
+                                min={10}
+                                max={64}
+                                step={1}
+                                value={box.size}
+                                aria-label={`${box.label} size slider`}
+                                onChange={(e) => updateTextBox(box.id, { size: Number(e.target.value) })}
+                                className="w-full accent-amber-400"
                               />
                             </div>
                           </div>
