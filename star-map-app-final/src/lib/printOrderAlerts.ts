@@ -19,6 +19,27 @@ type ParsedEmailAddress = {
   name?: string;
 };
 
+/**
+ * #551 N4: deterministic provider idempotency key for one alert
+ * episode. Concurrent webhook deliveries can both pass the record's
+ * unstamped check and both reach the send before either persists its
+ * stamp; a key derived only from the alert's own identity (kind +
+ * checkout session) makes the provider collapse those retries into a
+ * single delivery. The hold escalation is a distinct episode from the
+ * first hold notice, so it keys separately — both must be deliverable.
+ * The key deliberately excludes timestamps and attempt counts: any
+ * re-send of the same episode (retry, redelivery, twin invocation)
+ * must produce the identical key.
+ */
+export function buildPrintOrderAlertIdempotencyKey(
+  order: PrintOrderRecord,
+  kind: PrintOrderAlertKind,
+  options?: PrintOrderAlertOptions,
+): string {
+  const episode = kind === "hold" && options?.escalated ? "hold_escalation" : kind;
+  return `print-order-alert:${episode}:${order.sessionId}`;
+}
+
 function escapeHtml(value: string) {
   return value
     .replace(/&/g, "&amp;")
@@ -291,6 +312,8 @@ async function sendWithResend(order: PrintOrderRecord, kind: PrintOrderAlertKind
     headers: {
       Authorization: `Bearer ${resendApiKey}`,
       "Content-Type": "application/json",
+      // #551 N4: Resend dedupes retries carrying the same key.
+      "Idempotency-Key": buildPrintOrderAlertIdempotencyKey(order, kind, options),
     },
     body: JSON.stringify(payload),
   });
@@ -326,6 +349,12 @@ async function sendWithSendgrid(order: PrintOrderRecord, kind: PrintOrderAlertKi
       { type: "text/plain", value: copy.text },
       { type: "text/html", value: copy.html },
     ],
+    // #551 N4: SendGrid exposes no send-side dedupe, so the episode key
+    // is carried as a custom arg — traceable in the event webhook and
+    // identical to the key the (primary) Resend path dedupes on.
+    custom_args: {
+      print_order_alert_idempotency_key: buildPrintOrderAlertIdempotencyKey(order, kind, options),
+    },
     ...(replyTo ? { reply_to: replyTo } : {}),
   };
 

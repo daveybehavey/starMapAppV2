@@ -59,6 +59,35 @@ export function mergeHoldAnnotationsIntoLatestRecord({ existing, fresh, annotati
   };
 }
 
+/** Mirror of mergeTerminalFailureIntoLatestRecord in src/lib/printfulWebhookOrderEvents.ts */
+export function mergeTerminalFailureIntoLatestRecord({ fresh, terminal }) {
+  const freshAlertLanded = Boolean(fresh.operatorFailureAlertedAt);
+  return {
+    ...fresh,
+    status: "failed",
+    printfulOrderId: terminal.printfulOrderId,
+    error: terminal.error,
+    terminalEventType: terminal.terminalEventType,
+    providerHoldAt: undefined,
+    providerHoldReason: undefined,
+    providerHoldOrderStatus: undefined,
+    operatorHoldAlertedAt: undefined,
+    operatorHoldAlertProvider: undefined,
+    operatorHoldAlertError: undefined,
+    operatorHoldEscalatedAt: undefined,
+    operatorHoldEscalationAlertError: undefined,
+    operatorFailureAlertedAt: freshAlertLanded
+      ? fresh.operatorFailureAlertedAt
+      : terminal.operatorFailureAlertedAt,
+    operatorFailureAlertProvider: freshAlertLanded
+      ? fresh.operatorFailureAlertProvider
+      : terminal.operatorFailureAlertProvider,
+    operatorFailureAlertError: freshAlertLanded
+      ? undefined
+      : terminal.operatorFailureAlertError,
+  };
+}
+
 export function buildPrintfulWebhookFailureError(eventType, reason, orderStatus) {
   const normalizedType = eventType.trim() || "order_event";
   const parts = [`printful_${normalizedType}`];

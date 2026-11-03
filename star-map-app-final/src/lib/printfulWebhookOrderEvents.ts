@@ -269,14 +269,34 @@ export async function applyPrintfulOrderFailureFromWebhook(input: {
     };
   }
 
-  await persistPrintOrderRecord(sessionId, nextRecord, { allowClearTerminalFailure: true });
+  // #551 N2: re-read and merge the terminal projection onto the LATEST
+  // record before persisting. The file review and alert sends above are
+  // long awaits; annotation writes landing in that window — the shipping
+  // writer anchoring shippedAt + shippingNotificationSentAt (it
+  // explicitly loads failed records; see shippingNotifications.ts) — do
+  // not move the authority revision, so the check above cannot see them,
+  // and persisting the pre-await snapshot whole would erase the shipment
+  // fact and the delivered-email stamp (a later event could then resend
+  // the customer email). Same re-read/re-merge pattern as the review
+  // adapter's persistRecord (Gate round 5) and the hold merge below; the
+  // residual between this re-read and the persist is the read→put KV
+  // no-CAS window every writer in this family documents. A record that
+  // vanished mid-flight falls back to the snapshot: the authority has
+  // committed the terminal transition, so its projection must not be
+  // lost with it.
+  const fresh = await kv.get<PrintOrderRecord>(printOrderKey(sessionId));
+  const recordToPersist = fresh
+    ? mergeTerminalFailureIntoLatestRecord({ fresh, terminal: nextRecord })
+    : nextRecord;
 
-  if (nextRecord.operatorFailureAlertError) {
+  await persistPrintOrderRecord(sessionId, recordToPersist, { allowClearTerminalFailure: true });
+
+  if (recordToPersist.operatorFailureAlertError) {
     return {
       ok: false,
       status: "alert_failed",
       sessionId,
-      error: nextRecord.operatorFailureAlertError,
+      error: recordToPersist.operatorFailureAlertError,
       terminalRevision,
       authority: authoritySnapshot,
     };
@@ -288,6 +308,54 @@ export async function applyPrintfulOrderFailureFromWebhook(input: {
     sessionId,
     terminalRevision,
     authority: authoritySnapshot,
+  };
+}
+
+/**
+ * #551 N2: merge the terminal-failure projection (`terminal`, built by
+ * this pass from its pre-I/O snapshot) onto the LATEST KV record
+ * (`fresh`, re-read after the file-review and alert awaits). Only the
+ * fields the terminal transition owns are taken from `terminal` —
+ * status, provider order id, error, terminal provenance, the cleared
+ * hold episode, and this pass's failure-alert outcome. Everything else
+ * comes from `fresh`, so annotations written concurrently (shipment
+ * facts and notification stamps, file-review state, operator notes)
+ * survive the persist. The failure-alert stamps are progress-only: a
+ * concurrent delivery's recorded alert success is never regressed by
+ * this pass's alert error. Unlike the hold merge below, this merge
+ * never refuses: the authority transition has already committed at the
+ * revision the caller re-checked, so the projection must land.
+ */
+export function mergeTerminalFailureIntoLatestRecord(args: {
+  fresh: PrintOrderRecord;
+  terminal: PrintOrderRecord;
+}): PrintOrderRecord {
+  const { fresh, terminal } = args;
+  const freshAlertLanded = Boolean(fresh.operatorFailureAlertedAt);
+  return {
+    ...fresh,
+    status: "failed",
+    printfulOrderId: terminal.printfulOrderId,
+    error: terminal.error,
+    terminalEventType: terminal.terminalEventType,
+    // A terminal failure supersedes any recorded hold episode.
+    providerHoldAt: undefined,
+    providerHoldReason: undefined,
+    providerHoldOrderStatus: undefined,
+    operatorHoldAlertedAt: undefined,
+    operatorHoldAlertProvider: undefined,
+    operatorHoldAlertError: undefined,
+    operatorHoldEscalatedAt: undefined,
+    operatorHoldEscalationAlertError: undefined,
+    operatorFailureAlertedAt: freshAlertLanded
+      ? fresh.operatorFailureAlertedAt
+      : terminal.operatorFailureAlertedAt,
+    operatorFailureAlertProvider: freshAlertLanded
+      ? fresh.operatorFailureAlertProvider
+      : terminal.operatorFailureAlertProvider,
+    operatorFailureAlertError: freshAlertLanded
+      ? undefined
+      : terminal.operatorFailureAlertError,
   };
 }
 
