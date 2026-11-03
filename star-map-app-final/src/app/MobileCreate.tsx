@@ -13,6 +13,7 @@ import { resolveShapeMaskFootprint } from "@/lib/shapeLayout";
 import type { RenderModeId } from "@/lib/renderModes";
 import { aspectRatioToNumber } from "@/lib/renderSky";
 import { BortleControl } from "@/components/BortleControl";
+import { ApplyTextRowStyle } from "@/components/ApplyTextRowStyle";
 import { StarColorControl } from "@/components/StarColorControl";
 import { ASPECT_OPTIONS } from "@/lib/aspectOptions";
 import { FRAME_STYLE_OPTIONS, resolveFrameStyle } from "@/lib/frameStyle";
@@ -1132,6 +1133,7 @@ export function MobileCreate({
                       </div>
                       {!isCollapsed && (
                         <div id={`text-style-${box.id}`} className="space-y-2">
+                          <ApplyTextRowStyle sourceId={box.id} />
                           <div className="grid grid-cols-2 gap-2">
                             <div className="space-y-1">
                               <label htmlFor={`font-select-${box.id}`} className="text-[10px] text-neutral-300">Font</label>

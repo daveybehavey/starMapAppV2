@@ -14,6 +14,7 @@ import { getExportDimensions } from "@/lib/aspectRatio";
 import { ASPECT_OPTIONS } from "@/lib/aspectOptions";
 import { FRAME_STYLE_OPTIONS, resolveFrameStyle } from "@/lib/frameStyle";
 import { ShapeIcon } from "@/components/ShapeIcon";
+import { ApplyTextRowStyle } from "@/components/ApplyTextRowStyle";
 
 import { buildStarMapDownloadFilename } from "@/lib/downloadFilename";
 import { buildAutoCaption, upsertAutoCaptionBox } from "@/lib/autoCaption";
@@ -2886,6 +2887,7 @@ export function EditorExperience({
                                             </div>
                                             {!isCollapsed && (
                                               <div id={`text-style-${box.id}`} className="space-y-2">
+                                                <ApplyTextRowStyle sourceId={box.id} />
                                                 <input
                                                   type="text"
                                                   value={box.text}
