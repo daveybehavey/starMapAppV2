@@ -20,7 +20,13 @@
  *    including slivers, and the second rule is dropped (classic
  *    renders) where the invariants cannot hold;
  *  - the shape geometry mirrors the rectangle geometry (same outer
- *    rule; the inner rule's width/alpha/gap carried across);
+ *    rule; the inner rule's width/alpha carried across), and the
+ *    shape inner rule's separation is derived from the silhouette's
+ *    actual boundary geometry — verified empirically against the
+ *    flattened SHAPE_PATHS (the star's inner edges pass close enough
+ *    to the centre that the rectangle's gap alone would merge the
+ *    two strokes), with the rule dropped where disjointness cannot
+ *    be guaranteed (birthdaycake);
  *  - frameStyle is validated in draft normalisation, rides
  *    buildRecipeFromState verbatim, is written by both editor
  *    surfaces, and never reaches textFit or the render presets.
@@ -38,6 +44,11 @@ const {
   computeShapeFrameStrokes,
   resolveFrameStyle,
 } = await import("../../src/lib/frameStyle.ts");
+const { flattenPath } = await import("../../src/lib/shapeTextGeometry.ts");
+const { SHAPE_PATHS } = await import("../../src/lib/shapes/index.ts");
+const { resolveShapeClipTransform } = await import(
+  "../../src/lib/shapeLayout.ts"
+);
 const { resolveFrameInsetPx } = await import("../../src/lib/textFit.ts");
 
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), "utf8");
@@ -147,7 +158,9 @@ test("shape strokes mirror the rectangle geometry", () => {
     const scale = scaleFor(w);
     for (const style of ["classic", "hairline", "double"]) {
       const rect = computeFrameStrokes(resolveFrameInsetPx(w, h), scale, style);
-      const shape = computeShapeFrameStrokes(resolveFrameInsetPx(w, h), w, h, scale, style);
+      const shape = computeShapeFrameStrokes(resolveFrameInsetPx(w, h), w, h, scale, style, {
+        shape: "circle",
+      });
       assert.equal(shape.lineWidthPx, rect[0].lineWidthPx, `${w}x${h} ${style} outer width`);
       assert.equal(shape.alpha, rect[0].alpha, `${w}x${h} ${style} outer alpha`);
       if (rect.length < 2) {
@@ -169,6 +182,136 @@ test("shape strokes mirror the rectangle geometry", () => {
       }
     }
   }
+});
+
+// The shape inner rule's separation, measured empirically: flatten
+// the real SHAPE_PATHS boundary into canvas space (the same geometry
+// buildShapeClip strokes), scale it about the centre by the factor
+// the helper returned, and measure the true minimum distance between
+// the two polylines. It must clear half the combined stroke widths —
+// the star at the rectangle's frame-gap factor does NOT (its inner
+// edges pass ~196px from the centre of a 1200px canvas, so the gap
+// factor separates them by only ~1.6px against 2.05px needed).
+function boundaryPointsForTest(shape, w, h, version) {
+  const entry = SHAPE_PATHS[shape];
+  const transform = resolveShapeClipTransform(entry.viewBox, w, h, version);
+  return flattenPath(entry.d).points.map(([x, y]) => [
+    transform.translateX + x * transform.scaleX,
+    transform.translateY + y * transform.scaleY,
+  ]);
+}
+function segSegDistance(p1, p2, p3, p4) {
+  const pointSeg = (p, a, b) => {
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    const lenSq = dx * dx + dy * dy;
+    const t =
+      lenSq === 0
+        ? 0
+        : Math.min(1, Math.max(0, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / lenSq));
+    return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy));
+  };
+  const orient = (a, b, c) =>
+    (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+  const d1 = orient(p3, p4, p1);
+  const d2 = orient(p3, p4, p2);
+  const d3 = orient(p1, p2, p3);
+  const d4 = orient(p1, p2, p4);
+  if (
+    ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
+    ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))
+  ) {
+    return 0;
+  }
+  return Math.min(
+    pointSeg(p1, p3, p4),
+    pointSeg(p2, p3, p4),
+    pointSeg(p3, p1, p2),
+    pointSeg(p4, p1, p2),
+  );
+}
+function minSeparation(points, k, w, h) {
+  const scaled = points.map(([x, y]) => [
+    w / 2 + k * (x - w / 2),
+    h / 2 + k * (y - h / 2),
+  ]);
+  let min = Number.POSITIVE_INFINITY;
+  for (let i = 0; i + 1 < points.length; i++) {
+    for (let j = 0; j + 1 < scaled.length; j++) {
+      min = Math.min(
+        min,
+        segSegDistance(points[i], points[i + 1], scaled[j], scaled[j + 1]),
+      );
+    }
+  }
+  return min;
+}
+
+test("shape double: separation derived from the actual boundary geometry", () => {
+  const cases = [
+    ["star", 1200, 1200, undefined],
+    ["star", 1200, 1200, 2],
+    ["star", 2400, 1800, undefined],
+    ["diamond", 1200, 1200, undefined],
+    ["heart", 1200, 1200, undefined],
+    ["heart", 1200, 1200, 2],
+  ];
+  for (const [shape, w, h, version] of cases) {
+    const scale = scaleFor(w);
+    const strokes = computeShapeFrameStrokes(
+      resolveFrameInsetPx(w, h),
+      w,
+      h,
+      scale,
+      "double",
+      { shape, shapeLayoutVersion: version },
+    );
+    assert.ok(strokes.inner, `${shape} ${w}x${h} v${version ?? 1} inner rule present`);
+    const points = boundaryPointsForTest(shape, w, h, version);
+    const separation = minSeparation(points, strokes.inner.scaleFactor, w, h);
+    const needed = (strokes.lineWidthPx + strokes.inner.lineWidthPx) / 2;
+    assert.ok(
+      separation >= needed,
+      `${shape} ${w}x${h} v${version ?? 1} strokes disjoint: ${separation.toFixed(2)}px >= ${needed.toFixed(2)}px`,
+    );
+  }
+  // The circle's separation is uniform: (1 − k) × radius exactly.
+  const circle = computeShapeFrameStrokes(
+    resolveFrameInsetPx(1200, 1200),
+    1200,
+    1200,
+    1,
+    "double",
+    { shape: "circle" },
+  );
+  assert.ok(circle.inner, "circle inner rule present");
+  assert.ok(
+    (1 - circle.inner.scaleFactor) * (1200 * 0.44) >=
+      (circle.lineWidthPx + circle.inner.lineWidthPx) / 2,
+    "circle strokes disjoint",
+  );
+  // birthdaycake's path cannot be flattened by the M/L/C/Z flattener
+  // (Q/T/H/V commands) and its centre sits outside the silhouette:
+  // no guarantee, so the second rule is dropped.
+  const cake = computeShapeFrameStrokes(
+    resolveFrameInsetPx(1200, 1200),
+    1200,
+    1200,
+    1,
+    "double",
+    { shape: "birthdaycake" },
+  );
+  assert.equal(cake.inner, null, "birthdaycake renders the classic outline alone");
+  // Without a shape context there is no boundary to derive from:
+  // the second rule is dropped rather than assumed disjoint.
+  const noCtx = computeShapeFrameStrokes(
+    resolveFrameInsetPx(1200, 1200),
+    1200,
+    1200,
+    1,
+    "double",
+  );
+  assert.equal(noCtx.inner, null, "no shape context, no inner rule");
 });
 
 test("source pins: the option is modelled, validated, rebuilt and rendered", () => {

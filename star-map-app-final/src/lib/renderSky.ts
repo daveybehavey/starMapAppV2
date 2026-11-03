@@ -561,6 +561,7 @@ export function renderStarMap({
       targetHeight,
       scale,
       resolveFrameStyle(recipe.renderOptions?.frameStyle),
+      { shape: shapeName, shapeLayoutVersion },
     );
     ctx.save();
     ctx.strokeStyle = frameColor;

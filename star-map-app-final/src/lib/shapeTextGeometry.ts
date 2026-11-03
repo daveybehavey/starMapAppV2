@@ -127,7 +127,7 @@ function tokenizePath(d: string): Array<string | number> {
  * the current command, and pairs after an M are implicit L — the SVG
  * rules the authored paths rely on.
  */
-function flattenPath(d: string): { points: Point[]; vertices: Point[] } {
+export function flattenPath(d: string): { points: Point[]; vertices: Point[] } {
   const tokens = tokenizePath(d);
   const points: Point[] = [];
   const vertices: Point[] = [];
