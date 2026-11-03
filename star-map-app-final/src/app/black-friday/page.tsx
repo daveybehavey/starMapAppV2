@@ -5,6 +5,7 @@ import ResilientImage from "@/components/ResilientImage";
 import { Card } from "@/components/ui/Card";
 import { HOME_MOCKUPS } from "@/lib/homeMockups";
 import { PRINT_CATALOG, type PrintVariant } from "@/lib/printCatalog";
+import { getPrintFreeShippingOfferLine } from "@/lib/printFreeShipping";
 import { formatPrice } from "@/lib/pricing";
 
 // Read the real Pacific date per request; campaign query parameters cannot change this copy.
@@ -60,6 +61,10 @@ export default function BlackFridayPage() {
       : today < "2026-11-27"
         ? "BLACKFRIDAY25 (up to 25% off prints) activates Nov 27, 2026 and runs through Dec 2."
         : null;
+  // Canonical offer line: the $89 threshold is a USD merchandise subtotal in
+  // both markets (checkout judges the USD mirror subtotal), so the page must
+  // not present it as a native-currency figure next to the CAD prices.
+  const freeShippingOfferLine = getPrintFreeShippingOfferLine();
 
   return (
     <main className="mx-auto max-w-6xl space-y-10 px-4 pt-10 pb-12 sm:px-6 sm:pt-14">
@@ -107,7 +112,7 @@ export default function BlackFridayPage() {
           Seasonal codes apply to prints only; HD digital is excluded. Enter your code at checkout. Catalogue
           prices below are shown before discounts. Shipping and taxes are shown at checkout.
         </p>
-        <p className="mt-3 font-semibold">Free shipping on print orders over $89.</p>
+        {freeShippingOfferLine ? <p className="mt-3 font-semibold">{freeShippingOfferLine}</p> : null}
       </section>
 
       <section id="catalogue" aria-labelledby="catalogue-heading" className="scroll-mt-28">

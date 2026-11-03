@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { PRINT_CATALOG } from "../src/lib/printCatalog";
+import { getPrintFreeShippingOfferLine } from "../src/lib/printFreeShipping";
 import { formatPrice } from "../src/lib/pricing";
 
 for (const width of [390, 1280]) {
@@ -35,7 +36,9 @@ for (const width of [390, 1280]) {
       await expect(main.getByTestId("current-offer")).toHaveCount(0);
     }
     await expect(page.locator("body")).not.toContainText(/instant/i);
-    await expect(main).toContainText("Free shipping on print orders over $89.");
+    // The free-shipping threshold is a USD merchandise subtotal in both
+    // markets; the page must carry the canonical offer line verbatim.
+    await expect(main).toContainText(getPrintFreeShippingOfferLine()!);
     await expect(main.locator("[data-print-variant]")).toHaveCount(PRINT_CATALOG.length);
     for (const product of PRINT_CATALOG) {
       const card = main.locator(`[data-print-variant="${product.id}"]`);
