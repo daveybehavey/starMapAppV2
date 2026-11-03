@@ -151,8 +151,7 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
               - name: UI Playwright smoke (dev-server warm-up)
-                      run: npm run qa:smoke:ui
-
+              run: npm run qa:smoke:ui
       - name: Commerce Playwright smoke
         run: npm run qa:smoke:commerce
 
