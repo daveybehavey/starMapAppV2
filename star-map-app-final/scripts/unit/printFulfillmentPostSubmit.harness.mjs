@@ -131,7 +131,20 @@ export function applyReviewOutcomeToCurrent(current, reviewed) {
     (current.fileReviewState === "healthy" || current.fileReviewState === "failed") &&
     reviewed.fileReviewState !== current.fileReviewState
   ) {
-    return null;
+    // Mirror of printFulfillmentPostSubmit.ts: a resolution may be
+    // SUPERSEDED by a fresher review of the same order, never by a
+    // stale one — both records must carry a review stamp and the
+    // incoming outcome must be at least as fresh as the standing
+    // resolution. (Rejecting every transition lost a delivered
+    // approval alert's stamp when a corrected order turned healthy,
+    // and every later sweep tick re-sent the approval email.)
+    if (
+      reviewed.fileReviewCheckedAt == null ||
+      current.fileReviewCheckedAt == null ||
+      reviewed.fileReviewCheckedAt < current.fileReviewCheckedAt
+    ) {
+      return null;
+    }
   }
   const next = { ...current };
   if (reviewed.fileReviewState) {
@@ -178,6 +191,14 @@ export function applyReviewOutcomeToCurrent(current, reviewed) {
   ) {
     next.operatorFailureAlertProvider = reviewed.operatorFailureAlertProvider;
     next.operatorFailureAlertError = reviewed.operatorFailureAlertError;
+  }
+  if (current.fileReviewState === "failed" && reviewed.fileReviewState === "healthy") {
+    // Mirror: the failed episode is closed by the fresh healthy
+    // outcome; its error and undelivered failure-alert error do not
+    // carry over. The delivered approval stamp merged above stays.
+    next.error = undefined;
+    next.operatorFailureAlertError = undefined;
+    next.operatorFailureAlertProvider = undefined;
   }
   return next;
 }

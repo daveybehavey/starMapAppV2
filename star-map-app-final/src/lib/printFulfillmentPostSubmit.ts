@@ -124,8 +124,10 @@ export async function applyPrintfulPostSubmitReview(
  * silently reverted. Starting from `current` preserves all of it; the
  * review-owned fields are then applied as progress:
  * - the review stamps move to the reviewed state, except that a
- *   resolved state (healthy/failed) is never regressed by a stale
- *   review, and a pending episode keeps its earliest pending-since;
+ *   resolved state (healthy/failed) is never regressed by a STALE
+ *   review (a fresher outcome may supersede a resolution — the
+ *   checkedAt stamps decide), and a pending episode keeps its
+ *   earliest pending-since;
  * - the failure `error` is written only by a failed review;
  * - operator alert stamps are set only when the current record lacks
  *   them (a delivered stamp is never replaced by a later failure).
@@ -150,7 +152,23 @@ export function applyReviewOutcomeToCurrent(
     (current.fileReviewState === "healthy" || current.fileReviewState === "failed") &&
     reviewed.fileReviewState !== current.fileReviewState
   ) {
-    return null;
+    // A resolution may be SUPERSEDED by a later review of the same
+    // order — the sweep exists to re-check failed files, and files do
+    // get corrected — but never by a STALE one. Freshness is the
+    // review stamp: both records must carry one and the incoming
+    // outcome must be at least as fresh as the standing resolution.
+    // (Before this, every resolved-to-different transition was
+    // rejected, which lost a delivered approval alert's stamp when a
+    // corrected order turned healthy: the merge returned null, the
+    // stamp never persisted, and every later tick re-sent the
+    // approval email — Codex P2 on PR #502.)
+    if (
+      reviewed.fileReviewCheckedAt == null ||
+      current.fileReviewCheckedAt == null ||
+      reviewed.fileReviewCheckedAt < current.fileReviewCheckedAt
+    ) {
+      return null;
+    }
   }
   const next: PrintOrderRecord = { ...current };
   if (reviewed.fileReviewState) {
@@ -201,6 +219,16 @@ export function applyReviewOutcomeToCurrent(
   ) {
     next.operatorFailureAlertProvider = reviewed.operatorFailureAlertProvider;
     next.operatorFailureAlertError = reviewed.operatorFailureAlertError;
+  }
+  if (current.fileReviewState === "failed" && reviewed.fileReviewState === "healthy") {
+    // The failed episode is closed by the fresh healthy outcome: its
+    // file-failure error and its (never delivered) failure-alert error
+    // do not carry into the healthy record. The approval alert's
+    // delivered stamp merged above is preserved — it is what stops
+    // the next sweep tick from sending the approval email again.
+    next.error = undefined;
+    next.operatorFailureAlertError = undefined;
+    next.operatorFailureAlertProvider = undefined;
   }
   return next;
 }
