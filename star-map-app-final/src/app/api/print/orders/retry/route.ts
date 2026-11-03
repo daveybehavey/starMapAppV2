@@ -3,6 +3,8 @@ import Stripe from "stripe";
 import { isDurableKvPersistenceError, kv } from "@/lib/kv";
 import { hasValidAdminToken, readAdminTokenFromHeaders } from "@/lib/adminAuth";
 import { isPrintfulConfigured, submitPrintfulOrder } from "@/lib/printful";
+import { isPrintfulV2Configured, submitPrintfulV2CatalogOrder } from "@/lib/printfulV2Orders";
+import { getMerchFamily } from "@/lib/merchCatalog";
 import { evaluatePrintMarginForPaidOrder } from "@/lib/printMargin";
 import {
   alternateDispatchBlocksRedispatch,
@@ -533,13 +535,15 @@ async function postRetryPrintOrder(req: NextRequest) {
     return NextResponse.json({ ok: false, error: failed.error, order: sanitizePrintOrderForOperatorResponse(failed) }, { status: 400 });
   }
 
-  const marginCheck = evaluatePrintMarginForPaidOrder({
-    variant: hydrated.printVariant,
-    shippingCountry: recipient.country_code,
-    amountTotalCents: hydrated.amountTotal ?? null,
-    currency: hydrated.currency ?? null,
-    includesSecondCopy: hydrated.includesSecondCopy,
-  });
+  const marginCheck = hydrated.merchCatalogVariantId
+    ? { allowed: true, code: "merch_margin_skipped" as const, minMarginCents: 0 }
+    : evaluatePrintMarginForPaidOrder({
+        variant: hydrated.printVariant,
+        shippingCountry: recipient.country_code,
+        amountTotalCents: hydrated.amountTotal ?? null,
+        currency: hydrated.currency ?? null,
+        includesSecondCopy: hydrated.includesSecondCopy,
+      });
   if (!marginCheck.allowed) {
     const failed = await persistFailedPrintOrder({
       ...hydrated,
@@ -553,8 +557,16 @@ async function postRetryPrintOrder(req: NextRequest) {
     return NextResponse.json({ ok: false, error: failed.error, order: sanitizePrintOrderForOperatorResponse(failed) }, { status: 400 });
   }
 
-  if (!isPrintfulConfigured() && !printFulfillmentWebhookUrl) {
-    return NextResponse.json({ ok: false, error: "Fulfillment not configured" }, { status: 503 });
+  const isMerchRetry = Boolean(hydrated.merchCatalogVariantId);
+  const hasNativeDestination = isMerchRetry ? isPrintfulV2Configured() : isPrintfulConfigured();
+  if (!hasNativeDestination && !printFulfillmentWebhookUrl) {
+    const failed = await persistFailedPrintOrder({
+      ...hydrated,
+      attempts: (hydrated.attempts ?? 0) + 1,
+      printAssetUrl,
+      error: "fulfillment_not_configured",
+    });
+    return NextResponse.json({ ok: false, error: failed.error, order: sanitizePrintOrderForOperatorResponse(failed) }, { status: 400 });
   }
 
   // Fail closed before any provider side effect: unretainable records must not
@@ -574,7 +586,97 @@ async function postRetryPrintOrder(req: NextRequest) {
   const attempts = (hydrated.attempts ?? 0) + 1;
   const now = Date.now();
 
-  if (isPrintfulConfigured()) {
+  if (isMerchRetry && isPrintfulV2Configured()) {
+    // S96-1 F4: merch dispatch parity with the Stripe webhook (#478 was
+    // webhook-only). A merch order carries a Printful catalog variant,
+    // not a poster variant: submitting it through the v1 poster path
+    // below would order the wrong product. Mirror the webhook's V2
+    // call (family placement/technique/label) and its post-submit
+    // bind/review outcome handling exactly.
+    const family = hydrated.merchFamily ? getMerchFamily(hydrated.merchFamily) : null;
+    const printfulV2 = await submitPrintfulV2CatalogOrder({
+      externalId: sessionId,
+      catalogVariantId: hydrated.merchCatalogVariantId as number,
+      fileUrl: printAssetUrl,
+      recipient,
+      placement: family?.placement ?? "default",
+      technique: family?.technique ?? "digital",
+      itemName: family?.labelFallback ?? "Custom Star Map merch",
+    });
+    if (!printfulV2.ok) {
+      const failed = await persistFailedPrintOrder({
+        ...hydrated,
+        attempts,
+        printAssetUrl,
+        webhookStatus: printfulV2.status,
+        error: printfulV2.error ?? "printful_v2_order_failed",
+      });
+      return NextResponse.json({ ok: false, error: failed.error, order: sanitizePrintOrderForOperatorResponse(failed) }, { status: 502 });
+    }
+    let sentV2: PrintOrderRecord = {
+      ...hydrated,
+      status: "sent" as const,
+      attempts,
+      printAssetUrl,
+      webhookStatus: printfulV2.status,
+      printfulOrderId: printfulV2.orderId,
+      sentAt: now,
+      error: undefined,
+      terminalEventType: null,
+    };
+    const {
+      identityPersist: sentPersistV2,
+      record: reviewedV2,
+      bindOk: bindOkV2,
+      bindBlockedByTerminal: bindBlockedByTerminalV2,
+      bindFailureReason: bindFailureReasonV2,
+    } = await bindAcceptedPrintfulIdentityThenReview({
+      sessionId,
+      sentRecord: sentV2,
+      existingKv: hydrated,
+    });
+    sentV2 = reviewedV2;
+    if (sentPersistV2?.outcome === "deleted_unretainable") {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "print_order_unretainable",
+          reason: sentPersistV2.reason,
+          providerAccepted: true,
+          printfulOrderId: sentV2.printfulOrderId ?? null,
+        },
+        { status: 409 },
+      );
+    }
+    if (!bindOkV2 || bindBlockedByTerminalV2 || bindFailureReasonV2) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: bindFailureReasonV2 ?? "terminal_failed_blocks_sent_mirror",
+          providerAccepted: true,
+          printfulOrderId: sentV2.printfulOrderId ?? null,
+        },
+        { status: bindFailureReasonV2 === "authority_unread" ? 503 : 409 },
+      );
+    }
+    if (sentPersistV2?.outcome === "rejected_terminal_failure") {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "terminal_failed_blocks_sent_mirror",
+          providerAccepted: true,
+          printfulOrderId: sentV2.printfulOrderId ?? null,
+        },
+        { status: 409 },
+      );
+    }
+    void sendPrintOrderConfirmation(sessionId).catch((error) => {
+      console.warn("Print confirmation email failed after merch retry", { sessionId, error });
+    });
+    return NextResponse.json({ ok: true, status: "sent", order: sanitizePrintOrderForOperatorResponse(sentV2) });
+  }
+
+  if (!isMerchRetry && isPrintfulConfigured()) {
     const printful = await submitPrintfulOrder({
       externalId: sessionId,
       variant: hydrated.printVariant,

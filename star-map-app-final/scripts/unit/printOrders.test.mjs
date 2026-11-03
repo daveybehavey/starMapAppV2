@@ -541,15 +541,31 @@ test("S96-1 (gate round 5): a hold cleared on the latest record is stripped from
 });
 
 test("S96-1 (gate round 5): post-submit persists and the stranded-claim surfacing are pinned in the TS sources", () => {
-  // Both post-submit persist sites preserve the latest hold annotations.
+  // The post-submit identity persist preserves the latest hold annotations.
   assert.match(postSubmitSource, /preserveLatestHoldAnnotations\(\s+sentRecord,/);
-  assert.match(postSubmitSource, /preserveLatestHoldAnnotations\(\s+reviewed,/);
   assert.match(printOrdersSource, /export function preserveLatestHoldAnnotations/);
   // The claim-loser surfacing: alert, final re-read, conditional write.
   assert.match(webhookRouteSource, /Stranded-claim surfacing stood down/);
   assert.match(webhookRouteSource, /freshest\?\.status === "sent" \|\| freshest\?\.alternateDispatch/);
-  // Gate round 9: the confirmation-email writer syncs hold annotations
-  // from the latest record before both of its outcome persists.
-  assert.match(confirmationSource, /preserveLatestHoldAnnotations\(\s+failed,/);
-  assert.match(confirmationSource, /preserveLatestHoldAnnotations\(\s+sent,/);
+});
+
+test("S96-1 F8: annotation writers merge onto the freshest record (supersedes gate round 5/9 sync pins)", () => {
+  // The post-submit REVIEW persist merges the review's owned fields
+  // onto the freshest record via applyReviewOutcomeToCurrent (the
+  // hold-sync spread remains only as the unread-fresh fallback).
+  assert.match(postSubmitSource, /applyReviewOutcomeToCurrent\(freshReview, reviewed\)/);
+  assert.match(postSubmitSource, /preserveLatestHoldAnnotations\(reviewed, freshReview\)/);
+  // The confirmation-email writer re-reads the latest record after the
+  // send and writes only its own fields onto it — both outcomes.
+  assert.match(confirmationSource, /const latest = \(await kv\.get<ExtendedPrintOrderRecord>\(key\)\)/);
+  assert.match(confirmationSource, /\.\.\.latest,\s+printConfirmationError/);
+  assert.match(confirmationSource, /\.\.\.latest,\s+printConfirmationSentAt/);
+  // The shipping-notification writer syncs hold annotations from the
+  // latest record before both of its outcome persists.
+  const shippingSource = fs.readFileSync(
+    path.join(appRoot, "src/lib/shippingNotifications.ts"),
+    "utf8",
+  );
+  assert.match(shippingSource, /preserveLatestHoldAnnotations\(\s+failed,/);
+  assert.match(shippingSource, /preserveLatestHoldAnnotations\(\s+sent,/);
 });

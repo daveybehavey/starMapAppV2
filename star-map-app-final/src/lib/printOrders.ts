@@ -156,6 +156,22 @@ export type PrintOrderRecord = {
    */
   shippedAt?: number;
   /**
+   * S96-1 F3: post-submit Printful file-review state, stamped by every
+   * applyPrintfulPostSubmitReview pass. "pending" means the review could
+   * not resolve yet (files still processing, or the review unavailable)
+   * — the scheduled review sweep (printOrderReviewSweep.ts) revisits
+   * pending records until the review resolves "healthy" or "failed".
+   * Absent on records written before these stamps existed; the sweep
+   * derives candidacy for those from the submit age and alert stamps.
+   */
+  fileReviewState?: "pending" | "healthy" | "failed";
+  fileReviewCheckedAt?: number;
+  /** First time the current pending episode was observed (ms epoch). */
+  fileReviewPendingSince?: number;
+  /** One-shot operator alert for a review pending past the threshold. */
+  fileReviewPendingAlertedAt?: number;
+  fileReviewPendingAlertError?: string;
+  /**
    * Buyer marked the order as a gift at checkout. Review requests are never
    * sent for gift orders. Written by the Stripe webhook from the checkout
    * session's `is_gift` metadata (see checkoutGiftFlag.ts); absent means

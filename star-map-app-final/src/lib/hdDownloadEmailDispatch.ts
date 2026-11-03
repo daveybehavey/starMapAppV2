@@ -24,6 +24,102 @@ import { kv } from "@/lib/kv";
 const ACCESS_EMAIL_TTL_SECONDS = 45 * 24 * 60 * 60;
 const HD_ARCHIVE_EMAIL_TTL_SECONDS = 45 * 24 * 60 * 60;
 
+/**
+ * A failure sidecar in its resumable-release state: once a claim
+ * release has consumed the failure evidence, `releaseConsumedAt` is
+ * stamped INTO the sidecar so a partially completed release (evidence
+ * consumed, claim delete failed) can be resumed by a later pass
+ * instead of stranding the claim forever.
+ */
+type HdEmailResultRecordWithReleaseState = HdEmailResultRecord & {
+  releaseConsumedAt?: number;
+  releaseId?: string;
+};
+
+let releaseSequence = 0;
+
+function newReleaseId(): string {
+  releaseSequence += 1;
+  return `rel_${Date.now().toString(36)}_${releaseSequence.toString(36)}_${Math.random()
+    .toString(36)
+    .slice(2, 10)}`;
+}
+
+/**
+ * Consume a recorded failure sidecar and release its dedupe claim —
+ * the S96-1 F5 fix, made resumable (Codex P2 on PR #502). Protocol:
+ *
+ *   1. Stamp `releaseConsumedAt` into the sidecar (unless already
+ *      stamped). From this moment the failure is consumed: no later
+ *      pass may treat the record as fresh evidence, and the stamped
+ *      sidecar authorises resuming the release.
+ *   2. Delete the claim.
+ *   3. Delete the sidecar. Only an ABSENT sidecar means "release
+ *      complete", which is what the post-dispatch outcome-loss path
+ *      relies on (S93-1): a delivered retry whose outcome write failed
+ *      has no sidecar at the next claim, so it is never released.
+ *
+ * Any step throwing aborts the pass with the failure surfaced (the
+ * claim increment has not happened yet, so the caller sees an error,
+ * not a send). The next pass re-reads the stamped sidecar and resumes
+ * at the first incomplete step — a transient delete failure delays
+ * the retry by one pass instead of sealing the session's email.
+ *
+ * Ownership (gate round 5, local Codex seat P2-A): the protocol above
+ * made an interrupted release resumable but gave concurrent releasers
+ * no exclusion — two passes holding the same failure read could both
+ * release, and the slower one stamped over the faster one's DELIVERED
+ * sidecar, deleted its fresh claim, re-incremented to 1 and sent a
+ * duplicate. The release therefore re-reads the sidecar before
+ * mutating anything: the caller's `prior` is only the trigger, never
+ * the authority. An absent sidecar (a concurrent release completed)
+ * or a delivered one (a concurrent retry already delivered) ends the
+ * release untouched, and the stamp carries a `releaseId`: the pass
+ * that stamps owns the release, a pass that finds a stamp adopts that
+ * release, and ownership is re-verified immediately before each
+ * delete, so a pass whose view went stale mid-release backs out
+ * before it can destroy a fresh claim or delivered evidence. Two
+ * passes adopting the SAME stamped release may both run the deletes
+ * (they are idempotent); the caller's atomic claim increment remains
+ * the final arbiter of who dispatches.
+ */
+async function consumeFailureEvidenceAndReleaseClaim(input: {
+  sidecarKey: string;
+  claimKey: string;
+  prior: HdEmailResultRecordWithReleaseState;
+}): Promise<void> {
+  const readStanding = () =>
+    kv.getErrorPreserving<HdEmailResultRecordWithReleaseState>(input.sidecarKey);
+
+  const fresh = await readStanding();
+  if (fresh == null) return;
+  if (fresh.deliveredAt != null) return;
+
+  let releaseId = fresh.releaseId;
+  if (fresh.releaseConsumedAt == null) {
+    releaseId = newReleaseId();
+    await kv.setDurable(input.sidecarKey, {
+      ...fresh,
+      releaseConsumedAt: Date.now(),
+      releaseId,
+    });
+  }
+
+  const stillOwned = async (): Promise<boolean> => {
+    const standing = await readStanding();
+    return (
+      standing != null &&
+      standing.deliveredAt == null &&
+      standing.releaseConsumedAt != null &&
+      standing.releaseId === releaseId
+    );
+  };
+  if (!(await stillOwned())) return;
+  await kv.deleteDurable(input.claimKey);
+  if (!(await stillOwned())) return;
+  await kv.deleteDurable(input.sidecarKey);
+}
+
 export type HdDownloadEmailDispatchResult = AccountAccessAlertResult & {
   skipped?: boolean;
   reason?: string;
@@ -100,6 +196,34 @@ export async function trySendInitialHdPurchaseEmail(input: {
 }): Promise<HdDownloadEmailDispatchResult> {
   if (!hasRecoverableAccess(input.record)) {
     return { delivered: false, provider: "none", skipped: true, reason: "not_eligible" };
+  }
+
+  // S96-1 F5: the dedupe claim below is taken BEFORE dispatch, so a
+  // failed first send used to stand forever — every replay read the
+  // counter as "already_sent" even though nothing was delivered and a
+  // later pass could have succeeded. Release the claim ONLY on recorded
+  // evidence: the initial-result sidecar holds a failure outcome
+  // (present, no deliveredAt) from a previous attempt. A delivered
+  // record keeps the claim; an absent or unreadable sidecar changes
+  // nothing, so an outcome lost after dispatch keeps the S93-1
+  // exactly-once residual rather than risking a duplicate email. (The
+  // release is ownership-checked — see the helper: a pass acting on a
+  // stale read of this sidecar can neither stamp over a delivered
+  // record nor delete a concurrent pass's fresh claim.)
+  let priorInitialResult: HdEmailResultRecord | null = null;
+  try {
+    priorInitialResult = await kv.getErrorPreserving<HdEmailResultRecord>(
+      ENTITLEMENT_KV.hdInitialEmailResult(input.sessionId),
+    );
+  } catch {
+    priorInitialResult = null;
+  }
+  if (priorInitialResult != null && priorInitialResult.deliveredAt == null) {
+    await consumeFailureEvidenceAndReleaseClaim({
+      sidecarKey: ENTITLEMENT_KV.hdInitialEmailResult(input.sessionId),
+      claimKey: ENTITLEMENT_KV.accessEmailDedupe(input.sessionId),
+      prior: priorInitialResult,
+    });
   }
 
   const shouldSend = await kv.incr(ENTITLEMENT_KV.accessEmailDedupe(input.sessionId), 1, {
@@ -181,6 +305,20 @@ export async function trySendHdArchiveReadyEmail(input: {
   const archiveReady = await hdArchiveObjectExists(input.sessionId);
   if (!archiveReady) {
     return { delivered: false, provider: "none", skipped: true, reason: "archive_not_ready" };
+  }
+
+  // S96-1 F5: same claim release as the initial path. A recorded
+  // archive-ready failure (sidecar present, no deliveredAt) releases
+  // the claim so this pass retries the send; a delivered outcome was
+  // already handled by the archive_already_emailed check above when it
+  // carried the archive, and without the archive link a delivered
+  // record still keeps its claim below (no duplicate follow-up).
+  if (archiveEmailResult != null && archiveEmailResult.deliveredAt == null) {
+    await consumeFailureEvidenceAndReleaseClaim({
+      sidecarKey: ENTITLEMENT_KV.hdArchiveEmailResult(input.sessionId),
+      claimKey: ENTITLEMENT_KV.hdArchiveEmailDedupe(input.sessionId),
+      prior: archiveEmailResult,
+    });
   }
 
   const shouldSend = await kv.incr(ENTITLEMENT_KV.hdArchiveEmailDedupe(input.sessionId), 1, {

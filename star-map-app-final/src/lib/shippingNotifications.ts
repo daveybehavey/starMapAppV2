@@ -11,6 +11,7 @@ import { kv } from "@/lib/kv";
 import {
   printOrderKey,
   persistPrintOrderRecord,
+  preserveLatestHoldAnnotations,
   type PrintOrderRecord,
 } from "@/lib/printOrders";
 import { renderShippingNotificationEmail, type ShippingNotificationData } from "@/lib/shippingNotificationEmail";
@@ -199,7 +200,11 @@ export async function sendShippingNotification(
       ...record,
       shippingNotificationError: sendResult.error.slice(0, 320),
     };
-    await persistPrintOrderRecord(sessionId, failed);
+    const failedSynced = preserveLatestHoldAnnotations(
+      failed,
+      await kv.get<PrintOrderRecord>(key),
+    ) as ExtendedPrintOrderRecord;
+    await persistPrintOrderRecord(sessionId, failedSynced);
     return { ok: false, status: "failed", reason: sendResult.error, provider: "resend" };
   }
 
@@ -211,7 +216,11 @@ export async function sendShippingNotification(
     shippingNotificationMessageId: sendResult.id || undefined,
     shippingNotificationError: undefined,
   };
-  await persistPrintOrderRecord(sessionId, sent);
+  const sentSynced = preserveLatestHoldAnnotations(
+    sent,
+    await kv.get<PrintOrderRecord>(key),
+  ) as ExtendedPrintOrderRecord;
+  await persistPrintOrderRecord(sessionId, sentSynced);
 
   return {
     ok: true,

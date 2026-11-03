@@ -113,6 +113,161 @@ function classifyBindFailure(bind) {
 }
 
 /**
+ * Mirror of applyReviewOutcomeToCurrent in
+ * src/lib/printFulfillmentPostSubmit.ts (S96-1 F8): merge the review's
+ * owned fields onto the CURRENT record; null when the record no longer
+ * describes the reviewed order in `sent`.
+ */
+export function applyReviewOutcomeToCurrent(current, reviewed) {
+  if (!current) return null;
+  if (current.status !== "sent" || current.shippedAt) return null;
+  if (
+    normalizeAuthorityProviderOrderId(current.printfulOrderId) !==
+    normalizeAuthorityProviderOrderId(reviewed.printfulOrderId)
+  ) {
+    return null;
+  }
+  // Mirror of printFulfillmentPostSubmit.ts (gate round 6): a
+  // stale (or unstamped) resolved-to-different outcome no longer
+  // returns null here — the refusal folds into `outcomeStale`, so
+  // its delivered alert stamps are reconciled below and the merge
+  // returns null only when nothing reconciled.
+  let resolutionRefused = false;
+  if (
+    (current.fileReviewState === "healthy" || current.fileReviewState === "failed") &&
+    reviewed.fileReviewState !== current.fileReviewState
+  ) {
+    // Mirror of printFulfillmentPostSubmit.ts: a resolution may be
+    // SUPERSEDED by a fresher review of the same order, never by a
+    // stale one — both records must carry a review stamp and the
+    // incoming outcome must be at least as fresh as the standing
+    // resolution. (Rejecting every transition lost a delivered
+    // approval alert's stamp when a corrected order turned healthy,
+    // and every later sweep tick re-sent the approval email.)
+    if (
+      reviewed.fileReviewCheckedAt == null ||
+      current.fileReviewCheckedAt == null ||
+      reviewed.fileReviewCheckedAt < current.fileReviewCheckedAt
+    ) {
+      resolutionRefused = true;
+    }
+  }
+  // Mirror of printFulfillmentPostSubmit.ts (gate round 5): an
+  // outcome older than the standing review stamp applies none of
+  // its review fields, whatever the standing state (resolved or
+  // pending); only its delivered alert stamps are reconciled below.
+  const outcomeStale =
+    resolutionRefused ||
+    (reviewed.fileReviewState != null &&
+      current.fileReviewCheckedAt != null &&
+      reviewed.fileReviewCheckedAt != null &&
+      reviewed.fileReviewCheckedAt < current.fileReviewCheckedAt);
+  const next = { ...current };
+  if (!outcomeStale && reviewed.fileReviewState) {
+    next.fileReviewState = reviewed.fileReviewState;
+    next.fileReviewCheckedAt = reviewed.fileReviewCheckedAt;
+    if (reviewed.fileReviewState === "pending") {
+      next.fileReviewPendingSince =
+        current.fileReviewPendingSince ?? reviewed.fileReviewPendingSince;
+      if (!current.fileReviewPendingAlertedAt && reviewed.fileReviewPendingAlertedAt) {
+        next.fileReviewPendingAlertedAt = reviewed.fileReviewPendingAlertedAt;
+        next.fileReviewPendingAlertError = undefined;
+      } else if (
+        !current.fileReviewPendingAlertedAt &&
+        !current.fileReviewPendingAlertError &&
+        reviewed.fileReviewPendingAlertError
+      ) {
+        next.fileReviewPendingAlertError = reviewed.fileReviewPendingAlertError;
+      }
+    } else {
+      next.fileReviewPendingSince = undefined;
+      next.fileReviewPendingAlertedAt = undefined;
+      next.fileReviewPendingAlertError = undefined;
+    }
+  }
+  if (!outcomeStale && reviewed.fileReviewState === "failed" && reviewed.error) {
+    next.error = reviewed.error;
+  }
+  if (!current.operatorAlertedAt && reviewed.operatorAlertedAt) {
+    next.operatorAlertedAt = reviewed.operatorAlertedAt;
+    next.operatorAlertProvider = reviewed.operatorAlertProvider;
+    next.operatorAlertError = undefined;
+  } else if (!current.operatorAlertedAt && !current.operatorAlertError && reviewed.operatorAlertError) {
+    next.operatorAlertProvider = reviewed.operatorAlertProvider;
+    next.operatorAlertError = reviewed.operatorAlertError;
+  }
+  if (!current.operatorFailureAlertedAt && reviewed.operatorFailureAlertedAt) {
+    next.operatorFailureAlertedAt = reviewed.operatorFailureAlertedAt;
+    next.operatorFailureAlertProvider = reviewed.operatorFailureAlertProvider;
+    next.operatorFailureAlertError = undefined;
+  } else if (
+    !current.operatorFailureAlertedAt &&
+    !current.operatorFailureAlertError &&
+    reviewed.operatorFailureAlertError
+  ) {
+    next.operatorFailureAlertProvider = reviewed.operatorFailureAlertProvider;
+    next.operatorFailureAlertError = reviewed.operatorFailureAlertError;
+  }
+  if (
+    outcomeStale &&
+    current.fileReviewState === "pending" &&
+    reviewed.fileReviewState === "pending" &&
+    current.fileReviewPendingSince != null &&
+    reviewed.fileReviewPendingSince === current.fileReviewPendingSince
+  ) {
+    // Mirror of printFulfillmentPostSubmit.ts (gate round 6): the
+    // pending episode's delivered alert stamp is reconciled on the
+    // stale path too, scoped to the SAME pending episode (both
+    // outcomes pending, same pending-since) — a delayed pending
+    // outcome whose aging alert was delivered no longer loses the
+    // stamp to the stale refusal.
+    if (!current.fileReviewPendingAlertedAt && reviewed.fileReviewPendingAlertedAt) {
+      next.fileReviewPendingAlertedAt = reviewed.fileReviewPendingAlertedAt;
+      next.fileReviewPendingAlertError = undefined;
+    } else if (
+      !current.fileReviewPendingAlertedAt &&
+      !current.fileReviewPendingAlertError &&
+      reviewed.fileReviewPendingAlertError
+    ) {
+      next.fileReviewPendingAlertError = reviewed.fileReviewPendingAlertError;
+    }
+  }
+  if (
+    !outcomeStale &&
+    reviewed.fileReviewState === "healthy" &&
+    (current.fileReviewState === "failed" || current.fileReviewState === "pending")
+  ) {
+    // Mirror of printFulfillmentPostSubmit.ts: a healthy outcome
+    // closes the review episode even across an intermediate pending
+    // re-check (failed -> pending -> healthy). The file-failure
+    // error (prefix-scoped) and the undelivered failure-alert
+    // residue are cleared; delivered stamps stay as history.
+    if (typeof next.error === "string" && next.error.startsWith("printful_files_failed")) {
+      next.error = undefined;
+    }
+    if (!next.operatorFailureAlertedAt) {
+      next.operatorFailureAlertError = undefined;
+      next.operatorFailureAlertProvider = undefined;
+    }
+  }
+  if (outcomeStale) {
+    // Only the alert-stamp reconciliation above may survive a stale
+    // outcome; if it changed nothing, the outcome is refused whole.
+    const alertReconciled =
+      next.operatorAlertedAt !== current.operatorAlertedAt ||
+      next.operatorAlertProvider !== current.operatorAlertProvider ||
+      next.operatorAlertError !== current.operatorAlertError ||
+      next.operatorFailureAlertedAt !== current.operatorFailureAlertedAt ||
+      next.operatorFailureAlertProvider !== current.operatorFailureAlertProvider ||
+      next.operatorFailureAlertError !== current.operatorFailureAlertError ||
+      next.fileReviewPendingAlertedAt !== current.fileReviewPendingAlertedAt ||
+      next.fileReviewPendingAlertError !== current.fileReviewPendingAlertError;
+    if (!alertReconciled) return null;
+  }
+  return next;
+}
+
+/**
  * Models bindAcceptedPrintfulIdentityThenReview with injectable review + authority store.
  * AG-018: fail closed unless bind succeeds — no KV/index/review on conflict/unread.
  */
@@ -198,18 +353,42 @@ export async function bindAcceptedPrintfulIdentityThenReview(input) {
 
   const beforeReview = { ...identityRecord };
   const disposition = summarizePrintfulFileReview(reviewResult);
+  const reviewNow = Date.now();
   let reviewed = identityRecord;
   if (disposition === "failed" && reviewResult) {
-    reviewed = { ...identityRecord, error: formatPrintfulFileFailureError(reviewResult) };
+    reviewed = {
+      ...identityRecord,
+      error: formatPrintfulFileFailureError(reviewResult),
+      // S96-1 F3 mirror: resolved reviews are stamped and close the episode.
+      fileReviewState: "failed",
+      fileReviewCheckedAt: reviewNow,
+      fileReviewPendingSince: undefined,
+      fileReviewPendingAlertedAt: undefined,
+      fileReviewPendingAlertError: undefined,
+    };
     alerts.push({ type: "failure" });
   } else if (disposition === "healthy") {
     // New object (not in-place mutation) so change detection persists approval fields.
     alerts.push({ type: "approval" });
     reviewed = {
       ...identityRecord,
-      operatorAlertedAt: Date.now(),
+      operatorAlertedAt: reviewNow,
       operatorAlertProvider: "resend",
       operatorAlertError: undefined,
+      fileReviewState: "healthy",
+      fileReviewCheckedAt: reviewNow,
+      fileReviewPendingSince: undefined,
+      fileReviewPendingAlertedAt: undefined,
+      fileReviewPendingAlertError: undefined,
+    };
+  } else if (disposition === "pending" || disposition === "unavailable") {
+    // S96-1 F3 mirror: pending is STAMPED (not returned untouched) so
+    // the review sweep can revisit it; no alert of either kind.
+    reviewed = {
+      ...identityRecord,
+      fileReviewState: "pending",
+      fileReviewCheckedAt: reviewNow,
+      fileReviewPendingSince: identityRecord.fileReviewPendingSince ?? reviewNow,
     };
   }
 
@@ -219,12 +398,32 @@ export async function bindAcceptedPrintfulIdentityThenReview(input) {
     beforeReview.error !== reviewed.error ||
     beforeReview.operatorAlertedAt !== reviewed.operatorAlertedAt ||
     beforeReview.operatorAlertProvider !== reviewed.operatorAlertProvider ||
-    beforeReview.operatorAlertError !== reviewed.operatorAlertError;
+    beforeReview.operatorAlertError !== reviewed.operatorAlertError ||
+    beforeReview.fileReviewState !== reviewed.fileReviewState ||
+    beforeReview.fileReviewCheckedAt !== reviewed.fileReviewCheckedAt ||
+    beforeReview.fileReviewPendingSince !== reviewed.fileReviewPendingSince ||
+    beforeReview.fileReviewPendingAlertedAt !== reviewed.fileReviewPendingAlertedAt ||
+    beforeReview.fileReviewPendingAlertError !== reviewed.fileReviewPendingAlertError;
   if (annotated) {
-    finalRecord = preserveLatestHoldAnnotations(
-      reviewed,
-      await kv.get(printOrderKey(sessionId)),
-    );
+    // S96-1 F8 mirror: merge onto the freshest record; a refused merge
+    // writes nothing and the fresh record is the result.
+    const freshReview = await kv.get(printOrderKey(sessionId));
+    const mergedReviewed = applyReviewOutcomeToCurrent(freshReview, reviewed);
+    if (freshReview && !mergedReviewed) {
+      return {
+        record: freshReview,
+        identityPersist,
+        reviewPersist: null,
+        indexed,
+        bindOk: true,
+        bindBlockedByTerminal: false,
+        bindFailureReason: null,
+        alerts,
+        events,
+        authority,
+      };
+    }
+    finalRecord = mergedReviewed ?? preserveLatestHoldAnnotations(reviewed, freshReview);
     reviewPersist = await persistPrintOrderRecord(kv, authority, sessionId, finalRecord);
   }
 

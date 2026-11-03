@@ -3,6 +3,7 @@ import { default as handler } from "./.open-next/worker.js";
 import * as Sentry from "@sentry/cloudflare";
 import { runScheduledReviewRequestTick } from "./src/lib/reviewRequestRuntime";
 import { runScheduledPrintOrderHoldSweep } from "./src/lib/printOrderHoldSweepRuntime";
+import { runScheduledPrintOrderReviewSweep } from "./src/lib/printOrderReviewSweepRuntime";
 import { resolveSentryConfig, safeScrubSentryEvent, SENTRY_DATA_COLLECTION_OFF } from "./src/lib/sentryScrub";
 import { PrintOrderAuthorityDO as PrintOrderAuthorityDOBase } from "./src/durable-objects/PrintOrderAuthorityDO";
 import { ReviewRequestLedgerDO as ReviewRequestLedgerDOBase } from "./src/durable-objects/ReviewRequestLedgerDO";
@@ -111,6 +112,25 @@ const workerHandler = {
         console.error(
           JSON.stringify({
             event: "print_order_hold_sweep",
+            status: "tick_error",
+            error: error instanceof Error ? error.message.slice(0, 200) : "unknown",
+            cron: event.cron,
+          })
+        );
+      })
+    );
+    // Print-order review sweep (S96-1 F3). INERT unless
+    // PRINT_ORDER_REVIEW_SWEEP_ENABLED is set to "true" in the Worker
+    // environment at activation time — the flag is deliberately not in
+    // wrangler.toml [vars], same posture as the hold sweep above.
+    ctx.waitUntil(
+      runScheduledPrintOrderReviewSweep(env).catch((error: unknown) => {
+        Sentry.captureException(error, {
+          tags: { operation: "print_review_sweep_failed" },
+        });
+        console.error(
+          JSON.stringify({
+            event: "print_order_review_sweep",
             status: "tick_error",
             error: error instanceof Error ? error.message.slice(0, 200) : "unknown",
             cron: event.cron,
