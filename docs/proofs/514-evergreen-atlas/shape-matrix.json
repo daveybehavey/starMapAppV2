@@ -1,0 +1,7202 @@
+[
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "296bd913e70fe1f280558f11afe7eb7016843d88acdec48a14f6789585f2daf5",
+    "recipeHash": "a2b62fa07f780fa619b692d0b5d1b50d12618a0892de812ef49515f3e9f6195b"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "5b0513950ff47f27c5fe64df84199d290e27cdedd76e2d062264efefe839bc00",
+    "recipeHash": "eadbb7ae4637ab58859c9aba5600f57171466da27bbe1cf87e4c2645d3f3d7b9"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "296bd913e70fe1f280558f11afe7eb7016843d88acdec48a14f6789585f2daf5",
+    "recipeHash": "a2b62fa07f780fa619b692d0b5d1b50d12618a0892de812ef49515f3e9f6195b"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "5b0513950ff47f27c5fe64df84199d290e27cdedd76e2d062264efefe839bc00",
+    "recipeHash": "eadbb7ae4637ab58859c9aba5600f57171466da27bbe1cf87e4c2645d3f3d7b9"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "296bd913e70fe1f280558f11afe7eb7016843d88acdec48a14f6789585f2daf5",
+    "recipeHash": "a2b62fa07f780fa619b692d0b5d1b50d12618a0892de812ef49515f3e9f6195b"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "5b0513950ff47f27c5fe64df84199d290e27cdedd76e2d062264efefe839bc00",
+    "recipeHash": "eadbb7ae4637ab58859c9aba5600f57171466da27bbe1cf87e4c2645d3f3d7b9"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "5b841b28e2f072f6e737864f0afb8c31cc9dca24ab3fd98ca4b27a10c4629f41",
+    "recipeHash": "ad7a3ec9c578cbe81c0818e16a2118e9726ab88b9b957e88e1adc046104a368e"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "b73c4a663eda689bcafe20d507e33d4a20f16a6f5982c6760fab536fefc3be9f",
+    "recipeHash": "99bb35ee061d2403747407cd3d9b0b75813e01664322ff29fa31c8d2bfe173f7"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "5b841b28e2f072f6e737864f0afb8c31cc9dca24ab3fd98ca4b27a10c4629f41",
+    "recipeHash": "ad7a3ec9c578cbe81c0818e16a2118e9726ab88b9b957e88e1adc046104a368e"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "b73c4a663eda689bcafe20d507e33d4a20f16a6f5982c6760fab536fefc3be9f",
+    "recipeHash": "99bb35ee061d2403747407cd3d9b0b75813e01664322ff29fa31c8d2bfe173f7"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "5b841b28e2f072f6e737864f0afb8c31cc9dca24ab3fd98ca4b27a10c4629f41",
+    "recipeHash": "ad7a3ec9c578cbe81c0818e16a2118e9726ab88b9b957e88e1adc046104a368e"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "b73c4a663eda689bcafe20d507e33d4a20f16a6f5982c6760fab536fefc3be9f",
+    "recipeHash": "99bb35ee061d2403747407cd3d9b0b75813e01664322ff29fa31c8d2bfe173f7"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "296bd913e70fe1f280558f11afe7eb7016843d88acdec48a14f6789585f2daf5",
+    "recipeHash": "7cf768c70ffacb02522caa968de4037c5660e3a888f44cb93339fd89f156e441"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "5b0513950ff47f27c5fe64df84199d290e27cdedd76e2d062264efefe839bc00",
+    "recipeHash": "e2347df5094b3a71102c6068b06f9b1e70c8a07c865ce7cafe65d69cbb9baf20"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "296bd913e70fe1f280558f11afe7eb7016843d88acdec48a14f6789585f2daf5",
+    "recipeHash": "7cf768c70ffacb02522caa968de4037c5660e3a888f44cb93339fd89f156e441"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "5b0513950ff47f27c5fe64df84199d290e27cdedd76e2d062264efefe839bc00",
+    "recipeHash": "e2347df5094b3a71102c6068b06f9b1e70c8a07c865ce7cafe65d69cbb9baf20"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "296bd913e70fe1f280558f11afe7eb7016843d88acdec48a14f6789585f2daf5",
+    "recipeHash": "7cf768c70ffacb02522caa968de4037c5660e3a888f44cb93339fd89f156e441"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "5b0513950ff47f27c5fe64df84199d290e27cdedd76e2d062264efefe839bc00",
+    "recipeHash": "e2347df5094b3a71102c6068b06f9b1e70c8a07c865ce7cafe65d69cbb9baf20"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "5b841b28e2f072f6e737864f0afb8c31cc9dca24ab3fd98ca4b27a10c4629f41",
+    "recipeHash": "72944a4f43d751147fc015187276a5b6e060bf34de89167d16fb354104c9d48f"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "b73c4a663eda689bcafe20d507e33d4a20f16a6f5982c6760fab536fefc3be9f",
+    "recipeHash": "f4d7f463ba574c50d707d92a1f58e5e567ea35e1256d623cb819db772413e3e3"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "5b841b28e2f072f6e737864f0afb8c31cc9dca24ab3fd98ca4b27a10c4629f41",
+    "recipeHash": "72944a4f43d751147fc015187276a5b6e060bf34de89167d16fb354104c9d48f"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "b73c4a663eda689bcafe20d507e33d4a20f16a6f5982c6760fab536fefc3be9f",
+    "recipeHash": "f4d7f463ba574c50d707d92a1f58e5e567ea35e1256d623cb819db772413e3e3"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "5b841b28e2f072f6e737864f0afb8c31cc9dca24ab3fd98ca4b27a10c4629f41",
+    "recipeHash": "72944a4f43d751147fc015187276a5b6e060bf34de89167d16fb354104c9d48f"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "b73c4a663eda689bcafe20d507e33d4a20f16a6f5982c6760fab536fefc3be9f",
+    "recipeHash": "f4d7f463ba574c50d707d92a1f58e5e567ea35e1256d623cb819db772413e3e3"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "b5bd222fd94126f2eeedcb5a4ae961b06a26a799a304f886e1c80bf0bfed0f74",
+    "recipeHash": "506d88a3071b6a8dcc200d9e2af1d35ba840b4581ceb3e39c01f0dcab1cd0640"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "afa0a8a1aa9bd5384fb7abca86193b353742275409ed3d62a324a1312d4d63a9",
+    "recipeHash": "9c53e8ea92fb26e74f84c13ee166e515b0ec5cf8cfcf178bde2ec385de1ce0db"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "b5bd222fd94126f2eeedcb5a4ae961b06a26a799a304f886e1c80bf0bfed0f74",
+    "recipeHash": "506d88a3071b6a8dcc200d9e2af1d35ba840b4581ceb3e39c01f0dcab1cd0640"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "afa0a8a1aa9bd5384fb7abca86193b353742275409ed3d62a324a1312d4d63a9",
+    "recipeHash": "9c53e8ea92fb26e74f84c13ee166e515b0ec5cf8cfcf178bde2ec385de1ce0db"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "b5bd222fd94126f2eeedcb5a4ae961b06a26a799a304f886e1c80bf0bfed0f74",
+    "recipeHash": "506d88a3071b6a8dcc200d9e2af1d35ba840b4581ceb3e39c01f0dcab1cd0640"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "afa0a8a1aa9bd5384fb7abca86193b353742275409ed3d62a324a1312d4d63a9",
+    "recipeHash": "9c53e8ea92fb26e74f84c13ee166e515b0ec5cf8cfcf178bde2ec385de1ce0db"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "ad7a5abc9dbb7a08843eb6608e502edeaee098c268230780bbd835ac4244bde3",
+    "recipeHash": "be669cfe00233c06219b7ab29080f897877762ab99589745487aab7c6a24d52b"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "4dab4edca56087e244fba0853191828f10c3e0bcbbaaa91d67deeace0d243877",
+    "recipeHash": "0b64849525892825918b2fb9b49ce169cb17a45cb22262424a02ba890280f433"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "ad7a5abc9dbb7a08843eb6608e502edeaee098c268230780bbd835ac4244bde3",
+    "recipeHash": "be669cfe00233c06219b7ab29080f897877762ab99589745487aab7c6a24d52b"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "4dab4edca56087e244fba0853191828f10c3e0bcbbaaa91d67deeace0d243877",
+    "recipeHash": "0b64849525892825918b2fb9b49ce169cb17a45cb22262424a02ba890280f433"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "ad7a5abc9dbb7a08843eb6608e502edeaee098c268230780bbd835ac4244bde3",
+    "recipeHash": "be669cfe00233c06219b7ab29080f897877762ab99589745487aab7c6a24d52b"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "4dab4edca56087e244fba0853191828f10c3e0bcbbaaa91d67deeace0d243877",
+    "recipeHash": "0b64849525892825918b2fb9b49ce169cb17a45cb22262424a02ba890280f433"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "b5bd222fd94126f2eeedcb5a4ae961b06a26a799a304f886e1c80bf0bfed0f74",
+    "recipeHash": "fc37442453e197472fa3f86931e5008011ca4e78aa98b3514b114c6b4429f86e"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "afa0a8a1aa9bd5384fb7abca86193b353742275409ed3d62a324a1312d4d63a9",
+    "recipeHash": "07789483f7824ec9f8efebfc763b78e8008b9a5b3773f439ce6c93c25c3f6e78"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "b5bd222fd94126f2eeedcb5a4ae961b06a26a799a304f886e1c80bf0bfed0f74",
+    "recipeHash": "fc37442453e197472fa3f86931e5008011ca4e78aa98b3514b114c6b4429f86e"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "afa0a8a1aa9bd5384fb7abca86193b353742275409ed3d62a324a1312d4d63a9",
+    "recipeHash": "07789483f7824ec9f8efebfc763b78e8008b9a5b3773f439ce6c93c25c3f6e78"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "b5bd222fd94126f2eeedcb5a4ae961b06a26a799a304f886e1c80bf0bfed0f74",
+    "recipeHash": "fc37442453e197472fa3f86931e5008011ca4e78aa98b3514b114c6b4429f86e"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "afa0a8a1aa9bd5384fb7abca86193b353742275409ed3d62a324a1312d4d63a9",
+    "recipeHash": "07789483f7824ec9f8efebfc763b78e8008b9a5b3773f439ce6c93c25c3f6e78"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "ad7a5abc9dbb7a08843eb6608e502edeaee098c268230780bbd835ac4244bde3",
+    "recipeHash": "e3cab8bb920ad8fe1fe8333f43f30d9c75e27813e196330270897fba6f59136f"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "4dab4edca56087e244fba0853191828f10c3e0bcbbaaa91d67deeace0d243877",
+    "recipeHash": "c06c15df4dfd23e0df9c291b13686d9b09c91e437c16e1963e407a5ebbf4a4b7"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "ad7a5abc9dbb7a08843eb6608e502edeaee098c268230780bbd835ac4244bde3",
+    "recipeHash": "e3cab8bb920ad8fe1fe8333f43f30d9c75e27813e196330270897fba6f59136f"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "4dab4edca56087e244fba0853191828f10c3e0bcbbaaa91d67deeace0d243877",
+    "recipeHash": "c06c15df4dfd23e0df9c291b13686d9b09c91e437c16e1963e407a5ebbf4a4b7"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "ad7a5abc9dbb7a08843eb6608e502edeaee098c268230780bbd835ac4244bde3",
+    "recipeHash": "e3cab8bb920ad8fe1fe8333f43f30d9c75e27813e196330270897fba6f59136f"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "4dab4edca56087e244fba0853191828f10c3e0bcbbaaa91d67deeace0d243877",
+    "recipeHash": "c06c15df4dfd23e0df9c291b13686d9b09c91e437c16e1963e407a5ebbf4a4b7"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "9ebd5eff26aa3b5c52fd42df927f40b76888f9b54fa8913dc88c055577d96c79",
+    "recipeHash": "738354a3c4454e866e95ca4e4e5978274c5eb9fc6cfac972140723ad5fa24bdc"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "eaded1f39a81977cf7951ae968e89dce6ac67a3a2d44bde41cb27b2111c28221",
+    "recipeHash": "8b2453bbf691782f225fef7a8f1ed220358d8c2e0e87c03f21fdab85b6a718b1"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "9ebd5eff26aa3b5c52fd42df927f40b76888f9b54fa8913dc88c055577d96c79",
+    "recipeHash": "738354a3c4454e866e95ca4e4e5978274c5eb9fc6cfac972140723ad5fa24bdc"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "eaded1f39a81977cf7951ae968e89dce6ac67a3a2d44bde41cb27b2111c28221",
+    "recipeHash": "8b2453bbf691782f225fef7a8f1ed220358d8c2e0e87c03f21fdab85b6a718b1"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "9ebd5eff26aa3b5c52fd42df927f40b76888f9b54fa8913dc88c055577d96c79",
+    "recipeHash": "738354a3c4454e866e95ca4e4e5978274c5eb9fc6cfac972140723ad5fa24bdc"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "eaded1f39a81977cf7951ae968e89dce6ac67a3a2d44bde41cb27b2111c28221",
+    "recipeHash": "8b2453bbf691782f225fef7a8f1ed220358d8c2e0e87c03f21fdab85b6a718b1"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "ef28b5257f94f7be0353e5255841acd56b196b3c767524d8a2611106c986037d",
+    "recipeHash": "026920d1d86f1e061c983cbacee74e7265f4781f3a6310455d07dc362de68db0"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "7f02113d6cb4f24bd93d72240efdfc9e016fae634fa18820d214ccfbf9deed16",
+    "recipeHash": "cd0c0f4807baa85f92636e09e8cf448b828f9917661efcd68b74ce848407d1f3"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "ef28b5257f94f7be0353e5255841acd56b196b3c767524d8a2611106c986037d",
+    "recipeHash": "026920d1d86f1e061c983cbacee74e7265f4781f3a6310455d07dc362de68db0"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "7f02113d6cb4f24bd93d72240efdfc9e016fae634fa18820d214ccfbf9deed16",
+    "recipeHash": "cd0c0f4807baa85f92636e09e8cf448b828f9917661efcd68b74ce848407d1f3"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "ef28b5257f94f7be0353e5255841acd56b196b3c767524d8a2611106c986037d",
+    "recipeHash": "026920d1d86f1e061c983cbacee74e7265f4781f3a6310455d07dc362de68db0"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "7f02113d6cb4f24bd93d72240efdfc9e016fae634fa18820d214ccfbf9deed16",
+    "recipeHash": "cd0c0f4807baa85f92636e09e8cf448b828f9917661efcd68b74ce848407d1f3"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "9ebd5eff26aa3b5c52fd42df927f40b76888f9b54fa8913dc88c055577d96c79",
+    "recipeHash": "e4fca83cf74a0b7626cace1ca291e85c7d22fcc8959153ceada0db394ce7d310"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "eaded1f39a81977cf7951ae968e89dce6ac67a3a2d44bde41cb27b2111c28221",
+    "recipeHash": "05f986e3f974e1bd87534149af2a13b35fa0fe1a5b7bf3b1cd54c04b72dcbc25"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "9ebd5eff26aa3b5c52fd42df927f40b76888f9b54fa8913dc88c055577d96c79",
+    "recipeHash": "e4fca83cf74a0b7626cace1ca291e85c7d22fcc8959153ceada0db394ce7d310"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "eaded1f39a81977cf7951ae968e89dce6ac67a3a2d44bde41cb27b2111c28221",
+    "recipeHash": "05f986e3f974e1bd87534149af2a13b35fa0fe1a5b7bf3b1cd54c04b72dcbc25"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "9ebd5eff26aa3b5c52fd42df927f40b76888f9b54fa8913dc88c055577d96c79",
+    "recipeHash": "e4fca83cf74a0b7626cace1ca291e85c7d22fcc8959153ceada0db394ce7d310"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "eaded1f39a81977cf7951ae968e89dce6ac67a3a2d44bde41cb27b2111c28221",
+    "recipeHash": "05f986e3f974e1bd87534149af2a13b35fa0fe1a5b7bf3b1cd54c04b72dcbc25"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "ef28b5257f94f7be0353e5255841acd56b196b3c767524d8a2611106c986037d",
+    "recipeHash": "0f67a6704e916881c7463236d83d0900677567b6d0789c10149e35c356aa16a5"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "7f02113d6cb4f24bd93d72240efdfc9e016fae634fa18820d214ccfbf9deed16",
+    "recipeHash": "e9ca0f4a952396886794b2f17b3f35a4414b79ec5e3f643a2157f60183a6af95"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "ef28b5257f94f7be0353e5255841acd56b196b3c767524d8a2611106c986037d",
+    "recipeHash": "0f67a6704e916881c7463236d83d0900677567b6d0789c10149e35c356aa16a5"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "7f02113d6cb4f24bd93d72240efdfc9e016fae634fa18820d214ccfbf9deed16",
+    "recipeHash": "e9ca0f4a952396886794b2f17b3f35a4414b79ec5e3f643a2157f60183a6af95"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "ef28b5257f94f7be0353e5255841acd56b196b3c767524d8a2611106c986037d",
+    "recipeHash": "0f67a6704e916881c7463236d83d0900677567b6d0789c10149e35c356aa16a5"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "7f02113d6cb4f24bd93d72240efdfc9e016fae634fa18820d214ccfbf9deed16",
+    "recipeHash": "e9ca0f4a952396886794b2f17b3f35a4414b79ec5e3f643a2157f60183a6af95"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "ff6d42b0525446cbd2b443bda10f68a963d49996740efc9c83c8d908d9686c8c",
+    "recipeHash": "8d4d482ca2430755488039e7ab8f5dd90f5635a969c1353f534f22ae77207770"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "777c00eb66ae317ec6b648b7e6d1cd73b7d769cba68104be6e8cb29a5de02913",
+    "recipeHash": "b926807a3ee4b9ba88a79e28ed015b22b518eeb7913404deed803882f8c3b929"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "ff6d42b0525446cbd2b443bda10f68a963d49996740efc9c83c8d908d9686c8c",
+    "recipeHash": "8d4d482ca2430755488039e7ab8f5dd90f5635a969c1353f534f22ae77207770"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "777c00eb66ae317ec6b648b7e6d1cd73b7d769cba68104be6e8cb29a5de02913",
+    "recipeHash": "b926807a3ee4b9ba88a79e28ed015b22b518eeb7913404deed803882f8c3b929"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "ff6d42b0525446cbd2b443bda10f68a963d49996740efc9c83c8d908d9686c8c",
+    "recipeHash": "8d4d482ca2430755488039e7ab8f5dd90f5635a969c1353f534f22ae77207770"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "777c00eb66ae317ec6b648b7e6d1cd73b7d769cba68104be6e8cb29a5de02913",
+    "recipeHash": "b926807a3ee4b9ba88a79e28ed015b22b518eeb7913404deed803882f8c3b929"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "a9cb948f9b5cce01588399a270f652b3aa5a95865cdccad61114254c9aac0e70",
+    "recipeHash": "5e939aafdfb1f8a39808650f6db6f76d50bc1461a55dc25d56bb59c332b54772"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "c997ce960b8014898cc962037c4b4717d555a96bd1712f8be287c702c8846617",
+    "recipeHash": "a00d18fc6bd3beeacd7673b82b1ad03f0c4aa6981127fd4c729280bdddaa8c5d"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "a9cb948f9b5cce01588399a270f652b3aa5a95865cdccad61114254c9aac0e70",
+    "recipeHash": "5e939aafdfb1f8a39808650f6db6f76d50bc1461a55dc25d56bb59c332b54772"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "c997ce960b8014898cc962037c4b4717d555a96bd1712f8be287c702c8846617",
+    "recipeHash": "a00d18fc6bd3beeacd7673b82b1ad03f0c4aa6981127fd4c729280bdddaa8c5d"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "a9cb948f9b5cce01588399a270f652b3aa5a95865cdccad61114254c9aac0e70",
+    "recipeHash": "5e939aafdfb1f8a39808650f6db6f76d50bc1461a55dc25d56bb59c332b54772"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "c997ce960b8014898cc962037c4b4717d555a96bd1712f8be287c702c8846617",
+    "recipeHash": "a00d18fc6bd3beeacd7673b82b1ad03f0c4aa6981127fd4c729280bdddaa8c5d"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "ff6d42b0525446cbd2b443bda10f68a963d49996740efc9c83c8d908d9686c8c",
+    "recipeHash": "3510a5cee927c905f21b29228a16021abb212f3bfec05cc3ca86d3437b07ae22"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "777c00eb66ae317ec6b648b7e6d1cd73b7d769cba68104be6e8cb29a5de02913",
+    "recipeHash": "efbd4ea5335d6f27199d75c47eb8f38f85d0f6eee05a062c53b7f6e0688daad2"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "ff6d42b0525446cbd2b443bda10f68a963d49996740efc9c83c8d908d9686c8c",
+    "recipeHash": "3510a5cee927c905f21b29228a16021abb212f3bfec05cc3ca86d3437b07ae22"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "777c00eb66ae317ec6b648b7e6d1cd73b7d769cba68104be6e8cb29a5de02913",
+    "recipeHash": "efbd4ea5335d6f27199d75c47eb8f38f85d0f6eee05a062c53b7f6e0688daad2"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "ff6d42b0525446cbd2b443bda10f68a963d49996740efc9c83c8d908d9686c8c",
+    "recipeHash": "3510a5cee927c905f21b29228a16021abb212f3bfec05cc3ca86d3437b07ae22"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "777c00eb66ae317ec6b648b7e6d1cd73b7d769cba68104be6e8cb29a5de02913",
+    "recipeHash": "efbd4ea5335d6f27199d75c47eb8f38f85d0f6eee05a062c53b7f6e0688daad2"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "a9cb948f9b5cce01588399a270f652b3aa5a95865cdccad61114254c9aac0e70",
+    "recipeHash": "18aaec110d3cd62639c3dcbdcb32b81d43e202db598ce3cda81d301a89e782b3"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "c997ce960b8014898cc962037c4b4717d555a96bd1712f8be287c702c8846617",
+    "recipeHash": "2bc9134384fd8d2e201be19967586e4d8aa196353ae4660a9c065a1c0e3ee67a"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "a9cb948f9b5cce01588399a270f652b3aa5a95865cdccad61114254c9aac0e70",
+    "recipeHash": "18aaec110d3cd62639c3dcbdcb32b81d43e202db598ce3cda81d301a89e782b3"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "c997ce960b8014898cc962037c4b4717d555a96bd1712f8be287c702c8846617",
+    "recipeHash": "2bc9134384fd8d2e201be19967586e4d8aa196353ae4660a9c065a1c0e3ee67a"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "a9cb948f9b5cce01588399a270f652b3aa5a95865cdccad61114254c9aac0e70",
+    "recipeHash": "18aaec110d3cd62639c3dcbdcb32b81d43e202db598ce3cda81d301a89e782b3"
+  },
+  {
+    "spec": {
+      "shape": "rectangle",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "c997ce960b8014898cc962037c4b4717d555a96bd1712f8be287c702c8846617",
+    "recipeHash": "2bc9134384fd8d2e201be19967586e4d8aa196353ae4660a9c065a1c0e3ee67a"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "f1f9b1a5cf7a2845b5e499055bdf5c268a901e206b64c3faa78a47a67df7b584",
+    "recipeHash": "39c8d9e8a264e1c573228094b0417e5d6531923cf44a016223bcf6c6ea32562f"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "356c797a7a97f38a4bf5526dd244ef58a4c9f6b70dbff9302e71764f5bce93bd",
+    "recipeHash": "d25962cff9bff62fa48cfd6d681bbff898b9da94ea689784aa9aeca5803dd6e0"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "f1f9b1a5cf7a2845b5e499055bdf5c268a901e206b64c3faa78a47a67df7b584",
+    "recipeHash": "39c8d9e8a264e1c573228094b0417e5d6531923cf44a016223bcf6c6ea32562f"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "356c797a7a97f38a4bf5526dd244ef58a4c9f6b70dbff9302e71764f5bce93bd",
+    "recipeHash": "d25962cff9bff62fa48cfd6d681bbff898b9da94ea689784aa9aeca5803dd6e0"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "f1f9b1a5cf7a2845b5e499055bdf5c268a901e206b64c3faa78a47a67df7b584",
+    "recipeHash": "39c8d9e8a264e1c573228094b0417e5d6531923cf44a016223bcf6c6ea32562f"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "356c797a7a97f38a4bf5526dd244ef58a4c9f6b70dbff9302e71764f5bce93bd",
+    "recipeHash": "d25962cff9bff62fa48cfd6d681bbff898b9da94ea689784aa9aeca5803dd6e0"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "914122872854ebf1db2f1a60df317a84ad4cee9a1fa1ef3becb27ba88e7697cf",
+    "recipeHash": "6a03c8f267405f7f27565e941b6b4b3665ef1855240b263ea4a75f6e9ee5a3e1"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "e1be8c0dc3e3883e72afa6a96598736198de5a4f7692a92236b57a189885398e",
+    "recipeHash": "24a5c54f96c7d5b1b4e4bc82cefd8c21a441574811621003f7a86709dfb13be7"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "914122872854ebf1db2f1a60df317a84ad4cee9a1fa1ef3becb27ba88e7697cf",
+    "recipeHash": "6a03c8f267405f7f27565e941b6b4b3665ef1855240b263ea4a75f6e9ee5a3e1"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "e1be8c0dc3e3883e72afa6a96598736198de5a4f7692a92236b57a189885398e",
+    "recipeHash": "24a5c54f96c7d5b1b4e4bc82cefd8c21a441574811621003f7a86709dfb13be7"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "914122872854ebf1db2f1a60df317a84ad4cee9a1fa1ef3becb27ba88e7697cf",
+    "recipeHash": "6a03c8f267405f7f27565e941b6b4b3665ef1855240b263ea4a75f6e9ee5a3e1"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "e1be8c0dc3e3883e72afa6a96598736198de5a4f7692a92236b57a189885398e",
+    "recipeHash": "24a5c54f96c7d5b1b4e4bc82cefd8c21a441574811621003f7a86709dfb13be7"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "f1f9b1a5cf7a2845b5e499055bdf5c268a901e206b64c3faa78a47a67df7b584",
+    "recipeHash": "6a81067fe87a002c6f814962b611158806f7cdc041fc634010a50703a2024bd6"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "356c797a7a97f38a4bf5526dd244ef58a4c9f6b70dbff9302e71764f5bce93bd",
+    "recipeHash": "5c3d327edb22ecb48d0294837a39493d27a3580d859cff171c1b615bbadd39d6"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "f1f9b1a5cf7a2845b5e499055bdf5c268a901e206b64c3faa78a47a67df7b584",
+    "recipeHash": "6a81067fe87a002c6f814962b611158806f7cdc041fc634010a50703a2024bd6"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "356c797a7a97f38a4bf5526dd244ef58a4c9f6b70dbff9302e71764f5bce93bd",
+    "recipeHash": "5c3d327edb22ecb48d0294837a39493d27a3580d859cff171c1b615bbadd39d6"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "f1f9b1a5cf7a2845b5e499055bdf5c268a901e206b64c3faa78a47a67df7b584",
+    "recipeHash": "6a81067fe87a002c6f814962b611158806f7cdc041fc634010a50703a2024bd6"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "356c797a7a97f38a4bf5526dd244ef58a4c9f6b70dbff9302e71764f5bce93bd",
+    "recipeHash": "5c3d327edb22ecb48d0294837a39493d27a3580d859cff171c1b615bbadd39d6"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "914122872854ebf1db2f1a60df317a84ad4cee9a1fa1ef3becb27ba88e7697cf",
+    "recipeHash": "7d3ef82d409b7f33c16c9d4373bcab2d9d69974b54a1f6274ce0d53443fa219b"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "e1be8c0dc3e3883e72afa6a96598736198de5a4f7692a92236b57a189885398e",
+    "recipeHash": "8d437867afef3f71e9a41ac23568fdcdb8d276abe0134f046c22d16b8b9446f9"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "914122872854ebf1db2f1a60df317a84ad4cee9a1fa1ef3becb27ba88e7697cf",
+    "recipeHash": "7d3ef82d409b7f33c16c9d4373bcab2d9d69974b54a1f6274ce0d53443fa219b"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "e1be8c0dc3e3883e72afa6a96598736198de5a4f7692a92236b57a189885398e",
+    "recipeHash": "8d437867afef3f71e9a41ac23568fdcdb8d276abe0134f046c22d16b8b9446f9"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "914122872854ebf1db2f1a60df317a84ad4cee9a1fa1ef3becb27ba88e7697cf",
+    "recipeHash": "7d3ef82d409b7f33c16c9d4373bcab2d9d69974b54a1f6274ce0d53443fa219b"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "e1be8c0dc3e3883e72afa6a96598736198de5a4f7692a92236b57a189885398e",
+    "recipeHash": "8d437867afef3f71e9a41ac23568fdcdb8d276abe0134f046c22d16b8b9446f9"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "7e76a2ae6f56c83a61ad13c5244752475045a2b2ce942c70268fb550368599c5",
+    "recipeHash": "14494a61a8c56886c08b555a1b275655d26f78029b5ac9787bf9fd4ed5b37a8d"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "56be6a68088e90d1bec347ad3ab1384e22b79e0d16471f581ccbd18ece6c506f",
+    "recipeHash": "94eed0c4166881d4e97be6aa3270ff52fb61a7edd29c97d7df0c213c47ee436e"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "7e76a2ae6f56c83a61ad13c5244752475045a2b2ce942c70268fb550368599c5",
+    "recipeHash": "14494a61a8c56886c08b555a1b275655d26f78029b5ac9787bf9fd4ed5b37a8d"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "56be6a68088e90d1bec347ad3ab1384e22b79e0d16471f581ccbd18ece6c506f",
+    "recipeHash": "94eed0c4166881d4e97be6aa3270ff52fb61a7edd29c97d7df0c213c47ee436e"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "7e76a2ae6f56c83a61ad13c5244752475045a2b2ce942c70268fb550368599c5",
+    "recipeHash": "14494a61a8c56886c08b555a1b275655d26f78029b5ac9787bf9fd4ed5b37a8d"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "56be6a68088e90d1bec347ad3ab1384e22b79e0d16471f581ccbd18ece6c506f",
+    "recipeHash": "94eed0c4166881d4e97be6aa3270ff52fb61a7edd29c97d7df0c213c47ee436e"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "750a2f200a9546030f061813ce63b65a9ab2434f0e47aca55b094279af58a583",
+    "recipeHash": "bb164018e615e550a3f8a7bc190d3b4e5a7b802444dfe7f6f7be8b33866374bf"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "e0df4a2891f2b6f398b2b274bf7496f5bd280e423bd509e1bc428b6cca76e7b3",
+    "recipeHash": "925206f4f6e733bad537abafef3173eb1bd02068abb01a9699f99668cc5b20ca"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "750a2f200a9546030f061813ce63b65a9ab2434f0e47aca55b094279af58a583",
+    "recipeHash": "bb164018e615e550a3f8a7bc190d3b4e5a7b802444dfe7f6f7be8b33866374bf"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "e0df4a2891f2b6f398b2b274bf7496f5bd280e423bd509e1bc428b6cca76e7b3",
+    "recipeHash": "925206f4f6e733bad537abafef3173eb1bd02068abb01a9699f99668cc5b20ca"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "750a2f200a9546030f061813ce63b65a9ab2434f0e47aca55b094279af58a583",
+    "recipeHash": "bb164018e615e550a3f8a7bc190d3b4e5a7b802444dfe7f6f7be8b33866374bf"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "e0df4a2891f2b6f398b2b274bf7496f5bd280e423bd509e1bc428b6cca76e7b3",
+    "recipeHash": "925206f4f6e733bad537abafef3173eb1bd02068abb01a9699f99668cc5b20ca"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "7e76a2ae6f56c83a61ad13c5244752475045a2b2ce942c70268fb550368599c5",
+    "recipeHash": "a05e19fa9667a4eae64e214a4a2b2e34b886791d3faca0c66ecf541799917ace"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "56be6a68088e90d1bec347ad3ab1384e22b79e0d16471f581ccbd18ece6c506f",
+    "recipeHash": "d986c0e85e68587428979ccf65ce252293f1580883ec6223e10077b2865ef0a5"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "7e76a2ae6f56c83a61ad13c5244752475045a2b2ce942c70268fb550368599c5",
+    "recipeHash": "a05e19fa9667a4eae64e214a4a2b2e34b886791d3faca0c66ecf541799917ace"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "56be6a68088e90d1bec347ad3ab1384e22b79e0d16471f581ccbd18ece6c506f",
+    "recipeHash": "d986c0e85e68587428979ccf65ce252293f1580883ec6223e10077b2865ef0a5"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "7e76a2ae6f56c83a61ad13c5244752475045a2b2ce942c70268fb550368599c5",
+    "recipeHash": "a05e19fa9667a4eae64e214a4a2b2e34b886791d3faca0c66ecf541799917ace"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "56be6a68088e90d1bec347ad3ab1384e22b79e0d16471f581ccbd18ece6c506f",
+    "recipeHash": "d986c0e85e68587428979ccf65ce252293f1580883ec6223e10077b2865ef0a5"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "750a2f200a9546030f061813ce63b65a9ab2434f0e47aca55b094279af58a583",
+    "recipeHash": "06c8f4815a499805182442cda49eebffb28e9e25f305bf7a90cb156cc353fb33"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "e0df4a2891f2b6f398b2b274bf7496f5bd280e423bd509e1bc428b6cca76e7b3",
+    "recipeHash": "71d51ee36d0a2b02519c9d3ac6bdec40dc1a0d1b7210678da2fcd289734daa48"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "750a2f200a9546030f061813ce63b65a9ab2434f0e47aca55b094279af58a583",
+    "recipeHash": "06c8f4815a499805182442cda49eebffb28e9e25f305bf7a90cb156cc353fb33"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "e0df4a2891f2b6f398b2b274bf7496f5bd280e423bd509e1bc428b6cca76e7b3",
+    "recipeHash": "71d51ee36d0a2b02519c9d3ac6bdec40dc1a0d1b7210678da2fcd289734daa48"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "750a2f200a9546030f061813ce63b65a9ab2434f0e47aca55b094279af58a583",
+    "recipeHash": "06c8f4815a499805182442cda49eebffb28e9e25f305bf7a90cb156cc353fb33"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "e0df4a2891f2b6f398b2b274bf7496f5bd280e423bd509e1bc428b6cca76e7b3",
+    "recipeHash": "71d51ee36d0a2b02519c9d3ac6bdec40dc1a0d1b7210678da2fcd289734daa48"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "a833f36b34d1787ef2b394289cfb5f84ff134bcd8720a0f28a43bb9632957b9f",
+    "recipeHash": "7f0930c967d80c80af376e6c4de2dfb1aea9d1cd1779a957c5830a3eb4c57ec9"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "a9573a31f4f507b0df3107e15450e7962c456e6a238eae1109c06757647b5a4a",
+    "recipeHash": "fd9cd731a85b61d5991bc9cecc47d376cd5c5dc61e4bfe8f2b557ff34c0e46b6"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "a833f36b34d1787ef2b394289cfb5f84ff134bcd8720a0f28a43bb9632957b9f",
+    "recipeHash": "7f0930c967d80c80af376e6c4de2dfb1aea9d1cd1779a957c5830a3eb4c57ec9"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "a9573a31f4f507b0df3107e15450e7962c456e6a238eae1109c06757647b5a4a",
+    "recipeHash": "fd9cd731a85b61d5991bc9cecc47d376cd5c5dc61e4bfe8f2b557ff34c0e46b6"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "a833f36b34d1787ef2b394289cfb5f84ff134bcd8720a0f28a43bb9632957b9f",
+    "recipeHash": "7f0930c967d80c80af376e6c4de2dfb1aea9d1cd1779a957c5830a3eb4c57ec9"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "a9573a31f4f507b0df3107e15450e7962c456e6a238eae1109c06757647b5a4a",
+    "recipeHash": "fd9cd731a85b61d5991bc9cecc47d376cd5c5dc61e4bfe8f2b557ff34c0e46b6"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "a2412a47c69852dafbb4bf629e0d3db06466bb79f96f09822387f1ffc1b0085b",
+    "recipeHash": "10b8ae3e907c8e951bf06eaf7090f94d216037975be0edb45bd6fafeb16ac57a"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "3778d3b847ef08eeee51764e5ecc214d21274115f6730348f43f086c6cf9dc10",
+    "recipeHash": "4ebd29897848d01b5d87b54bdd6e3d607d6a6754680c8489b7aa303669041e98"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "a2412a47c69852dafbb4bf629e0d3db06466bb79f96f09822387f1ffc1b0085b",
+    "recipeHash": "10b8ae3e907c8e951bf06eaf7090f94d216037975be0edb45bd6fafeb16ac57a"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "3778d3b847ef08eeee51764e5ecc214d21274115f6730348f43f086c6cf9dc10",
+    "recipeHash": "4ebd29897848d01b5d87b54bdd6e3d607d6a6754680c8489b7aa303669041e98"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "a2412a47c69852dafbb4bf629e0d3db06466bb79f96f09822387f1ffc1b0085b",
+    "recipeHash": "10b8ae3e907c8e951bf06eaf7090f94d216037975be0edb45bd6fafeb16ac57a"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "3778d3b847ef08eeee51764e5ecc214d21274115f6730348f43f086c6cf9dc10",
+    "recipeHash": "4ebd29897848d01b5d87b54bdd6e3d607d6a6754680c8489b7aa303669041e98"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "a833f36b34d1787ef2b394289cfb5f84ff134bcd8720a0f28a43bb9632957b9f",
+    "recipeHash": "898357370c9a4f655927ff4f7bbc393d6f64d0f8732917c9cefd68ceeded53cf"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "a9573a31f4f507b0df3107e15450e7962c456e6a238eae1109c06757647b5a4a",
+    "recipeHash": "3f05a03426565f3f01e054c991c82cb62bea1b1efec66761aefe478fce1ad056"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "a833f36b34d1787ef2b394289cfb5f84ff134bcd8720a0f28a43bb9632957b9f",
+    "recipeHash": "898357370c9a4f655927ff4f7bbc393d6f64d0f8732917c9cefd68ceeded53cf"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "a9573a31f4f507b0df3107e15450e7962c456e6a238eae1109c06757647b5a4a",
+    "recipeHash": "3f05a03426565f3f01e054c991c82cb62bea1b1efec66761aefe478fce1ad056"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "a833f36b34d1787ef2b394289cfb5f84ff134bcd8720a0f28a43bb9632957b9f",
+    "recipeHash": "898357370c9a4f655927ff4f7bbc393d6f64d0f8732917c9cefd68ceeded53cf"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "a9573a31f4f507b0df3107e15450e7962c456e6a238eae1109c06757647b5a4a",
+    "recipeHash": "3f05a03426565f3f01e054c991c82cb62bea1b1efec66761aefe478fce1ad056"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "a2412a47c69852dafbb4bf629e0d3db06466bb79f96f09822387f1ffc1b0085b",
+    "recipeHash": "e4755ca8afffa80c01acd654bdb55479c3f84c059e0b69a13af81505b479b347"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "3778d3b847ef08eeee51764e5ecc214d21274115f6730348f43f086c6cf9dc10",
+    "recipeHash": "624d6899a6b978d0c07dae861b3e5b73dcfdecbb83ac72dd0fa26c62a9881fd5"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "a2412a47c69852dafbb4bf629e0d3db06466bb79f96f09822387f1ffc1b0085b",
+    "recipeHash": "e4755ca8afffa80c01acd654bdb55479c3f84c059e0b69a13af81505b479b347"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "3778d3b847ef08eeee51764e5ecc214d21274115f6730348f43f086c6cf9dc10",
+    "recipeHash": "624d6899a6b978d0c07dae861b3e5b73dcfdecbb83ac72dd0fa26c62a9881fd5"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "a2412a47c69852dafbb4bf629e0d3db06466bb79f96f09822387f1ffc1b0085b",
+    "recipeHash": "e4755ca8afffa80c01acd654bdb55479c3f84c059e0b69a13af81505b479b347"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "3778d3b847ef08eeee51764e5ecc214d21274115f6730348f43f086c6cf9dc10",
+    "recipeHash": "624d6899a6b978d0c07dae861b3e5b73dcfdecbb83ac72dd0fa26c62a9881fd5"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "543bb014a4c699f3308b547966609f6f267e30d73b72a3aab2bde06d515daf4b",
+    "recipeHash": "11232045fd2ebea562b483a25c504c0b0ba9db38497b9c577ae4e5c80ac1213d"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "971bc121a98cd532d8a5891b37c4f998a856f8c7c58031c019f0220525eef775",
+    "recipeHash": "f883ff0df0ff72154d2d1410e77d9316a72e750b8286a5a60cb4086bfbd9d545"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "543bb014a4c699f3308b547966609f6f267e30d73b72a3aab2bde06d515daf4b",
+    "recipeHash": "11232045fd2ebea562b483a25c504c0b0ba9db38497b9c577ae4e5c80ac1213d"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "971bc121a98cd532d8a5891b37c4f998a856f8c7c58031c019f0220525eef775",
+    "recipeHash": "f883ff0df0ff72154d2d1410e77d9316a72e750b8286a5a60cb4086bfbd9d545"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "543bb014a4c699f3308b547966609f6f267e30d73b72a3aab2bde06d515daf4b",
+    "recipeHash": "11232045fd2ebea562b483a25c504c0b0ba9db38497b9c577ae4e5c80ac1213d"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "971bc121a98cd532d8a5891b37c4f998a856f8c7c58031c019f0220525eef775",
+    "recipeHash": "f883ff0df0ff72154d2d1410e77d9316a72e750b8286a5a60cb4086bfbd9d545"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "be12952a9ff24369cdf5afc4071db412c7d43fdd5f2bcdd99c8a6d1d0d9db6df",
+    "recipeHash": "3d8cabac6532ec2a44c176f2757b6c461d0d3af14f2d529fa3725e1caab6b617"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "913c810d9c83bf7e4328335e4421085b8623f2b722fcd96144a7083ea6c62dae",
+    "recipeHash": "90db641b74c157d4b64c92c5e2ccdedf8b97273203593d4ecb5f44e1a5a0eff3"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "be12952a9ff24369cdf5afc4071db412c7d43fdd5f2bcdd99c8a6d1d0d9db6df",
+    "recipeHash": "3d8cabac6532ec2a44c176f2757b6c461d0d3af14f2d529fa3725e1caab6b617"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "913c810d9c83bf7e4328335e4421085b8623f2b722fcd96144a7083ea6c62dae",
+    "recipeHash": "90db641b74c157d4b64c92c5e2ccdedf8b97273203593d4ecb5f44e1a5a0eff3"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "be12952a9ff24369cdf5afc4071db412c7d43fdd5f2bcdd99c8a6d1d0d9db6df",
+    "recipeHash": "3d8cabac6532ec2a44c176f2757b6c461d0d3af14f2d529fa3725e1caab6b617"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "913c810d9c83bf7e4328335e4421085b8623f2b722fcd96144a7083ea6c62dae",
+    "recipeHash": "90db641b74c157d4b64c92c5e2ccdedf8b97273203593d4ecb5f44e1a5a0eff3"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "543bb014a4c699f3308b547966609f6f267e30d73b72a3aab2bde06d515daf4b",
+    "recipeHash": "46f3cc43f1a6e3f60c15120920d553272d73a3ce4aebd273db2494efa1c5c3a0"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "971bc121a98cd532d8a5891b37c4f998a856f8c7c58031c019f0220525eef775",
+    "recipeHash": "675e5b17a44c96af93a05edc8df9c1a52648a617f6e529dffe4884a78d18d2de"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "543bb014a4c699f3308b547966609f6f267e30d73b72a3aab2bde06d515daf4b",
+    "recipeHash": "46f3cc43f1a6e3f60c15120920d553272d73a3ce4aebd273db2494efa1c5c3a0"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "971bc121a98cd532d8a5891b37c4f998a856f8c7c58031c019f0220525eef775",
+    "recipeHash": "675e5b17a44c96af93a05edc8df9c1a52648a617f6e529dffe4884a78d18d2de"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "543bb014a4c699f3308b547966609f6f267e30d73b72a3aab2bde06d515daf4b",
+    "recipeHash": "46f3cc43f1a6e3f60c15120920d553272d73a3ce4aebd273db2494efa1c5c3a0"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "971bc121a98cd532d8a5891b37c4f998a856f8c7c58031c019f0220525eef775",
+    "recipeHash": "675e5b17a44c96af93a05edc8df9c1a52648a617f6e529dffe4884a78d18d2de"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "be12952a9ff24369cdf5afc4071db412c7d43fdd5f2bcdd99c8a6d1d0d9db6df",
+    "recipeHash": "02f67f5a05f05224e554294e47ff8136a73df9c168f7b14f2e879ebb852f3e0f"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "913c810d9c83bf7e4328335e4421085b8623f2b722fcd96144a7083ea6c62dae",
+    "recipeHash": "bd43d4c1689c2180783ef189ec16bb74986d9d70dc6f7adaae4f7d4747deff53"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "be12952a9ff24369cdf5afc4071db412c7d43fdd5f2bcdd99c8a6d1d0d9db6df",
+    "recipeHash": "02f67f5a05f05224e554294e47ff8136a73df9c168f7b14f2e879ebb852f3e0f"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "913c810d9c83bf7e4328335e4421085b8623f2b722fcd96144a7083ea6c62dae",
+    "recipeHash": "bd43d4c1689c2180783ef189ec16bb74986d9d70dc6f7adaae4f7d4747deff53"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "be12952a9ff24369cdf5afc4071db412c7d43fdd5f2bcdd99c8a6d1d0d9db6df",
+    "recipeHash": "02f67f5a05f05224e554294e47ff8136a73df9c168f7b14f2e879ebb852f3e0f"
+  },
+  {
+    "spec": {
+      "shape": "circle",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "913c810d9c83bf7e4328335e4421085b8623f2b722fcd96144a7083ea6c62dae",
+    "recipeHash": "bd43d4c1689c2180783ef189ec16bb74986d9d70dc6f7adaae4f7d4747deff53"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "bffe06a7587b1bf7e7e050e6d20584fbee1504cfbc5936dd662fcaa6b97a8f43",
+    "recipeHash": "09602441e18b7ae9a19b21396706aff853f2e1e2890e57691f5350d1754e9edd"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "47936e05698cbe69c57754135812843620c0da65ca639e9832885e0a9dec4678",
+    "recipeHash": "053653231b0efd49b26b3d7c37d0aa0da383cfd4b113b217920feb23f4e026d3"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "bffe06a7587b1bf7e7e050e6d20584fbee1504cfbc5936dd662fcaa6b97a8f43",
+    "recipeHash": "09602441e18b7ae9a19b21396706aff853f2e1e2890e57691f5350d1754e9edd"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "47936e05698cbe69c57754135812843620c0da65ca639e9832885e0a9dec4678",
+    "recipeHash": "053653231b0efd49b26b3d7c37d0aa0da383cfd4b113b217920feb23f4e026d3"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "bffe06a7587b1bf7e7e050e6d20584fbee1504cfbc5936dd662fcaa6b97a8f43",
+    "recipeHash": "09602441e18b7ae9a19b21396706aff853f2e1e2890e57691f5350d1754e9edd"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "47936e05698cbe69c57754135812843620c0da65ca639e9832885e0a9dec4678",
+    "recipeHash": "053653231b0efd49b26b3d7c37d0aa0da383cfd4b113b217920feb23f4e026d3"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "08a17cc585a00c8e5eb0c9a091d27a3e8ed52e4c8d06275bbe0344bdcb0c417d",
+    "recipeHash": "a67c4ceb8ea4725e57944ef64571d378dd3d9b610bfe788389a2ef4eeba2a97f"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "9515c62419a5aa5228c99660ee02ea6b35cd6a3fe4749fea59c30110a71aebdf",
+    "recipeHash": "2fc0dfe704368c29025690aa6f7e5a7683e882662a7e88ffdafb219b49dd4aab"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "08a17cc585a00c8e5eb0c9a091d27a3e8ed52e4c8d06275bbe0344bdcb0c417d",
+    "recipeHash": "a67c4ceb8ea4725e57944ef64571d378dd3d9b610bfe788389a2ef4eeba2a97f"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "9515c62419a5aa5228c99660ee02ea6b35cd6a3fe4749fea59c30110a71aebdf",
+    "recipeHash": "2fc0dfe704368c29025690aa6f7e5a7683e882662a7e88ffdafb219b49dd4aab"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "08a17cc585a00c8e5eb0c9a091d27a3e8ed52e4c8d06275bbe0344bdcb0c417d",
+    "recipeHash": "a67c4ceb8ea4725e57944ef64571d378dd3d9b610bfe788389a2ef4eeba2a97f"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "9515c62419a5aa5228c99660ee02ea6b35cd6a3fe4749fea59c30110a71aebdf",
+    "recipeHash": "2fc0dfe704368c29025690aa6f7e5a7683e882662a7e88ffdafb219b49dd4aab"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "bffe06a7587b1bf7e7e050e6d20584fbee1504cfbc5936dd662fcaa6b97a8f43",
+    "recipeHash": "d12ef2b76bea12884e7acd20897e067ed460cef1e9425905a284a53e27c2f6dd"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "47936e05698cbe69c57754135812843620c0da65ca639e9832885e0a9dec4678",
+    "recipeHash": "06cbf78890f6ca39bcfa7dff5f372df1c20540aec7fc847a15910adcf948144a"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "bffe06a7587b1bf7e7e050e6d20584fbee1504cfbc5936dd662fcaa6b97a8f43",
+    "recipeHash": "d12ef2b76bea12884e7acd20897e067ed460cef1e9425905a284a53e27c2f6dd"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "47936e05698cbe69c57754135812843620c0da65ca639e9832885e0a9dec4678",
+    "recipeHash": "06cbf78890f6ca39bcfa7dff5f372df1c20540aec7fc847a15910adcf948144a"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "bffe06a7587b1bf7e7e050e6d20584fbee1504cfbc5936dd662fcaa6b97a8f43",
+    "recipeHash": "d12ef2b76bea12884e7acd20897e067ed460cef1e9425905a284a53e27c2f6dd"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "47936e05698cbe69c57754135812843620c0da65ca639e9832885e0a9dec4678",
+    "recipeHash": "06cbf78890f6ca39bcfa7dff5f372df1c20540aec7fc847a15910adcf948144a"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "08a17cc585a00c8e5eb0c9a091d27a3e8ed52e4c8d06275bbe0344bdcb0c417d",
+    "recipeHash": "a5e2af358921f1c61bf29db7fdc787150a138360931f91e552441a3daec8b35b"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "9515c62419a5aa5228c99660ee02ea6b35cd6a3fe4749fea59c30110a71aebdf",
+    "recipeHash": "3d6fe5c1f57020dd420a58fcffed3e3637b537fa2938b942bb7f9bcb350003e2"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "08a17cc585a00c8e5eb0c9a091d27a3e8ed52e4c8d06275bbe0344bdcb0c417d",
+    "recipeHash": "a5e2af358921f1c61bf29db7fdc787150a138360931f91e552441a3daec8b35b"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "9515c62419a5aa5228c99660ee02ea6b35cd6a3fe4749fea59c30110a71aebdf",
+    "recipeHash": "3d6fe5c1f57020dd420a58fcffed3e3637b537fa2938b942bb7f9bcb350003e2"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "08a17cc585a00c8e5eb0c9a091d27a3e8ed52e4c8d06275bbe0344bdcb0c417d",
+    "recipeHash": "a5e2af358921f1c61bf29db7fdc787150a138360931f91e552441a3daec8b35b"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "9515c62419a5aa5228c99660ee02ea6b35cd6a3fe4749fea59c30110a71aebdf",
+    "recipeHash": "3d6fe5c1f57020dd420a58fcffed3e3637b537fa2938b942bb7f9bcb350003e2"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "02dc134aa3c2be68940a1d9e20741bd584ad2381b9d4bf8d3880e2e489d9a0e1",
+    "recipeHash": "579a61fd5e9879f1245915e0762e2529da45b4ecbcbacf840eab32f9e66dc5c3"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "c833441142481f13d58e065d87cf8a670e419596e9fd87f41030956465efd232",
+    "recipeHash": "eb7f9cf8ec7e89c269a39e9645518989f282e414bf69cb00a9abb46209619ad5"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "02dc134aa3c2be68940a1d9e20741bd584ad2381b9d4bf8d3880e2e489d9a0e1",
+    "recipeHash": "579a61fd5e9879f1245915e0762e2529da45b4ecbcbacf840eab32f9e66dc5c3"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "c833441142481f13d58e065d87cf8a670e419596e9fd87f41030956465efd232",
+    "recipeHash": "eb7f9cf8ec7e89c269a39e9645518989f282e414bf69cb00a9abb46209619ad5"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "02dc134aa3c2be68940a1d9e20741bd584ad2381b9d4bf8d3880e2e489d9a0e1",
+    "recipeHash": "579a61fd5e9879f1245915e0762e2529da45b4ecbcbacf840eab32f9e66dc5c3"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "c833441142481f13d58e065d87cf8a670e419596e9fd87f41030956465efd232",
+    "recipeHash": "eb7f9cf8ec7e89c269a39e9645518989f282e414bf69cb00a9abb46209619ad5"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "45f866f9a76bbe43ed093fe9f9caf81117790f256646f71e297b3bf4d9afcfe6",
+    "recipeHash": "860118b2c836d8f82b56aab0957840b06c8977a2b4a48145ee1d0ea7e81c39dc"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "1bc1d8770435d9b31815932e6ed5fac3ee72c2d2f9b3aefc38ed7e5b0fd6fa62",
+    "recipeHash": "6f1bb42e51becbc8fe09e2bd8e52de56747c9cc6147638ae6c8946831c4ca801"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "45f866f9a76bbe43ed093fe9f9caf81117790f256646f71e297b3bf4d9afcfe6",
+    "recipeHash": "860118b2c836d8f82b56aab0957840b06c8977a2b4a48145ee1d0ea7e81c39dc"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "1bc1d8770435d9b31815932e6ed5fac3ee72c2d2f9b3aefc38ed7e5b0fd6fa62",
+    "recipeHash": "6f1bb42e51becbc8fe09e2bd8e52de56747c9cc6147638ae6c8946831c4ca801"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "45f866f9a76bbe43ed093fe9f9caf81117790f256646f71e297b3bf4d9afcfe6",
+    "recipeHash": "860118b2c836d8f82b56aab0957840b06c8977a2b4a48145ee1d0ea7e81c39dc"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "1bc1d8770435d9b31815932e6ed5fac3ee72c2d2f9b3aefc38ed7e5b0fd6fa62",
+    "recipeHash": "6f1bb42e51becbc8fe09e2bd8e52de56747c9cc6147638ae6c8946831c4ca801"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "748d04697a3311c7985875540861ab8fd7ad80d05c5cac233d9f64a94681814d",
+    "recipeHash": "84cf41fe3ce217b235bf535f484ec189009cf5e0f18c48c99c38c89bae8bc9fd"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "c4edff4e7aade0a0dbcecd1e62b6dc70d71e09fd1f14b28417bf91928357ccba",
+    "recipeHash": "ce1250e34f045a38bcc3fc01cfea85c65cef256b7d32dc6af6e5af64d5438791"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "748d04697a3311c7985875540861ab8fd7ad80d05c5cac233d9f64a94681814d",
+    "recipeHash": "84cf41fe3ce217b235bf535f484ec189009cf5e0f18c48c99c38c89bae8bc9fd"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "c4edff4e7aade0a0dbcecd1e62b6dc70d71e09fd1f14b28417bf91928357ccba",
+    "recipeHash": "ce1250e34f045a38bcc3fc01cfea85c65cef256b7d32dc6af6e5af64d5438791"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "748d04697a3311c7985875540861ab8fd7ad80d05c5cac233d9f64a94681814d",
+    "recipeHash": "84cf41fe3ce217b235bf535f484ec189009cf5e0f18c48c99c38c89bae8bc9fd"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "c4edff4e7aade0a0dbcecd1e62b6dc70d71e09fd1f14b28417bf91928357ccba",
+    "recipeHash": "ce1250e34f045a38bcc3fc01cfea85c65cef256b7d32dc6af6e5af64d5438791"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "20d564b1fa23fa822605e6df03882a947d400b765b618871a55be1da2a70ab0c",
+    "recipeHash": "f21d01b052c15d410d35f9a302725917700e1fb1f8273b56ca0ad663c2eba111"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "c603bb3fd6c68687d22ccdf11161c8cc7471a6fe112e70bad2c72ee559fe6466",
+    "recipeHash": "558d74c6abe445daa295e9e21bd8f8eb6debc24306460dd2110534ea9ab4d711"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "20d564b1fa23fa822605e6df03882a947d400b765b618871a55be1da2a70ab0c",
+    "recipeHash": "f21d01b052c15d410d35f9a302725917700e1fb1f8273b56ca0ad663c2eba111"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "c603bb3fd6c68687d22ccdf11161c8cc7471a6fe112e70bad2c72ee559fe6466",
+    "recipeHash": "558d74c6abe445daa295e9e21bd8f8eb6debc24306460dd2110534ea9ab4d711"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "20d564b1fa23fa822605e6df03882a947d400b765b618871a55be1da2a70ab0c",
+    "recipeHash": "f21d01b052c15d410d35f9a302725917700e1fb1f8273b56ca0ad663c2eba111"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "c603bb3fd6c68687d22ccdf11161c8cc7471a6fe112e70bad2c72ee559fe6466",
+    "recipeHash": "558d74c6abe445daa295e9e21bd8f8eb6debc24306460dd2110534ea9ab4d711"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "0a0d9eb63e44e4245914ead71c2634b55f49002bc569ef9a84c9c9cd5813a8f5",
+    "recipeHash": "5a4832a857a4b73d1ad2c50e16cfc69e140e7378c3bf6f8f1ff4dbffc7553f19"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "f35ab2aabebb32b872d37c35f40562a6fa9ae580db196fddbaeefb3ff5c56837",
+    "recipeHash": "d7e9767e49aacd11406b0ccd4f4f2e8b40dbae8b2b28fa3dbd4e1c653de66967"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "0a0d9eb63e44e4245914ead71c2634b55f49002bc569ef9a84c9c9cd5813a8f5",
+    "recipeHash": "5a4832a857a4b73d1ad2c50e16cfc69e140e7378c3bf6f8f1ff4dbffc7553f19"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "f35ab2aabebb32b872d37c35f40562a6fa9ae580db196fddbaeefb3ff5c56837",
+    "recipeHash": "d7e9767e49aacd11406b0ccd4f4f2e8b40dbae8b2b28fa3dbd4e1c653de66967"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "0a0d9eb63e44e4245914ead71c2634b55f49002bc569ef9a84c9c9cd5813a8f5",
+    "recipeHash": "5a4832a857a4b73d1ad2c50e16cfc69e140e7378c3bf6f8f1ff4dbffc7553f19"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "f35ab2aabebb32b872d37c35f40562a6fa9ae580db196fddbaeefb3ff5c56837",
+    "recipeHash": "d7e9767e49aacd11406b0ccd4f4f2e8b40dbae8b2b28fa3dbd4e1c653de66967"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "e5ca4220f0d2422a8b7e917532b73a89c5b2e8c5aefbebeabdb78010920b006b",
+    "recipeHash": "643d110bafea03e68cdefb1dfac5dd39f216768b3e98c7ecc6592e9ad2bc1357"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "ecf481ac538e8580b26cac36f62656a9f5de9e0de9be6ae8d011afbdc307bff0",
+    "recipeHash": "21bc7b82a96bf7ff7e423a7f73c61201d00b996e73f377f443ce52e2a4e958f4"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "e5ca4220f0d2422a8b7e917532b73a89c5b2e8c5aefbebeabdb78010920b006b",
+    "recipeHash": "643d110bafea03e68cdefb1dfac5dd39f216768b3e98c7ecc6592e9ad2bc1357"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "ecf481ac538e8580b26cac36f62656a9f5de9e0de9be6ae8d011afbdc307bff0",
+    "recipeHash": "21bc7b82a96bf7ff7e423a7f73c61201d00b996e73f377f443ce52e2a4e958f4"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "e5ca4220f0d2422a8b7e917532b73a89c5b2e8c5aefbebeabdb78010920b006b",
+    "recipeHash": "643d110bafea03e68cdefb1dfac5dd39f216768b3e98c7ecc6592e9ad2bc1357"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "ecf481ac538e8580b26cac36f62656a9f5de9e0de9be6ae8d011afbdc307bff0",
+    "recipeHash": "21bc7b82a96bf7ff7e423a7f73c61201d00b996e73f377f443ce52e2a4e958f4"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "63f03efa84e0af8e8d77265c2714d9e463f703f8357f0548db1c61a5d00696ab",
+    "recipeHash": "ab7bda9ee1d961101defd26b967a02bab9af89025bd4061d985a73be83512ef4"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "aebe34c1bd9482895cd95f659acbbb7fd8076c7f897466e8e737c9bb7056318c",
+    "recipeHash": "0a1c73a9440887bc142ff4aa43709d536cb30ba991da1961d8b4a01d7323829d"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "63f03efa84e0af8e8d77265c2714d9e463f703f8357f0548db1c61a5d00696ab",
+    "recipeHash": "ab7bda9ee1d961101defd26b967a02bab9af89025bd4061d985a73be83512ef4"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "aebe34c1bd9482895cd95f659acbbb7fd8076c7f897466e8e737c9bb7056318c",
+    "recipeHash": "0a1c73a9440887bc142ff4aa43709d536cb30ba991da1961d8b4a01d7323829d"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "63f03efa84e0af8e8d77265c2714d9e463f703f8357f0548db1c61a5d00696ab",
+    "recipeHash": "ab7bda9ee1d961101defd26b967a02bab9af89025bd4061d985a73be83512ef4"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "aebe34c1bd9482895cd95f659acbbb7fd8076c7f897466e8e737c9bb7056318c",
+    "recipeHash": "0a1c73a9440887bc142ff4aa43709d536cb30ba991da1961d8b4a01d7323829d"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "183f0bc76840b34bbe79736acf8b3fe31523d4e6f203138b61a5e00b759f688d",
+    "recipeHash": "e9d271aa87dc106cd568ba71fb820266e9b69fcee1682f1542fa7be09868ee5f"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "1433df295e3f3ff99c122b498d6482beb6e7ab9354db571586d6c86b70b79b3f",
+    "recipeHash": "699e26bfca28ec1e24ae9ca02bb1e3ec28d06cfb33c3162e1c19c22396f07100"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "183f0bc76840b34bbe79736acf8b3fe31523d4e6f203138b61a5e00b759f688d",
+    "recipeHash": "e9d271aa87dc106cd568ba71fb820266e9b69fcee1682f1542fa7be09868ee5f"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "1433df295e3f3ff99c122b498d6482beb6e7ab9354db571586d6c86b70b79b3f",
+    "recipeHash": "699e26bfca28ec1e24ae9ca02bb1e3ec28d06cfb33c3162e1c19c22396f07100"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "183f0bc76840b34bbe79736acf8b3fe31523d4e6f203138b61a5e00b759f688d",
+    "recipeHash": "e9d271aa87dc106cd568ba71fb820266e9b69fcee1682f1542fa7be09868ee5f"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "1433df295e3f3ff99c122b498d6482beb6e7ab9354db571586d6c86b70b79b3f",
+    "recipeHash": "699e26bfca28ec1e24ae9ca02bb1e3ec28d06cfb33c3162e1c19c22396f07100"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "66b46d2de7b35e90c6b680dd88379b54fd912bfe1c01ab0495c9c91315d68074",
+    "recipeHash": "58702f9c12f92841c78295a6d61080acbf769ef3c0e6f9339daa58b29ce5d5a4"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "79d8e1ef0c55fc2112bb8e58b794f6f12add4b8419d8bf63f0eb85c9b8743bdf",
+    "recipeHash": "40b87ef5ba32f5c1dc9143f93b0dc882ecca2a9802307a151d4228e2f25a4592"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "66b46d2de7b35e90c6b680dd88379b54fd912bfe1c01ab0495c9c91315d68074",
+    "recipeHash": "58702f9c12f92841c78295a6d61080acbf769ef3c0e6f9339daa58b29ce5d5a4"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "79d8e1ef0c55fc2112bb8e58b794f6f12add4b8419d8bf63f0eb85c9b8743bdf",
+    "recipeHash": "40b87ef5ba32f5c1dc9143f93b0dc882ecca2a9802307a151d4228e2f25a4592"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "66b46d2de7b35e90c6b680dd88379b54fd912bfe1c01ab0495c9c91315d68074",
+    "recipeHash": "58702f9c12f92841c78295a6d61080acbf769ef3c0e6f9339daa58b29ce5d5a4"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "79d8e1ef0c55fc2112bb8e58b794f6f12add4b8419d8bf63f0eb85c9b8743bdf",
+    "recipeHash": "40b87ef5ba32f5c1dc9143f93b0dc882ecca2a9802307a151d4228e2f25a4592"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "2b2f54f44fd8f14aa927bf10e323701b91a4dc00d08177e7a3965c56aa468f7f",
+    "recipeHash": "535e36ec4be58a6d0cf885420a8c0abb9d8c6e1b609d2e120837069f845571b3"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "fc4ad2161af3188afc678a4796bd77d50a20c03e3c74467f71cd3e759557a41b",
+    "recipeHash": "6337e5277e89311dc2cf829422f5074aa952da634f5b81e25ed2ab303eb8db8a"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "2b2f54f44fd8f14aa927bf10e323701b91a4dc00d08177e7a3965c56aa468f7f",
+    "recipeHash": "535e36ec4be58a6d0cf885420a8c0abb9d8c6e1b609d2e120837069f845571b3"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "fc4ad2161af3188afc678a4796bd77d50a20c03e3c74467f71cd3e759557a41b",
+    "recipeHash": "6337e5277e89311dc2cf829422f5074aa952da634f5b81e25ed2ab303eb8db8a"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "2b2f54f44fd8f14aa927bf10e323701b91a4dc00d08177e7a3965c56aa468f7f",
+    "recipeHash": "535e36ec4be58a6d0cf885420a8c0abb9d8c6e1b609d2e120837069f845571b3"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "fc4ad2161af3188afc678a4796bd77d50a20c03e3c74467f71cd3e759557a41b",
+    "recipeHash": "6337e5277e89311dc2cf829422f5074aa952da634f5b81e25ed2ab303eb8db8a"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "0b15b497c81dda696b73fdd2f6d53eff8c480ee56c41e2a30159d000edbf8d12",
+    "recipeHash": "dc5b44a20f92edd71a6ba7fbfb6424b11db1b87d6b711df02edde9b88f0a5a99"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "0f71086d52972d6920d1fe633b75d19b57116fa1d94dd81a02bfd9b2e55a9df9",
+    "recipeHash": "b48f757e42bcc9ba5ab5ac58c7915f7d250d48e8ce112dd180fa4e1e875e5a3b"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "0b15b497c81dda696b73fdd2f6d53eff8c480ee56c41e2a30159d000edbf8d12",
+    "recipeHash": "dc5b44a20f92edd71a6ba7fbfb6424b11db1b87d6b711df02edde9b88f0a5a99"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "0f71086d52972d6920d1fe633b75d19b57116fa1d94dd81a02bfd9b2e55a9df9",
+    "recipeHash": "b48f757e42bcc9ba5ab5ac58c7915f7d250d48e8ce112dd180fa4e1e875e5a3b"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "0b15b497c81dda696b73fdd2f6d53eff8c480ee56c41e2a30159d000edbf8d12",
+    "recipeHash": "dc5b44a20f92edd71a6ba7fbfb6424b11db1b87d6b711df02edde9b88f0a5a99"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "0f71086d52972d6920d1fe633b75d19b57116fa1d94dd81a02bfd9b2e55a9df9",
+    "recipeHash": "b48f757e42bcc9ba5ab5ac58c7915f7d250d48e8ce112dd180fa4e1e875e5a3b"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "d813591afb5d0905e1b9b29e406a39295eaf8356c17a79bf9be4a1e0a8c7dca0",
+    "recipeHash": "5ac703dc3484ac7a522bf88f8cdca6cda039393d81b934ffc0501bfbbb9747dc"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "6230a956c534da976efd3d8d568c4c2b5d4ee2cc87051821272635c2c9bc732e",
+    "recipeHash": "c560dcbb70c868a633532752e6158aafc0c9dcc774dde50fa7ef5f84f0c6d921"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "d813591afb5d0905e1b9b29e406a39295eaf8356c17a79bf9be4a1e0a8c7dca0",
+    "recipeHash": "5ac703dc3484ac7a522bf88f8cdca6cda039393d81b934ffc0501bfbbb9747dc"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "6230a956c534da976efd3d8d568c4c2b5d4ee2cc87051821272635c2c9bc732e",
+    "recipeHash": "c560dcbb70c868a633532752e6158aafc0c9dcc774dde50fa7ef5f84f0c6d921"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "d813591afb5d0905e1b9b29e406a39295eaf8356c17a79bf9be4a1e0a8c7dca0",
+    "recipeHash": "5ac703dc3484ac7a522bf88f8cdca6cda039393d81b934ffc0501bfbbb9747dc"
+  },
+  {
+    "spec": {
+      "shape": "heart",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "6230a956c534da976efd3d8d568c4c2b5d4ee2cc87051821272635c2c9bc732e",
+    "recipeHash": "c560dcbb70c868a633532752e6158aafc0c9dcc774dde50fa7ef5f84f0c6d921"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "163e2d006135830d57ab7e688777d8cb9d4fd27a3a11c857e13be8878a4e66b5",
+    "recipeHash": "e76f063f39cee8ce1e6224ea8d4507b8e5d00251786b9eb3f218c0ae9a9958d5"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "ccd394b408f167d084f8dc8d0c10526d073a49480a2448f4858041dcf1aa1cb2",
+    "recipeHash": "978ce22e383fcdd123904d40f8e0b341dff7fc5c88c3d1ef61f6a5088da91746"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "163e2d006135830d57ab7e688777d8cb9d4fd27a3a11c857e13be8878a4e66b5",
+    "recipeHash": "e76f063f39cee8ce1e6224ea8d4507b8e5d00251786b9eb3f218c0ae9a9958d5"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "ccd394b408f167d084f8dc8d0c10526d073a49480a2448f4858041dcf1aa1cb2",
+    "recipeHash": "978ce22e383fcdd123904d40f8e0b341dff7fc5c88c3d1ef61f6a5088da91746"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "163e2d006135830d57ab7e688777d8cb9d4fd27a3a11c857e13be8878a4e66b5",
+    "recipeHash": "e76f063f39cee8ce1e6224ea8d4507b8e5d00251786b9eb3f218c0ae9a9958d5"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "ccd394b408f167d084f8dc8d0c10526d073a49480a2448f4858041dcf1aa1cb2",
+    "recipeHash": "978ce22e383fcdd123904d40f8e0b341dff7fc5c88c3d1ef61f6a5088da91746"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "ae2fe1e5fbb89e27713462db840f805088bcf3f8c131d51e14aeaa1ba7d02d9b",
+    "recipeHash": "6256c7543009b289ef8c89459a1ffa3681d211304068bd1bec9d7a970622a9e1"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "c09e63158350c869d0bc6870710d00d055b6bc38ce98279647796d74bc5303b1",
+    "recipeHash": "223334f946aff275d64481e9f2a7ebe58e199880ed95d2f771111ae253e71990"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "ae2fe1e5fbb89e27713462db840f805088bcf3f8c131d51e14aeaa1ba7d02d9b",
+    "recipeHash": "6256c7543009b289ef8c89459a1ffa3681d211304068bd1bec9d7a970622a9e1"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "c09e63158350c869d0bc6870710d00d055b6bc38ce98279647796d74bc5303b1",
+    "recipeHash": "223334f946aff275d64481e9f2a7ebe58e199880ed95d2f771111ae253e71990"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "ae2fe1e5fbb89e27713462db840f805088bcf3f8c131d51e14aeaa1ba7d02d9b",
+    "recipeHash": "6256c7543009b289ef8c89459a1ffa3681d211304068bd1bec9d7a970622a9e1"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "c09e63158350c869d0bc6870710d00d055b6bc38ce98279647796d74bc5303b1",
+    "recipeHash": "223334f946aff275d64481e9f2a7ebe58e199880ed95d2f771111ae253e71990"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "163e2d006135830d57ab7e688777d8cb9d4fd27a3a11c857e13be8878a4e66b5",
+    "recipeHash": "7f4e08806718d5ef9328c878499b735de23b9037ad7f48eae782d96e9e0cbff1"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "ccd394b408f167d084f8dc8d0c10526d073a49480a2448f4858041dcf1aa1cb2",
+    "recipeHash": "b46d8dc734011e8382b9ccd528ad9b2b85a6a1b2d41d8baf28b69991a1a40d90"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "163e2d006135830d57ab7e688777d8cb9d4fd27a3a11c857e13be8878a4e66b5",
+    "recipeHash": "7f4e08806718d5ef9328c878499b735de23b9037ad7f48eae782d96e9e0cbff1"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "ccd394b408f167d084f8dc8d0c10526d073a49480a2448f4858041dcf1aa1cb2",
+    "recipeHash": "b46d8dc734011e8382b9ccd528ad9b2b85a6a1b2d41d8baf28b69991a1a40d90"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "163e2d006135830d57ab7e688777d8cb9d4fd27a3a11c857e13be8878a4e66b5",
+    "recipeHash": "7f4e08806718d5ef9328c878499b735de23b9037ad7f48eae782d96e9e0cbff1"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "ccd394b408f167d084f8dc8d0c10526d073a49480a2448f4858041dcf1aa1cb2",
+    "recipeHash": "b46d8dc734011e8382b9ccd528ad9b2b85a6a1b2d41d8baf28b69991a1a40d90"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "ae2fe1e5fbb89e27713462db840f805088bcf3f8c131d51e14aeaa1ba7d02d9b",
+    "recipeHash": "89756ef3306e0b9fd0d2a25130cd018efd8a0dfc701d5b305763b9c0d9087bdb"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "c09e63158350c869d0bc6870710d00d055b6bc38ce98279647796d74bc5303b1",
+    "recipeHash": "03df6cde2c32b72d016e352faca6e0bdc65997f9ca5ef68f31e9624d445e46db"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "ae2fe1e5fbb89e27713462db840f805088bcf3f8c131d51e14aeaa1ba7d02d9b",
+    "recipeHash": "89756ef3306e0b9fd0d2a25130cd018efd8a0dfc701d5b305763b9c0d9087bdb"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "c09e63158350c869d0bc6870710d00d055b6bc38ce98279647796d74bc5303b1",
+    "recipeHash": "03df6cde2c32b72d016e352faca6e0bdc65997f9ca5ef68f31e9624d445e46db"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "ae2fe1e5fbb89e27713462db840f805088bcf3f8c131d51e14aeaa1ba7d02d9b",
+    "recipeHash": "89756ef3306e0b9fd0d2a25130cd018efd8a0dfc701d5b305763b9c0d9087bdb"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "c09e63158350c869d0bc6870710d00d055b6bc38ce98279647796d74bc5303b1",
+    "recipeHash": "03df6cde2c32b72d016e352faca6e0bdc65997f9ca5ef68f31e9624d445e46db"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "79012c98fae8f84918c2e695f591ad7c37387af9fc96737f1819968f69161597",
+    "recipeHash": "2a088038a73e6c9dd32c01831539d8d1aba9ab18fa85e6b5da9d91476b39b7ad"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "63b4e96f8c7ea7ba0ee82b17a0c3a27332c8145adfcb7c42712f1aae018865e3",
+    "recipeHash": "2c79d1bf32ce0eb9e4b851d591b89b0c16cbf1692c16e614fd1b23e750cfb4d2"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "79012c98fae8f84918c2e695f591ad7c37387af9fc96737f1819968f69161597",
+    "recipeHash": "2a088038a73e6c9dd32c01831539d8d1aba9ab18fa85e6b5da9d91476b39b7ad"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "63b4e96f8c7ea7ba0ee82b17a0c3a27332c8145adfcb7c42712f1aae018865e3",
+    "recipeHash": "2c79d1bf32ce0eb9e4b851d591b89b0c16cbf1692c16e614fd1b23e750cfb4d2"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "79012c98fae8f84918c2e695f591ad7c37387af9fc96737f1819968f69161597",
+    "recipeHash": "2a088038a73e6c9dd32c01831539d8d1aba9ab18fa85e6b5da9d91476b39b7ad"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "63b4e96f8c7ea7ba0ee82b17a0c3a27332c8145adfcb7c42712f1aae018865e3",
+    "recipeHash": "2c79d1bf32ce0eb9e4b851d591b89b0c16cbf1692c16e614fd1b23e750cfb4d2"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "9e680f289f933ed4eb44c263c9cbf221212305dc85cda96dd431913c4aed0c05",
+    "recipeHash": "eaf4b6afc888f9c927d9036ee6e4d2c45365ef1521959c1e6eb5e268aa453b97"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "bd11cc634d7de91b3ef6849cf1e131002bbd011e0bd0b1bb72f687fdba133a7f",
+    "recipeHash": "857505b82100ca44ea2344eee73bb91e8d88b2994820923f5088f3f610ab4c41"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "9e680f289f933ed4eb44c263c9cbf221212305dc85cda96dd431913c4aed0c05",
+    "recipeHash": "eaf4b6afc888f9c927d9036ee6e4d2c45365ef1521959c1e6eb5e268aa453b97"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "bd11cc634d7de91b3ef6849cf1e131002bbd011e0bd0b1bb72f687fdba133a7f",
+    "recipeHash": "857505b82100ca44ea2344eee73bb91e8d88b2994820923f5088f3f610ab4c41"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "9e680f289f933ed4eb44c263c9cbf221212305dc85cda96dd431913c4aed0c05",
+    "recipeHash": "eaf4b6afc888f9c927d9036ee6e4d2c45365ef1521959c1e6eb5e268aa453b97"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "bd11cc634d7de91b3ef6849cf1e131002bbd011e0bd0b1bb72f687fdba133a7f",
+    "recipeHash": "857505b82100ca44ea2344eee73bb91e8d88b2994820923f5088f3f610ab4c41"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "21d2c6953d498e3d2a59cf60023b46982f2faa3d32df7391a007e2d918fee56f",
+    "recipeHash": "da035951368d1bb206d56cf558b14f61aeb1f7e01476c70f2512760124abf0d5"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "3607a607c4630a45b1682ef826dcca10e3e25749b1c96145cb68c830cec2053a",
+    "recipeHash": "0bbbde8ae9ebcccde2208baf7173524df99f5a50c191aa175814af3b681275a0"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "21d2c6953d498e3d2a59cf60023b46982f2faa3d32df7391a007e2d918fee56f",
+    "recipeHash": "da035951368d1bb206d56cf558b14f61aeb1f7e01476c70f2512760124abf0d5"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "3607a607c4630a45b1682ef826dcca10e3e25749b1c96145cb68c830cec2053a",
+    "recipeHash": "0bbbde8ae9ebcccde2208baf7173524df99f5a50c191aa175814af3b681275a0"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "21d2c6953d498e3d2a59cf60023b46982f2faa3d32df7391a007e2d918fee56f",
+    "recipeHash": "da035951368d1bb206d56cf558b14f61aeb1f7e01476c70f2512760124abf0d5"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "3607a607c4630a45b1682ef826dcca10e3e25749b1c96145cb68c830cec2053a",
+    "recipeHash": "0bbbde8ae9ebcccde2208baf7173524df99f5a50c191aa175814af3b681275a0"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "9143cc06b40a97c1a1804c6ece456f9c944933e496fb1a67b24c3919bf857d25",
+    "recipeHash": "4e206a7af140580577473d6d8ac207015facd404348507d4431a02851107e548"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "efa1db0ec21484d69f7e5c0eb5e6743ee47575f0c7e30bfbf8c79520863e5b9f",
+    "recipeHash": "b7fb7ef7ac5f01a9ab975a8710cf7cc77a792e532daa5d6e19f7b30fa9d13958"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "9143cc06b40a97c1a1804c6ece456f9c944933e496fb1a67b24c3919bf857d25",
+    "recipeHash": "4e206a7af140580577473d6d8ac207015facd404348507d4431a02851107e548"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "efa1db0ec21484d69f7e5c0eb5e6743ee47575f0c7e30bfbf8c79520863e5b9f",
+    "recipeHash": "b7fb7ef7ac5f01a9ab975a8710cf7cc77a792e532daa5d6e19f7b30fa9d13958"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "9143cc06b40a97c1a1804c6ece456f9c944933e496fb1a67b24c3919bf857d25",
+    "recipeHash": "4e206a7af140580577473d6d8ac207015facd404348507d4431a02851107e548"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "efa1db0ec21484d69f7e5c0eb5e6743ee47575f0c7e30bfbf8c79520863e5b9f",
+    "recipeHash": "b7fb7ef7ac5f01a9ab975a8710cf7cc77a792e532daa5d6e19f7b30fa9d13958"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "cfb077a8e8d6772a9be3a01362d8af46147f435c956c013671c8b68d8efe417b",
+    "recipeHash": "fa903d03ac1f65542711ca7a7d55965acfdb662e246a958ca5923133d811ed3d"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "349f50b32d0e81c843d0a069abc0f7188a052c9774ca5064880195f4b3ecff49",
+    "recipeHash": "f1e13d321e264a11526979167641d6df71a0a2667c8239f7c2d7a6f44885b943"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "cfb077a8e8d6772a9be3a01362d8af46147f435c956c013671c8b68d8efe417b",
+    "recipeHash": "fa903d03ac1f65542711ca7a7d55965acfdb662e246a958ca5923133d811ed3d"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "349f50b32d0e81c843d0a069abc0f7188a052c9774ca5064880195f4b3ecff49",
+    "recipeHash": "f1e13d321e264a11526979167641d6df71a0a2667c8239f7c2d7a6f44885b943"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "cfb077a8e8d6772a9be3a01362d8af46147f435c956c013671c8b68d8efe417b",
+    "recipeHash": "fa903d03ac1f65542711ca7a7d55965acfdb662e246a958ca5923133d811ed3d"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "349f50b32d0e81c843d0a069abc0f7188a052c9774ca5064880195f4b3ecff49",
+    "recipeHash": "f1e13d321e264a11526979167641d6df71a0a2667c8239f7c2d7a6f44885b943"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "6821265494b4dd75091ef901c3490ab06d4a8d649c901ed9cd4a61a682a32779",
+    "recipeHash": "30b13bc1511bc2fb061b590c2fc4a6f14710a3305a526e7677bc00e3de96a7f4"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "f3a12a14ca3a4b83d9d8299b7a3e048e4516b7412994bb19437b788b4ea7d338",
+    "recipeHash": "40e81524f69d1be572549bb097f4d57ab0866061698bd6f22c7a0e6130e36bd8"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "6821265494b4dd75091ef901c3490ab06d4a8d649c901ed9cd4a61a682a32779",
+    "recipeHash": "30b13bc1511bc2fb061b590c2fc4a6f14710a3305a526e7677bc00e3de96a7f4"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "f3a12a14ca3a4b83d9d8299b7a3e048e4516b7412994bb19437b788b4ea7d338",
+    "recipeHash": "40e81524f69d1be572549bb097f4d57ab0866061698bd6f22c7a0e6130e36bd8"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "6821265494b4dd75091ef901c3490ab06d4a8d649c901ed9cd4a61a682a32779",
+    "recipeHash": "30b13bc1511bc2fb061b590c2fc4a6f14710a3305a526e7677bc00e3de96a7f4"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "f3a12a14ca3a4b83d9d8299b7a3e048e4516b7412994bb19437b788b4ea7d338",
+    "recipeHash": "40e81524f69d1be572549bb097f4d57ab0866061698bd6f22c7a0e6130e36bd8"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "33a72024c460e1feae30f9006841974f3d066acf882be2016e4b9e442d899ae9",
+    "recipeHash": "bf93d9894d6fbb76c3120233c2748e030ec16ad5b46d5c142eaf0f0b0c45ee63"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "972a476ee0dec95ac7e6fb57544c1d9f95f4b345552e8c70b11526d0d33fed04",
+    "recipeHash": "d3bdac8e83963dee8d2d8526acd2fead1f7029a00f32d399acc71daa7e2eb82c"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "33a72024c460e1feae30f9006841974f3d066acf882be2016e4b9e442d899ae9",
+    "recipeHash": "bf93d9894d6fbb76c3120233c2748e030ec16ad5b46d5c142eaf0f0b0c45ee63"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "972a476ee0dec95ac7e6fb57544c1d9f95f4b345552e8c70b11526d0d33fed04",
+    "recipeHash": "d3bdac8e83963dee8d2d8526acd2fead1f7029a00f32d399acc71daa7e2eb82c"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "33a72024c460e1feae30f9006841974f3d066acf882be2016e4b9e442d899ae9",
+    "recipeHash": "bf93d9894d6fbb76c3120233c2748e030ec16ad5b46d5c142eaf0f0b0c45ee63"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "972a476ee0dec95ac7e6fb57544c1d9f95f4b345552e8c70b11526d0d33fed04",
+    "recipeHash": "d3bdac8e83963dee8d2d8526acd2fead1f7029a00f32d399acc71daa7e2eb82c"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "af42c7e62cc28499139c927193da1ce3531fa1d040a18da9e4a0ef2b26192161",
+    "recipeHash": "3160e361e97e38325124655484b48a3cc2d147bd473df650c73cf05b1ae0e4b9"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "86c9991e0ef0cb86c614bdb9e7411395f03b7b3900bb3ab2be03ff89d7f04993",
+    "recipeHash": "a06e2a9f340744c0fc345dc64fc73dbe43dd3d78235aaa849d5648684021a67e"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "af42c7e62cc28499139c927193da1ce3531fa1d040a18da9e4a0ef2b26192161",
+    "recipeHash": "3160e361e97e38325124655484b48a3cc2d147bd473df650c73cf05b1ae0e4b9"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "86c9991e0ef0cb86c614bdb9e7411395f03b7b3900bb3ab2be03ff89d7f04993",
+    "recipeHash": "a06e2a9f340744c0fc345dc64fc73dbe43dd3d78235aaa849d5648684021a67e"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "af42c7e62cc28499139c927193da1ce3531fa1d040a18da9e4a0ef2b26192161",
+    "recipeHash": "3160e361e97e38325124655484b48a3cc2d147bd473df650c73cf05b1ae0e4b9"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "86c9991e0ef0cb86c614bdb9e7411395f03b7b3900bb3ab2be03ff89d7f04993",
+    "recipeHash": "a06e2a9f340744c0fc345dc64fc73dbe43dd3d78235aaa849d5648684021a67e"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "0c5017274f5b7bb2f504cde4bdfb241743c4066ba1ae7a70113c7cd33984a526",
+    "recipeHash": "235d65f75e1884b0701ce56d0f0fa661a15755e938a816ba27a5ec7cbd34968b"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "5a198b940f7d2c5c544e0157dd9b3e771702ab7f15f89a4de2ba140d52522ee1",
+    "recipeHash": "d7c1d78a8441797f77451a31977b10fe8c4dc3dd33d5ae2af81382cc3270a604"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "0c5017274f5b7bb2f504cde4bdfb241743c4066ba1ae7a70113c7cd33984a526",
+    "recipeHash": "235d65f75e1884b0701ce56d0f0fa661a15755e938a816ba27a5ec7cbd34968b"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "5a198b940f7d2c5c544e0157dd9b3e771702ab7f15f89a4de2ba140d52522ee1",
+    "recipeHash": "d7c1d78a8441797f77451a31977b10fe8c4dc3dd33d5ae2af81382cc3270a604"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "0c5017274f5b7bb2f504cde4bdfb241743c4066ba1ae7a70113c7cd33984a526",
+    "recipeHash": "235d65f75e1884b0701ce56d0f0fa661a15755e938a816ba27a5ec7cbd34968b"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "5a198b940f7d2c5c544e0157dd9b3e771702ab7f15f89a4de2ba140d52522ee1",
+    "recipeHash": "d7c1d78a8441797f77451a31977b10fe8c4dc3dd33d5ae2af81382cc3270a604"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "784711acabeb7d287457508acb34b1ba8f6cc54b84a30ad36170f7cd9a18e09c",
+    "recipeHash": "1eb42812ee022f27f680e067691fb9589b966f50888eb32d2777a8fe4149098a"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "5014c1af270d80a547f06688c4a78945ae0a83e62608c7de80652b2427a84036",
+    "recipeHash": "32dedf6de62ffe2eb7b81a548b55ab8e8b90ab6601141493e4a8d296b6f7aecb"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "784711acabeb7d287457508acb34b1ba8f6cc54b84a30ad36170f7cd9a18e09c",
+    "recipeHash": "1eb42812ee022f27f680e067691fb9589b966f50888eb32d2777a8fe4149098a"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "5014c1af270d80a547f06688c4a78945ae0a83e62608c7de80652b2427a84036",
+    "recipeHash": "32dedf6de62ffe2eb7b81a548b55ab8e8b90ab6601141493e4a8d296b6f7aecb"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "784711acabeb7d287457508acb34b1ba8f6cc54b84a30ad36170f7cd9a18e09c",
+    "recipeHash": "1eb42812ee022f27f680e067691fb9589b966f50888eb32d2777a8fe4149098a"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "5014c1af270d80a547f06688c4a78945ae0a83e62608c7de80652b2427a84036",
+    "recipeHash": "32dedf6de62ffe2eb7b81a548b55ab8e8b90ab6601141493e4a8d296b6f7aecb"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "4307309bae82733d678f763a8473a2dc6a089ba81549a6529f4b62ec7acaf6f5",
+    "recipeHash": "076a03c9d433570cdba69fab45711d02f4e5e3913dff84af17b7d6d1b4655a69"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "5d8d23993133c085165b31b9a813c4197f054fec67a750738b7f958fc4557557",
+    "recipeHash": "adbc7d39604036e442aea3a308d8b4ef1e9e04bfb7e32eb58fcaf3c42ba621ac"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "4307309bae82733d678f763a8473a2dc6a089ba81549a6529f4b62ec7acaf6f5",
+    "recipeHash": "076a03c9d433570cdba69fab45711d02f4e5e3913dff84af17b7d6d1b4655a69"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "5d8d23993133c085165b31b9a813c4197f054fec67a750738b7f958fc4557557",
+    "recipeHash": "adbc7d39604036e442aea3a308d8b4ef1e9e04bfb7e32eb58fcaf3c42ba621ac"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "4307309bae82733d678f763a8473a2dc6a089ba81549a6529f4b62ec7acaf6f5",
+    "recipeHash": "076a03c9d433570cdba69fab45711d02f4e5e3913dff84af17b7d6d1b4655a69"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "5d8d23993133c085165b31b9a813c4197f054fec67a750738b7f958fc4557557",
+    "recipeHash": "adbc7d39604036e442aea3a308d8b4ef1e9e04bfb7e32eb58fcaf3c42ba621ac"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "1ef2102dc2e6f2d3ce267d972a4ec8ced4f659af690cbfa6b738b19f7bf75dd8",
+    "recipeHash": "481851866f95da2235159e8ce55c355c1848089c363b7fec9fdd8015f8c9415e"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "1a4378c9f0dc180c59ffce390d1611b850d01588e48f9f6e5b158310091ea71f",
+    "recipeHash": "8ae0726afe1cdd69f84e0712e649c386203b626bd8b2b37e908dad4531fc560a"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "1ef2102dc2e6f2d3ce267d972a4ec8ced4f659af690cbfa6b738b19f7bf75dd8",
+    "recipeHash": "481851866f95da2235159e8ce55c355c1848089c363b7fec9fdd8015f8c9415e"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "1a4378c9f0dc180c59ffce390d1611b850d01588e48f9f6e5b158310091ea71f",
+    "recipeHash": "8ae0726afe1cdd69f84e0712e649c386203b626bd8b2b37e908dad4531fc560a"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "1ef2102dc2e6f2d3ce267d972a4ec8ced4f659af690cbfa6b738b19f7bf75dd8",
+    "recipeHash": "481851866f95da2235159e8ce55c355c1848089c363b7fec9fdd8015f8c9415e"
+  },
+  {
+    "spec": {
+      "shape": "star",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "1a4378c9f0dc180c59ffce390d1611b850d01588e48f9f6e5b158310091ea71f",
+    "recipeHash": "8ae0726afe1cdd69f84e0712e649c386203b626bd8b2b37e908dad4531fc560a"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "2b0a9c68eabd15b7bea2a07432d9b5fe5f93337bda40347e6a99804c48e5a7c1",
+    "recipeHash": "e45697b890bf5cf8244385461ce87220d8808d669c391427af207c5082185b49"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "398516138ff3d163d63895cde2feb1db5591dd22c36f538927d8889ec4518053",
+    "recipeHash": "34a4d724a7ea11d3f99fa2390798f5a28723a759adecb444f80d2e5c1236996b"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "2b0a9c68eabd15b7bea2a07432d9b5fe5f93337bda40347e6a99804c48e5a7c1",
+    "recipeHash": "e45697b890bf5cf8244385461ce87220d8808d669c391427af207c5082185b49"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "398516138ff3d163d63895cde2feb1db5591dd22c36f538927d8889ec4518053",
+    "recipeHash": "34a4d724a7ea11d3f99fa2390798f5a28723a759adecb444f80d2e5c1236996b"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "2b0a9c68eabd15b7bea2a07432d9b5fe5f93337bda40347e6a99804c48e5a7c1",
+    "recipeHash": "e45697b890bf5cf8244385461ce87220d8808d669c391427af207c5082185b49"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "398516138ff3d163d63895cde2feb1db5591dd22c36f538927d8889ec4518053",
+    "recipeHash": "34a4d724a7ea11d3f99fa2390798f5a28723a759adecb444f80d2e5c1236996b"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "97399ecb14e476836909e54afb7e4ddb4cf3e67b30724d609b055acef5484f23",
+    "recipeHash": "823c5739ef1656caf0f77e2c49bdc6ef56e43fea00c8119f14550d03c77971b7"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "bdb6892e07c60a6541776c785ef1b682f0ae1655665788c1c8a920d6402f04cd",
+    "recipeHash": "f06b18170b60e001ef6745b755982e393f4dcc28ce362c0fa44bc9a4da3e8753"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "97399ecb14e476836909e54afb7e4ddb4cf3e67b30724d609b055acef5484f23",
+    "recipeHash": "823c5739ef1656caf0f77e2c49bdc6ef56e43fea00c8119f14550d03c77971b7"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "bdb6892e07c60a6541776c785ef1b682f0ae1655665788c1c8a920d6402f04cd",
+    "recipeHash": "f06b18170b60e001ef6745b755982e393f4dcc28ce362c0fa44bc9a4da3e8753"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "97399ecb14e476836909e54afb7e4ddb4cf3e67b30724d609b055acef5484f23",
+    "recipeHash": "823c5739ef1656caf0f77e2c49bdc6ef56e43fea00c8119f14550d03c77971b7"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "square",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "bdb6892e07c60a6541776c785ef1b682f0ae1655665788c1c8a920d6402f04cd",
+    "recipeHash": "f06b18170b60e001ef6745b755982e393f4dcc28ce362c0fa44bc9a4da3e8753"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "2b0a9c68eabd15b7bea2a07432d9b5fe5f93337bda40347e6a99804c48e5a7c1",
+    "recipeHash": "507a5a0e3abaf7963f0a576c3b2a0e0a2d3c808d9d65d915b759893e5bb225bf"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "398516138ff3d163d63895cde2feb1db5591dd22c36f538927d8889ec4518053",
+    "recipeHash": "63736b9cdf165d22f6c381d3fe2629b67beaaa7c4db2f255f7977ab3ff8a0d1b"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "2b0a9c68eabd15b7bea2a07432d9b5fe5f93337bda40347e6a99804c48e5a7c1",
+    "recipeHash": "507a5a0e3abaf7963f0a576c3b2a0e0a2d3c808d9d65d915b759893e5bb225bf"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "398516138ff3d163d63895cde2feb1db5591dd22c36f538927d8889ec4518053",
+    "recipeHash": "63736b9cdf165d22f6c381d3fe2629b67beaaa7c4db2f255f7977ab3ff8a0d1b"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "2b0a9c68eabd15b7bea2a07432d9b5fe5f93337bda40347e6a99804c48e5a7c1",
+    "recipeHash": "507a5a0e3abaf7963f0a576c3b2a0e0a2d3c808d9d65d915b759893e5bb225bf"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "398516138ff3d163d63895cde2feb1db5591dd22c36f538927d8889ec4518053",
+    "recipeHash": "63736b9cdf165d22f6c381d3fe2629b67beaaa7c4db2f255f7977ab3ff8a0d1b"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "97399ecb14e476836909e54afb7e4ddb4cf3e67b30724d609b055acef5484f23",
+    "recipeHash": "caa84f77c249eb08ffd906ecb71436fe22f594aedf21c84da5365e2973db9464"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "bdb6892e07c60a6541776c785ef1b682f0ae1655665788c1c8a920d6402f04cd",
+    "recipeHash": "abd7fcae4bccb541ec4c391e98a4f0cc503b6a9d48362cd019153660171ac12e"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "97399ecb14e476836909e54afb7e4ddb4cf3e67b30724d609b055acef5484f23",
+    "recipeHash": "caa84f77c249eb08ffd906ecb71436fe22f594aedf21c84da5365e2973db9464"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "bdb6892e07c60a6541776c785ef1b682f0ae1655665788c1c8a920d6402f04cd",
+    "recipeHash": "abd7fcae4bccb541ec4c391e98a4f0cc503b6a9d48362cd019153660171ac12e"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "97399ecb14e476836909e54afb7e4ddb4cf3e67b30724d609b055acef5484f23",
+    "recipeHash": "caa84f77c249eb08ffd906ecb71436fe22f594aedf21c84da5365e2973db9464"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "square",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "bdb6892e07c60a6541776c785ef1b682f0ae1655665788c1c8a920d6402f04cd",
+    "recipeHash": "abd7fcae4bccb541ec4c391e98a4f0cc503b6a9d48362cd019153660171ac12e"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "e380bbdcf731bc0e7f56aa74118a1621066f502529f1b51c25e39fe8f5da13ed",
+    "recipeHash": "0cfcc929408ca8d73969977df4bed3e415d3b1fc45f4faecb4eb5145e9e506a7"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "77fb007744861de6be9d1edb38176fa7ddeca216ab363dfec12adf73096f6371",
+    "recipeHash": "c901f59d857f417ff2d0e729a3f9218d764763e363498e53f1bbf5b4e2763211"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "e380bbdcf731bc0e7f56aa74118a1621066f502529f1b51c25e39fe8f5da13ed",
+    "recipeHash": "0cfcc929408ca8d73969977df4bed3e415d3b1fc45f4faecb4eb5145e9e506a7"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "77fb007744861de6be9d1edb38176fa7ddeca216ab363dfec12adf73096f6371",
+    "recipeHash": "c901f59d857f417ff2d0e729a3f9218d764763e363498e53f1bbf5b4e2763211"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "e380bbdcf731bc0e7f56aa74118a1621066f502529f1b51c25e39fe8f5da13ed",
+    "recipeHash": "0cfcc929408ca8d73969977df4bed3e415d3b1fc45f4faecb4eb5145e9e506a7"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "77fb007744861de6be9d1edb38176fa7ddeca216ab363dfec12adf73096f6371",
+    "recipeHash": "c901f59d857f417ff2d0e729a3f9218d764763e363498e53f1bbf5b4e2763211"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "abae80c66fa51ac6546ac367f3dfcf15f21395b59483c55b812f301f0ae1e98b",
+    "recipeHash": "125ad2748e72dc8c4fac54d9a51bc04bb55aa1adbed217f4ada22c81ab76bf39"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "f77ecd22dbdb5f1253e3a87c427aa30e8e5955bee8616e0f30cde961ec5a893a",
+    "recipeHash": "3667dc6fa28a5377c92ef45b6254f684612a37d6bff8e0bdf50dc1147c338251"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "abae80c66fa51ac6546ac367f3dfcf15f21395b59483c55b812f301f0ae1e98b",
+    "recipeHash": "125ad2748e72dc8c4fac54d9a51bc04bb55aa1adbed217f4ada22c81ab76bf39"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "f77ecd22dbdb5f1253e3a87c427aa30e8e5955bee8616e0f30cde961ec5a893a",
+    "recipeHash": "3667dc6fa28a5377c92ef45b6254f684612a37d6bff8e0bdf50dc1147c338251"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "abae80c66fa51ac6546ac367f3dfcf15f21395b59483c55b812f301f0ae1e98b",
+    "recipeHash": "125ad2748e72dc8c4fac54d9a51bc04bb55aa1adbed217f4ada22c81ab76bf39"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "3:4",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "f77ecd22dbdb5f1253e3a87c427aa30e8e5955bee8616e0f30cde961ec5a893a",
+    "recipeHash": "3667dc6fa28a5377c92ef45b6254f684612a37d6bff8e0bdf50dc1147c338251"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "a34198923733dc48bd6401cee1c689de9e230282f3c9ee6a89f232ced75ec090",
+    "recipeHash": "95dfded71f8545df169c3e6d089ecea75e3aa8db2c7e1cadd3e3893381190bf3"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "66d3760e7bf33ea40f7bc2b0b8a0fc91bc6de3f59506aff2bdc91fdc18fd7bea",
+    "recipeHash": "79ed4e5aecf8ea91cb5ef26071daa9295bbaf81d62614730ed77f1c6bcd3cfdc"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "a34198923733dc48bd6401cee1c689de9e230282f3c9ee6a89f232ced75ec090",
+    "recipeHash": "95dfded71f8545df169c3e6d089ecea75e3aa8db2c7e1cadd3e3893381190bf3"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "66d3760e7bf33ea40f7bc2b0b8a0fc91bc6de3f59506aff2bdc91fdc18fd7bea",
+    "recipeHash": "79ed4e5aecf8ea91cb5ef26071daa9295bbaf81d62614730ed77f1c6bcd3cfdc"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "a34198923733dc48bd6401cee1c689de9e230282f3c9ee6a89f232ced75ec090",
+    "recipeHash": "95dfded71f8545df169c3e6d089ecea75e3aa8db2c7e1cadd3e3893381190bf3"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "66d3760e7bf33ea40f7bc2b0b8a0fc91bc6de3f59506aff2bdc91fdc18fd7bea",
+    "recipeHash": "79ed4e5aecf8ea91cb5ef26071daa9295bbaf81d62614730ed77f1c6bcd3cfdc"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "4eb10b8aa8efb16aa99165684f44e5694c4cdcca4e066b37b24f809eddb619aa",
+    "recipeHash": "b01311b95432f2dc4bcab9b003588952cdb045c73b3519791543c60e0f0e3d20"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "051d8e58cb561745a811f663868a488e588e33fcbcb4da686e1042e490513402",
+    "recipeHash": "c2f7c779eeda9de46efe8c74576713a17f72e01477f9b64949c571a832219f90"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "4eb10b8aa8efb16aa99165684f44e5694c4cdcca4e066b37b24f809eddb619aa",
+    "recipeHash": "b01311b95432f2dc4bcab9b003588952cdb045c73b3519791543c60e0f0e3d20"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "051d8e58cb561745a811f663868a488e588e33fcbcb4da686e1042e490513402",
+    "recipeHash": "c2f7c779eeda9de46efe8c74576713a17f72e01477f9b64949c571a832219f90"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "4eb10b8aa8efb16aa99165684f44e5694c4cdcca4e066b37b24f809eddb619aa",
+    "recipeHash": "b01311b95432f2dc4bcab9b003588952cdb045c73b3519791543c60e0f0e3d20"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "3:4",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "051d8e58cb561745a811f663868a488e588e33fcbcb4da686e1042e490513402",
+    "recipeHash": "c2f7c779eeda9de46efe8c74576713a17f72e01477f9b64949c571a832219f90"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "f30e1a2637d3f5978f91fee373ec8b411a2788a4e30fadf734edc658ae20fa15",
+    "recipeHash": "83d82bd4127e7af04cbe6d899ed49fbd657defbd2ef1320ae20164d21186ec7c"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "4f48e8ff359520e98ae2e1b992ecd2c83f23346e57b6a177b140482c167262e0",
+    "recipeHash": "6c543ca9f622bad42bf7f34188af4c04146debfdc17abe121cfe6bc8779bdbab"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "f30e1a2637d3f5978f91fee373ec8b411a2788a4e30fadf734edc658ae20fa15",
+    "recipeHash": "83d82bd4127e7af04cbe6d899ed49fbd657defbd2ef1320ae20164d21186ec7c"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "4f48e8ff359520e98ae2e1b992ecd2c83f23346e57b6a177b140482c167262e0",
+    "recipeHash": "6c543ca9f622bad42bf7f34188af4c04146debfdc17abe121cfe6bc8779bdbab"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "f30e1a2637d3f5978f91fee373ec8b411a2788a4e30fadf734edc658ae20fa15",
+    "recipeHash": "83d82bd4127e7af04cbe6d899ed49fbd657defbd2ef1320ae20164d21186ec7c"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "4f48e8ff359520e98ae2e1b992ecd2c83f23346e57b6a177b140482c167262e0",
+    "recipeHash": "6c543ca9f622bad42bf7f34188af4c04146debfdc17abe121cfe6bc8779bdbab"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "b57108035175640f41156066c1f195575d487a4a0de3615578f81263da6add53",
+    "recipeHash": "6d120b0c9ef5431003e640c29af1f98e67ad4e685bff03e82c34158e64e2191a"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "5fd3827ecdb00046a547a3f5296919f15673c82792cc06faab929e05958ccab8",
+    "recipeHash": "c3e640c4d036de3f829d21246f0ba4eae8be64b0badfe6e81c27b6198844d643"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "b57108035175640f41156066c1f195575d487a4a0de3615578f81263da6add53",
+    "recipeHash": "6d120b0c9ef5431003e640c29af1f98e67ad4e685bff03e82c34158e64e2191a"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "5fd3827ecdb00046a547a3f5296919f15673c82792cc06faab929e05958ccab8",
+    "recipeHash": "c3e640c4d036de3f829d21246f0ba4eae8be64b0badfe6e81c27b6198844d643"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "b57108035175640f41156066c1f195575d487a4a0de3615578f81263da6add53",
+    "recipeHash": "6d120b0c9ef5431003e640c29af1f98e67ad4e685bff03e82c34158e64e2191a"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "2:3",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "5fd3827ecdb00046a547a3f5296919f15673c82792cc06faab929e05958ccab8",
+    "recipeHash": "c3e640c4d036de3f829d21246f0ba4eae8be64b0badfe6e81c27b6198844d643"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "894cdbdbec3a9cfdd4e08da646c662806affcd2235fe92ca138828abb07621f6",
+    "recipeHash": "d30e9c817bab22c45d3adc6e2f027d84f3dc4de000c1fc1b8ad6808a33445377"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "8dfd35eb6635e2c29c7bd4481a18d600bf1160c6f2bb5549a3dfe868191afa42",
+    "recipeHash": "24332ed50ed567d2a3d858de7ea42c9989e7ca4bcf32d86466270f35a2e94ef1"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "894cdbdbec3a9cfdd4e08da646c662806affcd2235fe92ca138828abb07621f6",
+    "recipeHash": "d30e9c817bab22c45d3adc6e2f027d84f3dc4de000c1fc1b8ad6808a33445377"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "8dfd35eb6635e2c29c7bd4481a18d600bf1160c6f2bb5549a3dfe868191afa42",
+    "recipeHash": "24332ed50ed567d2a3d858de7ea42c9989e7ca4bcf32d86466270f35a2e94ef1"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "894cdbdbec3a9cfdd4e08da646c662806affcd2235fe92ca138828abb07621f6",
+    "recipeHash": "d30e9c817bab22c45d3adc6e2f027d84f3dc4de000c1fc1b8ad6808a33445377"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "8dfd35eb6635e2c29c7bd4481a18d600bf1160c6f2bb5549a3dfe868191afa42",
+    "recipeHash": "24332ed50ed567d2a3d858de7ea42c9989e7ca4bcf32d86466270f35a2e94ef1"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "e58a408244d60b528d7f84888a06ca6ca6c903c3191748dfef5ae44753118237",
+    "recipeHash": "b88cb6784f2dda366310fb83d54c290a91ca5fda4c94e3f4c8c0fa505a836102"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "5fb03f3973837b7ebccb036af91edaca5ee1349d3025f6d0067bab80d7619374",
+    "recipeHash": "308f0cbc23a3f826d7b3da9a5776ec127183c49d13a4c71e0dc59a2749684c25"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "e58a408244d60b528d7f84888a06ca6ca6c903c3191748dfef5ae44753118237",
+    "recipeHash": "b88cb6784f2dda366310fb83d54c290a91ca5fda4c94e3f4c8c0fa505a836102"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "5fb03f3973837b7ebccb036af91edaca5ee1349d3025f6d0067bab80d7619374",
+    "recipeHash": "308f0cbc23a3f826d7b3da9a5776ec127183c49d13a4c71e0dc59a2749684c25"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "e58a408244d60b528d7f84888a06ca6ca6c903c3191748dfef5ae44753118237",
+    "recipeHash": "b88cb6784f2dda366310fb83d54c290a91ca5fda4c94e3f4c8c0fa505a836102"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "2:3",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "5fb03f3973837b7ebccb036af91edaca5ee1349d3025f6d0067bab80d7619374",
+    "recipeHash": "308f0cbc23a3f826d7b3da9a5776ec127183c49d13a4c71e0dc59a2749684c25"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "2296f0ae374bfa21f24a2ed30914e0141102af58725feb23a6a6f76edd960654",
+    "recipeHash": "83c110ed2b5b8d0e0d06fa77cc74f5dd6c1c94bb0a18c57ecad228ce4db690ef"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "717cf10185673b640f7c6f35a22a32d8a4fd2227e0e0b3aea3ca2e51f6339cae",
+    "recipeHash": "2aedd8b0a4cbee26ac5552743d35c9be4f7d3c29bc584926bebc25fd54b3da32"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "2296f0ae374bfa21f24a2ed30914e0141102af58725feb23a6a6f76edd960654",
+    "recipeHash": "83c110ed2b5b8d0e0d06fa77cc74f5dd6c1c94bb0a18c57ecad228ce4db690ef"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "717cf10185673b640f7c6f35a22a32d8a4fd2227e0e0b3aea3ca2e51f6339cae",
+    "recipeHash": "2aedd8b0a4cbee26ac5552743d35c9be4f7d3c29bc584926bebc25fd54b3da32"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "2296f0ae374bfa21f24a2ed30914e0141102af58725feb23a6a6f76edd960654",
+    "recipeHash": "83c110ed2b5b8d0e0d06fa77cc74f5dd6c1c94bb0a18c57ecad228ce4db690ef"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "717cf10185673b640f7c6f35a22a32d8a4fd2227e0e0b3aea3ca2e51f6339cae",
+    "recipeHash": "2aedd8b0a4cbee26ac5552743d35c9be4f7d3c29bc584926bebc25fd54b3da32"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "26bc1b3c7b7f57df186762049f61cfeb1e1700e6c8cf3806dcbdb5197cdab77d",
+    "recipeHash": "73130083c317a99a1ceb370d3f703d2a2f48b48c73f8b5bd53a656060675f4dc"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "944cb2d959935b2cf24a7f0d04f5c97be8c722ff973d522b655d8803bd2449f0",
+    "recipeHash": "b8fbfeceb63567884846ce1e49ba750ae4f29ddf6332aec20116a9dce0197b2b"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "26bc1b3c7b7f57df186762049f61cfeb1e1700e6c8cf3806dcbdb5197cdab77d",
+    "recipeHash": "73130083c317a99a1ceb370d3f703d2a2f48b48c73f8b5bd53a656060675f4dc"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "944cb2d959935b2cf24a7f0d04f5c97be8c722ff973d522b655d8803bd2449f0",
+    "recipeHash": "b8fbfeceb63567884846ce1e49ba750ae4f29ddf6332aec20116a9dce0197b2b"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "26bc1b3c7b7f57df186762049f61cfeb1e1700e6c8cf3806dcbdb5197cdab77d",
+    "recipeHash": "73130083c317a99a1ceb370d3f703d2a2f48b48c73f8b5bd53a656060675f4dc"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "4:5",
+      "legacy": false,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "944cb2d959935b2cf24a7f0d04f5c97be8c722ff973d522b655d8803bd2449f0",
+    "recipeHash": "b8fbfeceb63567884846ce1e49ba750ae4f29ddf6332aec20116a9dce0197b2b"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "40ed2e2e147c76f047d87bb590db902a70b697f53348dd1840e70793c7b26af3",
+    "recipeHash": "63acca87bcab83915958c423dccb220f61d39ef9a2c89e9467abc3824050f222"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "short",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "b481d20dc7641fc69b1f1d685a8e1a0552d01fb7987581498e2ca63870b31519",
+    "recipeHash": "efa4ad1fcf6cd6e57b4f122cc803c12692a9fae1aa757c32dc7ddb293a3d6c23"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "40ed2e2e147c76f047d87bb590db902a70b697f53348dd1840e70793c7b26af3",
+    "recipeHash": "63acca87bcab83915958c423dccb220f61d39ef9a2c89e9467abc3824050f222"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "short",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "b481d20dc7641fc69b1f1d685a8e1a0552d01fb7987581498e2ca63870b31519",
+    "recipeHash": "efa4ad1fcf6cd6e57b4f122cc803c12692a9fae1aa757c32dc7ddb293a3d6c23"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "40ed2e2e147c76f047d87bb590db902a70b697f53348dd1840e70793c7b26af3",
+    "recipeHash": "63acca87bcab83915958c423dccb220f61d39ef9a2c89e9467abc3824050f222"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "short",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "b481d20dc7641fc69b1f1d685a8e1a0552d01fb7987581498e2ca63870b31519",
+    "recipeHash": "efa4ad1fcf6cd6e57b4f122cc803c12692a9fae1aa757c32dc7ddb293a3d6c23"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "e01272b9e7e88f7dbe9f41637ab8607909a8401be658305a3d899e7af5b9b2e4",
+    "recipeHash": "df072d29114104da15cc9b87ea49806bc3425dd786a7816122749a44276ea798"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "long",
+      "align": "left",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "78c8b6c773ec85707062f16b1bbfe6284f5c4213f188c2a67824ae1a0b8f9610",
+    "recipeHash": "0d44dfc16a65aafdfa275f1a289c0c21d2c1d0d5b5f84b4f1142a5f9f2054d4e"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "e01272b9e7e88f7dbe9f41637ab8607909a8401be658305a3d899e7af5b9b2e4",
+    "recipeHash": "df072d29114104da15cc9b87ea49806bc3425dd786a7816122749a44276ea798"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "long",
+      "align": "center",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "78c8b6c773ec85707062f16b1bbfe6284f5c4213f188c2a67824ae1a0b8f9610",
+    "recipeHash": "0d44dfc16a65aafdfa275f1a289c0c21d2c1d0d5b5f84b4f1142a5f9f2054d4e"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": false
+      }
+    },
+    "pixel": "e01272b9e7e88f7dbe9f41637ab8607909a8401be658305a3d899e7af5b9b2e4",
+    "recipeHash": "df072d29114104da15cc9b87ea49806bc3425dd786a7816122749a44276ea798"
+  },
+  {
+    "spec": {
+      "shape": "diamond",
+      "aspect": "4:5",
+      "legacy": true,
+      "rows": "long",
+      "align": "right",
+      "width": 300,
+      "options": {
+        "frameEnabled": true
+      }
+    },
+    "pixel": "78c8b6c773ec85707062f16b1bbfe6284f5c4213f188c2a67824ae1a0b8f9610",
+    "recipeHash": "0d44dfc16a65aafdfa275f1a289c0c21d2c1d0d5b5f84b4f1142a5f9f2054d4e"
+  }
+]

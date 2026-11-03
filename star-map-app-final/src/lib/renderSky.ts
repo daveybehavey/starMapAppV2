@@ -111,6 +111,13 @@ const STYLE_THEME: Record<
     glow: string;
   }
 > = {
+  evergreenAtlas: {
+    background: "#071B17",
+    vignette: "rgba(0,8,5,0.65)",
+    accent: "#C8D8BB",
+    star: "#EEF5E8",
+    glow: "rgba(163,201,173,0.25)",
+  },
   navyGold: {
     background: "#070b1b",
     vignette: "rgba(3, 6, 16, 0.75)",
@@ -263,6 +270,23 @@ const QUALITY_VISUAL_TUNING: Record<RenderQuality, QualityVisualTuning> = {
 };
 
 const STYLE_RENDER_PROFILES: Record<StyleId, StyleRenderProfile> = {
+  evergreenAtlas: {
+    useFixedStarColor: true,
+    allowGlow: false,
+    starAlphaFloor: 0.035,
+    starSizeBoost: 0.98,
+    starVisibilityCutoff: 0,
+    starAlphaBoost: 1,
+    lineStrokeBoost: 1,
+    lineAlphaMultiplier: 1,
+    lineAlphaClamp: null,
+    lineDashed: false,
+    showMilkyWayBand: true,
+    planetFlatColor: true,
+    starJitterMin: 0.94,
+    starJitterRange: 0.14,
+    minimalDrop: null,
+  },
   navyGold: {
     useFixedStarColor: false,
     allowGlow: true,

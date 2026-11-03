@@ -113,7 +113,7 @@ type ValidationResult<T> = { ok: true; value: T } | { ok: false; reason: EditorD
 
 type UnknownRecord = Record<string, unknown>;
 
-const VALID_STYLES = new Set<StyleId>(["navyGold", "vintageEngraving", "parchmentScroll", "midnightMinimal"]);
+const VALID_STYLES = new Set<StyleId>(["navyGold", "vintageEngraving", "parchmentScroll", "midnightMinimal", "evergreenAtlas"]);
 const VALID_ASPECT_RATIOS = new Set<AspectRatio>(["square", "3:4", "2:3", "4:5"]);
 const VALID_SHAPES = new Set<Shape>(["rectangle", "heart", "circle", "star", "diamond"]);
 const VALID_FONT_FAMILIES = new Set<TextBox["fontFamily"]>([
