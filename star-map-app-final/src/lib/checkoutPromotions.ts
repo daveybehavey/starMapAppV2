@@ -82,6 +82,25 @@ export function selectCheckoutPromotion(input: {
   return { source: "none" };
 }
 
+/**
+ * Whether a Stripe rejection of the auto-applied discount may degrade to a
+ * retry-without-discount session.
+ *
+ * Manual codes are a shopper-typed, site-validated promise (resolve +
+ * compatibility + estimator + margin guard): the code must either be the
+ * code applied at checkout, or the rejection must surface on-site as
+ * `promotion_not_applicable` — never mint a silent full-price session behind
+ * the rejection and leave the shopper to re-enter the code at Stripe (#554).
+ * This applies on every order type; print manual codes previously kept a
+ * "historic drop-and-continue" carve-out that contradicted the digital rule.
+ *
+ * Referral-auto and no-code sessions carry no shopper-typed promise, so they
+ * keep the retry-without-discount resilience.
+ */
+export function shouldFallbackOnDiscountError(source: PromotionSource): boolean {
+  return source !== "manual";
+}
+
 export type FulfillableSessionLike = {
   mode?: string | null;
   payment_status?: string | null;
