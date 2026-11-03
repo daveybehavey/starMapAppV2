@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   formatPrintPriceWithShipping,
+  formatStandalonePrintPriceWithShipping,
   getPrintAddOnTimelinePoint,
   getPrintFreeShippingShortTag,
   getPrintShippingDisclosure,
@@ -50,10 +51,7 @@ export default function WhatYouReceiveModule({
   const shippingDisclosure = getPrintShippingDisclosure();
   const printTiers = getPrintPricingTiers();
   const digitalAddOn = getPrintDigitalAddOnPrice();
-  const framedPrice = formatPrintPriceWithShipping(
-    printTiers.poster_framed.amountCents,
-    printTiers.poster_framed.currency,
-  );
+  const framedPrice = formatStandalonePrintPriceWithShipping("poster_framed");
   const unframedPrice = formatPrintPriceWithShipping(
     printTiers.poster_unframed.amountCents,
     printTiers.poster_unframed.currency,

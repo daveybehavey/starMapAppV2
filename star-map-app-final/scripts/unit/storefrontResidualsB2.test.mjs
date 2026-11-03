@@ -30,6 +30,7 @@ const paywall = read("../../src/components/PaywallModal.tsx");
 const posterPage = read("../../src/app/star-map-poster/page.tsx");
 const shopPage = read("../../src/app/shop/page.tsx");
 const framedProof = read("../../src/components/FramedProofSection.tsx");
+const whatYouReceive = read("../../src/components/WhatYouReceiveModule.tsx");
 const printCatalog = read("../../src/lib/printCatalog.ts");
 
 function idx(haystack, needle) {
@@ -110,6 +111,7 @@ test("B2-04: audited surfaces render the framed price through the eligibility-aw
     ["shop", shopPage],
     ["poster", posterPage],
     ["framed proof", framedProof],
+    ["what you receive", whatYouReceive],
   ]) {
     assert.match(
       src,
