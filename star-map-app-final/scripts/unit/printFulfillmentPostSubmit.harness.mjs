@@ -127,6 +127,12 @@ export function applyReviewOutcomeToCurrent(current, reviewed) {
   ) {
     return null;
   }
+  // Mirror of printFulfillmentPostSubmit.ts (gate round 6): a
+  // stale (or unstamped) resolved-to-different outcome no longer
+  // returns null here — the refusal folds into `outcomeStale`, so
+  // its delivered alert stamps are reconciled below and the merge
+  // returns null only when nothing reconciled.
+  let resolutionRefused = false;
   if (
     (current.fileReviewState === "healthy" || current.fileReviewState === "failed") &&
     reviewed.fileReviewState !== current.fileReviewState
@@ -143,7 +149,7 @@ export function applyReviewOutcomeToCurrent(current, reviewed) {
       current.fileReviewCheckedAt == null ||
       reviewed.fileReviewCheckedAt < current.fileReviewCheckedAt
     ) {
-      return null;
+      resolutionRefused = true;
     }
   }
   // Mirror of printFulfillmentPostSubmit.ts (gate round 5): an
@@ -151,10 +157,11 @@ export function applyReviewOutcomeToCurrent(current, reviewed) {
   // its review fields, whatever the standing state (resolved or
   // pending); only its delivered alert stamps are reconciled below.
   const outcomeStale =
-    reviewed.fileReviewState != null &&
-    current.fileReviewCheckedAt != null &&
-    reviewed.fileReviewCheckedAt != null &&
-    reviewed.fileReviewCheckedAt < current.fileReviewCheckedAt;
+    resolutionRefused ||
+    (reviewed.fileReviewState != null &&
+      current.fileReviewCheckedAt != null &&
+      reviewed.fileReviewCheckedAt != null &&
+      reviewed.fileReviewCheckedAt < current.fileReviewCheckedAt);
   const next = { ...current };
   if (!outcomeStale && reviewed.fileReviewState) {
     next.fileReviewState = reviewed.fileReviewState;

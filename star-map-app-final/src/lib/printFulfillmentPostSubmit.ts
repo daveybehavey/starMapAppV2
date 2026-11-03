@@ -151,6 +151,18 @@ export function applyReviewOutcomeToCurrent(
   ) {
     return null;
   }
+  // Gate round 6 (bot P2 on PR #502): a stale (or unstamped)
+  // resolved-to-different outcome no longer returns null here. That
+  // early return fired BEFORE the stale-outcome alert reconciliation
+  // below, so a delayed healthy outcome carrying a delivered approval
+  // stamp over a newer failed resolution lost the stamp — the failed
+  // record stayed sweep-eligible and a later healthy lookup re-sent
+  // the approval email. The refusal now folds into `outcomeStale`:
+  // the outcome applies none of its review fields, its delivered
+  // alert stamps are still reconciled (they evidence a send), and
+  // the merge returns null only when nothing reconciled — the same
+  // contract as the round-5 stale path.
+  let resolutionRefused = false;
   if (
     (current.fileReviewState === "healthy" || current.fileReviewState === "failed") &&
     reviewed.fileReviewState !== current.fileReviewState
@@ -170,7 +182,7 @@ export function applyReviewOutcomeToCurrent(
       current.fileReviewCheckedAt == null ||
       reviewed.fileReviewCheckedAt < current.fileReviewCheckedAt
     ) {
-      return null;
+      resolutionRefused = true;
     }
   }
   // Gate round 5 (local Codex seat P2-C): the freshness rule above
@@ -184,10 +196,11 @@ export function applyReviewOutcomeToCurrent(
   // stale outcome therefore applies none of its review fields; its
   // delivered alert stamps are still reconciled further down.
   const outcomeStale =
-    reviewed.fileReviewState != null &&
-    current.fileReviewCheckedAt != null &&
-    reviewed.fileReviewCheckedAt != null &&
-    reviewed.fileReviewCheckedAt < current.fileReviewCheckedAt;
+    resolutionRefused ||
+    (reviewed.fileReviewState != null &&
+      current.fileReviewCheckedAt != null &&
+      reviewed.fileReviewCheckedAt != null &&
+      reviewed.fileReviewCheckedAt < current.fileReviewCheckedAt);
   const next: PrintOrderRecord = { ...current };
   if (!outcomeStale && reviewed.fileReviewState) {
     next.fileReviewState = reviewed.fileReviewState;
