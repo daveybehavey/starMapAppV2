@@ -36,6 +36,10 @@ import { getPrintDeliveryTimingFaqAnswerShort } from "@/lib/commerceFacts";
 import type { Metadata } from "next";
 
 export const revalidate = 86400;
+// Request-time rendering: the campaign phase is read from the real clock on
+// every request (previously forced by awaiting the request query params).
+// Without this, ISR could serve the previous phase past a Pacific boundary.
+export const dynamic = "force-dynamic";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 const ogImage = `${siteUrl}/custom-star-map-anniversary.webp`;

@@ -36,6 +36,9 @@ test("#531 Christmas landing page never reads a christmas_now search param", () 
   assert.doesNotMatch(page, /christmas_now\?:/);
   assert.doesNotMatch(page, /params\.christmas_now/);
   assert.match(page, /resolveChristmasCampaignNowMs\(\)/);
+  // Dropping searchParams must not silently switch the page to ISR-cached
+  // rendering: the campaign phase is request-time (Codex P2 on PR #533).
+  assert.match(page, /export const dynamic = "force-dynamic";/);
 });
 
 test("#531 default campaign clock resolution is the real clock", async () => {
