@@ -13,6 +13,8 @@ import {
 import { getExportDimensions } from "@/lib/aspectRatio";
 import { ASPECT_OPTIONS } from "@/lib/aspectOptions";
 import { FRAME_STYLE_OPTIONS, resolveFrameStyle } from "@/lib/frameStyle";
+import { TEXT_BOX_MAX_TEXT_LENGTH } from "@/lib/textBoxConstraints";
+import { TextBoxSizeInput } from "@/components/TextBoxSizeInput";
 import { ShapeIcon } from "@/components/ShapeIcon";
 import { ApplyTextRowStyle } from "@/components/ApplyTextRowStyle";
 
@@ -2732,11 +2734,13 @@ export function EditorExperience({
                               </h3>
                             </div>
                             <div className="space-y-3">
+                              <p className="text-[11px] text-neutral-400">Up to 240 characters per line.</p>
                               {visibleTextBoxes.map((box) => (
                                 <div key={box.id} className="space-y-2">
                                   <label className="text-sm font-medium text-white">{box.label}</label>
                                   <input
                                     type="text"
+                                    maxLength={TEXT_BOX_MAX_TEXT_LENGTH}
                                     value={box.text}
                                     onChange={(e) => handleTextBoxTextChange(box.id, e.target.value)}
                                     className="h-10 w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm text-white shadow-inner shadow-black/20 transition outline-none focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
@@ -2890,6 +2894,7 @@ export function EditorExperience({
                                                 <ApplyTextRowStyle sourceId={box.id} />
                                                 <input
                                                   type="text"
+                                                  maxLength={TEXT_BOX_MAX_TEXT_LENGTH}
                                                   value={box.text}
                                                   onChange={(e) =>
                                                     handleTextBoxTextChange(box.id, e.target.value)
@@ -2899,10 +2904,11 @@ export function EditorExperience({
                                                 />
                                                 <div className="grid grid-cols-2 gap-2">
                                                   <div className="space-y-1">
-                                                    <label className="text-[10px] text-neutral-300">
+                                                    <label htmlFor={`font-select-${box.id}`} className="text-[10px] text-neutral-300">
                                                       Font
                                                     </label>
                                                     <select
+                                                      id={`font-select-${box.id}`}
                                                       value={box.fontFamily}
                                                       onChange={(e) => {
                                                         const next = e.target.value as TextBox["fontFamily"];
@@ -2926,18 +2932,11 @@ export function EditorExperience({
                                                     <label htmlFor={`size-input-${box.id}`} className="text-[10px] text-neutral-300">
                                                       Size
                                                     </label>
-                                                    <input
+                                                    <TextBoxSizeInput
                                                       id={`size-input-${box.id}`}
-                                                      aria-label={`${box.label} size`}
-                                                      type="number"
-                                                      min={10}
-                                                      max={64}
+                                                      label={box.label}
                                                       value={box.size}
-                                                      onChange={(e) =>
-                                                        updateTextBox(box.id, {
-                                                          size: Number(e.target.value),
-                                                        })
-                                                      }
+                                                      onCommit={(size) => updateTextBox(box.id, { size })}
                                                       className="w-full rounded-md border border-white/15 bg-white/10 px-2 py-1.5 text-xs text-white"
                                                     />
                                                     <input
@@ -2958,10 +2957,11 @@ export function EditorExperience({
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-2">
                                                   <div className="space-y-1">
-                                                    <label className="text-[10px] text-neutral-300">
+                                                    <label htmlFor={`color-input-${box.id}`} className="text-[10px] text-neutral-300">
                                                       Color
                                                     </label>
                                                     <input
+                                                      id={`color-input-${box.id}`}
                                                       type="color"
                                                       value={box.color}
                                                       onChange={(e) =>
@@ -2971,10 +2971,11 @@ export function EditorExperience({
                                                     />
                                                   </div>
                                                   <div className="space-y-1">
-                                                    <label className="text-[10px] text-neutral-300">
+                                                    <label htmlFor={`align-select-${box.id}`} className="text-[10px] text-neutral-300">
                                                       Align
                                                     </label>
                                                     <select
+                                                      id={`align-select-${box.id}`}
                                                       value={box.align}
                                                       onChange={(e) =>
                                                         updateTextBox(box.id, {
