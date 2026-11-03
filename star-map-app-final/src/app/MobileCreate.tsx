@@ -170,7 +170,7 @@ export function MobileCreate({
     applyVisualOptions,
     applyPreset: hookApplyPreset,
     applyProPreset,
-  } = useEditorLogic({ variant });
+  } = useEditorLogic({ variant, visualOptionsDriver: false });
 
   // PROD-SM W2-4 (#490): the occasion caption is generated from the
   // design's existing location/date data; null when that data is
@@ -339,7 +339,11 @@ export function MobileCreate({
     }
   }, [selectedOccasion]);
 
-  // Restore selectedOccasion from draft on mount
+  // Derive customOccasion from the draft on mount. The selection
+  // itself is store-resident and restored by the parent editor
+  // (audit B-03) — this surface must not keep a second copy or
+  // write the selection back into the draft behind the parent's
+  // autosave.
   useEffect(() => {
     if (typeof window === "undefined") return;
     let draft: string | null = null;
@@ -354,9 +358,7 @@ export function MobileCreate({
           selectedOccasion?: string | null;
           location?: { name?: string | null };
         };
-        if (parsed.selectedOccasion) {
-          setSelectedOccasion(parsed.selectedOccasion);
-        } else if (parsed.selectedOccasion === null) {
+        if (parsed.selectedOccasion === null) {
           // Custom only when the draft carries a named location. The
           // untouched draft the parent editor autosaves on first load has
           // selectedOccasion: null and an unnamed placeholder location;
@@ -373,31 +375,7 @@ export function MobileCreate({
         // Ignore parse errors
       }
     }
-  }, [setCustomOccasion, setSelectedOccasion]);
-
-  // Sync selectedOccasion to draft when it changes
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    let draft: string | null = null;
-    try {
-      draft = localStorage.getItem("star-map-draft");
-    } catch {
-      return;
-    }
-    if (draft) {
-      try {
-        const parsed = JSON.parse(draft) as Record<string, unknown>;
-        parsed.selectedOccasion = selectedOccasion;
-        try {
-          localStorage.setItem("star-map-draft", JSON.stringify(parsed));
-        } catch {
-          // Ignore storage errors
-        }
-      } catch {
-        // Ignore parse errors
-      }
-    }
-  }, [selectedOccasion]);
+  }, [setCustomOccasion]);
 
   // Handle intensity change
   const handleIntensityChange = useCallback(
@@ -421,13 +399,9 @@ export function MobileCreate({
   // Handle render mode change
   const handleRenderModeChange = useCallback(
     (mode: RenderModeId) => {
-      if ((mode === "cinematic" || mode === "luxe") && !paid) {
-        track("paywall_render_mode_blocked", { mode });
-        if (!showRenderModeBanner) {
-          setShowRenderModeBanner(true);
-          track("mobile_render_mode_upsell_shown", { mode });
-        }
-        return;
+      if ((mode === "cinematic" || mode === "luxe") && !paid && !showRenderModeBanner) {
+        setShowRenderModeBanner(true);
+        track("mobile_render_mode_upsell_shown", { mode });
       }
       setRenderMode(mode);
       const targetLevel = mode === "cinematic" ? Math.max(intensityDisplay, 60) : intensityDisplay;
@@ -632,15 +606,6 @@ export function MobileCreate({
       window.removeEventListener("resize", updateSticky);
     };
   }, [canReveal, revealed]);
-
-  useEffect(() => {
-    if (!isQuick) return;
-    const lockedIntensity = 70;
-    setRenderMode("cinematic");
-    setIntensity(lockedIntensity);
-    setIntensityDisplay(lockedIntensity);
-    applyVisualOptions("cinematic", lockedIntensity);
-  }, [applyVisualOptions, isQuick, setIntensity, setIntensityDisplay, setRenderMode]);
 
   const handleLessOptions = useCallback(() => {
     setShowAdvancedState(false);
