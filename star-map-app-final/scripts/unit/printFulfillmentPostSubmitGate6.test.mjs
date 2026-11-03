@@ -112,3 +112,79 @@ test("gate round 6: an unstamped resolved-to-different outcome reconciles delive
     "an unstamped outcome with no delivered evidence is refused whole",
   );
 });
+
+const PENDING_CURRENT_R6 = {
+  status: "sent",
+  printfulOrderId: "PF-1",
+  fileReviewState: "pending",
+  fileReviewCheckedAt: 300,
+  fileReviewPendingSince: 200,
+  fileReviewPendingAlertError: "resend_500",
+};
+
+test("gate round 6: a delayed pending outcome's delivered pending-alert stamp survives a newer pending re-check (bot fixture)", () => {
+  const merged = applyReviewOutcomeToCurrent(PENDING_CURRENT_R6, {
+    status: "sent",
+    printfulOrderId: "PF-1",
+    fileReviewState: "pending",
+    fileReviewCheckedAt: 100,
+    fileReviewPendingSince: 200,
+    fileReviewPendingAlertedAt: 400,
+  });
+  assert.notEqual(merged, null, "the delivered pending-alert stamp is reconciled, so the merge is not refused whole");
+  assert.equal(merged.fileReviewState, "pending", "the newer pending state stands");
+  assert.equal(merged.fileReviewCheckedAt, 300, "the review stamp never moves backward");
+  assert.equal(merged.fileReviewPendingSince, 200, "the episode clock is untouched");
+  assert.equal(merged.fileReviewPendingAlertedAt, 400, "the delivered pending-alert stamp is NOT lost — the next tick will not re-send the episode alert");
+  assert.equal(merged.fileReviewPendingAlertError, undefined, "the delivered stamp supersedes the standing undelivered residue");
+});
+
+test("gate round 6: a pending-alert stamp from a DIFFERENT episode is not adopted", () => {
+  assert.equal(
+    applyReviewOutcomeToCurrent(PENDING_CURRENT_R6, {
+      status: "sent",
+      printfulOrderId: "PF-1",
+      fileReviewState: "pending",
+      fileReviewCheckedAt: 100,
+      fileReviewPendingSince: 150,
+      fileReviewPendingAlertedAt: 400,
+    }),
+    null,
+    "a stamp from an earlier episode must never suppress this episode's alert — refused whole",
+  );
+  assert.equal(
+    applyReviewOutcomeToCurrent(
+      {
+        status: "sent",
+        printfulOrderId: "PF-1",
+        fileReviewState: "failed",
+        fileReviewCheckedAt: 300,
+        error: "printful_files_failed: file rejected",
+      },
+      {
+        status: "sent",
+        printfulOrderId: "PF-1",
+        fileReviewState: "pending",
+        fileReviewCheckedAt: 100,
+        fileReviewPendingSince: 200,
+        fileReviewPendingAlertedAt: 400,
+      },
+    ),
+    null,
+    "a resolved standing record has no live pending episode to reconcile a stamp into",
+  );
+});
+
+test("gate round 6: a stale pending outcome with nothing to reconcile is still refused whole", () => {
+  assert.equal(
+    applyReviewOutcomeToCurrent(PENDING_CURRENT_R6, {
+      status: "sent",
+      printfulOrderId: "PF-1",
+      fileReviewState: "pending",
+      fileReviewCheckedAt: 100,
+      fileReviewPendingSince: 200,
+    }),
+    null,
+    "same episode but no delivered evidence — nothing survives the stale refusal",
+  );
+});

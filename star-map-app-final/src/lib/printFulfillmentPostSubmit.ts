@@ -252,6 +252,35 @@ export function applyReviewOutcomeToCurrent(
     next.operatorFailureAlertError = reviewed.operatorFailureAlertError;
   }
   if (
+    outcomeStale &&
+    current.fileReviewState === "pending" &&
+    reviewed.fileReviewState === "pending" &&
+    current.fileReviewPendingSince != null &&
+    reviewed.fileReviewPendingSince === current.fileReviewPendingSince
+  ) {
+    // Gate round 6 (bot P2 on PR #502): the pending episode's alert
+    // stamp is reconciled like the approval/failure stamps above. It
+    // used to be adopted only inside the !outcomeStale pending
+    // branch, so a delayed pending outcome whose aging alert WAS
+    // delivered — resuming behind a newer pending re-check whose own
+    // alert failed — lost the stamp to the stale refusal, and the
+    // next sweep tick re-sent the episode's alert. The adoption is
+    // scoped to the SAME pending episode (both outcomes pending,
+    // same pending-since): a stamp from a different episode must
+    // never suppress this episode's alert. (The pending alert has
+    // no provider field; delivery evidence is the stamp alone.)
+    if (!current.fileReviewPendingAlertedAt && reviewed.fileReviewPendingAlertedAt) {
+      next.fileReviewPendingAlertedAt = reviewed.fileReviewPendingAlertedAt;
+      next.fileReviewPendingAlertError = undefined;
+    } else if (
+      !current.fileReviewPendingAlertedAt &&
+      !current.fileReviewPendingAlertError &&
+      reviewed.fileReviewPendingAlertError
+    ) {
+      next.fileReviewPendingAlertError = reviewed.fileReviewPendingAlertError;
+    }
+  }
+  if (
     !outcomeStale &&
     reviewed.fileReviewState === "healthy" &&
     (current.fileReviewState === "failed" || current.fileReviewState === "pending")
@@ -284,7 +313,9 @@ export function applyReviewOutcomeToCurrent(
       next.operatorAlertError !== current.operatorAlertError ||
       next.operatorFailureAlertedAt !== current.operatorFailureAlertedAt ||
       next.operatorFailureAlertProvider !== current.operatorFailureAlertProvider ||
-      next.operatorFailureAlertError !== current.operatorFailureAlertError;
+      next.operatorFailureAlertError !== current.operatorFailureAlertError ||
+      next.fileReviewPendingAlertedAt !== current.fileReviewPendingAlertedAt ||
+      next.fileReviewPendingAlertError !== current.fileReviewPendingAlertError;
     if (!alertReconciled) return null;
   }
   return next;
