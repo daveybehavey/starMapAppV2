@@ -69,6 +69,8 @@ const { createPromotionUnsubscribeToken, verifyPromotionUnsubscribeToken } = awa
   "../../src/lib/promotionSubscriptions.ts"
 );
 const { alertCalls } = await import("./printWriterSlateFollowup.alerts.stub.mjs");
+const { sendShippingNotification } = await import("../../src/lib/shippingNotifications.ts");
+const resendStub = await import("./printWriterSlateFollowup.resend.stub.mjs");
 
 const NOW = Date.now();
 let seq = 0;
@@ -358,6 +360,88 @@ test("F-9: completion is refused when a resolution landed mid-flight", async () 
 
 /* ---------------- Rider (a): unsubscribe token ---------------- */
 
+/* ----- F-8 gate fix C (PR #505 review): sequential vs concurrent stamps ----- */
+
+test("F-8 gate fix C: a sequential reshipment's stamp replaces the previous shipment's stamp", async () => {
+  resendStub.__resetResendStub();
+  const sessionId = nextSession();
+  const stampA = NOW - 120_000;
+  await persistPrintOrderRecord(
+    sessionId,
+    baseRecord(sessionId, {
+      status: "sent",
+      sentAt: NOW - 180_000,
+      shippedAt: NOW - 150_000,
+      shippingNotificationSentAt: stampA,
+      shippingNotificationProvider: "resend",
+      shippingNotificationTrackingNumber: "TRACK-A",
+      shippingNotificationMessageId: "msg_a",
+    }),
+  );
+  const sent = await sendShippingNotification(sessionId, { trackingNumber: "TRACK-B" });
+  assert.equal(sent.status, "sent");
+  const stored = await kv.get(printOrderKey(sessionId));
+  assert.equal(stored.shippingNotificationTrackingNumber, "TRACK-B");
+  assert.ok(stored.shippingNotificationSentAt > stampA, "B's stamp landed");
+  // Redelivery of B's event dedupes — no second customer email.
+  const again = await sendShippingNotification(sessionId, { trackingNumber: "TRACK-B" });
+  assert.equal(again.status, "already_sent");
+  assert.equal(resendStub.sendCalls.length, 1);
+});
+
+test("F-8 gate fix C: a stamp advancing DURING the send supersedes this pass's outcome", async () => {
+  resendStub.__resetResendStub();
+  const sessionId = nextSession();
+  await persistPrintOrderRecord(
+    sessionId,
+    baseRecord(sessionId, { status: "sent", sentAt: NOW - 180_000, shippedAt: NOW - 150_000 }),
+  );
+  const stampC = NOW + 60_000;
+  resendStub.__setResendBehaviour({
+    onSend: async () => {
+      const current = await kv.get(printOrderKey(sessionId));
+      await persistPrintOrderRecord(sessionId, {
+        ...current,
+        shippingNotificationSentAt: stampC,
+        shippingNotificationProvider: "resend",
+        shippingNotificationTrackingNumber: "TRACK-C",
+        shippingNotificationMessageId: "msg_c",
+      });
+    },
+  });
+  const sent = await sendShippingNotification(sessionId, { trackingNumber: "TRACK-B" });
+  assert.equal(sent.status, "sent", "the email did go out");
+  const stored = await kv.get(printOrderKey(sessionId));
+  assert.equal(stored.shippingNotificationTrackingNumber, "TRACK-C", "the concurrent stamp stands");
+  assert.equal(stored.shippingNotificationSentAt, stampC);
+  resendStub.__resetResendStub();
+});
+
+test("F-8 gate fix C: a failure outcome never erases a standing success stamp", async () => {
+  resendStub.__resetResendStub();
+  const sessionId = nextSession();
+  const stampA = NOW - 120_000;
+  await persistPrintOrderRecord(
+    sessionId,
+    baseRecord(sessionId, {
+      status: "sent",
+      sentAt: NOW - 180_000,
+      shippedAt: NOW - 150_000,
+      shippingNotificationSentAt: stampA,
+      shippingNotificationProvider: "resend",
+      shippingNotificationTrackingNumber: "TRACK-A",
+      shippingNotificationMessageId: "msg_a",
+    }),
+  );
+  resendStub.__setResendBehaviour({ result: { ok: false, error: "provider_down" } });
+  const failed = await sendShippingNotification(sessionId, { trackingNumber: "TRACK-B" });
+  assert.equal(failed.status, "failed");
+  const stored = await kv.get(printOrderKey(sessionId));
+  assert.equal(stored.shippingNotificationTrackingNumber, "TRACK-A");
+  assert.equal(stored.shippingNotificationSentAt, stampA);
+  resendStub.__resetResendStub();
+});
+
 test("rider (a): unsubscribe token verifies digest-first with an unchanged acceptance set", () => {
   const email = "Reader@Example.test";
   const token = createPromotionUnsubscribeToken(email);
@@ -443,10 +527,19 @@ test("source pins: F-4/F-5/F-6/F-7 wiring is present in the routes", () => {
   assert.match(retrySource, /S96 follow-up writer audit F-6/);
   assert.match(retrySource, /authority_already_fulfilled/);
   assert.match(retrySource, /fulfillment_advanced_during_retry/);
+  // PR #505 gate fix B: the post-claim stand-down releases the claim
+  // it acquired before returning, so the order is not stranded.
+  assert.match(retrySource, /releaseAlternateFulfillmentDispatchClaim\(sessionId, dispatchId\)/);
+
+  const authorityStateSource = readSource("src/lib/printOrderAuthorityState.ts");
+  assert.match(authorityStateSource, /release_alternate_dispatch_claim/);
 
   const resolveSource = readSource("src/app/api/print/orders/resolve/route.ts");
   assert.match(resolveSource, /S96 follow-up writer audit F-7/);
-  assert.match(resolveSource, /ownsTransition/);
+  // PR #505 gate fix A: two-phase reads around the index ops — the
+  // persisted record is built from the post-index re-read.
+  assert.match(resolveSource, /transitionStillOwned/);
+  assert.match(resolveSource, /freshBeforeIndex/);
 
   const shippingSource = readSource("src/lib/shippingNotifications.ts");
   assert.match(shippingSource, /S96 follow-up writer audit F-8/);

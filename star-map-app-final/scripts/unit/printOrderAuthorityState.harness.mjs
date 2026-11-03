@@ -124,6 +124,33 @@ export function applyPrintOrderAuthorityOp(state, op) {
         state: bump(state, { alternateDispatchClaim: claim }, now),
       };
     }
+    case "release_alternate_dispatch_claim": {
+      // Mirror of the TS release op (PR #505 gate fix B): clears the
+      // standing claim only when it carries the caller's dispatchId.
+      const dispatchId = typeof op.dispatchId === "string" ? op.dispatchId.trim() : "";
+      if (!dispatchId) return { ok: false, state, reason: "invalid_dispatch_id" };
+      const claim = state.alternateDispatchClaim;
+      if (!claim) {
+        return { ok: true, state, changed: false, reason: "no_standing_claim", alternateDispatchClaim: null };
+      }
+      if (claim.dispatchId !== dispatchId) {
+        return {
+          ok: true,
+          state,
+          changed: false,
+          reason: "claim_dispatch_mismatch",
+          alternateDispatchClaim: claim,
+        };
+      }
+      const now = op.now ?? Date.now();
+      return {
+        ok: true,
+        changed: true,
+        reason: "claim_released",
+        alternateDispatchClaim: null,
+        state: bump(state, { alternateDispatchClaim: null }, now),
+      };
+    }
     case "bind_provider_order_id": {
       const id = normalizeAuthorityProviderOrderId(op.printfulOrderId);
       if (!id) return { ok: false, state, reason: "invalid_provider_id" };

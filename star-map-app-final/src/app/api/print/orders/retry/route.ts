@@ -37,6 +37,7 @@ import {
   claimAlternateFulfillmentDispatch,
   getPrintOrderAuthorityState,
   projectPrintOrderWithAuthority,
+  releaseAlternateFulfillmentDispatchClaim,
   seedPrintOrderAuthorityFromKv,
 } from "@/lib/printOrderAuthority";
 import { setPrintFulfillmentIndex } from "@/lib/printFulfillmentIndex";
@@ -867,6 +868,16 @@ async function postRetryPrintOrder(req: NextRequest) {
     authorityAfterClaim.lifecycle === "operator_recovered" ||
     printOrderAdvancedPastSnapshot(hydrated, freshAfterClaim)
   ) {
+    // This pass acquired the claim above and has NOT dispatched —
+    // the outbound fetch is further below — so release the claim
+    // before standing down (gate fix on PR #505, local Codex P2):
+    // a claim left standing here would strand the order behind
+    // reconciliation_required on every later retry even though no
+    // dispatch ever used it. The release is ownership-checked in
+    // the authority (the standing claim must carry this dispatchId)
+    // and best-effort: if it cannot be applied, the pre-existing
+    // reconciliation posture stands.
+    await releaseAlternateFulfillmentDispatchClaim(sessionId, dispatchId).catch(() => null);
     return NextResponse.json(
       { ok: false, error: "reconciliation_required", reason: "fulfillment_advanced_during_retry", dispatchId },
       { status: 409 },

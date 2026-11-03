@@ -426,6 +426,71 @@ test("S96-1 F2: the first claim wins; later claims observe the standing claim an
   }
 });
 
+test("PR #505 gate fix: releasing the claim the caller owns frees the order for a later claim", () => {
+  const initial = createUnboundAuthorityState(CLAIM_SESSION, 1);
+  const dispatchId = `alt-fulfillment:${CLAIM_SESSION}`;
+  const claimed = applyPrintOrderAuthorityOp(initial, {
+    type: "claim_alternate_dispatch",
+    dispatchId,
+    now: 2,
+  });
+  const released = applyPrintOrderAuthorityOp(claimed.state, {
+    type: "release_alternate_dispatch_claim",
+    dispatchId,
+    now: 3,
+  });
+  assert.equal(released.ok, true);
+  assert.equal(released.changed, true);
+  assert.equal(released.reason, "claim_released");
+  assert.equal(released.state.alternateDispatchClaim, null);
+  // A later attempt can claim again — the stranded-claim state the
+  // release exists to prevent would have refused this forever.
+  const reclaimed = applyPrintOrderAuthorityOp(released.state, {
+    type: "claim_alternate_dispatch",
+    dispatchId,
+    now: 4,
+  });
+  assert.equal(reclaimed.claimAcquired, true);
+});
+
+test("PR #505 gate fix: a release never clears another attempt's claim", () => {
+  const initial = createUnboundAuthorityState(CLAIM_SESSION, 1);
+  const claimed = applyPrintOrderAuthorityOp(initial, {
+    type: "claim_alternate_dispatch",
+    dispatchId: "alt-fulfillment:owner",
+    now: 2,
+  });
+  const foreign = applyPrintOrderAuthorityOp(claimed.state, {
+    type: "release_alternate_dispatch_claim",
+    dispatchId: "alt-fulfillment:stranger",
+    now: 3,
+  });
+  assert.equal(foreign.ok, true);
+  assert.equal(foreign.changed, false);
+  assert.equal(foreign.reason, "claim_dispatch_mismatch");
+  assert.deepEqual(foreign.state.alternateDispatchClaim, claimed.state.alternateDispatchClaim);
+  assert.equal(foreign.state.revision, claimed.state.revision, "a mismatched release mutates nothing");
+});
+
+test("PR #505 gate fix: releasing with no standing claim is a no-op; an empty id is invalid", () => {
+  const initial = createUnboundAuthorityState(CLAIM_SESSION, 1);
+  const noop = applyPrintOrderAuthorityOp(initial, {
+    type: "release_alternate_dispatch_claim",
+    dispatchId: "alt-fulfillment:x",
+    now: 2,
+  });
+  assert.equal(noop.ok, true);
+  assert.equal(noop.changed, false);
+  assert.equal(noop.reason, "no_standing_claim");
+  const invalid = applyPrintOrderAuthorityOp(initial, {
+    type: "release_alternate_dispatch_claim",
+    dispatchId: "  ",
+    now: 2,
+  });
+  assert.equal(invalid.ok, false);
+  assert.equal(invalid.reason, "invalid_dispatch_id");
+});
+
 test("S96-1 F2: interleaved concurrent claims acquire exactly once", () => {
   const ops = Array.from({ length: 6 }, (_, i) => ({
     type: "claim_alternate_dispatch",

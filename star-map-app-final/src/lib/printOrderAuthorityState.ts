@@ -71,6 +71,11 @@ export type PrintOrderAuthorityOp =
       now?: number;
     }
   | {
+      type: "release_alternate_dispatch_claim";
+      dispatchId: string;
+      now?: number;
+    }
+  | {
       type: "bind_provider_order_id";
       printfulOrderId: string | number;
       now?: number;
@@ -348,6 +353,44 @@ function applyClaimAlternateDispatch(
   };
 }
 
+/**
+ * Release a standing alternate-dispatch claim WITHOUT dispatching
+ * (gate fix on PR #505, local Codex P2): the retry's F-10 post-claim
+ * stand-down acquires the claim and then — on advancement or an
+ * unreadable re-read — returns before the outbound fetch. Without a
+ * release, that claim stood forever and every later retry answered
+ * reconciliation_required for an order that was never dispatched.
+ * The release is ownership-checked: it clears the claim only when
+ * the standing claim carries the caller's dispatchId, so a pass can
+ * never reopen a dispatch another attempt owns (or may already have
+ * started). Callers may invoke it only on paths that provably have
+ * not begun the outbound dispatch.
+ */
+function applyReleaseAlternateDispatchClaim(
+  state: PrintOrderAuthorityState,
+  op: Extract<PrintOrderAuthorityOp, { type: "release_alternate_dispatch_claim" }>,
+): PrintOrderAuthorityApplyResult {
+  const dispatchId = typeof op.dispatchId === "string" ? op.dispatchId.trim() : "";
+  if (!dispatchId) {
+    return { ok: false, state, reason: "invalid_dispatch_id" };
+  }
+  const claim = state.alternateDispatchClaim;
+  if (!claim) {
+    return { ok: true, state, changed: false, reason: "no_standing_claim", alternateDispatchClaim: null };
+  }
+  if (claim.dispatchId !== dispatchId) {
+    return { ok: true, state, changed: false, reason: "claim_dispatch_mismatch", alternateDispatchClaim: claim };
+  }
+  const now = op.now ?? Date.now();
+  return {
+    ok: true,
+    changed: true,
+    reason: "claim_released",
+    alternateDispatchClaim: null,
+    state: bump(state, { alternateDispatchClaim: null }, now),
+  };
+}
+
 function applyMarkTerminalFailed(
   state: PrintOrderAuthorityState,
   op: Extract<PrintOrderAuthorityOp, { type: "mark_terminal_failed" }>,
@@ -506,6 +549,8 @@ export function applyPrintOrderAuthorityOp(
       return applySeedFromKv(state, op);
     case "claim_alternate_dispatch":
       return applyClaimAlternateDispatch(state, op);
+    case "release_alternate_dispatch_claim":
+      return applyReleaseAlternateDispatchClaim(state, op);
     case "bind_provider_order_id":
       return applyBind(state, op);
     case "mark_terminal_failed":

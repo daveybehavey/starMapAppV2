@@ -113,26 +113,22 @@ export async function POST(req: NextRequest) {
     // during the DO transaction and the index awaits — a shipment
     // anchor (duplicate shipping email on redelivery, review anchor
     // lost), a hold created AFTER the resolve transaction, a terminal
-    // completion — was overwritten by the resolve write. Re-read KV
-    // and the authority after those awaits: proceed only when this
-    // resolve still owns the authority transition it made (same
-    // revision, lifecycle, and provider ID the transaction returned),
-    // and merge only the resolution-owned fields onto the FRESH
-    // record. The hold is cleared only for the episode this resolve
-    // actually resolved — a hold episode that opened after the
-    // transaction postdates the operator action and survives.
-    const fresh = await kv.get<PrintOrderRecord>(printOrderKey(sessionId));
-    const authorityNow = await getPrintOrderAuthorityState(sessionId);
-    const ownsTransition = Boolean(
-      fresh &&
-        authorityNow &&
-        authorityNow.revision === resolved.state.revision &&
-        authorityNow.lifecycle === resolved.state.lifecycle &&
-        normalizeAuthorityProviderOrderId(authorityNow.printfulOrderId) ===
-          normalizeAuthorityProviderOrderId(resolved.state.printfulOrderId),
-    );
-    if (!fresh || !ownsTransition) {
-      return NextResponse.json(
+    // completion — was overwritten by the resolve write. The persist
+    // therefore runs in two phases around the index ops: re-read KV
+    // and the authority and proceed only when this resolve still owns
+    // the authority transition it made (same revision, lifecycle, and
+    // provider ID the transaction returned); run the index ops; then
+    // re-read and re-check AGAIN and build the persisted record from
+    // that final read — state landing during the index awaits is on
+    // the final read and is never overwritten (gate fix on PR #505:
+    // the first version re-read only before the index ops, leaving
+    // the index window itself uncovered). Only the resolution-owned
+    // fields are merged onto the final record. The hold is cleared
+    // only for the episode this resolve actually resolved — a hold
+    // episode that opened after the transaction postdates the
+    // operator action and survives.
+    const reconciliationNeeded = () =>
+      NextResponse.json(
         {
           ok: false,
           error: "projection_repair_failed",
@@ -145,9 +141,38 @@ export async function POST(req: NextRequest) {
         },
         { status: 503 },
       );
+    const transitionStillOwned = (
+      record: PrintOrderRecord | null,
+      authorityNow: Awaited<ReturnType<typeof getPrintOrderAuthorityState>>,
+    ) =>
+      Boolean(
+        record &&
+          authorityNow &&
+          authorityNow.revision === resolved.state.revision &&
+          authorityNow.lifecycle === resolved.state.lifecycle &&
+          normalizeAuthorityProviderOrderId(authorityNow.printfulOrderId) ===
+            normalizeAuthorityProviderOrderId(resolved.state.printfulOrderId),
+      );
+    const freshBeforeIndex = await kv.get<PrintOrderRecord>(printOrderKey(sessionId));
+    const authorityBeforeIndex = await getPrintOrderAuthorityState(sessionId);
+    if (!freshBeforeIndex || !transitionStillOwned(freshBeforeIndex, authorityBeforeIndex)) {
+      return reconciliationNeeded();
     }
-    const staleKvProviderId = normalizeAuthorityProviderOrderId(fresh.printfulOrderId);
-    const holdEpisodeMoved = (fresh.providerHoldAt ?? null) !== (existing.providerHoldAt ?? null);
+    const staleKvProviderId = normalizeAuthorityProviderOrderId(freshBeforeIndex.printfulOrderId);
+    if (projectedProviderId) {
+      await setPrintFulfillmentIndex(projectedProviderId, sessionId);
+      if (staleKvProviderId && staleKvProviderId !== projectedProviderId) {
+        // missing/not_owned are idempotent/safe; thrown delete failures stop before KV forgets B.
+        await deletePrintFulfillmentIndexIfOwned(staleKvProviderId, sessionId);
+      }
+    }
+    const fresh = await kv.get<PrintOrderRecord>(printOrderKey(sessionId));
+    const authorityNow = await getPrintOrderAuthorityState(sessionId);
+    if (!fresh || !transitionStillOwned(fresh, authorityNow)) {
+      return reconciliationNeeded();
+    }
+    const holdEpisodeMoved =
+      (fresh.providerHoldAt ?? null) !== (freshBeforeIndex.providerHoldAt ?? null);
     const updated: PrintOrderRecord = {
       ...fresh,
       status: "sent",
@@ -178,13 +203,6 @@ export async function POST(req: NextRequest) {
             operatorHoldEscalationAlertError: undefined,
           }),
     };
-    if (projectedProviderId) {
-      await setPrintFulfillmentIndex(projectedProviderId, sessionId);
-      if (staleKvProviderId && staleKvProviderId !== projectedProviderId) {
-        // missing/not_owned are idempotent/safe; thrown delete failures stop before KV forgets B.
-        await deletePrintFulfillmentIndexIfOwned(staleKvProviderId, sessionId);
-      }
-    }
     await persistPrintOrderRecord(sessionId, updated, { allowClearTerminalFailure: true });
     return NextResponse.json({ ok: true, order: sanitizePrintOrderForOperatorResponse(updated) });
   } catch {

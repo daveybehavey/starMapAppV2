@@ -178,6 +178,13 @@ export async function claimAlternateFulfillmentDispatch(
   return applyAuthority(sessionId, { type: "claim_alternate_dispatch", dispatchId });
 }
 
+export async function releaseAlternateFulfillmentDispatchClaim(
+  sessionId: string,
+  dispatchId: string,
+): Promise<PrintOrderAuthorityApplyResult | { ok: false; reason: "authority_unread"; state: null }> {
+  return applyAuthority(sessionId, { type: "release_alternate_dispatch_claim", dispatchId });
+}
+
 export async function bindPrintProviderOrderId(
   sessionId: string,
   printfulOrderId: string | number,

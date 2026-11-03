@@ -11,5 +11,8 @@ export async function resolve(specifier, context, nextResolve) {
   if (specifier === "@/lib/printOrderAlerts") {
     return { url: stub("printWriterSlateFollowup.alerts.stub.mjs"), shortCircuit: true };
   }
+  if (specifier === "@/lib/resend") {
+    return { url: stub("printWriterSlateFollowup.resend.stub.mjs"), shortCircuit: true };
+  }
   return nextResolve(specifier, context);
 }

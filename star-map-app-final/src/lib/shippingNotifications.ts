@@ -178,11 +178,18 @@ export async function sendShippingNotification(
   // failed snapshot by the outcome write). Outcomes now merge ONLY
   // the shipping-notification fields onto the latest record,
   // progress-only: a recorded success stamp is never erased by a
-  // failure outcome, and never overwritten by a success for a
-  // different tracking number (a concurrent send for another tracking
-  // number keeps its own stamp; redelivery dedupes per number). The
-  // persist outcome is handled explicitly — an unrecorded success
+  // failure outcome. A different-tracking success stamp supersedes
+  // this outcome ONLY when it advanced during this pass's send (a
+  // concurrent send keeps its own stamp; redelivery dedupes per
+  // number) — a stamp that already stood when this pass loaded (a
+  // previous shipment's notification, the sequential reshipment case)
+  // is replaced by this pass's outcome, or the new tracking number
+  // could never be stamped and every redelivery of its event would
+  // re-send the customer email (gate fix on PR #505, Codex bot P2).
+  // The persist outcome is handled explicitly — an unrecorded success
   // reports failure so the caller knows a redelivery may duplicate.
+  const baselineNotificationSentAt = loadedRecord.shippingNotificationSentAt;
+  const baselineNotificationTrackingNumber = loadedRecord.shippingNotificationTrackingNumber;
   const persistNotificationOutcome = async (
     outcomeFields: ShippingNotificationFields,
     successful: boolean,
@@ -191,7 +198,12 @@ export async function sendShippingNotification(
     if (!latest) return "unrecorded";
     if (latest.shippingNotificationSentAt) {
       if (!successful) return "superseded";
-      if (latest.shippingNotificationTrackingNumber !== trackingNumber) return "superseded";
+      if (latest.shippingNotificationTrackingNumber !== trackingNumber) {
+        const stampAdvancedDuringSend =
+          latest.shippingNotificationSentAt !== baselineNotificationSentAt ||
+          latest.shippingNotificationTrackingNumber !== baselineNotificationTrackingNumber;
+        if (stampAdvancedDuringSend) return "superseded";
+      }
     }
     const merged: ExtendedPrintOrderRecord = { ...latest, ...outcomeFields };
     const result = await persistPrintOrderRecord(sessionId, merged);
