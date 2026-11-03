@@ -226,3 +226,14 @@ test("wiring: mobile editor warns in both Your Message sections and the Text Sty
   const renders = source.match(/textOverflowBoxIds\.has\(box\.id\) && <TextFitOverflowWarning \/>/g) ?? [];
   assert.ok(renders.length >= 3, `expected >=3 warning sites, found ${renders.length}`);
 });
+
+test("wiring: mobile computes the report pre-reveal through the shared text layer (PR #559 review)", () => {
+  // The guided inputs render before PreviewCanvas mounts, so the
+  // report is computed offscreen through renderStarMapTextLayer —
+  // the same fit code path, not a second computation — and the
+  // effect stands down once the preview is revealed.
+  const source = read("../../src/app/MobileCreate.tsx");
+  assert.match(source, /renderStarMapTextLayer\(\{/);
+  assert.match(source, /if \(revealed\) return;/);
+  assert.match(source, /preRevealOverflowSignatureRef/);
+});

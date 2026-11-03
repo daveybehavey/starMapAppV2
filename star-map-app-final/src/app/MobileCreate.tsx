@@ -11,12 +11,12 @@ import { occasionPresets } from "@/lib/occasionPresets";
 import { buildAutoCaption, upsertAutoCaptionBox } from "@/lib/autoCaption";
 import { resolveShapeMaskFootprint } from "@/lib/shapeLayout";
 import type { RenderModeId } from "@/lib/renderModes";
-import { aspectRatioToNumber } from "@/lib/renderSky";
+import { aspectRatioToNumber, renderStarMapTextLayer } from "@/lib/renderSky";
 import { ApplyTextRowStyle } from "@/components/ApplyTextRowStyle";
 import { ASPECT_OPTIONS } from "@/lib/aspectOptions";
 import { FRAME_STYLE_OPTIONS, resolveFrameStyle } from "@/lib/frameStyle";
 import { styles, fontOptions, shapes, mapLookTiers } from "@/lib/config";
-import { applyMapLookTier, applyTierTypographyProtected, resolveMapLookTier, type MapLookTier } from "@/lib/mapLookTiers";
+import { applyMapLookTier, applyTierTypographyProtected, resolveMapLookTier, resolveTextFitFrameEnabled, type MapLookTier } from "@/lib/mapLookTiers";
 import { proPresets } from "@/lib/proPresets";
 import { applyStyleDefaults } from "@/lib/styleDefaults";
 import { track, trackFunnelStep } from "@/lib/analytics";
@@ -239,6 +239,40 @@ export function MobileCreate({
   // (textFit floor spill), published by PreviewCanvas when the set
   // changes; each affected row renders a warn-only notice.
   const [textOverflowBoxIds, setTextOverflowBoxIds] = useState<ReadonlySet<string>>(() => new Set());
+  // #555 (PR #559 review): the guided "Your Message" inputs above render
+  // BEFORE the first reveal, while PreviewCanvas is not yet mounted —
+  // so no canvas publishes the overflow report for them and their
+  // warnings could never fire. Until reveal, compute the same report
+  // here through the shared text-layer renderer on an offscreen canvas
+  // (same fit code path, same shape/frame inputs, reference dimensions
+  // at the recipe's aspect ratio). After reveal PreviewCanvas owns
+  // publishing and this effect stands down.
+  const preRevealOverflowCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const preRevealOverflowSignatureRef = useRef<string>("");
+  useEffect(() => {
+    if (revealed) return;
+    const canvas =
+      preRevealOverflowCanvasRef.current ?? document.createElement("canvas");
+    preRevealOverflowCanvasRef.current = canvas;
+    const width = 600;
+    const height = Math.max(1, Math.round(width / aspectRatioToNumber(aspectRatio)));
+    const textOverflow = new Set<string>();
+    renderStarMapTextLayer({
+      canvas,
+      width,
+      height,
+      textBoxes,
+      pixelRatio: 1,
+      textOverflow,
+      shape,
+      frameEnabled: resolveTextFitFrameEnabled("preview", renderOptions),
+    });
+    const signature = [...textOverflow].sort().join(",");
+    if (signature !== preRevealOverflowSignatureRef.current) {
+      preRevealOverflowSignatureRef.current = signature;
+      setTextOverflowBoxIds(textOverflow);
+    }
+  }, [revealed, textBoxes, shape, aspectRatio, renderOptions]);
   const [revealStageIndex, setRevealStageIndex] = useState(0);
   const revealTimerRef = useRef<number | null>(null);
   const allowAdvanced = !isQuick || allowAdvancedInQuick;
