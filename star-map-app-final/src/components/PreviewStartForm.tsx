@@ -83,6 +83,65 @@ function buildEditorAction(
   return `/editor?${params.toString()}`;
 }
 
+export type QuickStartFields = {
+  date?: string | null;
+  location?: string | null;
+  lat?: string | null;
+  lon?: string | null;
+  tz?: string | null;
+};
+
+/**
+ * The URL a successful quick-start submission must navigate to: the
+ * selected intent (mode/source/checkout/print_variant/add-ons, exactly as
+ * buildEditorAction encodes it for the button's formAction) PLUS the
+ * submitted fields (date/location and, when coordinate-resolved,
+ * lat/lon/tz).
+ *
+ * This merge has to happen in script: a native GET submission replaces
+ * the action URL's query string with the form's named controls, so the
+ * intent carried only in the formAction query is silently dropped
+ * (audit B2-01). The form markup keeps its native GET + formAction so
+ * the no-JS fallback behaves exactly as it did before this fix.
+ */
+export function buildQuickStartHref(
+  fields: QuickStartFields,
+  intent: {
+    source: string;
+    checkout?: "print" | "digital";
+    printVariant?: PrintVariant;
+    includeDigitalAddOn?: boolean;
+    includeCardAddOn?: boolean;
+  }
+): string {
+  const action = buildEditorAction(
+    intent.source,
+    intent.checkout,
+    intent.printVariant,
+    intent.includeDigitalAddOn,
+    intent.includeCardAddOn
+  );
+  const params = new URLSearchParams(action.slice(action.indexOf("?") + 1));
+
+  if (fields.date) {
+    params.set("date", fields.date);
+  }
+  if (fields.location) {
+    params.set("location", fields.location);
+  }
+  if (fields.lat) {
+    params.set("lat", fields.lat);
+  }
+  if (fields.lon) {
+    params.set("lon", fields.lon);
+  }
+  if (fields.tz) {
+    params.set("tz", fields.tz);
+  }
+
+  return `/editor?${params.toString()}`;
+}
+
 export default function PreviewStartForm({
   title = "Start a free preview",
   description = "Enter the date and location to open the editor with your sky ready to customize.",
@@ -167,6 +226,32 @@ export default function PreviewStartForm({
         source: selectedSource,
         plan: selectedPlan,
       });
+
+      // Navigate in script with the intent merged into the submitted
+      // fields. Falling through to the native GET submission would
+      // replace the formAction query (mode/source/checkout/print_variant/
+      // add-ons) with only the named controls and silently drop the
+      // buyer's selected product/funnel intent (audit B2-01).
+      event.preventDefault();
+      window.location.assign(
+        buildQuickStartHref(
+          {
+            date: String(formData.get("date") ?? ""),
+            location: String(formData.get("location") ?? ""),
+            lat: typeof formData.get("lat") === "string" ? (formData.get("lat") as string) : null,
+            lon: typeof formData.get("lon") === "string" ? (formData.get("lon") as string) : null,
+            tz: typeof formData.get("tz") === "string" ? (formData.get("tz") as string) : null,
+          },
+          {
+            source: selectedSource,
+            checkout:
+              selectedCheckout === "print" || selectedCheckout === "digital" ? selectedCheckout : undefined,
+            printVariant: selectedPrintVariant as PrintVariant | undefined,
+            includeDigitalAddOn: submitter?.dataset.includeDigitalAddon === "1",
+            includeCardAddOn: submitter?.dataset.includeCardAddon === "1",
+          }
+        )
+      );
     },
     [resolvedSource]
   );
@@ -252,10 +337,10 @@ export default function PreviewStartForm({
                     data-plan={intent.plan}
                     data-checkout={intent.checkout}
                     data-print-variant={intent.printVariant}
-                    data-digital-offer={
-                      isDigitalPreviewIntent(intent) ? true : undefined
-                    }
-                    className={`focus:ring-amber-700 rounded-2xl border px-4 py-3 text-left transition hover:-translate-y-[1px] hover:shadow-md focus:ring-2 focus:ring-offset-2 focus:ring-offset-amber-50 focus:outline-none ${toneClass}`}
+                    data-include-digital-addon={intent.includeDigitalAddOn ? "1" : undefined}
+                    data-include-card-addon={intent.includeCardAddOn ? "1" : undefined}
+                    data-digital-offer={isDigitalPreviewIntent(intent) ? true : undefined}
+                    className={`rounded-2xl border px-4 py-3 text-left transition hover:-translate-y-[1px] hover:shadow-md focus:ring-2 focus:ring-amber-700 focus:ring-offset-2 focus:ring-offset-amber-50 focus:outline-none ${toneClass}`}
                   >
                     <span className="block text-sm font-semibold">{intent.label}</span>
                     {intent.detail ? (
@@ -276,14 +361,15 @@ export default function PreviewStartForm({
             formAction={buildEditorAction(resolvedSource)}
             data-source={resolvedSource}
             data-plan="preview"
-            className="text-midnight focus:ring-amber-700 mt-4 w-full rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:ring-2 focus:ring-offset-2 focus:ring-offset-amber-50 focus:outline-none"
+            className="text-midnight mt-4 w-full rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:ring-2 focus:ring-amber-700 focus:ring-offset-2 focus:ring-offset-amber-50 focus:outline-none"
           >
             {buttonLabel}
           </button>
         )}
         <p className="mt-2 text-xs text-neutral-600">Free preview · No account required</p>
         <p className="mt-1 text-xs font-semibold text-amber-700">
-          Framed print<span data-digital-offer> + HD digital</span> — {getPrintFreeShippingShortTag() ?? "Free shipping"}. Shipping shown before payment.
+          Framed print<span data-digital-offer> + HD digital</span> —{" "}
+          {getPrintFreeShippingShortTag() ?? "Free shipping"}. Shipping shown before payment.
         </p>
         {footerContent ? <div className="mt-5 border-t border-amber-200/60 pt-4">{footerContent}</div> : null}
       </form>
