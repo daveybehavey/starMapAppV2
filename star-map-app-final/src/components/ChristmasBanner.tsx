@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   getChristmasBannerContent,
   resolveChristmasCampaignNowMs,
@@ -10,22 +10,23 @@ import { shouldHideSiteTopNav } from "@/components/SiteTopNav";
 import { getInstantHdPriceLine } from "@/lib/digitalGiftCheckout";
 
 type Props = {
-  /** Explicit clock for tests/SSR. Prefer `christmas_now` query or env override when omitted. */
+  /** Explicit clock for tests/SSR only. Production renders omit it and always use the real clock. */
   nowMs?: number;
 };
 
 /**
  * Sitewide Christmas campaign banner. Date-driven (Pacific); hidden outside the campaign window.
- * Override clock with `?christmas_now=YYYY-MM-DD` or `CHRISTMAS_CAMPAIGN_NOW` / `NEXT_PUBLIC_CHRISTMAS_CAMPAIGN_NOW`.
+ * The campaign clock is the real time in production: no query parameter or
+ * other visitor-controlled input may override it (a `christmas_now` query
+ * override shipped publicly until 2026-11-03 and let anyone preview future
+ * campaign phases, including Black Friday, early — see issue #531).
  */
 export default function ChristmasBanner({ nowMs }: Props = {}) {
   const pathname = usePathname() || "";
-  const searchParams = useSearchParams();
   // Same route gate as the site nav: no sitewide chrome on the editor (or the
   // /m/ and /funnel flows), where the tool owns the first screen.
   if (shouldHideSiteTopNav(pathname)) return null;
-  const override = searchParams.get("christmas_now");
-  const clockMs = resolveChristmasCampaignNowMs({ nowMs, override });
+  const clockMs = resolveChristmasCampaignNowMs({ nowMs });
   const content = getChristmasBannerContent(clockMs, getInstantHdPriceLine());
   if (!content) return null;
 
