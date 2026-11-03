@@ -465,65 +465,6 @@ export function PaywallModal({
           </p>
         )}
 
-        <div className="mt-3">
-          <label htmlFor="paywall-recovery-email" className="text-[11px] font-semibold text-neutral-700">
-            Email for checkout recovery (optional)
-          </label>
-          <input
-            id="paywall-recovery-email"
-            type="email"
-            autoComplete="email"
-            inputMode="email"
-            value={recoveryEmail}
-            onChange={(event) => setRecoveryEmail(event.target.value)}
-            placeholder="you@example.com"
-            className="text-midnight mt-1 w-full rounded-lg border border-amber-200/70 bg-white px-3 py-2 text-xs"
-          />
-          <p className="mt-1 text-[10px] text-neutral-600">
-            Helps us email a recovery link if checkout expires. You can also enter email on Stripe Checkout.
-          </p>
-        </div>
-
-        {onPromoCodeChange && !appMode ? (
-          <div className="mt-3">
-            <label htmlFor="paywall-promo-code" className="text-[11px] font-semibold text-neutral-700">
-              Promo code (optional)
-            </label>
-            <input
-              id="paywall-promo-code"
-              name="promotionCode"
-              data-testid="promotionCode-input"
-              type="text"
-              autoComplete="off"
-              spellCheck={false}
-              value={promoCode}
-              onChange={(event) => onPromoCodeChange(event.target.value)}
-              placeholder="Enter code"
-              className="text-midnight mt-1 w-full rounded-lg border border-amber-200/70 bg-white px-3 py-2 text-xs uppercase tracking-wide"
-            />
-            <p className="mt-1 text-[10px] text-neutral-600">
-              {activeIntent === "print"
-                ? "Print promo codes apply at checkout. You can also enter a code on the payment page."
-                : "Valid codes for one-time HD apply at checkout. Packs and subscriptions do not accept promo codes."}
-            </p>
-          </div>
-        ) : null}
-
-        {onIsGiftChange && !appMode ? (
-          <label className="mt-3 flex cursor-pointer items-center gap-2 text-xs text-neutral-700">
-            <input
-              type="checkbox"
-              checked={isGift}
-              onChange={(event) => onIsGiftChange(event.target.checked)}
-              className="h-4 w-4 shrink-0 accent-[#0b1a30]"
-            />
-            <span>
-              <span className="font-semibold text-neutral-900">This is a gift</span> — we won&apos;t
-              email you a review request for this order.
-            </span>
-          </label>
-        ) : null}
-
         {hasPrintOptions && !appMode && (
           <div
             role="tablist"
@@ -636,37 +577,8 @@ export function PaywallModal({
                         Shipping elsewhere? Change country here before checkout.
                       </p>
                     ) : null}
-                    <div
-                      className="mt-2 space-y-1 rounded-lg border border-amber-200/20 bg-white/5 px-3 py-2 text-[10px] leading-relaxed text-amber-100/85"
-                      data-testid="paywall-print-delivery-info"
-                    >
-                      <p className="font-semibold text-amber-50">Delivery timing</p>
-                      <p>{getPrintProductionTimelineLine()}</p>
-                      <p>
-                        {getPrintDeliveryEstimateLine({
-                          variant: preferredPrintVariant,
-                          country: printShippingCountry,
-                        })}
-                      </p>
-                      <p>{getPrintStandardShippingOnlyLine()}</p>
-                      {!appMode && (
-                        <p className="font-medium text-amber-50">
-                          {getPrintUrgentHdUpsellLine(instantHdPriceLine)}
-                        </p>
-                      )}
-                    </div>
-                    <PrintGiftDecisionPanel
-                      printShippingCountry={printShippingCountry}
-                      sizingVariant={preferredPrintVariant}
-                      compact
-                    />
                   </div>
                 )}
-                {printUpsellHint ? (
-                  <p className="mt-2 rounded-lg border border-amber-200/25 bg-white/10 px-3 py-2 text-[11px] text-amber-100">
-                    {printUpsellHint}
-                  </p>
-                ) : null}
                 <CheckoutLegalNotice tone="dark" className="mt-3" />
                 {secondCopyOffered && onIncludeSecondCopyChange && isSecondCopyEligibleVariant(preferredPrintVariant) ? (
                   <label className="mt-3 flex cursor-pointer items-center gap-2 text-xs text-amber-100/90">
@@ -730,6 +642,39 @@ export function PaywallModal({
                     </div>
                   ))}
                 </div>
+                {printUpsellHint ? (
+                  <p className="mt-2 rounded-lg border border-amber-200/25 bg-white/10 px-3 py-2 text-[11px] text-amber-100">
+                    {printUpsellHint}
+                  </p>
+                ) : null}
+                {printShippingCountries.length > 0 && (
+                  <>
+                <div
+                  className="mt-3 space-y-1 rounded-lg border border-amber-200/20 bg-white/5 px-3 py-2 text-[10px] leading-relaxed text-amber-100/85"
+                  data-testid="paywall-print-delivery-info"
+                >
+                  <p className="font-semibold text-amber-50">Delivery timing</p>
+                  <p>{getPrintProductionTimelineLine()}</p>
+                  <p>
+                    {getPrintDeliveryEstimateLine({
+                      variant: preferredPrintVariant,
+                      country: printShippingCountry,
+                    })}
+                  </p>
+                  <p>{getPrintStandardShippingOnlyLine()}</p>
+                  {!appMode && (
+                    <p className="font-medium text-amber-50">
+                      {getPrintUrgentHdUpsellLine(instantHdPriceLine)}
+                    </p>
+                  )}
+                </div>
+                <PrintGiftDecisionPanel
+                  printShippingCountry={printShippingCountry}
+                  sizingVariant={preferredPrintVariant}
+                  compact
+                />
+                  </>
+                )}
                 {/* S94-4-F5: the guarantee / merch policy copy appears ONCE
                     for the panel, beside the purchase rows — not repeated
                     under every button. Wording is unchanged; the returns
@@ -752,6 +697,65 @@ export function PaywallModal({
             )}
           </div>
         )}
+
+        <div className="mt-3">
+          <label htmlFor="paywall-recovery-email" className="text-[11px] font-semibold text-neutral-700">
+            Email for checkout recovery (optional)
+          </label>
+          <input
+            id="paywall-recovery-email"
+            type="email"
+            autoComplete="email"
+            inputMode="email"
+            value={recoveryEmail}
+            onChange={(event) => setRecoveryEmail(event.target.value)}
+            placeholder="you@example.com"
+            className="text-midnight mt-1 w-full rounded-lg border border-amber-200/70 bg-white px-3 py-2 text-xs"
+          />
+          <p className="mt-1 text-[10px] text-neutral-600">
+            Helps us email a recovery link if checkout expires. You can also enter email on Stripe Checkout.
+          </p>
+        </div>
+
+        {onPromoCodeChange && !appMode ? (
+          <div className="mt-3">
+            <label htmlFor="paywall-promo-code" className="text-[11px] font-semibold text-neutral-700">
+              Promo code (optional)
+            </label>
+            <input
+              id="paywall-promo-code"
+              name="promotionCode"
+              data-testid="promotionCode-input"
+              type="text"
+              autoComplete="off"
+              spellCheck={false}
+              value={promoCode}
+              onChange={(event) => onPromoCodeChange(event.target.value)}
+              placeholder="Enter code"
+              className="text-midnight mt-1 w-full rounded-lg border border-amber-200/70 bg-white px-3 py-2 text-xs uppercase tracking-wide"
+            />
+            <p className="mt-1 text-[10px] text-neutral-600">
+              {activeIntent === "print"
+                ? "Print promo codes apply at checkout. You can also enter a code on the payment page."
+                : "Valid codes for one-time HD apply at checkout. Packs and subscriptions do not accept promo codes."}
+            </p>
+          </div>
+        ) : null}
+
+        {onIsGiftChange && !appMode ? (
+          <label className="mt-3 flex cursor-pointer items-center gap-2 text-xs text-neutral-700">
+            <input
+              type="checkbox"
+              checked={isGift}
+              onChange={(event) => onIsGiftChange(event.target.checked)}
+              className="h-4 w-4 shrink-0 accent-[#0b1a30]"
+            />
+            <span>
+              <span className="font-semibold text-neutral-900">This is a gift</span> — we won&apos;t
+              email you a review request for this order.
+            </span>
+          </label>
+        ) : null}
 
         {/* ── Digital tab panel ─────────────────────────────────────────────── */}
         <div

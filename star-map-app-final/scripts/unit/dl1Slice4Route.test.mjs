@@ -746,19 +746,15 @@ test("route replay, promoted (area 3 fix round 2): after a JN1→R7 promotion, t
   assert.equal(entries[0].digest, sha(bytes));
 });
 
-/** Seed the verdict's race precondition (correction round 3, area 3):
- * a short-lived governor intent and a joiner joined under it (R6)
- * through the authority seam, with the joiner's descriptor carrying
- * its long signed expiry. The governor lapses in fake-now terms at
- * the seam (t0 + 500) and in real terms long before any route
- * registration applies (a 6000×6000 validation sits in between), so
- * the first route registration performs the JN1→R7 promotion and
- * stamps the machine expiry — the second, if its snapshot predates
- * the promotion, presents the signed expiry and is refused. */
+/** Seed the stale-snapshot race in logical authority time. The governor
+ * and join are admitted at t0; the governor is already expired before
+ * either real route request starts. Validation speed cannot decide R6/R7.
+ * The existing read rendezvous still forces both snapshots to predate
+ * the first promotion. */
 async function seedPromotionRace(joinDigest) {
   const { sessionId, token } = await seedSession();
   const derived = identity.deriveArtifactIdentity({ sessionId, mapId: MAP, recipe: RECIPE });
-  const t0 = Date.now();
+  const t0 = Date.now() - 2000;
   const govId = "66".repeat(16);
   const joinId = "77".repeat(16);
   const joinerSignedExpiry = t0 + 600_000;
@@ -1084,129 +1080,157 @@ test("descriptor upload with high-bit IDAT chunk type bytes → 422 bad_chunk_ty
   assert.equal(head.present, false);
 });
 
-test("terminal-success comparison (area 7 P2 / CB-P2a): a requester whose retained intent lapses mid-flight while a successor takes governance gets 409, never success", async () => {
-  const { sessionId, token } = await seedSession();
-  const derived = identity.deriveArtifactIdentity({ sessionId, mapId: MAP, recipe: RECIPE });
-  const storage = await import("../../src/lib/downloadArchiveStorage.ts");
-  const bytesA = bigPng(0);
-  const bytesB = bigPng(9);
-  // The requester's descriptor: signed expiry ~200 ms out — live at
-  // classification (request start), lapsed by the time its counted
-  // read + 6000×6000 validation completes and its register applies.
-  const issued = identity.issuePrepareDescriptor({
-    sessionId,
-    mapId: MAP,
-    fingerprint: derived.fingerprint,
-    now: Date.now(),
-    ttlMs: 200,
-    descriptorId: "ab".repeat(16),
-  });
-  assert.ok(issued);
-  // Its retained intent (digest A) recorded with the descriptor's
-  // signed expiry — the R1 replay target.
-  const regA = await client.apply(sessionId, {
-    type: "register_publication_intent",
-    intent: {
-      intentId: "ab".repeat(16),
-      artifactKey: derived.artifactId,
+for (const finalizer of ["requester", "successor"]) {
+  test(`terminal-success comparison (area 7 P2 / CB-P2a): a requester whose retained intent lapses mid-flight while a successor takes governance gets 409, never success (${finalizer} finalizes first)`, { timeout: 30_000 }, async (t) => {
+    const { sessionId, token } = await seedSession();
+    const derived = identity.deriveArtifactIdentity({ sessionId, mapId: MAP, recipe: RECIPE });
+    const storage = await import("../../src/lib/downloadArchiveStorage.ts");
+    const bytesA = bigPng(0);
+    const bytesB = bigPng(9);
+    // Freeze only Date, leaving real I/O and timeout diagnostics running.
+    // Classification sees a live descriptor; expiry happens explicitly
+    // after validation and the stateBefore read, while that snapshot is held.
+    const startedAt = Date.now();
+    t.mock.timers.enable({ apis: ["Date"], now: startedAt });
+    const issued = identity.issuePrepareDescriptor({
       sessionId,
       mapId: MAP,
-      canonicalBinding: derived.canonicalBinding,
       fingerprint: derived.fingerprint,
-      contractVersion: 1,
-      rendererVersion: 1,
-      digest: sha(bytesA),
-      stagingKey: identity.buildStagingKey("ab".repeat(16)),
-      expectedWidth: 6000,
-      expectedHeight: 6000,
-      expiresAt: issued.payload.expiresAt,
-    },
-    now: Date.now(),
-  });
-  assert.equal(regA.outcome, "publication_intent_recorded");
-  // Fire the requester's upload (do not await yet).
-  const requesterPromise = route.POST(
-    uploadPost(token, bytesA, { "x-prepare-descriptor": issued.descriptor }),
-  );
-  // After the lapse, the successor registers (R7 — governance moves)
-  // and promotes its bytes; its finalize is held until the requester's
-  // staging write is observed (the requester's registry state read has
-  // already happened by then, so the entry cannot predate it).
-  await new Promise((r) => setTimeout(r, 300));
-  const regB = await client.apply(sessionId, {
-    type: "register_publication_intent",
-    intent: {
-      intentId: "cd".repeat(16),
-      artifactKey: derived.artifactId,
-      sessionId,
-      mapId: MAP,
-      canonicalBinding: derived.canonicalBinding,
-      fingerprint: derived.fingerprint,
-      contractVersion: 1,
-      rendererVersion: 1,
-      digest: sha(bytesB),
-      stagingKey: identity.buildStagingKey("cd".repeat(16)),
-      expectedWidth: 6000,
-      expectedHeight: 6000,
-      expiresAt: Date.now() + 600_000,
-    },
-    now: Date.now(),
-  });
-  assert.equal(regB.outcome, "publication_intent_recorded");
-  const promoted = await storage.promoteArtifactCreateOnly(derived.finalKey, bytesB, {
-    protocol: "dl1-archive-v1",
-    artifactKey: derived.artifactId,
-    digest: sha(bytesB),
-    bindingDigest: sha(derived.canonicalBinding),
-  });
-  assert.equal(promoted.outcome, "created");
-  const { existsSync } = await import("node:fs");
-  // The canonical local mapping (fix round 2, area 6): SHA-256 hex of
-  // the key, in a two-hex-char shard directory.
-  const stagingHash = sha(identity.buildStagingKey("ab".repeat(16)));
-  const stagingPath = path.join(
-    process.env.STARMAP_DOWNLOAD_ARCHIVE_DIR,
-    stagingHash.slice(0, 2),
-    stagingHash,
-  );
-  const deadline = Date.now() + 10_000;
-  while (!existsSync(stagingPath) && Date.now() < deadline) {
-    await new Promise((r) => setTimeout(r, 5));
-  }
-  assert.ok(existsSync(stagingPath), "requester staging write observed (premise: its state read already happened)");
-  const finBPromise = client.apply(sessionId, {
-    type: "finalize_publication",
-    artifactKey: derived.artifactId,
-    intentId: "cd".repeat(16),
-    generation: regB.publication.generation,
-    observation: {
-      finalObjectPresent: true,
-      finalMetadata: {
+      now: Date.now(),
+      ttlMs: 200,
+      descriptorId: "ab".repeat(16),
+    });
+    assert.ok(issued);
+    // Its retained intent (digest A) recorded with the descriptor's
+    // signed expiry — the R1 replay target.
+    const regA = await client.apply(sessionId, {
+      type: "register_publication_intent",
+      intent: {
+        intentId: "ab".repeat(16),
+        artifactKey: derived.artifactId,
+        sessionId,
+        mapId: MAP,
+        canonicalBinding: derived.canonicalBinding,
+        fingerprint: derived.fingerprint,
+        contractVersion: 1,
+        rendererVersion: 1,
+        digest: sha(bytesA),
+        stagingKey: identity.buildStagingKey("ab".repeat(16)),
+        expectedWidth: 6000,
+        expectedHeight: 6000,
+        expiresAt: issued.payload.expiresAt,
+      },
+      now: Date.now(),
+    });
+    assert.equal(regA.outcome, "publication_intent_recorded");
+    const snapshot = rendezvous.__armAuthorityBoundary(sessionId, "getState");
+    let finalizing;
+    const requesterPromise = route.POST(
+      uploadPost(token, bytesA, { "x-prepare-descriptor": issued.descriptor }),
+    );
+    // Attach rejection handling immediately; finally drains the request.
+    const settledRequester = requesterPromise.catch(() => {});
+    let res, finB;
+    try {
+      await Promise.race([
+        snapshot.reached,
+        requesterPromise.then(() => { throw new Error("requester ended before stateBefore pause"); }),
+      ]);
+      t.mock.timers.setTime(startedAt + 300);
+      assert.ok(Date.now() > issued.payload.expiresAt, "A has expired before B registers");
+      const regB = await client.apply(sessionId, {
+        type: "register_publication_intent",
+        intent: {
+          intentId: "cd".repeat(16),
+          artifactKey: derived.artifactId,
+          sessionId,
+          mapId: MAP,
+          canonicalBinding: derived.canonicalBinding,
+          fingerprint: derived.fingerprint,
+          contractVersion: 1,
+          rendererVersion: 1,
+          digest: sha(bytesB),
+          stagingKey: identity.buildStagingKey("cd".repeat(16)),
+          expectedWidth: 6000,
+          expectedHeight: 6000,
+          expiresAt: Date.now() + 600_000,
+        },
+        now: Date.now(),
+      });
+      assert.equal(regB.outcome, "publication_intent_recorded");
+      const promoted = await storage.promoteArtifactCreateOnly(derived.finalKey, bytesB, {
         protocol: "dl1-archive-v1",
         artifactKey: derived.artifactId,
         digest: sha(bytesB),
         bindingDigest: sha(derived.canonicalBinding),
-      },
-      bodyVerifiedDigest: sha(bytesB),
-    },
-    now: Date.now(),
+      });
+      assert.equal(promoted.outcome, "created");
+      // Hold A just before its real finalize apply. This proves its stale
+      // snapshot passed the entry comparison and its retained-intent replay
+      // registered after B took governance, without polling a staging file.
+      finalizing = rendezvous.__armAuthorityBoundary(sessionId, "apply", "finalize_publication");
+      snapshot.release();
+      await Promise.race([
+        finalizing.reached,
+        requesterPromise.then(() => { throw new Error("requester ended before finalize pause"); }),
+      ]);
+      const registrations = clientMod.__getEntitlementAuthorityCommitHistoryForTests(sessionId)
+        .filter((r) => r.op.type === "register_publication_intent");
+      assert.deepEqual(registrations.map((r) => r.op.intent.intentId),
+        ["ab".repeat(16), "cd".repeat(16), "ab".repeat(16)]);
+      assert.ok(registrations.every((r) => r.outcome === "publication_intent_recorded"));
+      const finalizeSuccessor = () => client.apply(sessionId, {
+        type: "finalize_publication",
+        artifactKey: derived.artifactId,
+        intentId: "cd".repeat(16),
+        generation: regB.publication.generation,
+        observation: {
+          finalObjectPresent: true,
+          finalMetadata: {
+            protocol: "dl1-archive-v1",
+            artifactKey: derived.artifactId,
+            digest: sha(bytesB),
+            bindingDigest: sha(derived.canonicalBinding),
+          },
+          bodyVerifiedDigest: sha(bytesB),
+        },
+        now: Date.now(),
+      });
+      if (finalizer === "successor") {
+        finB = await finalizeSuccessor();
+        assert.equal(finB.outcome, "publication_finalized");
+        finalizing.release();
+        res = await requesterPromise;
+      } else {
+        finalizing.release();
+        res = await requesterPromise;
+        finB = await finalizeSuccessor();
+        assert.equal(finB.outcome, "publication_already_finalized");
+      }
+      const requesterFinalize = clientMod.__getEntitlementAuthorityCommitHistoryForTests(sessionId)
+        .find((r) => r.op.type === "finalize_publication" && r.op.intentId === "ab".repeat(16));
+      assert.equal(requesterFinalize?.outcome, finalizer === "successor"
+        ? "publication_already_finalized" : "publication_finalized");
+    } finally {
+      snapshot.release();
+      finalizing?.release();
+      rendezvous.__disarmAuthorityBoundary();
+      await settledRequester;
+    }
+    // Both F1 (already finalized) and F6 (requester finalizes B's entry)
+    // must reject the different digest, never acknowledge A.
+    assert.equal(res.status, 409);
+    assert.equal((await res.json()).error, "publication_conflict");
+    const state = await client.getState(sessionId);
+    const entries = Object.values(state.artifactRegistry);
+    assert.equal(entries.length, 1);
+    assert.equal(entries[0].state, "finalized");
+    assert.equal(entries[0].digest, sha(bytesB));
+    const stored = await storage.getArtifactObject(derived.finalKey);
+    assert.equal(sha(stored.bytes), sha(bytesB));
   });
-  const [res, finB] = await Promise.all([requesterPromise, finBPromise]);
-  // Whichever finalize call mints/observes the entry (F6 on the
-  // requester's own call, or F1 already-finalized via the successor's),
-  // the entry names digest B — the requester's digest was never stored,
-  // so its answer is the conflict, never a success shape.
-  assert.ok(["publication_finalized", "publication_already_finalized"].includes(finB.outcome));
-  assert.equal(res.status, 409);
-  assert.equal((await res.json()).error, "publication_conflict");
-  const state = await client.getState(sessionId);
-  const entries = Object.values(state.artifactRegistry);
-  assert.equal(entries.length, 1);
-  assert.equal(entries[0].state, "finalized");
-  assert.equal(entries[0].digest, sha(bytesB));
-  const stored = await storage.getArtifactObject(derived.finalKey);
-  assert.equal(sha(stored.bytes), sha(bytesB));
-});
+
+}
 
 /* ---------------- OFF state: the preserved legacy flow (area 7 P1) ---------------- */
 
