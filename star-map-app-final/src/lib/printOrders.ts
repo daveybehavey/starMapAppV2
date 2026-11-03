@@ -469,6 +469,171 @@ export function preserveLatestHoldAnnotations(
   };
 }
 
+/**
+ * S96 follow-up writer audit F-2: the concurrent-state fields a
+ * whole-record writer built from a snapshot must never own. Hold
+ * annotations are handled by preserveLatestHoldAnnotations above;
+ * these are the remaining fields other writers land on their own
+ * timelines — operator resolution (resolve route), the shipment fact
+ * and its notification outcome (shipping writer), and the customer
+ * confirmation outcome (confirmation writer). A snapshot write that
+ * spreads its own stale values for any of them erases (or resurrects)
+ * state that landed during its awaits: the shipment anchor the review
+ * engine times from, the resolution an operator just recorded, the
+ * confirmation stamp that prevents a duplicate customer email.
+ */
+const PRINT_ORDER_CONCURRENT_STATE_FIELDS = [
+  "operatorResolvedAt",
+  "operatorResolvedProvider",
+  "operatorResolvedNote",
+  "shippedAt",
+  "shippingNotificationSentAt",
+  "shippingNotificationProvider",
+  "shippingNotificationTrackingNumber",
+  "shippingNotificationMessageId",
+  "shippingNotificationError",
+  "printConfirmationSentAt",
+  "printConfirmationMessageId",
+  "printConfirmationError",
+] as const satisfies readonly (keyof PrintOrderRecord)[];
+
+/**
+ * Generalized form of preserveLatestHoldAnnotations (S96 follow-up
+ * writer audit F-2): sync the hold annotations AND every other
+ * concurrent-state field from the LATEST stored record onto a pending
+ * whole-record write, so the write keeps only the fields its caller
+ * owns and everything that landed during the caller's awaits survives.
+ * Fields named in `ownedFields` are the caller's own outcome fields
+ * (e.g. the confirmation writer owns printConfirmation*) and are left
+ * exactly as the caller set them. As with the hold sync, values are
+ * taken from the latest record verbatim — a field cleared there is
+ * cleared on the write, never resurrected from the snapshot.
+ * Callers must pass the freshest read they can take immediately
+ * before persisting.
+ */
+export function preserveLatestConcurrentState(
+  next: PrintOrderRecord,
+  latest: PrintOrderRecord | null | undefined,
+  ownedFields?: ReadonlySet<keyof PrintOrderRecord>,
+): PrintOrderRecord {
+  if (!latest) return next;
+  let out = preserveLatestHoldAnnotations(next, latest);
+  for (const field of PRINT_ORDER_CONCURRENT_STATE_FIELDS) {
+    if (ownedFields?.has(field)) continue;
+    if (out[field] !== latest[field]) {
+      if (out === next) out = { ...next };
+      out = { ...out, [field]: latest[field] };
+    }
+  }
+  return out;
+}
+
+/**
+ * S96 follow-up writer audit: has the stored record advanced past the
+ * snapshot a writer is holding — a status change, an operator
+ * resolution, a shipment anchor, a hold-episode change, or a provider
+ * identity change landing during the writer's awaits? Writers that
+ * must not write over such advancement refuse when this returns true;
+ * the final read-to-write gap that remains is the accepted doctrine
+ * (KV has no CAS; the Durable-Object authority stays correct).
+ */
+export function printOrderAdvancedPastSnapshot(
+  snapshot: PrintOrderRecord,
+  latest: PrintOrderRecord | null | undefined,
+  options?: { ignoreShippedAt?: boolean },
+): boolean {
+  if (!latest) return false;
+  if (latest.status !== snapshot.status) return true;
+  if (Boolean(latest.operatorResolvedAt) !== Boolean(snapshot.operatorResolvedAt)) return true;
+  if (
+    latest.operatorResolvedAt &&
+    snapshot.operatorResolvedAt &&
+    latest.operatorResolvedAt !== snapshot.operatorResolvedAt
+  ) {
+    return true;
+  }
+  if (!options?.ignoreShippedAt && Boolean(latest.shippedAt) !== Boolean(snapshot.shippedAt)) {
+    return true;
+  }
+  if ((latest.providerHoldAt ?? null) !== (snapshot.providerHoldAt ?? null)) return true;
+  const snapshotId = snapshot.printfulOrderId ? String(snapshot.printfulOrderId) : "";
+  const latestId = latest.printfulOrderId ? String(latest.printfulOrderId) : "";
+  if (snapshotId !== latestId) return true;
+  return false;
+}
+
+export type AlternateDispatchCompletionPersistOutcome =
+  | { persisted: true; record: PrintOrderRecord; result: PersistPrintOrderResult }
+  | { persisted: false; record: PrintOrderRecord; reason: "completion_superseded" };
+
+/**
+ * S96 follow-up writer audit F-9: the alternate-dispatch "sent"
+ * persist shared by the Stripe webhook and the admin retry. Both
+ * sites built the sent record from a pre-fetch snapshot and persisted
+ * it after the outbound fetch await, so a shipment anchored during
+ * the fetch (an admin notify-shipping needs neither a Printful ID
+ * nor a sent status) — or a resolution — was erased by the write.
+ * This merge re-reads the latest record after the fetch and lands
+ * ONLY the completion fields on it, preserving shipment,
+ * notification, resolution, and hold state. It refuses when the
+ * completion itself has been superseded: the authority reached a
+ * terminal/bound/recovered lifecycle, an operator resolution landed,
+ * or the stored dispatch marker belongs to a different (or already
+ * accepted) dispatch episode.
+ */
+export async function persistAlternateDispatchCompletionLatestMerged(input: {
+  sessionId: string;
+  snapshot: PrintOrderRecord;
+  completion: {
+    webhookStatus?: number;
+    sentAt: number;
+    printAssetUrl?: string;
+    alternateDispatch: AlternateFulfillmentDispatch;
+  };
+}): Promise<AlternateDispatchCompletionPersistOutcome> {
+  const { sessionId, snapshot, completion } = input;
+  const completionFields: Partial<PrintOrderRecord> = {
+    status: "sent",
+    webhookStatus: completion.webhookStatus,
+    sentAt: completion.sentAt,
+    printAssetUrl: completion.printAssetUrl,
+    error: undefined,
+    terminalEventType: null,
+    alternateDispatch: completion.alternateDispatch,
+  };
+  const latest = await kv.get<PrintOrderRecord>(printOrderKey(sessionId));
+  if (!latest) {
+    const record: PrintOrderRecord = { ...snapshot, ...completionFields };
+    const result = await persistPrintOrderRecord(sessionId, record);
+    return { persisted: true, record, result };
+  }
+  const { readAuthorityLifecycleForMirrorGuard } = await import("@/lib/printOrderAuthority");
+  const lifecycle = await readAuthorityLifecycleForMirrorGuard(sessionId);
+  const markerMoved = Boolean(
+    latest.alternateDispatch &&
+      (latest.alternateDispatch.dispatchId !== completion.alternateDispatch.dispatchId ||
+        (latest.alternateDispatch.state === "accepted" &&
+          snapshot.alternateDispatch?.state !== "accepted")),
+  );
+  const superseded =
+    lifecycle === "terminal_failed" ||
+    lifecycle === "bound" ||
+    lifecycle === "operator_recovered" ||
+    Boolean(latest.operatorResolvedAt && !snapshot.operatorResolvedAt) ||
+    markerMoved;
+  if (superseded) {
+    return { persisted: false, record: latest, reason: "completion_superseded" };
+  }
+  const record: PrintOrderRecord = {
+    ...latest,
+    ...completionFields,
+    webhookStatus: completion.webhookStatus ?? latest.webhookStatus,
+    printAssetUrl: completion.printAssetUrl ?? latest.printAssetUrl,
+  };
+  const result = await persistPrintOrderRecord(sessionId, record);
+  return { persisted: true, record, result };
+}
+
 export async function persistPrintOrderRecord(
   sessionId: string,
   record: PrintOrderRecord,

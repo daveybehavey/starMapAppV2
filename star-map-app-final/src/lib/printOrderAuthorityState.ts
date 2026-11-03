@@ -113,6 +113,7 @@ export type PrintOrderAuthorityApplyResult =
       reason:
         | "terminal_blocks_bind"
         | "terminal_blocks_claim"
+        | "already_fulfilled"
         | "conflicting_provider_id"
         | "invalid_provider_id"
         | "invalid_dispatch_id"
@@ -315,6 +316,16 @@ function applyClaimAlternateDispatch(
   }
   if (state.lifecycle === "terminal_failed") {
     return { ok: false, state, reason: "terminal_blocks_claim" };
+  }
+  // S96 follow-up writer audit F-10: an order the authority already
+  // holds as fulfilled — a provider ID bound, or an operator recovery
+  // recorded — can never be claimed for alternate dispatch. The claim
+  // previously refused only terminal failure and standing claims, so
+  // a retry whose snapshot predated a concurrent operator resolve
+  // could win the claim over `operator_recovered` and dispatch to the
+  // alternate receiver for an order already fulfilled manually.
+  if (state.lifecycle === "bound" || state.lifecycle === "operator_recovered") {
+    return { ok: false, state, reason: "already_fulfilled" };
   }
   if (state.alternateDispatchClaim) {
     return {

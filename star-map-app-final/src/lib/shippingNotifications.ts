@@ -11,7 +11,6 @@ import { kv } from "@/lib/kv";
 import {
   printOrderKey,
   persistPrintOrderRecord,
-  preserveLatestHoldAnnotations,
   type PrintOrderRecord,
 } from "@/lib/printOrders";
 import { renderShippingNotificationEmail, type ShippingNotificationData } from "@/lib/shippingNotificationEmail";
@@ -136,29 +135,68 @@ export async function sendShippingNotification(
   // let a Resend outage or missing config silently erase orders from the
   // review population (Codex design critique, P1). First-write-wins: a
   // reshipment with a new tracking number never resets the clock.
+  // S96 follow-up writer audit F-8: anchor from the LATEST record, not
+  // the load snapshot — a resolution or correction landing between the
+  // load and the anchor is the base the anchor merges onto, and if
+  // another writer anchored the shipment first, its stamp stands.
   let record = loadedRecord;
   if (!record.shippedAt) {
-    // S96-1 F1: shipment ends any recorded Printful hold — the order moved.
-    const anchored: ExtendedPrintOrderRecord = {
-      ...record,
-      shippedAt: Date.now(),
-      providerHoldAt: undefined,
-      providerHoldReason: undefined,
-      providerHoldOrderStatus: undefined,
-      operatorHoldAlertedAt: undefined,
-      operatorHoldAlertProvider: undefined,
-      operatorHoldAlertError: undefined,
-      operatorHoldEscalatedAt: undefined,
-      operatorHoldEscalationAlertError: undefined,
-    };
-    const anchorResult = await persistPrintOrderRecord(sessionId, anchored);
-    if (anchorResult.outcome !== "persisted") {
-      // Fail closed before any email side effect, per the record-retention
-      // posture used elsewhere in this codebase (AG-086).
-      return { ok: false, status: "skipped", reason: "print_order_unretainable" };
+    const latest = (await kv.get<ExtendedPrintOrderRecord>(key)) as ExtendedPrintOrderRecord | null;
+    if (latest?.shippedAt) {
+      record = latest;
+    } else {
+      const anchorBase = latest ?? record;
+      // S96-1 F1: shipment ends any recorded Printful hold — the order moved.
+      const anchored: ExtendedPrintOrderRecord = {
+        ...anchorBase,
+        shippedAt: Date.now(),
+        providerHoldAt: undefined,
+        providerHoldReason: undefined,
+        providerHoldOrderStatus: undefined,
+        operatorHoldAlertedAt: undefined,
+        operatorHoldAlertProvider: undefined,
+        operatorHoldAlertError: undefined,
+        operatorHoldEscalatedAt: undefined,
+        operatorHoldEscalationAlertError: undefined,
+      };
+      const anchorResult = await persistPrintOrderRecord(sessionId, anchored);
+      if (anchorResult.outcome !== "persisted") {
+        // Fail closed before any email side effect, per the record-retention
+        // posture used elsewhere in this codebase (AG-086).
+        return { ok: false, status: "skipped", reason: "print_order_unretainable" };
+      }
+      record = anchored;
     }
-    record = anchored;
   }
+
+  // S96 follow-up writer audit F-8: the notification outcome persists
+  // below used to write the whole pre-send snapshot back, erasing
+  // anything that landed during the Resend await — in the deciding
+  // interleaving, an operator resolution (this function happily loads
+  // a failed record, anchors shippedAt onto it, and suspends in the
+  // send; the resolve that lands meanwhile was reverted to the stale
+  // failed snapshot by the outcome write). Outcomes now merge ONLY
+  // the shipping-notification fields onto the latest record,
+  // progress-only: a recorded success stamp is never erased by a
+  // failure outcome, and never overwritten by a success for a
+  // different tracking number (a concurrent send for another tracking
+  // number keeps its own stamp; redelivery dedupes per number). The
+  // persist outcome is handled explicitly — an unrecorded success
+  // reports failure so the caller knows a redelivery may duplicate.
+  const persistNotificationOutcome = async (
+    outcomeFields: ShippingNotificationFields,
+    successful: boolean,
+  ): Promise<"persisted" | "superseded" | "unrecorded"> => {
+    const latest = (await kv.get<ExtendedPrintOrderRecord>(key)) as ExtendedPrintOrderRecord | null;
+    if (!latest) return "unrecorded";
+    if (latest.shippingNotificationSentAt) {
+      if (!successful) return "superseded";
+      if (latest.shippingNotificationTrackingNumber !== trackingNumber) return "superseded";
+    }
+    const merged: ExtendedPrintOrderRecord = { ...latest, ...outcomeFields };
+    const result = await persistPrintOrderRecord(sessionId, merged);
+    return result.outcome === "persisted" ? "persisted" : "unrecorded";
+  };
 
   if (!isResendConfigured()) {
     return { ok: false, status: "skipped", reason: "resend_not_configured" };
@@ -196,31 +234,31 @@ export async function sendShippingNotification(
   });
 
   if (!sendResult.ok) {
-    const failed: ExtendedPrintOrderRecord = {
-      ...record,
-      shippingNotificationError: sendResult.error.slice(0, 320),
-    };
-    const failedSynced = preserveLatestHoldAnnotations(
-      failed,
-      await kv.get<PrintOrderRecord>(key),
-    ) as ExtendedPrintOrderRecord;
-    await persistPrintOrderRecord(sessionId, failedSynced);
+    // The send error is the primary fact; the error stamp is recorded
+    // merge-only (F-8) so a concurrent resolution or success survives.
+    await persistNotificationOutcome(
+      { shippingNotificationError: sendResult.error.slice(0, 320) },
+      false,
+    );
     return { ok: false, status: "failed", reason: sendResult.error, provider: "resend" };
   }
 
-  const sent: ExtendedPrintOrderRecord = {
-    ...record,
-    shippingNotificationSentAt: Date.now(),
-    shippingNotificationProvider: "resend",
-    shippingNotificationTrackingNumber: trackingNumber,
-    shippingNotificationMessageId: sendResult.id || undefined,
-    shippingNotificationError: undefined,
-  };
-  const sentSynced = preserveLatestHoldAnnotations(
-    sent,
-    await kv.get<PrintOrderRecord>(key),
-  ) as ExtendedPrintOrderRecord;
-  await persistPrintOrderRecord(sessionId, sentSynced);
+  const recorded = await persistNotificationOutcome(
+    {
+      shippingNotificationSentAt: Date.now(),
+      shippingNotificationProvider: "resend",
+      shippingNotificationTrackingNumber: trackingNumber,
+      shippingNotificationMessageId: sendResult.id || undefined,
+      shippingNotificationError: undefined,
+    },
+    true,
+  );
+  if (recorded === "unrecorded") {
+    // The email was delivered but its stamp could not be durably
+    // recorded — report failure explicitly rather than claim a
+    // recorded success a redelivery would duplicate.
+    return { ok: false, status: "failed", reason: "shipping_notification_unrecorded", provider: "resend" };
+  }
 
   return {
     ok: true,

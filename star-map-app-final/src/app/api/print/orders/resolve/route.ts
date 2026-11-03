@@ -104,37 +104,80 @@ export async function POST(req: NextRequest) {
   // Projection/index only from returned authority state — never recompute from stale KV.
   const projectedProviderId =
     normalizeAuthorityProviderOrderId(resolved.state.printfulOrderId) || undefined;
-  const staleKvProviderId = normalizeAuthorityProviderOrderId(existing.printfulOrderId);
-
-  const updated: PrintOrderRecord = {
-    ...existing,
-    status: "sent",
-    sentAt: existing.sentAt ?? now,
-    printfulOrderId: projectedProviderId,
-    operatorResolvedAt: now,
-    operatorResolvedProvider: "manual_printful",
-    operatorResolvedNote:
-      note ||
-      (printfulOrderId
-        ? `manual_printful_order_id=${String(printfulOrderId)}`
-        : existing.operatorResolvedNote),
-    error: undefined,
-    terminalEventType: null,
-    webhookStatus: existing.webhookStatus,
-    // S96-1 F1: an operator resolve ends any recorded Printful hold.
-    providerHoldAt: undefined,
-    providerHoldReason: undefined,
-    providerHoldOrderStatus: undefined,
-    operatorHoldAlertedAt: undefined,
-    operatorHoldAlertProvider: undefined,
-    operatorHoldAlertError: undefined,
-    operatorHoldEscalatedAt: undefined,
-    operatorHoldEscalationAlertError: undefined,
-  };
 
   // AG-079: keep stale KV provider B as retry-discoverable cleanup intent until
   // A-index + owned-B cleanup are proven. Only then commit order KV B→A.
   try {
+    // S96 follow-up writer audit F-7: the persist below used to write
+    // a record built from the handler-start read, so anything landing
+    // during the DO transaction and the index awaits — a shipment
+    // anchor (duplicate shipping email on redelivery, review anchor
+    // lost), a hold created AFTER the resolve transaction, a terminal
+    // completion — was overwritten by the resolve write. Re-read KV
+    // and the authority after those awaits: proceed only when this
+    // resolve still owns the authority transition it made (same
+    // revision, lifecycle, and provider ID the transaction returned),
+    // and merge only the resolution-owned fields onto the FRESH
+    // record. The hold is cleared only for the episode this resolve
+    // actually resolved — a hold episode that opened after the
+    // transaction postdates the operator action and survives.
+    const fresh = await kv.get<PrintOrderRecord>(printOrderKey(sessionId));
+    const authorityNow = await getPrintOrderAuthorityState(sessionId);
+    const ownsTransition = Boolean(
+      fresh &&
+        authorityNow &&
+        authorityNow.revision === resolved.state.revision &&
+        authorityNow.lifecycle === resolved.state.lifecycle &&
+        normalizeAuthorityProviderOrderId(authorityNow.printfulOrderId) ===
+          normalizeAuthorityProviderOrderId(resolved.state.printfulOrderId),
+    );
+    if (!fresh || !ownsTransition) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "projection_repair_failed",
+          reason: "reconciliation_needed",
+          authority: {
+            lifecycle: resolved.state.lifecycle,
+            revision: resolved.state.revision,
+            printfulOrderId: resolved.state.printfulOrderId,
+          },
+        },
+        { status: 503 },
+      );
+    }
+    const staleKvProviderId = normalizeAuthorityProviderOrderId(fresh.printfulOrderId);
+    const holdEpisodeMoved = (fresh.providerHoldAt ?? null) !== (existing.providerHoldAt ?? null);
+    const updated: PrintOrderRecord = {
+      ...fresh,
+      status: "sent",
+      sentAt: fresh.sentAt ?? now,
+      printfulOrderId: projectedProviderId,
+      operatorResolvedAt: now,
+      operatorResolvedProvider: "manual_printful",
+      operatorResolvedNote:
+        note ||
+        (printfulOrderId
+          ? `manual_printful_order_id=${String(printfulOrderId)}`
+          : fresh.operatorResolvedNote),
+      error: undefined,
+      terminalEventType: null,
+      webhookStatus: fresh.webhookStatus,
+      // S96-1 F1: an operator resolve ends any recorded Printful hold —
+      // for the hold episode that existed when the resolve ran (F-7).
+      ...(holdEpisodeMoved
+        ? {}
+        : {
+            providerHoldAt: undefined,
+            providerHoldReason: undefined,
+            providerHoldOrderStatus: undefined,
+            operatorHoldAlertedAt: undefined,
+            operatorHoldAlertProvider: undefined,
+            operatorHoldAlertError: undefined,
+            operatorHoldEscalatedAt: undefined,
+            operatorHoldEscalationAlertError: undefined,
+          }),
+    };
     if (projectedProviderId) {
       await setPrintFulfillmentIndex(projectedProviderId, sessionId);
       if (staleKvProviderId && staleKvProviderId !== projectedProviderId) {
@@ -143,6 +186,7 @@ export async function POST(req: NextRequest) {
       }
     }
     await persistPrintOrderRecord(sessionId, updated, { allowClearTerminalFailure: true });
+    return NextResponse.json({ ok: true, order: sanitizePrintOrderForOperatorResponse(updated) });
   } catch {
     return NextResponse.json(
       {
@@ -158,6 +202,4 @@ export async function POST(req: NextRequest) {
       { status: 503 },
     );
   }
-
-  return NextResponse.json({ ok: true, order: sanitizePrintOrderForOperatorResponse(updated) });
 }
