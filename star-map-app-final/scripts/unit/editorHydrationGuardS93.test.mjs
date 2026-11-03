@@ -190,7 +190,7 @@ test("wiring: initialization is marked by the visual-options callback and gates 
   // handled-once ref passed in rather than pre-checked…
   assert.match(
     src,
-    /const requestedMapId = mapIdFromQuery;\s*if \(\s*!requestedMapId \|\|\s*!shouldStartMapHydration\(\{\s*restored,\s*visualOptionsInitialized,\s*alreadyHandled: mapFromUrlHandledRef\.current,\s*mapId: requestedMapId,\s*\}\)/,
+    /const requestedMapId = mapIdFromQuery;\s*if \(\s*!requestedMapId \|\|\s*!shouldStartMapHydration\(\{\s*restored,\s*visualOptionsInitialized,\s*alreadyHandled: mapFromUrlHandledRef\.current,\s*mapId: requestedMapId,\s*editGenerationAtRestore: editGenerationAtRestoreRef\.current,\s*editGenerationNow: useStore\.getState\(\)\.editGeneration,\s*\}\)/,
   );
   // …before marking the map handled, and the effect re-runs when
   // initialization lands.
@@ -261,6 +261,7 @@ test("wiring (F7): the store advances the generation synchronously on recipe mut
     "aspectRatio",
     "shape",
     "renderOptions",
+    "selectedOccasion",
   ]) {
     assert.match(
       store,
@@ -268,17 +269,38 @@ test("wiring (F7): the store advances the generation synchronously on recipe mut
       `RECIPE_EDIT_FIELDS must include ${field}`,
     );
   }
-  // …and bumpEditGeneration is the exported seam for the one
-  // field that lives outside the store.
+  // …and bumpEditGeneration remains exported as the synchronous-
+  // advance seam for any future field that must live outside the
+  // store (it is itself suppressed inside a system-write scope).
   assert.match(store, /export function bumpEditGeneration\(\): void \{/);
 });
 
-test("wiring (F7): the hook-local selectedOccasion setter bumps the generation synchronously", () => {
-  const hook = read("src/hooks/useEditorLogic.ts");
+test("wiring (B-03/B-05): selectedOccasion is store-resident, not a hook-local copy", () => {
+  const store = read("src/lib/store.ts");
+  // The selection is store state with its own store setter, and it
+  // is one of the recipe fields whose mutation advances the edit
+  // generation synchronously (B-03: one shared value across the
+  // desktop and mobile surfaces; B-05: same counting class as the
+  // other recipe fields).
+  assert.match(store, /selectedOccasion: string \| null;/);
   assert.match(
-    hook,
-    /import \{ bumpEditGeneration, useStore, type RenderOptions \} from "@\/lib\/store";/,
+    store,
+    /setSelectedOccasion: \(selectedOccasion\) => set\(\{ selectedOccasion \}\),/,
   );
-  assert.match(hook, /const setSelectedOccasion = useCallback\(\(id: string \| null\) => \{/);
-  assert.match(hook, /bumpEditGeneration\(\);\s*\}\s*setSelectedOccasionState\(id\);/);
+  assert.match(store, /"selectedOccasion",/);
+  // The recipe-intent fields are store-resident too and advance
+  // the generation through the intent-field subscription (B-05).
+  assert.match(store, /"renderMode",/);
+  assert.match(store, /"intensity",/);
+  assert.match(store, /"intensityDisplay",/);
+
+  const hook = read("src/hooks/useEditorLogic.ts");
+  // The hook reads the store-resident selection through its shared
+  // store selector instead of holding a per-instance copy…
+  assert.match(hook, /selectedOccasion: state\.selectedOccasion,/);
+  // …and no hook-local selection state, mirrored ref, or local
+  // generation-bumping wrapper remains.
+  assert.doesNotMatch(hook, /setSelectedOccasionState/);
+  assert.doesNotMatch(hook, /selectedOccasionRef/);
+  assert.doesNotMatch(hook, /bumpEditGeneration/);
 });

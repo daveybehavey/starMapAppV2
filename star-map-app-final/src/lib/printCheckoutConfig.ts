@@ -93,6 +93,21 @@ export function formatPrintPriceWithShipping(amountCents: number, currency: stri
   return `${formatPrice(amountCents, currency)} + shipping`;
 }
 
+/**
+ * Price line for a standalone print offer. Shipping eligibility is judged
+ * from the same merchandise subtotal helper checkout uses, so a qualifying
+ * standalone format (the framed tier at its current price) is not described
+ * as though shipping were an additional charge.
+ */
+export function formatStandalonePrintPriceWithShipping(variant: PrintVariant) {
+  const tier = getPrintPricingTiers()[variant];
+  const merchandiseSubtotalCents = getPrintMerchandiseSubtotalCents({ variant });
+  if (qualifiesForPrintFreeShipping(merchandiseSubtotalCents)) {
+    return `${formatPrice(tier.amountCents, tier.currency)} · free standard shipping`;
+  }
+  return formatPrintPriceWithShipping(tier.amountCents, tier.currency);
+}
+
 export function formatPrintPriceLabel(baseLabel: string) {
   return `${baseLabel} + shipping`;
 }
