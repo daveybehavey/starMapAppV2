@@ -68,7 +68,9 @@ const webhookRoute = await import("../../src/app/api/stripe/webhook/route.ts");
 const resolveRoute = await import("../../src/app/api/print/orders/resolve/route.ts");
 const { kv } = await import("../../src/lib/kv.ts");
 const { printOrderKey } = await import("../../src/lib/printOrders.ts");
-const { getPrintOrderAuthorityState } = await import("../../src/lib/printOrderAuthority.ts");
+const { getPrintOrderAuthorityState, markPrintOrderTerminalFailed } = await import(
+  "../../src/lib/printOrderAuthority.ts"
+);
 
 const ADMIN = { "x-print-admin-token": "n1-test-admin-token" };
 const PRINT_ASSET_ID = "123e4567-e89b-42d3-a456-426614174000";
@@ -243,6 +245,66 @@ test("N1: resolve with NO provider ID lands during the TTL await -> authority st
   assert.equal(typeof stored.operatorResolvedAt, "number");
 });
 
+test("N1 gate fix (bot P2): a terminal failure landing between the stand-down's authority read and its repair persist is NOT resurrected to sent", async () => {
+  resetSeams();
+  const sessionId = nextSessionId();
+  const key = printOrderKey(sessionId);
+  resolveDuringTtl(sessionId, "777001");
+  const ttlHook = globalThis.__whTtlHook;
+  globalThis.__whTtlHook = async (assetId) => {
+    await ttlHook(assetId);
+    globalThis.__whResolvedDone = true;
+  };
+
+  // The stand-down reads the authority (bound, from the resolve) and
+  // then the KV record. Terminalize in between: the Printful
+  // terminal handler's two writes (authority transition + KV
+  // terminal projection) land just before the stand-down's KV read,
+  // so its authority snapshot is stale-bound while the fresh record
+  // already carries the terminal failure. The repair projection
+  // would rewrite that record as `sent` and clear its provenance —
+  // only the persist-time mirror guard (kept enabled by the fix)
+  // refuses the write.
+  const originalGet = kv.get;
+  let terminalized = false;
+  kv.get = async (candidateKey, ...rest) => {
+    if (candidateKey === key && globalThis.__whResolvedDone && !terminalized) {
+      terminalized = true;
+      const current = await originalGet(key);
+      const marked = await markPrintOrderTerminalFailed(sessionId, {
+        eventType: "order_failed",
+        reason: "printful_order_failed",
+        printfulOrderId: "777001",
+      });
+      assert.equal(marked.ok, true, "the terminal transition must land in the authority");
+      await kv.set(key, {
+        ...current,
+        status: "failed",
+        error: "printful_order_failed",
+        terminalEventType: "order_failed",
+      });
+    }
+    return originalGet(candidateKey, ...rest);
+  };
+
+  try {
+    const res = await postCompleted(printSession(sessionId));
+    assert.equal(res.status, 200);
+  } finally {
+    kv.get = originalGet;
+    globalThis.__whResolvedDone = undefined;
+  }
+
+  assert.equal(terminalized, true, "the terminal interleave must actually have run");
+  assert.equal(globalThis.__whSubmitCalls.length, 0, "no Printful submission");
+  assert.equal(globalThis.__whSubmitCallsV2.length, 0);
+  const stored = await kv.get(key);
+  assert.equal(stored.status, "failed", "the terminal projection stands — not resurrected to sent");
+  assert.equal(stored.terminalEventType, "order_failed", "terminal provenance is not cleared");
+  const authority = await getPrintOrderAuthorityState(sessionId);
+  assert.equal(authority.lifecycle, "terminal_failed");
+});
+
 test("N1 happy path (v1): no resolve -> exactly one Printful submit, order sent with the submitted provider ID", async () => {
   resetSeams();
   const sessionId = nextSessionId();
@@ -304,4 +366,9 @@ test("source: the stand-down sits after the TTL awaits and before both native su
   assert.match(helper, /operatorResolvedAt/);
   assert.match(helper, /alternateDispatchClaim/);
   assert.match(helper, /projectPrintOrderWithAuthority/);
+  // Gate fix (bot P2): the bound repair must NOT disable the
+  // persist-time terminal-authority mirror guard (the option key in
+  // an options object; the helper's comment names it in prose).
+  assert.doesNotMatch(helper, /allowClearTerminalFailure:/);
+  assert.match(helper, /rejected_terminal_failure/);
 });

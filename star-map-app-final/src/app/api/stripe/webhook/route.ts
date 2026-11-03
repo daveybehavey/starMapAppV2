@@ -2112,9 +2112,26 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       // cannot revert the resolve (or anything else) that landed
       // mid-pass — the retry route's admission/stand-down posture.
       const boundOrder = projectPrintOrderWithAuthority(freshExisting, freshAuthority);
-      assertPrintOrderRetained(
-        await persistPrintOrderRecord(session.id, boundOrder, { allowClearTerminalFailure: true }),
-      );
+      // Gate fix (bot P2): the terminal-authority mirror guard stays
+      // ENABLED for this repair — no allowClearTerminalFailure. The
+      // authority snapshot above can be overtaken by a Printful
+      // terminal event landing during the KV read that follows it;
+      // the projection would then resurrect that terminal failure as
+      // `sent` and clear its provenance. The guard re-reads the
+      // authority at persist time and refuses exactly that write;
+      // the refusal is a terminal stand-down, not an error — the
+      // terminal projection stands, and no index write or
+      // confirmation follows. (The legitimate stale-failure repair
+      // is unaffected: with the authority still bound at persist
+      // time, the guard passes.)
+      const repairPersist = await persistPrintOrderRecord(session.id, boundOrder);
+      if (repairPersist.outcome === "rejected_terminal_failure") {
+        console.warn("Print order terminalized during the webhook stand-down repair; standing down", {
+          sessionId: session.id,
+        });
+        return true;
+      }
+      assertPrintOrderRetained(repairPersist);
       await setPrintFulfillmentIndex(freshAuthority.printfulOrderId, session.id);
       void sendPrintOrderConfirmation(session.id).catch((error) => {
         console.warn("Print confirmation email failed on moved-authority webhook stand-down", {
