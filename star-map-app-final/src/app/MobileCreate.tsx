@@ -32,6 +32,7 @@ import {
 } from "@/lib/paywallPrintCheckout";
 import { getPrintShippingCountryLabel, getPrintShippingCountryOptions, PRINT_SHIPPING_COUNTRY_PLACEHOLDER_LABEL } from "@/lib/printfulShipping";
 import { PrintAspectMismatchNotice } from "@/components/PrintAspectMismatchNotice";
+import { TextFitOverflowWarning } from "@/components/TextFitOverflowWarning";
 import dynamic from "next/dynamic";
 import { TEXT_BOX_MAX_TEXT_LENGTH } from "@/lib/textBoxConstraints";
 import { TextBoxSizeInput } from "@/components/TextBoxSizeInput";
@@ -234,6 +235,10 @@ export function MobileCreate({
   const [showOccasionPresets, setShowOccasionPresets] = useState(() => !isQuick);
   const [showProPresets, setShowProPresets] = useState(() => !isQuick);
   const [isRevealing, setIsRevealing] = useState(false);
+  // #555: ids of text boxes whose fitted line overflows its bound
+  // (textFit floor spill), published by PreviewCanvas when the set
+  // changes; each affected row renders a warn-only notice.
+  const [textOverflowBoxIds, setTextOverflowBoxIds] = useState<ReadonlySet<string>>(() => new Set());
   const [revealStageIndex, setRevealStageIndex] = useState(0);
   const revealTimerRef = useRef<number | null>(null);
   const allowAdvanced = !isQuick || allowAdvancedInQuick;
@@ -968,6 +973,7 @@ export function MobileCreate({
                     className="h-10 w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
                     placeholder={`Enter ${box.label.toLowerCase()}...`}
                   />
+                  {textOverflowBoxIds.has(box.id) && <TextFitOverflowWarning />}
                 </div>
               ))}
             </div>
@@ -1065,6 +1071,7 @@ export function MobileCreate({
                       className="h-10 w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
                       placeholder={`Enter ${box.label.toLowerCase()}...`}
                     />
+                    {textOverflowBoxIds.has(box.id) && <TextFitOverflowWarning />}
                   </div>
                 ))}
               </div>
@@ -1106,6 +1113,7 @@ export function MobileCreate({
                           </button>
                         </div>
                       </div>
+                      {textOverflowBoxIds.has(box.id) && <TextFitOverflowWarning />}
                       {!isCollapsed && (
                         <div id={`text-style-${box.id}`} className="space-y-2">
                           <ApplyTextRowStyle sourceId={box.id} />
@@ -1562,7 +1570,7 @@ export function MobileCreate({
                 </div>
               </div>
             )}
-            {revealed && <PreviewCanvas onRendered={onCanvasReady} />}
+            {revealed && <PreviewCanvas onRendered={onCanvasReady} onTextOverflowChange={setTextOverflowBoxIds} />}
           </div>
         </div>
 

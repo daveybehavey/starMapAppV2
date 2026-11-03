@@ -257,8 +257,8 @@ test("wiring: renderSky stroke and fit share the helper; purpose stays with the 
   assert.doesNotMatch(source, /matPurpose: textLayout\?\.matPurpose,/);
   // The renderStarMap drawText layout goes straight from the frame
   // flag to the #406 footprint (no purpose line between).
-  assert.match(source, /frameEnabled: resolveTextFitFrameEnabled\(matPurpose, recipe\.renderOptions\),\n\s+\/\/ #406:[\s\S]*?shapeMaskFootprint: resolveShapeMaskFootprint\(width, targetHeight, shapeLayoutVersion\),\n\s+\/\/ #407:[\s\S]*?shapeTextProfile: resolveShapeTextProfile\(shapeName\),\n\s+\}\)/);
+  assert.match(source, /frameEnabled: resolveTextFitFrameEnabled\(matPurpose, recipe\.renderOptions\),\n\s+\/\/ #406:[\s\S]*?shapeMaskFootprint: resolveShapeMaskFootprint\(width, targetHeight, shapeLayoutVersion\),\n\s+\/\/ #407:[\s\S]*?shapeTextProfile: resolveShapeTextProfile\(shapeName\),\n\s+\}, textOverflow\)/);
   // The live-preview text overlay takes no purpose either; its
   // drawText layout goes straight from frameEnabled to the footprint.
-  assert.match(source, /drawText\(ctx, width, height, textBoxes, textBounds, scale, \{\n\s+shape,\n\s+frameEnabled,\n\s+shapeMaskFootprint: resolveShapeMaskFootprint\(width, height, resolvedShapeLayoutVersion\),\n\s+\/\/ #407:[\s\S]*?shapeTextProfile: resolveShapeTextProfile\(shape\),\n\s+\}\);/);
+  assert.match(source, /drawText\(ctx, width, height, textBoxes, textBounds, scale, \{\n\s+shape,\n\s+frameEnabled,\n\s+shapeMaskFootprint: resolveShapeMaskFootprint\(width, height, resolvedShapeLayoutVersion\),\n\s+\/\/ #407:[\s\S]*?shapeTextProfile: resolveShapeTextProfile\(shape\),\n\s+\}, textOverflow\);/);
 });
