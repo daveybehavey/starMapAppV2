@@ -239,7 +239,7 @@ export function MobileCreate({
   // (textFit floor spill), published by PreviewCanvas when the set
   // changes; each affected row renders a warn-only notice.
   const [textOverflowBoxIds, setTextOverflowBoxIds] = useState<ReadonlySet<string>>(() => new Set());
-  // #555 (PR #559 review): the guided "Your Message" inputs above render
+  // #555 (PR #559 bot finding): the guided "Your Message" inputs above render
   // BEFORE the first reveal, while PreviewCanvas is not yet mounted —
   // so no canvas publishes the overflow report for them and their
   // warnings could never fire. Until reveal, compute the same report

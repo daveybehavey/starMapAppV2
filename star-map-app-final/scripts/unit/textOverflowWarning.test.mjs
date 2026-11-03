@@ -227,7 +227,7 @@ test("wiring: mobile editor warns in both Your Message sections and the Text Sty
   assert.ok(renders.length >= 3, `expected >=3 warning sites, found ${renders.length}`);
 });
 
-test("wiring: mobile computes the report pre-reveal through the shared text layer (PR #559 review)", () => {
+test("wiring: mobile computes the report pre-reveal through the shared text layer (PR #559 bot finding)", () => {
   // The guided inputs render before PreviewCanvas mounts, so the
   // report is computed offscreen through renderStarMapTextLayer —
   // the same fit code path, not a second computation — and the
