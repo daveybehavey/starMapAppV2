@@ -457,6 +457,36 @@ export async function sessionIsRevokedForWriter(sessionId: string): Promise<bool
 }
 
 /**
+ * Dispatch-side revocation guard for the print fulfilment paths
+ * (audit loop A-01, 2026-11-03): the same strict evidence set as
+ * {@link sessionIsRevokedForWriter} — the session record's own flag
+ * plus the durable revocation evidence (session-revoked sidecar and
+ * payment-intent tombstone) — read immediately before a provider
+ * dispatch decision. The print paths previously consulted NONE of
+ * this: settlement could report a purchase revoked (grants correctly
+ * suppressed) while the print queue still manufactured the refunded
+ * order. An explicit paymentIntentId (the webhook holds the Stripe
+ * session) wins; otherwise the record's recorded intent is used.
+ * Read failures THROW (fail closed), exactly as the writer guard:
+ * an unreadable revocation state must never read as "not revoked"
+ * in front of a manufacturing side effect.
+ */
+export async function sessionIsRevokedForPrintDispatch(
+  sessionId: string,
+  paymentIntentId?: string | null,
+): Promise<boolean> {
+  const current = await kv.getErrorPreserving<
+    StripeSessionEntitlement & { paymentIntentId?: string | null }
+  >(ENTITLEMENT_KV.stripeSession(sessionId));
+  if (current?.revoked === true) return true;
+  const evidence = await readSessionRevocationEvidenceStrict(
+    sessionId,
+    paymentIntentId ?? current?.paymentIntentId ?? null,
+  );
+  return evidence.revoked;
+}
+
+/**
  * Read-only live-entitlement check for a settled session (fix round 3,
  * Codex P2 on PR #447): paid, not revoked — neither the record flag nor
  * the durable revocation evidence — with credits remaining or an active

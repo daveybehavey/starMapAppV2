@@ -13,6 +13,7 @@ import WhatYouReceiveModule from "@/components/WhatYouReceiveModule";
 import { HOME_MOCKUPS } from "@/lib/homeMockups";
 import {
   formatPrintPriceWithShipping,
+  formatStandalonePrintPriceWithShipping,
   getPrintAvailabilityBadgeLabel,
   getPrintFreeShippingShortTag,
   getPrintProductionReviewDisclosure,
@@ -138,10 +139,7 @@ export default function ShopPage() {
   const digitals = getPricingTiers();
   const framedDeliveryDisclosure = formatPrintDeliveryDisclosure("poster_framed", null);
 
-  const framedPrice = formatPrintPriceWithShipping(
-    printTiers.poster_framed.amountCents,
-    (printTiers.poster_framed.currency || "USD").toUpperCase(),
-  );
+  const framedPrice = formatStandalonePrintPriceWithShipping("poster_framed");
   const unframedPrice = formatPrintPriceWithShipping(
     printTiers.poster_unframed.amountCents,
     (printTiers.poster_unframed.currency || "USD").toUpperCase(),
@@ -340,7 +338,7 @@ export default function ShopPage() {
         <p className="mt-2 text-sm text-neutral-700">
           HD from <span className="font-semibold text-midnight">{digitalPrice}</span>
           {" · "}
-          unframed from <span className="font-semibold text-midnight">{unframed16Price}</span>
+          unframed 16×16 from <span className="font-semibold text-midnight">{unframed16Price}</span>
           {" · "}
           framed from <span className="font-semibold text-midnight">{framedPrice}</span>
         </p>
