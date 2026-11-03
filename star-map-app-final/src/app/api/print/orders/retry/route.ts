@@ -19,13 +19,16 @@ import {
   isPrintOrderUnretainableError,
   isValidPrintCheckoutSessionId,
   isLegacyAmbiguousPrintOrderFailure,
+  persistAlternateDispatchCompletionLatestMerged,
   persistPrintOrderRecord,
+  printOrderAdvancedPastSnapshot,
   printOrderKey,
   resolvePrintOrderKvWrite,
   sanitizePrintOrderForOperatorResponse,
   type PrintOrderRecord,
 } from "@/lib/printOrders";
-import { sendPrintOrderApprovalAlert, sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
+import { sendPrintOrderApprovalAlert } from "@/lib/printOrderAlerts";
+import { persistPrintOrderFailureLatestMerged } from "@/lib/printOrderFailurePersist";
 import { bindAcceptedPrintfulIdentityThenReview } from "@/lib/printFulfillmentPostSubmit";
 import { evaluatePrintRetryPaymentGate } from "@/lib/checkoutPromotions";
 import { extendPrintAssetTtlForFulfillment } from "@/lib/printAssetFulfillment";
@@ -34,6 +37,7 @@ import {
   claimAlternateFulfillmentDispatch,
   getPrintOrderAuthorityState,
   projectPrintOrderWithAuthority,
+  releaseAlternateFulfillmentDispatchClaim,
   seedPrintOrderAuthorityFromKv,
 } from "@/lib/printOrderAuthority";
 import { setPrintFulfillmentIndex } from "@/lib/printFulfillmentIndex";
@@ -172,6 +176,14 @@ async function postRetryPrintOrder(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "valid sessionId required" }, { status: 400 });
   }
 
+  // S96 follow-up writer audit F-11: failure persistence goes through
+  // the shared latest-merged helper (printOrderFailurePersist.ts) —
+  // the alert is sent there, then the latest record and the authority
+  // are re-read, and the write is refused when the order advanced
+  // past this failure during the pass (a concurrent resolution,
+  // completion, shipment, or terminal landing). The old inline writer
+  // persisted the caller's stale snapshot whole, reverting such
+  // landings back to `failed` with their identity and stamps erased.
   const persistFailedPrintOrder = async (record: PrintOrderRecord) => {
     const failedRecord: PrintOrderRecord = {
       ...record,
@@ -179,19 +191,19 @@ async function postRetryPrintOrder(req: NextRequest) {
       // Ordinary/nonterminal failure — never inherit a stale terminal marker.
       terminalEventType: null,
     };
-    if (!failedRecord.operatorFailureAlertedAt) {
-      const alertResult = await sendPrintOrderFailureAlert(failedRecord);
-      if (alertResult.delivered) {
-        failedRecord.operatorFailureAlertedAt = Date.now();
-        failedRecord.operatorFailureAlertProvider = alertResult.provider;
-        failedRecord.operatorFailureAlertError = undefined;
-      } else {
-        failedRecord.operatorFailureAlertProvider = alertResult.provider;
-        failedRecord.operatorFailureAlertError = alertResult.error;
-      }
+    const outcome = await persistPrintOrderFailureLatestMerged({
+      sessionId,
+      failureRecord: failedRecord,
+    });
+    if (!outcome.persisted) {
+      // The order advanced past this failure while the pass ran; the
+      // stored record stands. Surface the current record, carrying
+      // this pass's failure reason for the operator response only
+      // (nothing of it is persisted).
+      return { ...outcome.record, error: outcome.record.error ?? failedRecord.error };
     }
-    assertPrintOrderRetained(await persistPrintOrderRecord(sessionId, failedRecord));
-    return failedRecord;
+    assertPrintOrderRetained(outcome.result);
+    return outcome.record;
   };
 
   // DO-first: authority presence with missing KV must never resubmit to Printful.
@@ -275,7 +287,15 @@ async function postRetryPrintOrder(req: NextRequest) {
   ) {
     // DO provider id is authoritative; repair stale KV/index before acknowledging.
     // Includes operator_recovered so a stale KV failed/pending cannot trigger resubmit.
-    const boundOrder = projectPrintOrderWithAuthority(existing, authority);
+    // S96 follow-up writer audit F-6: project the authority onto the
+    // FRESH KV record, not the handler-start snapshot — the authority
+    // reads/seed between that read and this persist are awaits during
+    // which a hold or a shipment can land, and the projection takes
+    // every non-authority field from the record it is given. (The
+    // mid-pass stand-down repair below already projects onto its
+    // fresh read; this admission-time repair now matches it.)
+    const freshExisting = await kv.get<PrintOrderRecord>(printOrderKey(sessionId));
+    const boundOrder = projectPrintOrderWithAuthority(freshExisting ?? existing, authority);
     assertPrintOrderRetained(
       await persistPrintOrderRecord(sessionId, boundOrder, { allowClearTerminalFailure: true }),
     );
@@ -293,13 +313,27 @@ async function postRetryPrintOrder(req: NextRequest) {
   if (existing.status === "sent") {
     if (!existing.operatorAlertedAt) {
       const alertResult = await sendPrintOrderApprovalAlert(existing);
-      const updated: PrintOrderRecord = {
-        ...existing,
-        operatorAlertedAt: alertResult.delivered ? Date.now() : existing.operatorAlertedAt,
-        operatorAlertProvider: alertResult.provider,
-        operatorAlertError: alertResult.delivered ? undefined : alertResult.error,
-      };
-      assertPrintOrderRetained(await persistPrintOrderRecord(sessionId, updated));
+      // S96 follow-up writer audit F-5: the alert await is seconds
+      // long; a hold landing during it was erased by this write, and
+      // a hold CLEARED by a concurrent resolve was resurrected from
+      // the snapshot (the bidirectional failure #497 fixed at the
+      // post-submit writers). Re-read and merge only the
+      // approval-alert outcome fields onto the latest record,
+      // progress-only: a stamp a concurrent pass already recorded
+      // stands untouched.
+      const latestForAlert = await kv.get<PrintOrderRecord>(printOrderKey(sessionId));
+      const baseForAlert = latestForAlert ?? existing;
+      const updated: PrintOrderRecord = baseForAlert.operatorAlertedAt
+        ? baseForAlert
+        : {
+            ...baseForAlert,
+            operatorAlertedAt: alertResult.delivered ? Date.now() : baseForAlert.operatorAlertedAt,
+            operatorAlertProvider: alertResult.provider,
+            operatorAlertError: alertResult.delivered ? undefined : alertResult.error,
+          };
+      if (updated !== baseForAlert) {
+        assertPrintOrderRetained(await persistPrintOrderRecord(sessionId, updated));
+      }
       void sendPrintOrderConfirmation(sessionId).catch((error) => {
         console.warn("Print confirmation email failed on already_sent retry", { sessionId, error });
       });
@@ -793,6 +827,15 @@ async function postRetryPrintOrder(req: NextRequest) {
         { status: 409 },
       );
     }
+    if (claim.reason === "already_fulfilled") {
+      // S96 follow-up writer audit F-10: the authority holds the
+      // order as fulfilled (bound or operator-recovered) — the
+      // alternate receiver must never also get this order.
+      return NextResponse.json(
+        { ok: false, error: "reconciliation_required", reason: "authority_already_fulfilled", dispatchId },
+        { status: 409 },
+      );
+    }
     return NextResponse.json(
       { ok: false, error: "print_order_authority_unread", dispatchId },
       { status: 503 },
@@ -804,9 +847,45 @@ async function postRetryPrintOrder(req: NextRequest) {
       { status: 409 },
     );
   }
+  // S96 follow-up writer audit F-10: winning the claim is not the
+  // end of the race — the claim await itself is a window during
+  // which an operator resolve can bind a provider order (the claim
+  // refuses a standing claim and terminal failure, and after F-10 an
+  // already-fulfilled lifecycle, but a resolve landing BETWEEN the
+  // claim and this persist is seen by neither). Re-read KV and the
+  // authority now: on any advancement (resolution, binding, shipment,
+  // terminal, hold-episode or state change) stand down without
+  // writing the marker; otherwise merge ONLY the dispatch marker
+  // (plus this pass's attempts/asset facts) onto the latest record
+  // instead of persisting the stale hydrated snapshot whole.
+  const freshAfterClaim = await kv.get<PrintOrderRecord>(printOrderKey(sessionId));
+  const authorityAfterClaim = await getPrintOrderAuthorityState(sessionId);
+  if (
+    !freshAfterClaim ||
+    !authorityAfterClaim ||
+    authorityAfterClaim.lifecycle === "terminal_failed" ||
+    authorityAfterClaim.lifecycle === "bound" ||
+    authorityAfterClaim.lifecycle === "operator_recovered" ||
+    printOrderAdvancedPastSnapshot(hydrated, freshAfterClaim)
+  ) {
+    // This pass acquired the claim above and has NOT dispatched —
+    // the outbound fetch is further below — so release the claim
+    // before standing down (gate fix on PR #505, local Codex P2):
+    // a claim left standing here would strand the order behind
+    // reconciliation_required on every later retry even though no
+    // dispatch ever used it. The release is ownership-checked in
+    // the authority (the standing claim must carry this dispatchId)
+    // and best-effort: if it cannot be applied, the pre-existing
+    // reconciliation posture stands.
+    await releaseAlternateFulfillmentDispatchClaim(sessionId, dispatchId).catch(() => null);
+    return NextResponse.json(
+      { ok: false, error: "reconciliation_required", reason: "fulfillment_advanced_during_retry", dispatchId },
+      { status: 409 },
+    );
+  }
   const dispatchAttempted: PrintOrderRecord = {
-    ...hydrated,
-    attempts,
+    ...freshAfterClaim,
+    attempts: Math.max(attempts, freshAfterClaim.attempts ?? 0),
     printAssetUrl,
     alternateDispatch: { dispatchId, state: "attempted", attemptedAt: now },
   };
@@ -870,25 +949,39 @@ async function postRetryPrintOrder(req: NextRequest) {
     return NextResponse.json({ ok: false, error: failed.error, order: sanitizePrintOrderForOperatorResponse(failed) }, { status: 502 });
   }
 
-  const sent = {
-    ...dispatchAttempted,
-    status: "sent" as const,
-    attempts,
-    printAssetUrl,
-    webhookStatus: webhookResponse.status,
-    sentAt: now,
-    error: undefined,
-    terminalEventType: null,
-    alternateDispatch: {
-      dispatchId,
-      state: "accepted" as const,
-      attemptedAt: now,
-      respondedAt: Date.now(),
-      httpStatus: webhookResponse.status,
-    },
-  };
   // Successful external side effect: durable state write stays outside the outbound
   // catch so KV failures cannot be rewritten as webhook failures.
-  assertPrintOrderRetained(await persistPrintOrderRecord(sessionId, sent));
-  return NextResponse.json({ ok: true, status: "sent", order: sanitizePrintOrderForOperatorResponse(sent) });
+  // S96 follow-up writer audit F-9: the completion lands via the
+  // shared latest-merged helper — a shipment anchored during the
+  // outbound fetch (or a resolution) is preserved instead of being
+  // overwritten by the pre-fetch snapshot; a superseded completion
+  // stands down to reconciliation.
+  const completion = await persistAlternateDispatchCompletionLatestMerged({
+    sessionId,
+    snapshot: dispatchAttempted,
+    completion: {
+      webhookStatus: webhookResponse.status,
+      sentAt: now,
+      printAssetUrl,
+      alternateDispatch: {
+        dispatchId,
+        state: "accepted",
+        attemptedAt: now,
+        respondedAt: Date.now(),
+        httpStatus: webhookResponse.status,
+      },
+    },
+  });
+  if (!completion.persisted) {
+    return NextResponse.json(
+      { ok: false, error: "reconciliation_required", reason: completion.reason, dispatchId },
+      { status: 409 },
+    );
+  }
+  assertPrintOrderRetained(completion.result);
+  return NextResponse.json({
+    ok: true,
+    status: "sent",
+    order: sanitizePrintOrderForOperatorResponse(completion.record),
+  });
 }

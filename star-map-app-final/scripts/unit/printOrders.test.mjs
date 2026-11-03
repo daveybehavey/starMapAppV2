@@ -541,9 +541,16 @@ test("S96-1 (gate round 5): a hold cleared on the latest record is stripped from
 });
 
 test("S96-1 (gate round 5): post-submit persists and the stranded-claim surfacing are pinned in the TS sources", () => {
-  // The post-submit identity persist preserves the latest hold annotations.
-  assert.match(postSubmitSource, /preserveLatestHoldAnnotations\(\s+sentRecord,/);
+  // Both post-submit persist sites preserve the latest state. The
+  // identity persist uses the S96 follow-up F-2 generalization of the
+  // hold-only sync (preserveLatestConcurrentState runs
+  // preserveLatestHoldAnnotations and additionally carries
+  // resolution/shipment/confirmation state); the review persist
+  // merges via applyReviewOutcomeToCurrent (pinned in the S96-1 F8
+  // test below).
+  assert.match(postSubmitSource, /preserveLatestConcurrentState\(\s+sentRecord,/);
   assert.match(printOrdersSource, /export function preserveLatestHoldAnnotations/);
+  assert.match(printOrdersSource, /export function preserveLatestConcurrentState/);
   // The claim-loser surfacing: alert, final re-read, conditional write.
   assert.match(webhookRouteSource, /Stranded-claim surfacing stood down/);
   assert.match(webhookRouteSource, /freshest\?\.status === "sent" \|\| freshest\?\.alternateDispatch/);
@@ -556,16 +563,23 @@ test("S96-1 F8: annotation writers merge onto the freshest record (supersedes ga
   assert.match(postSubmitSource, /applyReviewOutcomeToCurrent\(freshReview, reviewed\)/);
   assert.match(postSubmitSource, /preserveLatestHoldAnnotations\(reviewed, freshReview\)/);
   // The confirmation-email writer re-reads the latest record after the
-  // send and writes only its own fields onto it — both outcomes.
+  // send and writes only its own fields onto it — both outcomes. (The
+  // S96 follow-up slate's snapshot-sync variant for this writer was
+  // superseded at integration: the latest-base writes here carry
+  // every field from the freshest record, which is the F-2 pattern in
+  // its strongest form, and keep the already-stamped guard.)
   assert.match(confirmationSource, /const latest = \(await kv\.get<ExtendedPrintOrderRecord>\(key\)\)/);
   assert.match(confirmationSource, /\.\.\.latest,\s+printConfirmationError/);
   assert.match(confirmationSource, /\.\.\.latest,\s+printConfirmationSentAt/);
-  // The shipping-notification writer syncs hold annotations from the
-  // latest record before both of its outcome persists.
+  // The shipping-notification writer merges ONLY its notification
+  // fields onto the latest record via persistNotificationOutcome
+  // (S96 follow-up writer audit F-8) — progress-only, with the
+  // persist outcome handled explicitly (an unrecorded success is
+  // reported as a failure the caller can retry).
   const shippingSource = fs.readFileSync(
     path.join(appRoot, "src/lib/shippingNotifications.ts"),
     "utf8",
   );
-  assert.match(shippingSource, /preserveLatestHoldAnnotations\(\s+failed,/);
-  assert.match(shippingSource, /preserveLatestHoldAnnotations\(\s+sent,/);
+  assert.match(shippingSource, /const persistNotificationOutcome = async/);
+  assert.match(shippingSource, /shipping_notification_unrecorded/);
 });

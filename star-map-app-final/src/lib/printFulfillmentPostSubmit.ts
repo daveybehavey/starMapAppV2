@@ -1,6 +1,7 @@
 import type { PersistPrintOrderResult, PrintOrderRecord } from "@/lib/printOrders";
 import {
   persistPrintOrderRecord,
+  preserveLatestConcurrentState,
   preserveLatestHoldAnnotations,
   printOrderKey,
 } from "@/lib/printOrders";
@@ -396,10 +397,15 @@ export async function bindAcceptedPrintfulIdentityThenReview(input: {
   // A provider hold can be recorded by the Printful webhook at any
   // moment after the provider order exists — including during this
   // helper's awaits. Both persists below therefore re-read the stored
-  // record and carry its hold annotations over the (older) snapshot
+  // record and carry its concurrent state over the (older) snapshot
   // being written, so a recorded hold is never erased by a post-submit
-  // write (the aging sweep keys off those stamps).
-  const identityRecord = preserveLatestHoldAnnotations(
+  // write (the aging sweep keys off those stamps). S96 follow-up
+  // writer audit F-2: the sync is the generalized
+  // preserveLatestConcurrentState — shipment, shipping-notification,
+  // operator-resolution, and confirmation state landing during the
+  // awaits survives the writes the same way hold state does (the
+  // hold-only helper lost exactly those fields).
+  const identityRecord = preserveLatestConcurrentState(
     sentRecord,
     await kv.get<PrintOrderRecord>(printOrderKey(sessionId)),
   );

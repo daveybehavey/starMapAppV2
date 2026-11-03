@@ -119,10 +119,12 @@ test("source: retry + webhook keep durable sent-write outside outbound failure c
   assert.match(retryAltSection, /Restrict this catch to outbound fulfillment failures only/);
   assert.ok(
     retryAltSection.indexOf("persistFailedPrintOrder") <
-      retryAltSection.indexOf("await persistPrintOrderRecord(sessionId, sent)"),
+      retryAltSection.indexOf("await persistAlternateDispatchCompletionLatestMerged({"),
     "failed webhook path precedes durable sent persist",
   );
-  assert.match(retryAltSection, /await persistPrintOrderRecord\(sessionId, sent\)/);
+  // F-9 (S96 follow-up): the durable sent-write is the shared
+  // latest-merged completion helper, still outside the outbound catch.
+  assert.match(retryAltSection, /await persistAlternateDispatchCompletionLatestMerged\(\{/);
 
   // Webhook queuePrintOrder alt path: persist sent after outbound try/catch.
   assert.match(

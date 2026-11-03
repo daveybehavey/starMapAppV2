@@ -39,8 +39,11 @@ const OPTIONAL = [
   "GOOGLE_MERCHANT_SERVICE_ACCOUNT_JSON_PATH",
   "GOOGLE_MERCHANT_SERVICE_ACCOUNT_JSON",
   "GOOGLE_MERCHANT_SHIPPING_SERVICE_PREFIX",
-  "PRINT_MARGIN_GUARD_ENABLED",
-  "PRINT_MIN_MARGIN_CENTS",
+  // PRINT_MARGIN_GUARD_ENABLED / PRINT_MIN_MARGIN_CENTS are
+  // deliberately NOT warn-only optional entries: since PR #500 the
+  // guard is on by default in code, so their absence is fine — but
+  // an explicit disable or a server/NEXT_PUBLIC mirror divergence
+  // is an error. See the posture check below (S96-6 P3 residue).
   "PRINT_MARGIN_STRIPE_PERCENT",
   "PRINT_MARGIN_STRIPE_FIXED_CENTS",
   "PRINT_COGS_POSTER_UNFRAMED_CENTS",
@@ -198,6 +201,46 @@ if (
 
 if (clientPrintCheckoutEnabled === true && printCheckoutEnabled !== true) {
   errors.push("NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED=true requires PRINT_CHECKOUT_ENABLED=true");
+}
+
+// Print margin guard posture (S96-6 P3 residue, aligned with PR
+// #500): the guard defaults ON in code — getPrintMarginGuardConfig
+// resolves enabled unless explicitly disabled and a 1000-cent floor
+// unless one is set — so this checker must not report success while
+// margin enforcement is explicitly disabled, or while the server
+// value and its NEXT_PUBLIC_ mirror diverge (the browser reads the
+// mirror for editor-side checks, the server enforces with the
+// server var: a divergence means the two sides enforce different
+// margins). Absence of all four vars is fine: the code defaults
+// apply.
+const printMarginGuardEnabled = parseBooleanEnv("PRINT_MARGIN_GUARD_ENABLED");
+const clientPrintMarginGuardEnabled = parseBooleanEnv("NEXT_PUBLIC_PRINT_MARGIN_GUARD_ENABLED");
+if (printMarginGuardEnabled === false || clientPrintMarginGuardEnabled === false) {
+  errors.push(
+    "Print margin guard is explicitly disabled (PRINT_MARGIN_GUARD_ENABLED / NEXT_PUBLIC_PRINT_MARGIN_GUARD_ENABLED) — the guard must stay on; its code default is enabled",
+  );
+}
+if (
+  printMarginGuardEnabled !== null &&
+  clientPrintMarginGuardEnabled !== null &&
+  printMarginGuardEnabled !== clientPrintMarginGuardEnabled
+) {
+  errors.push("PRINT_MARGIN_GUARD_ENABLED and NEXT_PUBLIC_PRINT_MARGIN_GUARD_ENABLED must match");
+}
+const parseFloorCents = (key) => {
+  const raw = process.env[key]?.trim();
+  if (!raw) return null;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+const printMinMarginCents = parseFloorCents("PRINT_MIN_MARGIN_CENTS");
+const clientPrintMinMarginCents = parseFloorCents("NEXT_PUBLIC_PRINT_MIN_MARGIN_CENTS");
+if (
+  printMinMarginCents !== null &&
+  clientPrintMinMarginCents !== null &&
+  printMinMarginCents !== clientPrintMinMarginCents
+) {
+  errors.push("PRINT_MIN_MARGIN_CENTS and NEXT_PUBLIC_PRINT_MIN_MARGIN_CENTS must match");
 }
 
 if (printSubmissionEnabled === true) {

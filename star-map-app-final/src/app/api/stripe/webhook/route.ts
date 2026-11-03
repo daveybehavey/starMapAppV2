@@ -46,8 +46,10 @@ import {
   getPrintRecipient,
   hasSufficientPrintCharge,
   isPrintOrderUnretainableError,
+  persistAlternateDispatchCompletionLatestMerged,
   persistPrintOrderRecord,
   PrintOrderUnretainableError,
+  printOrderAdvancedPastSnapshot,
   printOrderKey,
   resolvePrintOrderCreatedAt,
   type PrintOrderRecord,
@@ -55,6 +57,7 @@ import {
 import { giftFlagForRecord } from "@/lib/checkoutGiftFlag";
 import { recordCheckoutExpiredOnce, recordPaymentVerifiedOnce } from "@/lib/funnel";
 import { sendPrintOrderFailureAlert } from "@/lib/printOrderAlerts";
+import { persistPrintOrderFailureLatestMerged } from "@/lib/printOrderFailurePersist";
 import { extendPrintAssetTtlForFulfillment } from "@/lib/printAssetFulfillment";
 import { bindAcceptedPrintfulIdentityThenReview } from "@/lib/printFulfillmentPostSubmit";
 import {
@@ -1758,6 +1761,16 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
   if (!session.id) return;
   if (getOrderType(session) !== "print") return;
 
+  // S96 follow-up writer audit F-3: problem persistence goes through
+  // the shared latest-merged helper (printOrderFailurePersist.ts) —
+  // the failure alert is sent there, then the latest record and the
+  // authority are re-read, and the write is refused when a concurrent
+  // pass (or an admin retry) completed the order during this pass's
+  // awaits. The old inline writer persisted the payload lineage
+  // whole; because a `failed` write skips the persist guard, it could
+  // regress a fulfilled order to failed, erasing the provider ID,
+  // sent stamp, hold fields, and confirmation state until a later
+  // repair pass healed KV from the authority.
   const persistProblemPrintOrder = async (record: PrintOrderRecord) => {
     const nextRecord: PrintOrderRecord = {
       ...record,
@@ -1765,39 +1778,38 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
       // Ordinary/nonterminal failure writers must not inherit stale terminal provenance.
       ...(record.status === "failed" ? { terminalEventType: null } : {}),
     };
-    let failureAlertUndelivered = false;
-    if (!nextRecord.operatorFailureAlertedAt) {
-      const alertResult = await sendPrintOrderFailureAlert(nextRecord);
-      if (alertResult.delivered) {
-        nextRecord.operatorFailureAlertedAt = Date.now();
-        nextRecord.operatorFailureAlertProvider = alertResult.provider;
-        nextRecord.operatorFailureAlertError = undefined;
-      } else {
-        nextRecord.operatorFailureAlertProvider = alertResult.provider;
-        nextRecord.operatorFailureAlertError = alertResult.error;
-        failureAlertUndelivered = true;
-      }
+    const outcome = await persistPrintOrderFailureLatestMerged({
+      sessionId: session.id,
+      failureRecord: nextRecord,
+    });
+    if (!outcome.persisted) {
+      // A concurrent completion stands; write nothing over it.
+      return;
     }
     // Fail-closed: unretainable delete must not look like durable problem-state success.
-    assertPrintOrderRetained(await persistPrintOrderRecord(session.id, nextRecord));
-    // S96-1 F9: the problem state is durable, but if this pass attempted
-    // the operator failure alert and it was not delivered, the event
-    // must NOT finalize — for an ordinary failed order the alert is the
+    assertPrintOrderRetained(outcome.result);
+    // S96-1 F9 (PR #502 — preserved across the F-3 helper integration):
+    // the problem state is durable, but if this pass attempted the
+    // operator failure alert and it was not delivered, the event must
+    // NOT finalize — for an ordinary failed order the alert is the
     // only discovery channel (no failure sweep exists). Throwing keeps
-    // the Stripe event dedupe unfinalized; redelivery retries the alert
-    // from the persisted stamps (operatorFailureAlertedAt still unset),
-    // exactly as the Printful webhook's 502-on-alert-failure path
-    // intends. The one exception is a record carrying a standing
+    // the Stripe event dedupe unfinalized; redelivery retries the
+    // alert from the persisted stamps (operatorFailureAlertedAt still
+    // unset), exactly as the Printful webhook's 502-on-alert-failure
+    // path intends. The one exception is a record carrying a standing
     // alternate-dispatch marker: that marker is itself a discovery and
     // refusal surface — it blocks every later dispatch at both sites
     // and the admin retry answers 409
     // alternate_dispatch_reconciliation_required — so the order cannot
     // silently vanish, and the S94-1 gate rounds pinned event
     // finalization for exactly those records. The alert is still
-    // attempted and its failure still recorded either way.
-    if (failureAlertUndelivered && !nextRecord.alternateDispatch) {
+    // attempted and its failure still recorded either way. The helper
+    // reports this pass's alert outcome (outcome.failureAlertUndelivered);
+    // the standing record's marker is outcome.record's — the merge
+    // carries the payload's marker forward and preserves a latest one.
+    if (outcome.failureAlertUndelivered && !outcome.record.alternateDispatch) {
       throw new PrintOrderFailureAlertError(
-        nextRecord.operatorFailureAlertError ?? "print_alert_failed",
+        outcome.record.operatorFailureAlertError ?? "print_alert_failed",
       );
     }
   };
@@ -1901,7 +1913,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
   if (!recipient && stripe) {
     try {
       const latest = await stripe.checkout.sessions.retrieve(session.id);
-      payload = {
+      const refreshed: PrintOrderRecord = {
         ...payload,
         amountTotal:
           typeof latest.amount_total === "number" && Number.isFinite(latest.amount_total)
@@ -1913,6 +1925,35 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
         customerPhone: extractCheckoutPhoneFromStripeSession(latest) ?? payload.customerPhone ?? null,
         shippingDetails: extractShippingDetails(latest),
       };
+      // S96 follow-up writer audit F-4: the first pending persist
+      // above is guarded by the freshBeforeWrite sent re-check, but
+      // this refresh persist — after the Stripe retrieve await — had
+      // no equivalent: a concurrent pass completing the order during
+      // the retrieve was regressed to this pending payload (provider
+      // ID, sent stamp, hold, and confirmation/shipping state
+      // erased). Re-read now: a completed order stands the pass down;
+      // any other advancement means the refresh fields merge onto
+      // the LATEST record instead of the stale payload.
+      const latestKv = await kv.get<PrintOrderRecord>(printOrderKey(session.id));
+      if (latestKv && printOrderAdvancedPastSnapshot(payload, latestKv)) {
+        if (latestKv.status === "sent") {
+          void sendPrintOrderConfirmation(session.id).catch((error) => {
+            console.warn("Print confirmation email retry on sent order failed", error);
+          });
+          return;
+        }
+        payload = {
+          ...latestKv,
+          amountTotal: refreshed.amountTotal,
+          currency: refreshed.currency,
+          customerEmail: refreshed.customerEmail,
+          customerName: refreshed.customerName,
+          customerPhone: refreshed.customerPhone,
+          shippingDetails: refreshed.shippingDetails,
+        };
+      } else {
+        payload = refreshed;
+      }
       assertPrintOrderRetained(await persistPrintOrderRecord(session.id, payload));
       recipient = getPrintRecipient(payload);
     } catch (error) {
@@ -2228,6 +2269,22 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
         });
         return;
       }
+      if (claim.reason === "already_fulfilled") {
+        // S96 follow-up writer audit F-10: the authority holds the
+        // order as fulfilled (a provider ID bound by the Printful
+        // path, or an operator recovery) — the alternate receiver
+        // must never also get this order. Surface it for
+        // reconciliation like the terminal block; the event
+        // finalizes and the bound state heals KV via repair reads.
+        await persistProblemPrintOrder({
+          ...payload,
+          printAssetUrl,
+          status: "failed",
+          error: "alternate_dispatch_blocked_already_fulfilled",
+          alternateDispatch: existingAlternateDispatch,
+        });
+        return;
+      }
       // Authority unread (or the claim otherwise unresolvable): fail
       // closed — nothing was dispatched, so the event stays retryable.
       throw new PrintOrderAuthorityClaimError(claim.reason);
@@ -2372,29 +2429,43 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
 
   // Successful external side effect: persist "sent" outside the outbound catch so a
   // transient KV failure cannot be rewritten as a webhook/provider failure.
+  // S96 follow-up writer audit F-9: the completion lands via the
+  // shared latest-merged helper — a shipment anchored during the
+  // outbound fetch (an admin notify-shipping needs neither a
+  // Printful ID nor a sent status), or a resolution landing in the
+  // same window, is preserved instead of being overwritten by the
+  // pre-fetch payload; a superseded completion leaves the event
+  // retryable so the advanced state stands the next pass down.
   if (alternateIsFulfiller) {
-    const sentPersist = await persistPrintOrderRecord(session.id, {
-      ...payload,
-      printAssetUrl,
-      status: "sent",
-      webhookStatus: webhookResponse.status,
-      sentAt: Date.now(),
-      error: undefined,
-      terminalEventType: null,
-      alternateDispatch: {
-        dispatchId,
-        state: "accepted",
-        attemptedAt: payload.alternateDispatch?.attemptedAt ?? Date.now(),
-        respondedAt: Date.now(),
-        httpStatus: webhookResponse.status,
+    const completion = await persistAlternateDispatchCompletionLatestMerged({
+      sessionId: session.id,
+      snapshot: payload,
+      completion: {
+        webhookStatus: webhookResponse.status,
+        sentAt: Date.now(),
+        printAssetUrl,
+        alternateDispatch: {
+          dispatchId,
+          state: "accepted",
+          attemptedAt: payload.alternateDispatch?.attemptedAt ?? Date.now(),
+          respondedAt: Date.now(),
+          httpStatus: webhookResponse.status,
+        },
       },
     });
-    if (sentPersist.outcome === "deleted_unretainable") {
+    if (!completion.persisted) {
+      console.error("Alternate fulfillment webhook succeeded but the completion was superseded", {
+        sessionId: session.id,
+        reason: completion.reason,
+      });
+      throw new PrintOrderAuthorityClaimError(completion.reason);
+    }
+    if (completion.result.outcome === "deleted_unretainable") {
       console.error("Alternate fulfillment webhook succeeded but durable record unretainable", {
         sessionId: session.id,
-        reason: sentPersist.reason,
+        reason: completion.result.reason,
       });
-      throw new PrintOrderUnretainableError(sentPersist.reason);
+      throw new PrintOrderUnretainableError(completion.result.reason);
     }
   }
 }
