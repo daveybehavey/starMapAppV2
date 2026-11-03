@@ -3,6 +3,8 @@
  * Shared between MobileCreate and EditorExperience components.
  */
 
+import { AUTOMATIC_TEXT_STYLE_BINDING } from "./textStyleBinding";
+import { applyStyleDefaults } from "./styleDefaults";
 import type { TextBox, StyleId, RenderOptions } from "./store";
 import type { RenderModeId } from "./renderModes";
 import type { AspectRatio, Shape } from "./types";
@@ -22,6 +24,62 @@ export interface ProPreset {
 }
 
 export const proPresets: ProPreset[] = [
+  {
+    id: "evergreenAtlas-signature",
+    label: "Evergreen Atlas",
+    note: "Deep forest, quiet warm silver",
+    thumbnail: "/presets/preset-evergreenAtlas-signature.svg",
+    style: "evergreenAtlas",
+    renderMode: "classic",
+    intensity: 65,
+    shape: "circle",
+    aspectRatio: "square",
+    renderOptions: { ...applyStyleDefaults("evergreenAtlas", []).renderOptions },
+    textBoxes: [
+      {
+        id: "title",
+        label: "Title",
+        text: "Our Place in the Stars",
+        fontFamily: "cormorant",
+        fontWeight: 600,
+        size: 48,
+        color: "#E8F0DF",
+        align: "center",
+        textShadow: false,
+        textGlow: false,
+        position: { x: 0.5, y: 0.12 },
+        textStyleBinding: { ...AUTOMATIC_TEXT_STYLE_BINDING },
+      },
+      {
+        id: "subtitle",
+        label: "Subtitle",
+        text: "Victoria · November 3, 2026",
+        fontFamily: "montserrat",
+        fontWeight: 400,
+        size: 20,
+        color: "#C8D8BB",
+        align: "center",
+        textShadow: false,
+        textGlow: false,
+        position: { x: 0.5, y: 0.18 },
+        textStyleBinding: { ...AUTOMATIC_TEXT_STYLE_BINDING },
+      },
+      {
+        id: "dedication",
+        label: "Dedication",
+        text: "Every night, together",
+        fontFamily: "cormorant",
+        fontWeight: 400,
+        size: 22,
+        color: "#C8D8BB",
+        align: "center",
+        textShadow: false,
+        textGlow: false,
+        position: { x: 0.5, y: 0.88 },
+        textStyleBinding: { ...AUTOMATIC_TEXT_STYLE_BINDING },
+      },
+    ],
+  },
   {
     id: "aurora",
     label: "Aurora Night",

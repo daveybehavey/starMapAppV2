@@ -7,6 +7,31 @@ type StyleDefaults = {
 };
 
 const STYLE_DEFAULTS: Partial<Record<StyleId, StyleDefaults>> = {
+  evergreenAtlas: {
+    renderOptions: {
+      mapLookTier: "polished",
+      showTechnicalRing: false,
+      transparentBackground: false,
+      visualMode: "enhanced",
+      starIntensity: "normal",
+      starGlow: false,
+      constellationLines: "thin",
+      constellationLabels: false,
+      planetLabels: false,
+      showGrid: false,
+      showPlanets: true,
+      premiumStars: "off",
+      premiumPlanets: "off",
+      planetEmphasis: "normal",
+      showMoon: true,
+      moonSize: "normal",
+      frameEnabled: true,
+      backgroundColor: "",
+      constellationColor: "",
+      constellationLineScale: 1,
+    },
+    text: { fontFamily: "cormorant", color: "#C8D8BB" },
+  },
   navyGold: {
     renderOptions: {
       mapLookTier: "polished",

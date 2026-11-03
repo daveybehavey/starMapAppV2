@@ -7,6 +7,7 @@ import {
 } from "@/lib/commerceFacts";
 import {
   formatPrintPriceWithShipping,
+  formatStandalonePrintPriceWithShipping,
   getPrintAvailabilityBadgeLabel,
   getPrintFreeShippingShortTag,
   getPrintShippingDisclosure,
@@ -31,10 +32,7 @@ export default function FramedProofSection({
   const digitalAddOn = getPrintDigitalAddOnPrice();
   const availabilityBadge = getPrintAvailabilityBadgeLabel();
   const shippingDisclosure = getPrintShippingDisclosure();
-  const framedPrice = formatPrintPriceWithShipping(
-    printTiers.poster_framed.amountCents,
-    printTiers.poster_framed.currency
-  );
+  const framedPrice = formatStandalonePrintPriceWithShipping("poster_framed");
   const unframedPrice = formatPrintPriceWithShipping(
     printTiers.poster_unframed.amountCents,
     printTiers.poster_unframed.currency

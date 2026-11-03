@@ -78,6 +78,43 @@ export function __disarmAuthorityApplyNull() {
   applyNullArm = null;
 }
 
+// A single route-only boundary pause. The test drives authority time and
+// successor commits while the real request is held at a named boundary.
+// Timeouts reject: they are diagnostics, never a way to satisfy the premise.
+let boundaryArm = null;
+export function __armAuthorityBoundary(sessionId, method, opType) {
+  let arrive, release;
+  const reached = new Promise((resolve) => { arrive = resolve; });
+  const barrier = new Promise((resolve) => { release = resolve; });
+  const arm = { sessionId, method, opType, arrive, barrier, release, fired: false };
+  boundaryArm = arm;
+  return { reached, release };
+}
+
+export function __disarmAuthorityBoundary() {
+  boundaryArm?.release();
+  boundaryArm = null;
+}
+
+async function pauseAtBoundary(sessionId, method, opType) {
+  const arm = boundaryArm;
+  if (!arm || arm.fired || arm.sessionId !== sessionId ||
+      arm.method !== method || arm.opType !== opType) return;
+  arm.fired = true;
+  arm.arrive();
+  let timer;
+  try {
+    await Promise.race([
+      arm.barrier,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`authority boundary timed out: ${method}`)), RENDEZVOUS_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export function createEntitlementAuthorityClient(...args) {
   const real = createRealClient(...args);
   return {
@@ -98,9 +135,11 @@ export function createEntitlementAuthorityClient(...args) {
         await Promise.race([current.barrier, timeout]);
         clearTimeout(timer);
       }
+      await pauseAtBoundary(sessionId, "getState");
       return state;
     },
     async apply(sessionId, op) {
+      await pauseAtBoundary(sessionId, "apply", op?.type);
       const arm = applyNullArm;
       if (arm && sessionId === arm.sessionId && op && op.type === "register_publication_intent") {
         arm.seen += 1;

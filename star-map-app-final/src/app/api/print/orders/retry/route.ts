@@ -29,6 +29,7 @@ import {
 } from "@/lib/printOrders";
 import { sendPrintOrderApprovalAlert } from "@/lib/printOrderAlerts";
 import { persistPrintOrderFailureLatestMerged } from "@/lib/printOrderFailurePersist";
+import { sessionIsRevokedForPrintDispatch } from "@/lib/entitlementsStore";
 import { bindAcceptedPrintfulIdentityThenReview } from "@/lib/printFulfillmentPostSubmit";
 import { evaluatePrintRetryPaymentGate } from "@/lib/checkoutPromotions";
 import { extendPrintAssetTtlForFulfillment } from "@/lib/printAssetFulfillment";
@@ -616,6 +617,37 @@ async function postRetryPrintOrder(req: NextRequest) {
   // TTL extends) aborts the dispatch instead of duplicating the order.
   const movedBeforeDispatch = await standDownIfFulfillmentMoved();
   if (movedBeforeDispatch) return movedBeforeDispatch;
+
+  // A-01 (audit loop, 2026-11-03): revocation gate, beside the F-1
+  // stand-down so it shares the read that decides dispatch. A
+  // purchase with an observed revocation (refund / dispute) must
+  // never be (re)dispatched to the provider from this route either:
+  // the refusal is persisted as the order's problem state and
+  // answered 409. An operator who deliberately fulfils such an order
+  // manually uses the resolve route (manual-fulfilment provenance,
+  // PR #501 contract) — resolve never dispatches and is untouched.
+  // Evidence unreadable fails closed: 503, no dispatch.
+  let dispatchRevoked: boolean;
+  try {
+    dispatchRevoked = await sessionIsRevokedForPrintDispatch(sessionId);
+  } catch {
+    return NextResponse.json(
+      { ok: false, error: "revocation_evidence_unreadable" },
+      { status: 503 },
+    );
+  }
+  if (dispatchRevoked) {
+    const failed = await persistFailedPrintOrder({
+      ...hydrated,
+      attempts: (hydrated.attempts ?? 0) + 1,
+      printAssetUrl,
+      error: "print_order_revocation_blocked",
+    });
+    return NextResponse.json(
+      { ok: false, error: failed.error, order: sanitizePrintOrderForOperatorResponse(failed) },
+      { status: 409 },
+    );
+  }
 
   const attempts = (hydrated.attempts ?? 0) + 1;
   const now = Date.now();

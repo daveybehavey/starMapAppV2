@@ -1,0 +1,82 @@
+[
+  {
+    "entry": "STYLE_THEME.navyGold",
+    "baseline": "4901cf1a9f239c9d3838665ae194bb98c4d29a4d06bbe7b0147d6ca0b59a1e70",
+    "candidate": "4901cf1a9f239c9d3838665ae194bb98c4d29a4d06bbe7b0147d6ca0b59a1e70"
+  },
+  {
+    "entry": "STYLE_THEME.vintageEngraving",
+    "baseline": "5b43cd638e1458f2544f97c636e397261162d768d425beb9412a58cbcf370cd2",
+    "candidate": "5b43cd638e1458f2544f97c636e397261162d768d425beb9412a58cbcf370cd2"
+  },
+  {
+    "entry": "STYLE_THEME.parchmentScroll",
+    "baseline": "f65d4547221189d4ca5e7698248b4919038b8ef18d0f9f294f4beaa668df0ce8",
+    "candidate": "f65d4547221189d4ca5e7698248b4919038b8ef18d0f9f294f4beaa668df0ce8"
+  },
+  {
+    "entry": "STYLE_THEME.midnightMinimal",
+    "baseline": "405838d7f6db952c170e4f2357220ff12e1962c9242d187f504a601e7f0ca38a",
+    "candidate": "405838d7f6db952c170e4f2357220ff12e1962c9242d187f504a601e7f0ca38a"
+  },
+  {
+    "entry": "STYLE_RENDER_PROFILES.navyGold",
+    "baseline": "505ae42ca7c5f75b42125039e950cd10fe2401a36983e5314fa67ed1143a489e",
+    "candidate": "505ae42ca7c5f75b42125039e950cd10fe2401a36983e5314fa67ed1143a489e"
+  },
+  {
+    "entry": "STYLE_RENDER_PROFILES.vintageEngraving",
+    "baseline": "5ccf86a1d20078322b03190a1bf94aa7990929c03fff9bab722e3be0ac62de7d",
+    "candidate": "5ccf86a1d20078322b03190a1bf94aa7990929c03fff9bab722e3be0ac62de7d"
+  },
+  {
+    "entry": "STYLE_RENDER_PROFILES.parchmentScroll",
+    "baseline": "1c9cbb772d44a1751a116a617b49306b46b0266511a44b0893e332646fbb7a4e",
+    "candidate": "1c9cbb772d44a1751a116a617b49306b46b0266511a44b0893e332646fbb7a4e"
+  },
+  {
+    "entry": "STYLE_RENDER_PROFILES.midnightMinimal",
+    "baseline": "a85ed58cc66c217734b23cad99ddb3a6ae611b6bf499579eccaeebf0e5112266",
+    "candidate": "a85ed58cc66c217734b23cad99ddb3a6ae611b6bf499579eccaeebf0e5112266"
+  },
+  {
+    "entry": "TIER_TYPOGRAPHY.minimal.navyGold",
+    "baseline": "4750c25ada9bda15e99290345a646847e087b0f345fa4d5c1cbbfb773a582529",
+    "candidate": "4750c25ada9bda15e99290345a646847e087b0f345fa4d5c1cbbfb773a582529"
+  },
+  {
+    "entry": "TIER_TYPOGRAPHY.minimal.vintageEngraving",
+    "baseline": "af44d0e4bb576d04126cdd5a140ff94da809dcca49f25869fe151e8180ec298a",
+    "candidate": "af44d0e4bb576d04126cdd5a140ff94da809dcca49f25869fe151e8180ec298a"
+  },
+  {
+    "entry": "TIER_TYPOGRAPHY.minimal.parchmentScroll",
+    "baseline": "0aba87bb6f00b8f8bd958ef2a380e128ec07f111971172928c3ed047d7543902",
+    "candidate": "0aba87bb6f00b8f8bd958ef2a380e128ec07f111971172928c3ed047d7543902"
+  },
+  {
+    "entry": "TIER_TYPOGRAPHY.minimal.midnightMinimal",
+    "baseline": "abd89b5ea7d200990113061ab201d6723f3c391640c18bc4386d5bfa9d10e0b4",
+    "candidate": "abd89b5ea7d200990113061ab201d6723f3c391640c18bc4386d5bfa9d10e0b4"
+  },
+  {
+    "entry": "TIER_TYPOGRAPHY.polished.navyGold",
+    "baseline": "8b57f855a25de8063f277d52561edaff98ff56bbf25ea70624da74353c45669c",
+    "candidate": "8b57f855a25de8063f277d52561edaff98ff56bbf25ea70624da74353c45669c"
+  },
+  {
+    "entry": "TIER_TYPOGRAPHY.polished.vintageEngraving",
+    "baseline": "8b9a14785a5e6d92fd564ffda42f8067ebdcfe36a82980a8c31fe7d83ded21c4",
+    "candidate": "8b9a14785a5e6d92fd564ffda42f8067ebdcfe36a82980a8c31fe7d83ded21c4"
+  },
+  {
+    "entry": "TIER_TYPOGRAPHY.polished.parchmentScroll",
+    "baseline": "a169c752c2c3e25edc3afa92423c73195ebda01a4a7c67ab7c5dbf5d0d385d44",
+    "candidate": "a169c752c2c3e25edc3afa92423c73195ebda01a4a7c67ab7c5dbf5d0d385d44"
+  },
+  {
+    "entry": "TIER_TYPOGRAPHY.polished.midnightMinimal",
+    "baseline": "4e8efce7a88562a5ece59a4a8845ae9edafea67af5e3dd0ae5b91d1020a40528",
+    "candidate": "4e8efce7a88562a5ece59a4a8845ae9edafea67af5e3dd0ae5b91d1020a40528"
+  }
+]

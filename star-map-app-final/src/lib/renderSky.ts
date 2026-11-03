@@ -8,6 +8,7 @@ import {
   resolveShapeMaskFootprint,
 } from "@/lib/shapeLayout";
 import type { AspectRatio, Shape } from "@/lib/types";
+import { resolveFixedStarColor } from "@/lib/starColorMode";
 import { FONT_STACKS } from "@/lib/fonts";
 import { adjustColor, parseHexColor, parseRgbColor, toRgba } from "@/lib/colorUtils";
 import {
@@ -110,6 +111,13 @@ const STYLE_THEME: Record<
     glow: string;
   }
 > = {
+  evergreenAtlas: {
+    background: "#071B17",
+    vignette: "rgba(0,8,5,0.65)",
+    accent: "#C8D8BB",
+    star: "#EEF5E8",
+    glow: "rgba(163,201,173,0.25)",
+  },
   navyGold: {
     background: "#070b1b",
     vignette: "rgba(3, 6, 16, 0.75)",
@@ -262,6 +270,23 @@ const QUALITY_VISUAL_TUNING: Record<RenderQuality, QualityVisualTuning> = {
 };
 
 const STYLE_RENDER_PROFILES: Record<StyleId, StyleRenderProfile> = {
+  evergreenAtlas: {
+    useFixedStarColor: true,
+    allowGlow: false,
+    starAlphaFloor: 0.035,
+    starSizeBoost: 0.98,
+    starVisibilityCutoff: 0,
+    starAlphaBoost: 1,
+    lineStrokeBoost: 1,
+    lineAlphaMultiplier: 1,
+    lineAlphaClamp: null,
+    lineDashed: false,
+    showMilkyWayBand: true,
+    planetFlatColor: true,
+    starJitterMin: 0.94,
+    starJitterRange: 0.14,
+    minimalDrop: null,
+  },
   navyGold: {
     useFixedStarColor: false,
     allowGlow: true,
@@ -779,6 +804,9 @@ export function buildRecipeFromState(input: {
       visualMode: input.renderOptions?.visualMode ?? "illustrated",
       starIntensity: input.renderOptions?.starIntensity ?? "normal",
       starGlow: input.renderOptions?.starGlow ?? true,
+      ...(input.renderOptions?.starColorMode === "fixed" || input.renderOptions?.starColorMode === "spectral"
+        ? { starColorMode: input.renderOptions.starColorMode }
+        : {}),
       constellationLines: input.renderOptions?.constellationLines ?? "thin",
       constellationLabels: input.renderOptions?.constellationLabels ?? false,
       planetLabels: input.renderOptions?.planetLabels ?? false,
@@ -1267,6 +1295,8 @@ function drawStarLayer(
   const intensityFactor = STAR_INTENSITY_FACTORS[starIntensity].size;
   const intensityAlphaBoost = STAR_INTENSITY_FACTORS[starIntensity].alpha;
   const starGlowEnabled = renderOptions?.starGlow ?? true;
+  const fixedStarColor = resolveFixedStarColor(renderOptions?.starColorMode, styleProfile.useFixedStarColor, isParchment);
+  const fixedPremiumColor = resolveFixedStarColor(renderOptions?.starColorMode, false, isParchment);
   const baseGlow = mode?.glowBlur ?? 8;
   const glow = (starGlowEnabled ? baseGlow + 4 : baseGlow) * scale;
   const glowMagnitudeCutoff = 3.2;
@@ -1361,12 +1391,12 @@ function drawStarLayer(
     if (dropChance > 0 && randFromSeed((i + 1) * 43.73) < dropChance) continue;
 
     if (premiumStars && star.magnitude <= premiumThreshold) {
-      const premiumColor = typeof star.bv === "number" ? bvToRgb(star.bv) : getStarColor(i, star.magnitude);
+      const premiumColor = fixedPremiumColor ? palette.star : (typeof star.bv === "number" ? bvToRgb(star.bv) : getStarColor(i, star.magnitude));
       drawPremiumStar(ctx, star.x, star.y, radius, alpha, premiumColor, star.magnitude, i);
       continue;
     }
 
-    const color = styleProfile.useFixedStarColor
+    const color = fixedStarColor
       ? palette.star
       : (typeof star.bv === "number" ? bvToRgb(star.bv) : getStarColor(i, star.magnitude));
 

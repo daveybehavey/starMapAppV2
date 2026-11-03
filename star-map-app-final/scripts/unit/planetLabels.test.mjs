@@ -178,7 +178,7 @@ test("planetLabels defaults to false in the store and every style default", () =
   assert.match(store, /planetLabels: false,/);
 
   const styleDefaults = read("../../src/lib/styleDefaults.ts");
-  assert.equal([...styleDefaults.matchAll(/planetLabels: false,/g)].length, 4);
+  assert.equal([...styleDefaults.matchAll(/planetLabels: false,/g)].length, 5);
 });
 
 // ─── Preset parity ───────────────────────────────────────────────────────────

@@ -12,6 +12,7 @@ export { fontOptions } from "./fonts";
 export const styles: { id: StyleId; name: string; note: string }[] = [
   { id: "navyGold", name: "Navy & Gold", note: "Luxe midnight with gilded accents" },
   { id: "vintageEngraving", name: "Vintage Engraving", note: "Linework etched on deep charcoal" },
+  { id: "evergreenAtlas", name: "Evergreen Atlas", note: "Deep forest with quiet warm silver" },
   { id: "parchmentScroll", name: "Parchment Scroll", note: "Warm cream with antique border" },
   { id: "midnightMinimal", name: "Midnight Minimal", note: "Clean noir with subtle glow" },
 ];
