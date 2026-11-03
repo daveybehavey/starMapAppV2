@@ -168,12 +168,23 @@ test("B-04 wiring: only the driving hook instance seeds defaults and runs the vi
     hook,
     /useEffect\(\(\) => \{\s*if \(!visualOptionsDriver\) return;\s*const t = setTimeout\(/,
   );
-  // …and the driving instance's FIRST visual-options application
-  // is a system write, so initialization cannot advance the
-  // generation past the restore baseline (B-01).
+  // …the visual-options derivation is ALWAYS a system write: it
+  // is a pure function of (mode, intensity) and never solely
+  // carries user work (the intent fields record the gesture
+  // synchronously), so not even the derivation following the
+  // automatic premium cap can advance the generation past the
+  // restore baseline (B-01; Codex P1 on PR #549).
   assert.match(
     hook,
-    /if \(visualOptionsDriver && !visualOptionsAppliedOnceRef\.current\) \{\s*visualOptionsAppliedOnceRef\.current = true;\s*runAsSystemWrite\(\(\) => setRenderOptions\(derivedOptions\)\);/,
+    /runAsSystemWrite\(\(\) => setRenderOptions\(derivedOptions\)\);/,
+  );
+  assert.doesNotMatch(hook, /visualOptionsAppliedOnceRef/);
+  // …and the display→intensity sync defers into a system write
+  // for the same reason: on a fresh unpaid quick mount its
+  // premium cap (seeded 70 → 60) fires with no user gesture.
+  assert.match(
+    hook,
+    /const t = setTimeout\(\(\) => \{\s*runAsSystemWrite\(\(\) => setIntensity\(next\)\);/,
   );
 });
 

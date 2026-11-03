@@ -274,6 +274,35 @@ test("runAsSystemWrite suppresses the advance for recipe, intent and seam writes
   assert.equal(generation(), afterScope + 1);
 });
 
+test("unpaid mount sequence: the automatic premium cap and its derivation are not user work (PR #549 P1)", () => {
+  // Simulate the fresh unpaid quick-editor mount: the seeded
+  // defaults sit at 70, the display→intensity sync mechanically
+  // caps intensity to 60 with no user gesture, and the
+  // visual-options derivation follows it. In the hook both
+  // writes run inside runAsSystemWrite (pinned by the B-family
+  // wiring tests), so the generation anchored at restore must
+  // not move and a saved-map response still applies.
+  const baseline = generation();
+  runAsSystemWrite(() => {
+    useStore.getState().setIntensity(60);
+  });
+  runAsSystemWrite(() => {
+    useStore.getState().setRenderOptions({ starIntensity: "bold" });
+  });
+  assert.equal(generation(), baseline);
+  assert.equal(
+    guardVerdict(baseline, generation()),
+    true,
+    "hydration must still apply after the automatic cap sequence",
+  );
+  // A genuine gesture right after still defeats it, by exactly
+  // one, and flips the verdict.
+  const display = useStore.getState().intensityDisplay;
+  useStore.getState().setIntensityDisplay(display === 61 ? 62 : 61);
+  assert.equal(generation(), baseline + 1);
+  assert.equal(guardVerdict(baseline, generation()), false);
+});
+
 // This test must stay LAST in this file: seeding is once-per-
 // process by design, and every earlier test relies on the
 // unseeded store.

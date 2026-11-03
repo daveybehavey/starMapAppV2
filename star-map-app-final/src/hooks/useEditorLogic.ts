@@ -191,7 +191,6 @@ export function useEditorLogic(options: UseEditorLogicOptions = {}): UseEditorLo
   const [customOccasion, setCustomOccasion] = useState(false);
   const [presetHint, setPresetHint] = useState<string | null>(null);
   const presetHintTimerRef = useRef<number | null>(null);
-  const visualOptionsAppliedOnceRef = useRef(false);
 
   // The driving instance seeds the variant's intensity default
   // into the shared store, once per page session (the store's
@@ -244,32 +243,47 @@ export function useEditorLogic(options: UseEditorLogicOptions = {}): UseEditorLo
         constellationLines,
         planetEmphasis,
       };
-      // The driving instance's FIRST application is the editor's
-      // automatic visual initialization: a system write, so it
-      // does not advance the edit generation and the saved-map
-      // hydration baseline (anchored at restore) stays exact
-      // (audit B-01). Every later application — mode/intensity
-      // changes, preset applies — is user work and counts.
-      if (visualOptionsDriver && !visualOptionsAppliedOnceRef.current) {
-        visualOptionsAppliedOnceRef.current = true;
-        runAsSystemWrite(() => setRenderOptions(derivedOptions));
-      } else {
-        setRenderOptions(derivedOptions);
-      }
+      // The derived options are a pure function of (mode,
+      // intensity), and EVERY user change to those fields is
+      // recorded synchronously at the intent fields themselves,
+      // on every call path: the mode/intensity handlers set them
+      // before calling this, presets set all three, and the
+      // display→intensity sync below is itself a derivation. So
+      // this write never solely carries user work and always
+      // runs as a system write. That matters beyond the first
+      // application: the automatic premium cap (fresh unpaid
+      // quick mount, seeded 70 capped to 60) changes intensity
+      // with no user gesture, and the derivation that follows it
+      // must not advance the edit generation either — otherwise
+      // the saved-map hydration baseline (anchored at restore)
+      // is defeated by pure initialization (audit B-01; Codex
+      // P1 on PR #549).
+      runAsSystemWrite(() => setRenderOptions(derivedOptions));
 
       onVisualOptionsApplied?.();
     },
-    [setRenderOptions, onVisualOptionsApplied, visualOptionsDriver]
+    [setRenderOptions, onVisualOptionsApplied]
   );
 
-  // Sync intensity with intensityDisplay (with debounce and premium cap)
+  // Sync intensity with intensityDisplay (with debounce and
+  // premium cap). The deferred write is a mechanical derivation
+  // of a value already recorded synchronously at its source —
+  // setIntensityDisplay / setIntensity on every handler and
+  // preset path — and on a fresh unpaid quick mount it is pure
+  // initialization: the seeded display value (70) is capped to
+  // 60 with no user gesture at all. It therefore runs as a
+  // system write; counting it as an edit would defeat saved-map
+  // hydration on exactly that mount sequence (Codex P1 on
+  // PR #549).
   useEffect(() => {
     let next = intensityDisplay;
     if (!paid && next > 60) {
       next = 60;
     }
     if (next === intensity) return;
-    const t = setTimeout(() => setIntensity(next), 200);
+    const t = setTimeout(() => {
+      runAsSystemWrite(() => setIntensity(next));
+    }, 200);
     return () => clearTimeout(t);
   }, [intensityDisplay, paid, intensity]);
 

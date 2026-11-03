@@ -512,9 +512,10 @@ const INTENT_EDIT_FIELDS = [
 
 /**
  * System-write scope (audit B-01). The editor's AUTOMATIC
- * initialization writes — the draft restore, the URL prefill, and
- * the driving hook's first visual-options application — run
- * inside runAsSystemWrite(). While the scope is active the
+ * writes — the draft restore, the URL prefill, the hook's
+ * derived visual-options applications, and the display→intensity
+ * sync (whose unpaid premium cap fires with no user gesture) —
+ * run inside runAsSystemWrite(). While the scope is active the
  * generation does not advance: initialization is not user work,
  * and the hydration baseline is anchored at restore completion,
  * so a user edit that lands at ANY point after restore — even
