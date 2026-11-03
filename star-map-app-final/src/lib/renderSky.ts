@@ -8,6 +8,7 @@ import {
   resolveShapeMaskFootprint,
 } from "@/lib/shapeLayout";
 import type { AspectRatio, Shape } from "@/lib/types";
+import { resolveFixedStarColor } from "@/lib/starColorMode";
 import { FONT_STACKS } from "@/lib/fonts";
 import { adjustColor, parseHexColor, parseRgbColor, toRgba } from "@/lib/colorUtils";
 import {
@@ -779,6 +780,9 @@ export function buildRecipeFromState(input: {
       visualMode: input.renderOptions?.visualMode ?? "illustrated",
       starIntensity: input.renderOptions?.starIntensity ?? "normal",
       starGlow: input.renderOptions?.starGlow ?? true,
+      ...(input.renderOptions?.starColorMode === "fixed" || input.renderOptions?.starColorMode === "spectral"
+        ? { starColorMode: input.renderOptions.starColorMode }
+        : {}),
       constellationLines: input.renderOptions?.constellationLines ?? "thin",
       constellationLabels: input.renderOptions?.constellationLabels ?? false,
       planetLabels: input.renderOptions?.planetLabels ?? false,
@@ -1267,6 +1271,8 @@ function drawStarLayer(
   const intensityFactor = STAR_INTENSITY_FACTORS[starIntensity].size;
   const intensityAlphaBoost = STAR_INTENSITY_FACTORS[starIntensity].alpha;
   const starGlowEnabled = renderOptions?.starGlow ?? true;
+  const fixedStarColor = resolveFixedStarColor(renderOptions?.starColorMode, styleProfile.useFixedStarColor, isParchment);
+  const fixedPremiumColor = resolveFixedStarColor(renderOptions?.starColorMode, false, isParchment);
   const baseGlow = mode?.glowBlur ?? 8;
   const glow = (starGlowEnabled ? baseGlow + 4 : baseGlow) * scale;
   const glowMagnitudeCutoff = 3.2;
@@ -1361,12 +1367,12 @@ function drawStarLayer(
     if (dropChance > 0 && randFromSeed((i + 1) * 43.73) < dropChance) continue;
 
     if (premiumStars && star.magnitude <= premiumThreshold) {
-      const premiumColor = typeof star.bv === "number" ? bvToRgb(star.bv) : getStarColor(i, star.magnitude);
+      const premiumColor = fixedPremiumColor ? palette.star : (typeof star.bv === "number" ? bvToRgb(star.bv) : getStarColor(i, star.magnitude));
       drawPremiumStar(ctx, star.x, star.y, radius, alpha, premiumColor, star.magnitude, i);
       continue;
     }
 
-    const color = styleProfile.useFixedStarColor
+    const color = fixedStarColor
       ? palette.star
       : (typeof star.bv === "number" ? bvToRgb(star.bv) : getStarColor(i, star.magnitude));
 

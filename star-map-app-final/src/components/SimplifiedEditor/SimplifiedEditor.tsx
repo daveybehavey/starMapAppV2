@@ -248,6 +248,7 @@ export function SimplifiedEditor() {
           // restores as classic (absent), never inheriting a
           // Double/Fine value the shared store already carries.
           frameStyle: draft.renderOptions.frameStyle,
+          starColorMode: draft.renderOptions.starColorMode,
         });
         useStore.getState().setSampleDesignLastAutoSynced(draft.sampleDesignLastAutoSynced);
         setMode("customizing");
@@ -309,7 +310,10 @@ export function SimplifiedEditor() {
           // restores as classic (absent), never inheriting the
           // fresh-session value by the merge.
           frameStyle: parsed.renderOptions.frameStyle,
+          starColorMode: parsed.renderOptions.starColorMode,
         });
+      } else {
+        setRenderOptions({ starColorMode: undefined });
       }
       const synced = parsed.sampleDesignLastAutoSynced;
       useStore.getState().setSampleDesignLastAutoSynced({
