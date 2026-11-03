@@ -123,11 +123,14 @@ export async function applyPrintfulPostSubmitReview(
  * review call — a shipment fact, a resolve, a newer annotation — was
  * silently reverted. Starting from `current` preserves all of it; the
  * review-owned fields are then applied as progress:
- * - the review stamps move to the reviewed state, except that a
- *   resolved state (healthy/failed) is never regressed by a STALE
- *   review (a fresher outcome may supersede a resolution — the
- *   checkedAt stamps decide), and a pending episode keeps its
- *   earliest pending-since;
+ * - the review stamps move to the reviewed state, except that NO
+ *   standing state (resolved or pending) is regressed by a STALE
+ *   review: an outcome older than the standing review stamp applies
+ *   none of its review fields (a fresher outcome may supersede —
+ *   the checkedAt stamps decide), and a pending episode keeps its
+ *   earliest pending-since. A stale outcome's DELIVERED alert
+ *   stamps are still reconciled — they evidence a send, and losing
+ *   one would re-send the alert on a later tick;
  * - the failure `error` is written only by a failed review;
  * - operator alert stamps are set only when the current record lacks
  *   them (a delivered stamp is never replaced by a later failure).
@@ -170,8 +173,23 @@ export function applyReviewOutcomeToCurrent(
       return null;
     }
   }
+  // Gate round 5 (local Codex seat P2-C): the freshness rule above
+  // guards only resolutions (a resolved standing state). An outcome
+  // older than the standing review stamp must not move ANY standing
+  // state: a delayed healthy outcome resuming behind a newer pending
+  // re-check otherwise replaced the newer state, cleared the
+  // episode's error and undelivered-alert residue, and stamped an
+  // approval that removed the order from sweep candidacy — and a
+  // same-state outcome could move fileReviewCheckedAt backward. A
+  // stale outcome therefore applies none of its review fields; its
+  // delivered alert stamps are still reconciled further down.
+  const outcomeStale =
+    reviewed.fileReviewState != null &&
+    current.fileReviewCheckedAt != null &&
+    reviewed.fileReviewCheckedAt != null &&
+    reviewed.fileReviewCheckedAt < current.fileReviewCheckedAt;
   const next: PrintOrderRecord = { ...current };
-  if (reviewed.fileReviewState) {
+  if (!outcomeStale && reviewed.fileReviewState) {
     next.fileReviewState = reviewed.fileReviewState;
     next.fileReviewCheckedAt = reviewed.fileReviewCheckedAt;
     if (reviewed.fileReviewState === "pending") {
@@ -193,7 +211,7 @@ export function applyReviewOutcomeToCurrent(
       next.fileReviewPendingAlertError = undefined;
     }
   }
-  if (reviewed.fileReviewState === "failed" && reviewed.error) {
+  if (!outcomeStale && reviewed.fileReviewState === "failed" && reviewed.error) {
     next.error = reviewed.error;
   }
   if (!current.operatorAlertedAt && reviewed.operatorAlertedAt) {
@@ -221,6 +239,7 @@ export function applyReviewOutcomeToCurrent(
     next.operatorFailureAlertError = reviewed.operatorFailureAlertError;
   }
   if (
+    !outcomeStale &&
     reviewed.fileReviewState === "healthy" &&
     (current.fileReviewState === "failed" || current.fileReviewState === "pending")
   ) {
@@ -242,6 +261,18 @@ export function applyReviewOutcomeToCurrent(
       next.operatorFailureAlertError = undefined;
       next.operatorFailureAlertProvider = undefined;
     }
+  }
+  if (outcomeStale) {
+    // Only the alert-stamp reconciliation above may survive a stale
+    // outcome; if it changed nothing, the outcome is refused whole.
+    const alertReconciled =
+      next.operatorAlertedAt !== current.operatorAlertedAt ||
+      next.operatorAlertProvider !== current.operatorAlertProvider ||
+      next.operatorAlertError !== current.operatorAlertError ||
+      next.operatorFailureAlertedAt !== current.operatorFailureAlertedAt ||
+      next.operatorFailureAlertProvider !== current.operatorFailureAlertProvider ||
+      next.operatorFailureAlertError !== current.operatorFailureAlertError;
+    if (!alertReconciled) return null;
   }
   return next;
 }

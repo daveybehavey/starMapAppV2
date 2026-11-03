@@ -276,3 +276,77 @@ test("F5 archive-ready: an initial email that already carried the archive still 
   assert.equal(result.reason, "archive_already_emailed");
   assert.equal(hdStubState.sends.length, 0);
 });
+
+test("F5 initial: a stale-read racing pass cannot release over a delivered retry (gate round 5, P2-A repro)", async () => {
+  resetHdStubState();
+  hdStubState.sendQueue = [
+    { delivered: false, provider: "resend", error: "resend_500" },
+    { delivered: true, provider: "resend" },
+  ];
+  const first = await trySendInitialHdPurchaseEmail(INPUT);
+  assert.equal(first.delivered, false);
+  assert.equal(hdStubState.sends.length, 1);
+
+  // Pass B reads the same failure sidecar, then stalls — the position
+  // of the local Codex seat's repro. Pass A runs the whole release +
+  // retry + delivered-outcome write while B holds its stale read.
+  let releaseGate;
+  const gatePromise = new Promise((resolve) => {
+    releaseGate = resolve;
+  });
+  hdStubState.kvReadGate = { keyIncludes: "hd-email:initial-result", onCount: 2, promise: gatePromise };
+
+  const passA = trySendInitialHdPurchaseEmail(INPUT);
+  const passB = trySendInitialHdPurchaseEmail(INPUT);
+  const resultA = await passA;
+  assert.equal(resultA.delivered, true, "the owning pass completes the retry");
+  assert.equal(hdStubState.sends.length, 2);
+
+  releaseGate();
+  const resultB = await passB;
+  assert.equal(resultB.reason, "already_sent", "the stale pass dispatches nothing");
+  assert.equal(hdStubState.sends.length, 2, "no duplicate send from the stale pass");
+  const sidecar = hdStubState.kv.get(ENTITLEMENT_KV.hdInitialEmailResult(SESSION));
+  assert.equal(typeof sidecar.deliveredAt, "number", "the delivered evidence survives the stale pass");
+  assert.equal(
+    hdStubState.kv.get(ENTITLEMENT_KV.accessEmailDedupe(SESSION)),
+    2,
+    "the claim was never deleted out from under the delivered retry: the counter holds the retry's claim plus the stale pass's rejected increment (the buggy flow reset it to 1 and dispatched)",
+  );
+});
+
+test("F5 archive-ready: a stale-read racing pass cannot release over a delivered retry (gate round 5, P2-A repro)", async () => {
+  resetHdStubState();
+  seedArchiveSession();
+  hdStubState.sendQueue = [
+    { delivered: false, provider: "resend", error: "resend_500" },
+    { delivered: true, provider: "resend" },
+  ];
+  const first = await trySendHdArchiveReadyEmail({ siteOrigin: "https://starmapco.com", sessionId: SESSION });
+  assert.equal(first.delivered, false);
+  assert.equal(hdStubState.sends.length, 1);
+
+  let releaseGate;
+  const gatePromise = new Promise((resolve) => {
+    releaseGate = resolve;
+  });
+  hdStubState.kvReadGate = { keyIncludes: "hd-email:archive-result", onCount: 2, promise: gatePromise };
+
+  const passA = trySendHdArchiveReadyEmail({ siteOrigin: "https://starmapco.com", sessionId: SESSION });
+  const passB = trySendHdArchiveReadyEmail({ siteOrigin: "https://starmapco.com", sessionId: SESSION });
+  const resultA = await passA;
+  assert.equal(resultA.delivered, true, "the owning pass completes the retry");
+  assert.equal(hdStubState.sends.length, 2);
+
+  releaseGate();
+  const resultB = await passB;
+  assert.equal(resultB.reason, "archive_email_already_sent", "the stale pass dispatches nothing");
+  assert.equal(hdStubState.sends.length, 2, "no duplicate follow-up from the stale pass");
+  const sidecar = hdStubState.kv.get(ENTITLEMENT_KV.hdArchiveEmailResult(SESSION));
+  assert.equal(typeof sidecar.deliveredAt, "number", "the delivered evidence survives the stale pass");
+  assert.equal(
+    hdStubState.kv.get(ENTITLEMENT_KV.hdArchiveEmailDedupe(SESSION)),
+    2,
+    "the claim was never deleted out from under the delivered retry: the counter holds the retry's claim plus the stale pass's rejected increment (the buggy flow reset it to 1 and dispatched)",
+  );
+});

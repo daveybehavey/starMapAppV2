@@ -146,8 +146,17 @@ export function applyReviewOutcomeToCurrent(current, reviewed) {
       return null;
     }
   }
+  // Mirror of printFulfillmentPostSubmit.ts (gate round 5): an
+  // outcome older than the standing review stamp applies none of
+  // its review fields, whatever the standing state (resolved or
+  // pending); only its delivered alert stamps are reconciled below.
+  const outcomeStale =
+    reviewed.fileReviewState != null &&
+    current.fileReviewCheckedAt != null &&
+    reviewed.fileReviewCheckedAt != null &&
+    reviewed.fileReviewCheckedAt < current.fileReviewCheckedAt;
   const next = { ...current };
-  if (reviewed.fileReviewState) {
+  if (!outcomeStale && reviewed.fileReviewState) {
     next.fileReviewState = reviewed.fileReviewState;
     next.fileReviewCheckedAt = reviewed.fileReviewCheckedAt;
     if (reviewed.fileReviewState === "pending") {
@@ -169,7 +178,7 @@ export function applyReviewOutcomeToCurrent(current, reviewed) {
       next.fileReviewPendingAlertError = undefined;
     }
   }
-  if (reviewed.fileReviewState === "failed" && reviewed.error) {
+  if (!outcomeStale && reviewed.fileReviewState === "failed" && reviewed.error) {
     next.error = reviewed.error;
   }
   if (!current.operatorAlertedAt && reviewed.operatorAlertedAt) {
@@ -193,6 +202,7 @@ export function applyReviewOutcomeToCurrent(current, reviewed) {
     next.operatorFailureAlertError = reviewed.operatorFailureAlertError;
   }
   if (
+    !outcomeStale &&
     reviewed.fileReviewState === "healthy" &&
     (current.fileReviewState === "failed" || current.fileReviewState === "pending")
   ) {
@@ -208,6 +218,18 @@ export function applyReviewOutcomeToCurrent(current, reviewed) {
       next.operatorFailureAlertError = undefined;
       next.operatorFailureAlertProvider = undefined;
     }
+  }
+  if (outcomeStale) {
+    // Only the alert-stamp reconciliation above may survive a stale
+    // outcome; if it changed nothing, the outcome is refused whole.
+    const alertReconciled =
+      next.operatorAlertedAt !== current.operatorAlertedAt ||
+      next.operatorAlertProvider !== current.operatorAlertProvider ||
+      next.operatorAlertError !== current.operatorAlertError ||
+      next.operatorFailureAlertedAt !== current.operatorFailureAlertedAt ||
+      next.operatorFailureAlertProvider !== current.operatorFailureAlertProvider ||
+      next.operatorFailureAlertError !== current.operatorFailureAlertError;
+    if (!alertReconciled) return null;
   }
   return next;
 }

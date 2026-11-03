@@ -102,15 +102,32 @@ export function createPrintOrderReviewSweepStore(
       if (shouldRejectNonterminalKvMirror(lifecycle)) {
         return { outcome: "skipped", reason: "authority_terminal_failure" };
       }
+      // Gate round 5 (local Codex seat P2-B): the authority read above
+      // is a wide window — a shipment write (shippedAt/tracking) or an
+      // operator resolve can land in KV while it is awaited, and the
+      // merge was computed from the record read BEFORE it, so putting
+      // that snapshot would erase the concurrent write (losing
+      // shippedAt also re-exposes the order to review and alerts).
+      // Re-read and re-merge onto the freshest record: if the order
+      // no longer describes the reviewed one in `sent`, the merge
+      // refuses and nothing is written; otherwise the concurrent
+      // fields survive by construction. Between this re-read and the
+      // put there are no awaits — the residual is the same read->put
+      // KV no-CAS window every writer in this family documents.
+      const fresh = await ns.get<PrintOrderRecord>(key, "json");
+      const remerged = applyReviewOutcomeToCurrent(fresh, record);
+      if (!remerged) {
+        return { outcome: "skipped", reason: "review_state_changed" };
+      }
       // A bare KV put would strip the record's creation-anchored TTL
       // and make a PII-bearing order record permanent — always re-apply
       // the remaining retention, and refuse (skip) when it has run out,
       // exactly as persistPrintOrderRecord decides for route writers.
-      const plan = resolvePrintOrderKvWrite(merged.createdAt);
+      const plan = resolvePrintOrderKvWrite(remerged.createdAt);
       if (plan.action === "delete") {
         return { outcome: "skipped", reason: "unretainable" };
       }
-      await ns.put(key, JSON.stringify(merged), {
+      await ns.put(key, JSON.stringify(remerged), {
         expirationTtl: plan.ttlSeconds,
       });
       return { outcome: "persisted" };

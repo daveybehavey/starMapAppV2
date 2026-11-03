@@ -33,7 +33,17 @@ const HD_ARCHIVE_EMAIL_TTL_SECONDS = 45 * 24 * 60 * 60;
  */
 type HdEmailResultRecordWithReleaseState = HdEmailResultRecord & {
   releaseConsumedAt?: number;
+  releaseId?: string;
 };
+
+let releaseSequence = 0;
+
+function newReleaseId(): string {
+  releaseSequence += 1;
+  return `rel_${Date.now().toString(36)}_${releaseSequence.toString(36)}_${Math.random()
+    .toString(36)
+    .slice(2, 10)}`;
+}
 
 /**
  * Consume a recorded failure sidecar and release its dedupe claim —
@@ -54,19 +64,59 @@ type HdEmailResultRecordWithReleaseState = HdEmailResultRecord & {
  * not a send). The next pass re-reads the stamped sidecar and resumes
  * at the first incomplete step — a transient delete failure delays
  * the retry by one pass instead of sealing the session's email.
+ *
+ * Ownership (gate round 5, local Codex seat P2-A): the protocol above
+ * made an interrupted release resumable but gave concurrent releasers
+ * no exclusion — two passes holding the same failure read could both
+ * release, and the slower one stamped over the faster one's DELIVERED
+ * sidecar, deleted its fresh claim, re-incremented to 1 and sent a
+ * duplicate. The release therefore re-reads the sidecar before
+ * mutating anything: the caller's `prior` is only the trigger, never
+ * the authority. An absent sidecar (a concurrent release completed)
+ * or a delivered one (a concurrent retry already delivered) ends the
+ * release untouched, and the stamp carries a `releaseId`: the pass
+ * that stamps owns the release, a pass that finds a stamp adopts that
+ * release, and ownership is re-verified immediately before each
+ * delete, so a pass whose view went stale mid-release backs out
+ * before it can destroy a fresh claim or delivered evidence. Two
+ * passes adopting the SAME stamped release may both run the deletes
+ * (they are idempotent); the caller's atomic claim increment remains
+ * the final arbiter of who dispatches.
  */
 async function consumeFailureEvidenceAndReleaseClaim(input: {
   sidecarKey: string;
   claimKey: string;
   prior: HdEmailResultRecordWithReleaseState;
 }): Promise<void> {
-  if (input.prior.releaseConsumedAt == null) {
+  const readStanding = () =>
+    kv.getErrorPreserving<HdEmailResultRecordWithReleaseState>(input.sidecarKey);
+
+  const fresh = await readStanding();
+  if (fresh == null) return;
+  if (fresh.deliveredAt != null) return;
+
+  let releaseId = fresh.releaseId;
+  if (fresh.releaseConsumedAt == null) {
+    releaseId = newReleaseId();
     await kv.setDurable(input.sidecarKey, {
-      ...input.prior,
+      ...fresh,
       releaseConsumedAt: Date.now(),
+      releaseId,
     });
   }
+
+  const stillOwned = async (): Promise<boolean> => {
+    const standing = await readStanding();
+    return (
+      standing != null &&
+      standing.deliveredAt == null &&
+      standing.releaseConsumedAt != null &&
+      standing.releaseId === releaseId
+    );
+  };
+  if (!(await stillOwned())) return;
   await kv.deleteDurable(input.claimKey);
+  if (!(await stillOwned())) return;
   await kv.deleteDurable(input.sidecarKey);
 }
 
@@ -157,9 +207,9 @@ export async function trySendInitialHdPurchaseEmail(input: {
   // record keeps the claim; an absent or unreadable sidecar changes
   // nothing, so an outcome lost after dispatch keeps the S93-1
   // exactly-once residual rather than risking a duplicate email. (The
-  // delete + re-claim is not atomic — two passes racing the release
-  // could both dispatch; that needs a prior recorded failure AND
-  // overlapping passes, and the counter bounds every later attempt.)
+  // release is ownership-checked — see the helper: a pass acting on a
+  // stale read of this sidecar can neither stamp over a delivered
+  // record nor delete a concurrent pass's fresh claim.)
   let priorInitialResult: HdEmailResultRecord | null = null;
   try {
     priorInitialResult = await kv.getErrorPreserving<HdEmailResultRecord>(

@@ -7,7 +7,15 @@ export const kv = {
   },
   async getErrorPreserving(key) {
     if (hdStubState.kvReadThrows) throw new Error("kv_read_failed");
-    return hdStubState.kv.get(key) ?? null;
+    const value = hdStubState.kv.get(key) ?? null;
+    const gate = hdStubState.kvReadGate;
+    if (gate && key.includes(gate.keyIncludes)) {
+      hdStubState.kvReadGateCount += 1;
+      if (hdStubState.kvReadGateCount === gate.onCount) {
+        await gate.promise;
+      }
+    }
+    return value;
   },
   async setDurable(key, value) {
     if (hdStubState.kvSetThrows) throw new Error("kv_set_failed");
