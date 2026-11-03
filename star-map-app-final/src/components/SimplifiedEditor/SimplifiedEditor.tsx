@@ -244,6 +244,10 @@ export function SimplifiedEditor() {
           // as the legacy default (absent), never inheriting the
           // fresh-session value by the merge.
           bortleClass: draft.renderOptions.bortleClass,
+          // Same pin for the frame style (#503): a draft without one
+          // restores as classic (absent), never inheriting a
+          // Double/Fine value the shared store already carries.
+          frameStyle: draft.renderOptions.frameStyle,
         });
         useStore.getState().setSampleDesignLastAutoSynced(draft.sampleDesignLastAutoSynced);
         setMode("customizing");
@@ -301,6 +305,10 @@ export function SimplifiedEditor() {
           // as the legacy default (absent), never inheriting the
           // fresh-session value by the merge.
           bortleClass: parsed.renderOptions.bortleClass,
+          // Same pin for the frame style (#503): a draft without one
+          // restores as classic (absent), never inheriting the
+          // fresh-session value by the merge.
+          frameStyle: parsed.renderOptions.frameStyle,
         });
       }
       const synced = parsed.sampleDesignLastAutoSynced;

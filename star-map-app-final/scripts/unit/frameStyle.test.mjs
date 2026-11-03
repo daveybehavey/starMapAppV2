@@ -49,6 +49,7 @@ const renderPresets = read("../../src/lib/renderPresets.ts");
 const editorExperience = read("../../src/components/EditorExperience.tsx");
 const mobileCreate = read("../../src/app/MobileCreate.tsx");
 const mapsRoute = read("../../src/app/api/maps/route.ts");
+const simplifiedEditor = read("../../src/components/SimplifiedEditor/SimplifiedEditor.tsx");
 
 // Size ladder: [width, height] with the renderer's scale = width / 1200.
 const LADDER = [
@@ -201,6 +202,15 @@ test("source pins: the option is modelled, validated, rebuilt and rendered", () 
   assert.ok(
     editorExperience.includes("frameStyle: recipe.renderOptions.frameStyle,"),
     "map hydration restores frameStyle explicitly, including its absence",
+  );
+  assert.ok(
+    editorExperience.includes("frameStyle: draft.renderOptions.frameStyle,"),
+    "EditorExperience draft restore restores frameStyle explicitly, including its absence",
+  );
+  assert.ok(
+    simplifiedEditor.includes("frameStyle: draft.renderOptions.frameStyle,") &&
+      simplifiedEditor.includes("frameStyle: parsed.renderOptions.frameStyle,"),
+    "SimplifiedEditor draft restores restore frameStyle explicitly, including its absence",
   );
 });
 

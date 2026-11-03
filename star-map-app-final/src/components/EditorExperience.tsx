@@ -886,6 +886,10 @@ export function EditorExperience({
           // as the legacy default (absent), never inheriting the
           // fresh-session value by the merge.
           bortleClass: draft.renderOptions.bortleClass,
+          // Same pin for the frame style (#503): a draft without one
+          // restores as classic (absent), never inheriting a
+          // Double/Fine value the shared store already carries.
+          frameStyle: draft.renderOptions.frameStyle,
         },
         sampleDesignLastAutoSynced: draft.sampleDesignLastAutoSynced,
         // Same confirmed-location predicate as Generate / auto-reveal — a named
