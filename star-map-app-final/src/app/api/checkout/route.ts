@@ -32,6 +32,7 @@ import {
   canUseManualPromotionCode,
   isManualPromotionCompatibleWithOrder,
   selectCheckoutPromotion,
+  shouldFallbackOnDiscountError,
   type PromotionSource,
 } from "@/lib/checkoutPromotions";
 import { PREMIUM_COOKIE_NAME } from "@/lib/premium";
@@ -1979,8 +1980,8 @@ export async function GET(req: NextRequest) {
       promotionCodeId: selectedPromotion.promotionCodeId,
       resolvedPromotionCode: selectedPromotion.source === "manual" ? promotion.promotionCode : undefined,
       promotionSource: selectedPromotion.source,
-      // Manual DIGITAL codes: no full-price fallback session. Print manual codes keep the historic drop-and-continue (retry without discount; the hosted page allows re-entry). Referral-auto / no-code keep retry-without-discount.
-      fallbackOnDiscountError: orderType === "print" || selectedPromotion.source !== "manual",
+      // Manual codes (any order type): no full-price fallback session — a Stripe rejection of a site-validated manual code surfaces as promotion_not_applicable (#554). Referral-auto / no-code keep retry-without-discount (no shopper-typed promise to break).
+      fallbackOnDiscountError: shouldFallbackOnDiscountError(selectedPromotion.source),
       orderType,
       printVariant,
       includeDigitalAddOn,
@@ -2430,8 +2431,8 @@ export async function POST(req: NextRequest) {
       promotionCodeId: selectedPromotion.promotionCodeId,
       resolvedPromotionCode: selectedPromotion.source === "manual" ? promotion.promotionCode : undefined,
       promotionSource: selectedPromotion.source,
-      // Manual DIGITAL codes: no full-price fallback session. Print manual codes keep the historic drop-and-continue (retry without discount; the hosted page allows re-entry). Referral-auto / no-code keep retry-without-discount.
-      fallbackOnDiscountError: orderType === "print" || selectedPromotion.source !== "manual",
+      // Manual codes (any order type): no full-price fallback session — a Stripe rejection of a site-validated manual code surfaces as promotion_not_applicable (#554). Referral-auto / no-code keep retry-without-discount (no shopper-typed promise to break).
+      fallbackOnDiscountError: shouldFallbackOnDiscountError(selectedPromotion.source),
       orderType,
       printVariant,
       includeDigitalAddOn,

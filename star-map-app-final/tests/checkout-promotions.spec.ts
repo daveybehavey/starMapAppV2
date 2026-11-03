@@ -8,6 +8,7 @@ import {
   isManualPromotionCompatibleWithOrder,
   resolveEditorCheckoutPromoCode,
   selectCheckoutPromotion,
+  shouldFallbackOnDiscountError,
 } from "../src/lib/checkoutPromotions";
 
 test.describe("checkout promotion selection", () => {
@@ -176,6 +177,12 @@ test.describe("checkout promotion selection", () => {
         sessionHasDiscount: true,
       })
     ).toEqual({ ok: true });
+  });
+
+  test("discount-error fallback: manual never falls back; referral_auto/none keep the retry (#554)", () => {
+    expect(shouldFallbackOnDiscountError("manual")).toBe(false);
+    expect(shouldFallbackOnDiscountError("referral_auto")).toBe(true);
+    expect(shouldFallbackOnDiscountError("none")).toBe(true);
   });
 
   test("cleared editor promo field does not fall back to URL code", () => {
