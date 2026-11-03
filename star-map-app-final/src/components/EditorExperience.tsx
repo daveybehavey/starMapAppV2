@@ -1086,6 +1086,11 @@ export function EditorExperience({
           // a non-default value from the draft-restored session state
           // this merge runs against.
           bortleClass: recipe.renderOptions.bortleClass,
+          // Same pin for the frame style (#503): a saved design
+          // without one hydrates as classic (absent), never inheriting
+          // a Double/Fine selection from the draft-restored session
+          // state this merge runs against.
+          frameStyle: recipe.renderOptions.frameStyle,
         });
       }
       if (recipe.selectedOccasion) {

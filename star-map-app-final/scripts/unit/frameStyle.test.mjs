@@ -48,6 +48,7 @@ const textFit = read("../../src/lib/textFit.ts");
 const renderPresets = read("../../src/lib/renderPresets.ts");
 const editorExperience = read("../../src/components/EditorExperience.tsx");
 const mobileCreate = read("../../src/app/MobileCreate.tsx");
+const mapsRoute = read("../../src/app/api/maps/route.ts");
 
 // Size ladder: [width, height] with the renderer's scale = width / 1200.
 const LADDER = [
@@ -192,6 +193,14 @@ test("source pins: the option is modelled, validated, rebuilt and rendered", () 
     renderSky.includes("frameStyle:") &&
       renderSky.includes('input.renderOptions?.frameStyle === "double"'),
     "buildRecipeFromState rides frameStyle through rebuilds verbatim",
+  );
+  assert.ok(
+    mapsRoute.includes('"frameStyle",'),
+    "the /api/maps sanitizer allowlist persists frameStyle (save/load round trip)",
+  );
+  assert.ok(
+    editorExperience.includes("frameStyle: recipe.renderOptions.frameStyle,"),
+    "map hydration restores frameStyle explicitly, including its absence",
   );
 });
 
