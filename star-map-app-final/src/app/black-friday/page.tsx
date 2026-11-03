@@ -17,7 +17,7 @@ const breadcrumbs = [
 ];
 const title = "Black Friday Star Map Gifts | StarMapCo";
 const description =
-  "Plan your Black Friday star map gift. Explore our physical catalogue, prices, and Christmas order-by dates. BLACKFRIDAY25 activates Nov 27.";
+  "Plan your Black Friday star map gift. Explore our physical catalogue, prices, and Christmas order-by dates. Up to 25% off prints with BLACKFRIDAY25, Nov 27–Dec 2.";
 
 export const metadata: Metadata = {
   title,
@@ -52,6 +52,14 @@ export default function BlackFridayPage() {
     day: "2-digit",
   }).format(new Date());
   const earlyChristmasOffer = today >= "2026-11-01" && today < "2026-11-27";
+  // Real-clock phases only: before Nov 27 the code is upcoming (never live
+  // today), Nov 27–Dec 2 it is live, after Dec 2 the campaign is over.
+  const blackFridayOffer =
+    today >= "2026-11-27" && today <= "2026-12-02"
+      ? "BLACKFRIDAY25 is live now: up to 25% off prints through Dec 2, 2026."
+      : today < "2026-11-27"
+        ? "BLACKFRIDAY25 (up to 25% off prints) activates Nov 27, 2026 and runs through Dec 2."
+        : null;
 
   return (
     <main className="mx-auto max-w-6xl space-y-10 px-4 pt-10 pb-12 sm:px-6 sm:pt-14">
@@ -90,9 +98,11 @@ export default function BlackFridayPage() {
             Available now: 15% off prints with code XMAS15.
           </p>
         ) : null}
-        <p className="mt-3 text-base" data-testid="upcoming-offer">
-          BLACKFRIDAY25 (25%) activates Nov 27, 2026.
-        </p>
+        {blackFridayOffer ? (
+          <p className="mt-3 text-base" data-testid="blackfriday-offer">
+            {blackFridayOffer}
+          </p>
+        ) : null}
         <p className="mt-2 text-sm text-neutral-700">
           Seasonal codes apply to prints only; HD digital is excluded. Enter your code at checkout. Catalogue
           prices below are shown before discounts. Shipping and taxes are shown at checkout.

@@ -10,15 +10,23 @@ for (const width of [390, 1280]) {
     const main = page.getByRole("main");
     await expect(page.locator("[data-site-chrome-banner]")).toHaveCount(0);
     await expect(main.getByRole("heading", { level: 1 })).toBeVisible();
-    await expect(main.getByTestId("upcoming-offer")).toHaveText(
-      "BLACKFRIDAY25 (25%) activates Nov 27, 2026."
-    );
     const today = new Intl.DateTimeFormat("en-CA", {
       timeZone: "America/Los_Angeles",
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
     }).format(new Date());
+    const blackFridayText =
+      today >= "2026-11-27" && today <= "2026-12-02"
+        ? "BLACKFRIDAY25 is live now: up to 25% off prints through Dec 2, 2026."
+        : today < "2026-11-27"
+          ? "BLACKFRIDAY25 (up to 25% off prints) activates Nov 27, 2026 and runs through Dec 2."
+          : null;
+    if (blackFridayText) {
+      await expect(main.getByTestId("blackfriday-offer")).toHaveText(blackFridayText);
+    } else {
+      await expect(main.getByTestId("blackfriday-offer")).toHaveCount(0);
+    }
     if (today >= "2026-11-01" && today < "2026-11-27") {
       await expect(main.getByTestId("current-offer")).toHaveText(
         "Available now: 15% off prints with code XMAS15."
