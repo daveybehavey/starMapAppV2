@@ -43,7 +43,7 @@ const productImages: Record<PrintVariant, string> = {
 };
 
 const primaryCta =
-  "inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-amber-300";
+  "inline-flex min-h-11 items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold text-midnight shadow-md transition hover:-translate-y-[1px] focus-visible:outline-2 focus-visible:outline-offset-4";
 
 export default function BlackFridayPage() {
   const today = new Intl.DateTimeFormat("en-CA", {
@@ -78,7 +78,7 @@ export default function BlackFridayPage() {
           preview, then choose your physical gift.
         </p>
         <div className="flex flex-wrap justify-center gap-3">
-          <Link href="#catalogue" className={primaryCta}>
+          <Link href="#catalogue" className={`${primaryCta} focus-visible:outline-amber-300`}>
             Explore the catalogue
           </Link>
           <Link
@@ -147,7 +147,7 @@ export default function BlackFridayPage() {
                   <Link
                     href={`/editor?mode=quick&source=black-friday-${product.id}&checkout=print&print_variant=${product.id}`}
                     prefetch={false}
-                    className={`${primaryCta} mt-auto`}
+                    className={`${primaryCta} mt-auto focus-visible:outline-midnight`}
                   >
                     Customize {product.labelFallback}
                   </Link>
@@ -215,7 +215,7 @@ export default function BlackFridayPage() {
       <footer className="space-y-4 text-center">
         <h2 className="text-2xl font-semibold text-white">Start with the sky you share</h2>
         <p className="text-neutral-200">Choose a date and place, then make the design your own.</p>
-        <Link href="/editor?mode=quick&source=black-friday-footer" prefetch={false} className={primaryCta}>
+        <Link href="/editor?mode=quick&source=black-friday-footer" prefetch={false} className={`${primaryCta} focus-visible:outline-amber-300`}>
           Preview your star map
         </Link>
       </footer>
