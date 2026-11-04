@@ -266,6 +266,7 @@ export function MobileCreate({
       textOverflow,
       shape,
       frameEnabled: resolveTextFitFrameEnabled("preview", renderOptions),
+      shapeLayoutVersion: renderOptions?.shapeLayoutVersion,
     });
     const signature = [...textOverflow].sort().join(",");
     if (signature !== preRevealOverflowSignatureRef.current) {

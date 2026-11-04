@@ -167,6 +167,38 @@ test("the set is rebuilt on every render — no stale ids", () => {
   assert.equal(textOverflow.size, 0);
 });
 
+test("shape-layout version changes the verdict for v2 shaped masks (PR #559 bot finding)", () => {
+  // Diamond at 600x900, a centred row low in the mask (y = 0.72):
+  // legacy stretched-mask geometry fits 13 chars at size 64, but the
+  // v2 geometry the preview actually uses does not — the fitted line
+  // spills there. A caller that omits shapeLayoutVersion silently
+  // suppresses a real overflow, which is why both panels' pre-reveal
+  // computations pass the design's version explicitly.
+  const diamondBox = box({
+    text: "z".repeat(13),
+    size: 64,
+    position: { x: 0.5, y: 0.72 },
+  });
+  const renderDiamond = (extra) => {
+    const { canvas } = makeHarness();
+    const textOverflow = new Set();
+    renderStarMapTextLayer({
+      canvas,
+      width: 600,
+      height: 900,
+      textBoxes: [diamondBox],
+      pixelRatio: 1,
+      textOverflow,
+      shape: "diamond",
+      frameEnabled: true,
+      ...extra,
+    });
+    return textOverflow;
+  };
+  assert.equal(renderDiamond({}).size, 0);
+  assert.deepEqual([...renderDiamond({ shapeLayoutVersion: 2 })], ["title"]);
+});
+
 test("painting is identical with and without the overflow option", () => {
   const boxes = [box({ text: LONG_240, size: 64 }), box({ id: "subtitle", text: "June 14, 2026" })];
   const withOption = renderLayer(boxes);
@@ -236,4 +268,19 @@ test("wiring: mobile computes the report pre-reveal through the shared text laye
   assert.match(source, /renderStarMapTextLayer\(\{/);
   assert.match(source, /if \(revealed\) return;/);
   assert.match(source, /preRevealOverflowSignatureRef/);
+  // The offscreen call carries the design's shape-layout version,
+  // like PreviewCanvas's own call — omitting it fits against legacy
+  // mask geometry and can suppress a real warning.
+  assert.match(source, /shapeLayoutVersion: renderOptions\?\.shapeLayoutVersion/);
+});
+
+test("wiring: desktop computes the report pre-reveal too (PR #559 bot finding)", () => {
+  // EditorExperience has the same reveal gate as mobile: its
+  // PreviewCanvas also mounts only once revealed, so the desktop
+  // guided inputs need the same offscreen pre-reveal computation.
+  const source = read("../../src/components/EditorExperience.tsx");
+  assert.match(source, /renderStarMapTextLayer\(\{/);
+  assert.match(source, /if \(revealed\) return;/);
+  assert.match(source, /preRevealOverflowSignatureRef/);
+  assert.match(source, /shapeLayoutVersion: renderOptions\?\.shapeLayoutVersion/);
 });

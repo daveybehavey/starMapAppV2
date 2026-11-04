@@ -9,6 +9,7 @@ import {
   buildRecipeFromState,
   formatDateTimeForLocation,
   renderStarMap,
+  renderStarMapTextLayer,
 } from "@/lib/renderSky";
 import { getExportDimensions } from "@/lib/aspectRatio";
 import { ASPECT_OPTIONS } from "@/lib/aspectOptions";
@@ -62,6 +63,7 @@ import {
   applyMapLookTier,
   applyTierTypographyProtected,
   resolveMapLookTier,
+  resolveTextFitFrameEnabled,
   type MapLookTier,
 } from "@/lib/mapLookTiers";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -332,6 +334,43 @@ export function EditorExperience({
     applyPreset: hookApplyPreset,
     applyProPreset,
   } = useEditorLogic({ variant, onVisualOptionsApplied });
+
+  // #555 (PR #559 bot finding): the guided "Your Message" inputs render
+  // BEFORE the first reveal, while PreviewCanvas is not yet mounted —
+  // so no canvas publishes the overflow report for them and their
+  // warnings could never fire. Until reveal, compute the same report
+  // here through the shared text-layer renderer on an offscreen canvas
+  // (same fit code path, same shape/frame/layout-version inputs,
+  // reference dimensions at the recipe's aspect ratio). After reveal
+  // PreviewCanvas owns publishing and this effect stands down. Mirrors
+  // the identical pre-reveal computation in MobileCreate.
+  const preRevealOverflowCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const preRevealOverflowSignatureRef = useRef<string>("");
+  useEffect(() => {
+    if (revealed) return;
+    const canvas =
+      preRevealOverflowCanvasRef.current ?? document.createElement("canvas");
+    preRevealOverflowCanvasRef.current = canvas;
+    const width = 600;
+    const height = Math.max(1, Math.round(width / aspectRatioToNumber(aspectRatio)));
+    const textOverflow = new Set<string>();
+    renderStarMapTextLayer({
+      canvas,
+      width,
+      height,
+      textBoxes,
+      pixelRatio: 1,
+      textOverflow,
+      shape,
+      frameEnabled: resolveTextFitFrameEnabled("preview", renderOptions),
+      shapeLayoutVersion: renderOptions?.shapeLayoutVersion,
+    });
+    const signature = [...textOverflow].sort().join(",");
+    if (signature !== preRevealOverflowSignatureRef.current) {
+      preRevealOverflowSignatureRef.current = signature;
+      setTextOverflowBoxIds(textOverflow);
+    }
+  }, [revealed, textBoxes, shape, aspectRatio, renderOptions]);
 
   // PROD-SM W2-4 (#490): the occasion caption is generated from the
   // design's existing location/date data; null when that data is
