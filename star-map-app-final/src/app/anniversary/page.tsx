@@ -285,7 +285,7 @@ export default function AnniversaryPage() {
             alt: "Framed anniversary star map with light wood frame",
           },
           {
-            src: "/home-mockups/offer-framed-print.png",
+            src: "/home-mockups/offer-framed-print.webp",
             alt: "Framed anniversary star map print mockup",
             aspect: "16:9",
           },
