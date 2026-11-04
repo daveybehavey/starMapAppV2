@@ -444,19 +444,17 @@ test("reusable deploy workflow still runs checkout → npm ci → unit → Cloud
 });
 
 /**
- * Mirrors deploy-production.yml Cloudflare auth env selection and Wrangler 4.95
- * getAuthFromEnv() precedence (legacy key/email before token when both are set).
+ * Mirrors deploy-production.yml Cloudflare auth env selection. The workflow
+ * exports the CLOUDFLARE_API_KEY + CLOUDFLARE_EMAIL secrets directly: that
+ * key/email pair is the only auth scheme configured for this repo (no
+ * CLOUDFLARE_API_TOKEN secret exists), so Wrangler legacy auth applies.
  */
 function selectCloudflareDeployAuthEnvs(secrets) {
-  const token = secrets.CLOUDFLARE_API_TOKEN ?? "";
   const apiKey = secrets.CLOUDFLARE_API_KEY ?? "";
   const email = secrets.CLOUDFLARE_EMAIL ?? "";
-  // GHA: secrets.CLOUDFLARE_API_TOKEN == '' && secrets.CLOUDFLARE_API_KEY || ''
-  const exportLegacy = token === "";
   return {
-    CLOUDFLARE_API_TOKEN: token,
-    CLOUDFLARE_API_KEY: exportLegacy ? apiKey : "",
-    CLOUDFLARE_EMAIL: exportLegacy ? email : "",
+    CLOUDFLARE_API_KEY: apiKey,
+    CLOUDFLARE_EMAIL: email,
   };
 }
 
@@ -466,46 +464,41 @@ function wranglerAuthModeFromEnv(env) {
   return "none";
 }
 
-test("token-present blanks legacy envs so Wrangler uses token; token-absent keeps legacy fallback", () => {
+test("key/email secrets are exported verbatim; missing either leaves Wrangler unauthenticated", () => {
   const bothPresent = selectCloudflareDeployAuthEnvs({
-    CLOUDFLARE_API_TOKEN: "token-value",
     CLOUDFLARE_API_KEY: "legacy-key",
     CLOUDFLARE_EMAIL: "ops@example.test",
   });
-  assert.equal(bothPresent.CLOUDFLARE_API_TOKEN, "token-value");
-  assert.equal(bothPresent.CLOUDFLARE_API_KEY, "");
-  assert.equal(bothPresent.CLOUDFLARE_EMAIL, "");
-  assert.equal(wranglerAuthModeFromEnv(bothPresent), "token");
+  assert.equal(bothPresent.CLOUDFLARE_API_KEY, "legacy-key");
+  assert.equal(bothPresent.CLOUDFLARE_EMAIL, "ops@example.test");
+  // The deploy env carries no token entry at all.
+  assert.equal("CLOUDFLARE_API_TOKEN" in bothPresent, false);
+  assert.equal(wranglerAuthModeFromEnv(bothPresent), "legacy");
 
-  // Without selection, Wrangler would still prefer legacy — regression guard.
-  assert.equal(
-    wranglerAuthModeFromEnv({
-      CLOUDFLARE_API_TOKEN: "token-value",
-      CLOUDFLARE_API_KEY: "legacy-key",
-      CLOUDFLARE_EMAIL: "ops@example.test",
-    }),
-    "legacy",
-  );
-
-  const tokenAbsent = selectCloudflareDeployAuthEnvs({
-    CLOUDFLARE_API_TOKEN: "",
+  const keyOnly = selectCloudflareDeployAuthEnvs({
     CLOUDFLARE_API_KEY: "legacy-key",
+    CLOUDFLARE_EMAIL: "",
+  });
+  assert.equal(keyOnly.CLOUDFLARE_API_KEY, "legacy-key");
+  assert.equal(keyOnly.CLOUDFLARE_EMAIL, "");
+  assert.equal(wranglerAuthModeFromEnv(keyOnly), "none");
+
+  const emailOnly = selectCloudflareDeployAuthEnvs({
+    CLOUDFLARE_API_KEY: "",
     CLOUDFLARE_EMAIL: "ops@example.test",
   });
-  assert.equal(tokenAbsent.CLOUDFLARE_API_TOKEN, "");
-  assert.equal(tokenAbsent.CLOUDFLARE_API_KEY, "legacy-key");
-  assert.equal(tokenAbsent.CLOUDFLARE_EMAIL, "ops@example.test");
-  assert.equal(wranglerAuthModeFromEnv(tokenAbsent), "legacy");
+  assert.equal(emailOnly.CLOUDFLARE_API_KEY, "");
+  assert.equal(emailOnly.CLOUDFLARE_EMAIL, "ops@example.test");
+  assert.equal(wranglerAuthModeFromEnv(emailOnly), "none");
 
   const neither = selectCloudflareDeployAuthEnvs({
-    CLOUDFLARE_API_TOKEN: "",
     CLOUDFLARE_API_KEY: "",
     CLOUDFLARE_EMAIL: "",
   });
   assert.equal(wranglerAuthModeFromEnv(neither), "none");
 });
 
-test("deploy-production Cloudflare step prefers token and falls back to legacy without printing secrets", () => {
+test("deploy-production Cloudflare step exports key/email secrets directly and never references the removed token", () => {
   const yaml = read(DEPLOY_WORKFLOW);
   const deployStepMatch = yaml.match(
     /- name:\s*Deploy to Cloudflare\n([\s\S]*?)(?=\n\s*- name:|\n*$)/,
@@ -513,35 +506,22 @@ test("deploy-production Cloudflare step prefers token and falls back to legacy w
   assert.ok(deployStepMatch, "Deploy to Cloudflare step must exist");
   const deployStep = deployStepMatch[1];
 
+  // Key/email secrets are exported unconditionally — the only auth scheme
+  // configured for this repo.
   assert.match(
-    deployStep,
-    /CLOUDFLARE_API_TOKEN:\s*\$\{\{\s*secrets\.CLOUDFLARE_API_TOKEN\s*\}\}/,
-  );
-  // Token-present => blank legacy exports (Wrangler key/email precedence).
-  assert.match(
-    deployStep,
-    /CLOUDFLARE_API_KEY:\s*\$\{\{\s*secrets\.CLOUDFLARE_API_TOKEN\s*==\s*''\s*&&\s*secrets\.CLOUDFLARE_API_KEY\s*\|\|\s*''\s*\}\}/,
-  );
-  assert.match(
-    deployStep,
-    /CLOUDFLARE_EMAIL:\s*\$\{\{\s*secrets\.CLOUDFLARE_API_TOKEN\s*==\s*''\s*&&\s*secrets\.CLOUDFLARE_EMAIL\s*\|\|\s*''\s*\}\}/,
-  );
-  // Must not unconditionally export legacy alongside token.
-  assert.doesNotMatch(
     deployStep,
     /CLOUDFLARE_API_KEY:\s*\$\{\{\s*secrets\.CLOUDFLARE_API_KEY\s*\}\}/,
   );
-  assert.doesNotMatch(
+  assert.match(
     deployStep,
     /CLOUDFLARE_EMAIL:\s*\$\{\{\s*secrets\.CLOUDFLARE_EMAIL\s*\}\}/,
   );
+  // The removed token preference must not be referenced anywhere in the
+  // workflow (the CLOUDFLARE_API_TOKEN secret does not exist in this repo).
+  assert.doesNotMatch(yaml, /CLOUDFLARE_API_TOKEN/);
   assert.match(deployStep, /run:\s*npm run deploy:inner/);
 
-  // Secret values must never appear as literals; only secrets.* expressions / '' blanks.
-  assert.doesNotMatch(
-    yaml,
-    /CLOUDFLARE_API_TOKEN:\s*(?!\$\{\{\s*secrets\.CLOUDFLARE_API_TOKEN\s*\}\})\S+/,
-  );
+  // Secret values must never appear as literals; only secrets.* expressions.
   assert.doesNotMatch(yaml, /echo\s+.*CLOUDFLARE_API_(TOKEN|KEY)|printenv\s+CLOUDFLARE_API_(TOKEN|KEY)/i);
   assert.doesNotMatch(deployStep, /CLOUDFLARE_API_(TOKEN|KEY|EMAIL):\s*['"]?[A-Za-z0-9._-]{8,}/);
 

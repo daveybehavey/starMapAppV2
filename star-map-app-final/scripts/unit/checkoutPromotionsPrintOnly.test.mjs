@@ -10,6 +10,7 @@ import {
   isFulfillableCheckoutPayment,
   isManualPromotionCompatibleWithOrder,
   selectCheckoutPromotion,
+  shouldFallbackOnDiscountError,
 } from "../../src/lib/checkoutPromotions.ts";
 
 test("canUseManualPromotionCode allows print and digital single only", () => {
@@ -223,4 +224,15 @@ test("$0 session with discount is fulfillable; non-zero unpaid is not", () => {
     }),
     true
   );
+});
+
+test("shouldFallbackOnDiscountError: manual never falls back; referral_auto/none keep the retry (#554)", () => {
+  // A shopper-typed, site-validated manual code must be applied at checkout
+  // or its Stripe rejection must surface on-site — never a silent full-price
+  // fallback session, on any order type.
+  assert.equal(shouldFallbackOnDiscountError("manual"), false);
+  // No shopper-typed promise exists for referral-auto / no-code sessions, so
+  // the retry-without-discount resilience stays.
+  assert.equal(shouldFallbackOnDiscountError("referral_auto"), true);
+  assert.equal(shouldFallbackOnDiscountError("none"), true);
 });

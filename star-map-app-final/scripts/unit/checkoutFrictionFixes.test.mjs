@@ -143,3 +143,31 @@ test("checkout_handoff_required payload includes editorRecoveryUrl when provided
   assert.equal(parsed.code, "checkout_handoff_required");
   assert.equal(parsed.editorRecoveryUrl, "https://starmapco.com/editor?checkout=digital");
 });
+
+test("manual-code discount rejection never degrades to a silent full-price session (#554)", () => {
+  const route = fs.readFileSync(CHECKOUT_ROUTE, "utf8");
+  // Both call sites (GET + POST) route the decision through the shared helper.
+  assert.equal(
+    (route.match(/fallbackOnDiscountError: shouldFallbackOnDiscountError\(selectedPromotion\.source\)/g) || []).length,
+    2,
+    "GET and POST must both use shouldFallbackOnDiscountError(selectedPromotion.source)"
+  );
+  // The print carve-out ("historic drop-and-continue") must not return.
+  assert.equal(
+    /orderType === "print" \|\| selectedPromotion\.source !== "manual"/.test(route),
+    false,
+    "print manual codes must not keep the drop-and-continue carve-out"
+  );
+  // Happy-path carry stays pinned: a selected code is pre-applied as a
+  // session discount, and hosted promo entry is suppressed in that case.
+  assert.match(
+    route,
+    /discounts: promotionCodeId \? \[\{ promotion_code: promotionCodeId \}\] : undefined/,
+    "selected promotion code must be pre-applied via discounts"
+  );
+  assert.match(
+    route,
+    /allowPromotionCodes && !promotionCodeId \? \{ allow_promotion_codes: true \} : \{\}/,
+    "hosted promo entry must stay suppressed when a code is selected"
+  );
+});
