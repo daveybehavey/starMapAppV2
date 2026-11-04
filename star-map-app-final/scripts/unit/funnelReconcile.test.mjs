@@ -367,7 +367,7 @@ test("HTTP 401/403/503 and ok:false fail nonzero", async () => {
   );
 });
 
-test("malformed JSON, timeout, and network failure fail nonzero", async () => {
+test("malformed JSON, timeout, and network failure fail nonzero", async (t) => {
   await withMockServer(
     async (req, res) => {
       await readJsonBody(req);
@@ -388,11 +388,14 @@ test("malformed JSON, timeout, and network failure fail nonzero", async () => {
     },
   );
 
+  t.mock.timers.enable({ apis: ["setTimeout"] });
   const ioTimeout = createIo();
-  const codeTimeout = await runFunnelReconcile({
+  let timeoutSignal;
+  const pendingTimeout = runFunnelReconcile({
     argv: ["--site", "https://example.com", "--days", "14"],
     env: baseEnv({ FUNNEL_RECONCILE_SITE: undefined, NEXT_PUBLIC_SITE_URL: undefined }),
     fetchImpl: async (_url, init) => {
+      timeoutSignal = init.signal;
       await new Promise((_, reject) => {
         init.signal.addEventListener("abort", () => {
           const err = new Error("aborted");
@@ -406,6 +409,13 @@ test("malformed JSON, timeout, and network failure fail nonzero", async () => {
     timeoutMs: 20,
     loadEnv: false,
   });
+  assert.ok(timeoutSignal, "fetch has installed its abort listener");
+  t.mock.timers.tick(19);
+  assert.equal(timeoutSignal.aborted, false);
+  t.mock.timers.tick(1);
+  assert.equal(timeoutSignal.aborted, true);
+  const codeTimeout = await pendingTimeout;
+  t.mock.timers.reset();
   assert.equal(codeTimeout, 1);
   assert.match(ioTimeout.getStderr(), /timed out/i);
 
