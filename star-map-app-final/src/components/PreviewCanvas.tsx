@@ -24,6 +24,11 @@ import { useAstronomyWorker } from "@/hooks/useAstronomyWorker";
 
 type Props = {
   onRendered?: () => void;
+  /** #555: called with the ids of text boxes whose fitted line
+   * overflows its shape-aware bound (the textFit floor spill) after a
+   * text-layer render, so the surrounding editor can warn per row.
+   * Fires only when the set's contents change, never per render. */
+  onTextOverflowChange?: (overflowBoxIds: ReadonlySet<string>) => void;
   fullscreen?: boolean;
   readOnly?: boolean;
   /** When provided with readOnly=true, uses this recipe instead of global store state */
@@ -85,6 +90,7 @@ function resolvePreviewPixelRatio({
 
 export default function PreviewCanvas({
   onRendered,
+  onTextOverflowChange,
   fullscreen = false,
   readOnly = false,
   externalRecipe,
@@ -102,6 +108,22 @@ export default function PreviewCanvas({
   const textBoundsRef = useRef<Map<string, { x: number; y: number; width: number; height: number }>>(
     new Map()
   );
+  // #555: the fit-overflow report for the latest text-layer render,
+  // rebuilt by drawText on every pass (same lifecycle as the bounds
+  // above). Published to the parent editor only when its contents
+  // change — the text layer re-renders on every keystroke and drag
+  // frame, and the panels must not re-render with it.
+  const textOverflowRef = useRef<Set<string>>(new Set());
+  // Starts null — "no report published yet" — so the first text-layer
+  // render always publishes, even an empty report: a panel's
+  // pre-reveal computation may already have shown a warning, and the
+  // preview's first (empty) report must be able to clear it (PR #559
+  // bot finding; an initial "" would compare equal and suppress it).
+  const publishedOverflowSignatureRef = useRef<string | null>(null);
+  const onTextOverflowChangeRef = useRef(onTextOverflowChange);
+  useEffect(() => {
+    onTextOverflowChangeRef.current = onTextOverflowChange;
+  }, [onTextOverflowChange]);
   // Shape/frame state the drag clamp bounds against, kept in a ref so
   // the pointer handlers (registered once) always read the current
   // values. Synced by the effect below once effectiveShape/baseRecipe
@@ -405,6 +427,7 @@ export default function PreviewCanvas({
       textBoxes: textLayerBoxes,
       pixelRatio,
       textBounds: textBoundsRef.current,
+      textOverflow: textOverflowRef.current,
       shape: effectiveShape,
       // Same derivation renderStarMap feeds its own drawText call (the
       // base render above runs with the default "preview" mat purpose):
@@ -421,6 +444,13 @@ export default function PreviewCanvas({
       // repaints without the mark; unpaid, the mark returns.
       watermark: !paid,
     });
+    // #555: publish the fit-overflow report the render just rebuilt,
+    // but only when its contents changed (see textOverflowRef above).
+    const overflowSignature = [...textOverflowRef.current].sort().join(",");
+    if (overflowSignature !== publishedOverflowSignatureRef.current) {
+      publishedOverflowSignatureRef.current = overflowSignature;
+      onTextOverflowChangeRef.current?.(new Set(textOverflowRef.current));
+    }
     if (activeBox) {
       const rect = textBoundsRef.current.get(activeBox);
       if (rect) {

@@ -9,6 +9,7 @@ import {
   buildRecipeFromState,
   formatDateTimeForLocation,
   renderStarMap,
+  renderStarMapTextLayer,
 } from "@/lib/renderSky";
 import { getExportDimensions } from "@/lib/aspectRatio";
 import { ASPECT_OPTIONS } from "@/lib/aspectOptions";
@@ -62,6 +63,7 @@ import {
   applyMapLookTier,
   applyTierTypographyProtected,
   resolveMapLookTier,
+  resolveTextFitFrameEnabled,
   type MapLookTier,
 } from "@/lib/mapLookTiers";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -72,6 +74,7 @@ import { useEditorLogic } from "@/hooks/useEditorLogic";
 import { getPaywallCopyVariant, PAYWALL_COPY_EXPERIMENT, type PaywallCopyVariant } from "@/lib/experiments";
 import { PaywallModal } from "@/components/PaywallModal";
 import { PrintAspectMismatchNotice } from "@/components/PrintAspectMismatchNotice";
+import { TextFitOverflowWarning } from "@/components/TextFitOverflowWarning";
 import { PrintGiftDecisionPanel } from "@/components/PrintGiftDecisionPanel";
 import { MerchPurchasePanel } from "@/components/MerchPurchasePanel";
 import {
@@ -270,6 +273,10 @@ export function EditorExperience({
   // Loading state callback for visual options
   const [isUpdating, setIsUpdating] = useState(false);
   const [canvasReady, setCanvasReady] = useState(false);
+  // #555: ids of text boxes whose fitted line overflows its bound
+  // (textFit floor spill), published by PreviewCanvas when the set
+  // changes; each affected row renders a warn-only notice.
+  const [textOverflowBoxIds, setTextOverflowBoxIds] = useState<ReadonlySet<string>>(() => new Set());
   // S93-2 class 5, fix round 1: the first visual-options
   // application is the editor's automatic initialization (the
   // hook's ~150 ms mount timer), not a user edit. Saved-map
@@ -327,6 +334,43 @@ export function EditorExperience({
     applyPreset: hookApplyPreset,
     applyProPreset,
   } = useEditorLogic({ variant, onVisualOptionsApplied });
+
+  // #555 (PR #559 bot finding): the guided "Your Message" inputs render
+  // BEFORE the first reveal, while PreviewCanvas is not yet mounted —
+  // so no canvas publishes the overflow report for them and their
+  // warnings could never fire. Until reveal, compute the same report
+  // here through the shared text-layer renderer on an offscreen canvas
+  // (same fit code path, same shape/frame/layout-version inputs,
+  // reference dimensions at the recipe's aspect ratio). After reveal
+  // PreviewCanvas owns publishing and this effect stands down. Mirrors
+  // the identical pre-reveal computation in MobileCreate.
+  const preRevealOverflowCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const preRevealOverflowSignatureRef = useRef<string>("");
+  useEffect(() => {
+    if (revealed) return;
+    const canvas =
+      preRevealOverflowCanvasRef.current ?? document.createElement("canvas");
+    preRevealOverflowCanvasRef.current = canvas;
+    const width = 600;
+    const height = Math.max(1, Math.round(width / aspectRatioToNumber(aspectRatio)));
+    const textOverflow = new Set<string>();
+    renderStarMapTextLayer({
+      canvas,
+      width,
+      height,
+      textBoxes,
+      pixelRatio: 1,
+      textOverflow,
+      shape,
+      frameEnabled: resolveTextFitFrameEnabled("preview", renderOptions),
+      shapeLayoutVersion: renderOptions?.shapeLayoutVersion,
+    });
+    const signature = [...textOverflow].sort().join(",");
+    if (signature !== preRevealOverflowSignatureRef.current) {
+      preRevealOverflowSignatureRef.current = signature;
+      setTextOverflowBoxIds(textOverflow);
+    }
+  }, [revealed, textBoxes, shape, aspectRatio, renderOptions]);
 
   // PROD-SM W2-4 (#490): the occasion caption is generated from the
   // design's existing location/date data; null when that data is
@@ -2775,6 +2819,7 @@ export function EditorExperience({
                                     className="h-10 w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm text-white shadow-inner shadow-black/20 transition outline-none focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
                                     placeholder={`Enter ${box.label.toLowerCase()}...`}
                                   />
+                                  {textOverflowBoxIds.has(box.id) && <TextFitOverflowWarning />}
                                 </div>
                               ))}
                             </div>
@@ -2918,6 +2963,7 @@ export function EditorExperience({
                                                 </button>
                                               </div>
                                             </div>
+                                            {textOverflowBoxIds.has(box.id) && <TextFitOverflowWarning />}
                                             {!isCollapsed && (
                                               <div id={`text-style-${box.id}`} className="space-y-2">
                                                 <ApplyTextRowStyle sourceId={box.id} />
@@ -3634,6 +3680,7 @@ export function EditorExperience({
                                 setCanvasReady(true);
                                 setIsUpdating(false);
                               }}
+                              onTextOverflowChange={setTextOverflowBoxIds}
                             />
                             {(isUpdating || !canvasReady) && (
                               <div className="absolute inset-0 z-10 rounded-xl bg-gradient-to-b from-white/5 to-white/0 transition-opacity duration-300">

@@ -453,6 +453,7 @@ export function renderStarMap({
   premium = false,
   pixelRatio = 1,
   textBounds,
+  textOverflow,
   skyOverride,
   skipSkyCompute = false,
   includeText = true,
@@ -467,6 +468,12 @@ export function renderStarMap({
   premium?: boolean;
   pixelRatio?: number;
   textBounds?: Map<string, { x: number; y: number; width: number; height: number }>;
+  /** #555: when provided, drawText records the ids of text boxes whose
+   * fitted line still overflows its shape-aware bound (the textFit
+   * floor spill resolveTextLineLayout reports as `overflow`), so the
+   * editor can warn per row. Optional — absent, rendering is exactly
+   * as before for every existing caller. */
+  textOverflow?: Set<string>;
   skyOverride?: VisibleSky | null;
   skipSkyCompute?: boolean;
   includeText?: boolean;
@@ -623,10 +630,11 @@ export function renderStarMap({
       // #407: the heart/star fit evaluates against the shape's
       // interior profile (the renderer's own SHAPE_PATHS geometry).
       shapeTextProfile: resolveShapeTextProfile(shapeName),
-    });
+    }, textOverflow);
     ctx.restore();
-  } else if (textBounds) {
-    textBounds.clear();
+  } else {
+    if (textBounds) textBounds.clear();
+    if (textOverflow) textOverflow.clear();
   }
   drawWatermark(ctx, {
     width,
@@ -658,6 +666,7 @@ export function renderStarMapTextLayer({
   textBoxes,
   pixelRatio = 1,
   textBounds,
+  textOverflow,
   shape,
   frameEnabled,
   watermark = false,
@@ -669,6 +678,10 @@ export function renderStarMapTextLayer({
   textBoxes: TextBox[];
   pixelRatio?: number;
   textBounds?: Map<string, { x: number; y: number; width: number; height: number }>;
+  /** #555: see renderStarMap's textOverflow — the overlay is the
+   * editor's render path, so this is where the per-row fit-overflow
+   * report is collected. */
+  textOverflow?: Set<string>;
   /** Editor text overlay: pass the live shape/frame so the overlay's fit
    * (and the drag bounds derived from it) matches the export render. */
   shape?: string;
@@ -690,6 +703,7 @@ export function renderStarMapTextLayer({
 
   if (width <= 0 || height <= 0) {
     if (textBounds) textBounds.clear();
+    if (textOverflow) textOverflow.clear();
     return;
   }
 
@@ -712,7 +726,7 @@ export function renderStarMapTextLayer({
     shapeMaskFootprint: resolveShapeMaskFootprint(width, height, resolvedShapeLayoutVersion),
     // #407: same interior profile the base render fits against.
     shapeTextProfile: resolveShapeTextProfile(shape),
-  });
+  }, textOverflow);
   if (watermark) {
     const shapeName: Shape =
       typeof shape === "string" && VALID_SHAPES.has(shape as Shape)
@@ -1957,8 +1971,10 @@ function drawText(
   bounds?: Map<string, { x: number; y: number; width: number; height: number }>,
   scale = 1,
   textLayout?: Pick<TextFitLayout, "shape" | "frameEnabled" | "shapeMaskFootprint" | "shapeTextProfile">,
+  textOverflow?: Set<string>,
 ) {
   if (bounds) bounds.clear();
+  if (textOverflow) textOverflow.clear();
 
   textBoxes.forEach((box, index) => {
     // Skip empty text boxes
@@ -2028,6 +2044,13 @@ function drawText(
 
     if (bounds) {
       bounds.set(box.id, layout.bounds);
+    }
+    // #555 (E4 residual): surface the fit's overflow verdict alongside
+    // the bounds. The line is painted either way (bounded spill at the
+    // fit floor); this only reports it, so the editor can warn on the
+    // row. Painting is unchanged.
+    if (textOverflow && layout.overflow) {
+      textOverflow.add(box.id);
     }
   });
   ctx.shadowColor = "transparent";

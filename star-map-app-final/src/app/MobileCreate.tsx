@@ -11,12 +11,12 @@ import { occasionPresets } from "@/lib/occasionPresets";
 import { buildAutoCaption, upsertAutoCaptionBox } from "@/lib/autoCaption";
 import { resolveShapeMaskFootprint } from "@/lib/shapeLayout";
 import type { RenderModeId } from "@/lib/renderModes";
-import { aspectRatioToNumber } from "@/lib/renderSky";
+import { aspectRatioToNumber, renderStarMapTextLayer } from "@/lib/renderSky";
 import { ApplyTextRowStyle } from "@/components/ApplyTextRowStyle";
 import { ASPECT_OPTIONS } from "@/lib/aspectOptions";
 import { FRAME_STYLE_OPTIONS, resolveFrameStyle } from "@/lib/frameStyle";
 import { styles, fontOptions, shapes, mapLookTiers } from "@/lib/config";
-import { applyMapLookTier, applyTierTypographyProtected, resolveMapLookTier, type MapLookTier } from "@/lib/mapLookTiers";
+import { applyMapLookTier, applyTierTypographyProtected, resolveMapLookTier, resolveTextFitFrameEnabled, type MapLookTier } from "@/lib/mapLookTiers";
 import { proPresets } from "@/lib/proPresets";
 import { applyStyleDefaults } from "@/lib/styleDefaults";
 import { track, trackFunnelStep } from "@/lib/analytics";
@@ -32,6 +32,7 @@ import {
 } from "@/lib/paywallPrintCheckout";
 import { getPrintShippingCountryLabel, getPrintShippingCountryOptions, PRINT_SHIPPING_COUNTRY_PLACEHOLDER_LABEL } from "@/lib/printfulShipping";
 import { PrintAspectMismatchNotice } from "@/components/PrintAspectMismatchNotice";
+import { TextFitOverflowWarning } from "@/components/TextFitOverflowWarning";
 import dynamic from "next/dynamic";
 import { TEXT_BOX_MAX_TEXT_LENGTH } from "@/lib/textBoxConstraints";
 import { TextBoxSizeInput } from "@/components/TextBoxSizeInput";
@@ -234,6 +235,45 @@ export function MobileCreate({
   const [showOccasionPresets, setShowOccasionPresets] = useState(() => !isQuick);
   const [showProPresets, setShowProPresets] = useState(() => !isQuick);
   const [isRevealing, setIsRevealing] = useState(false);
+  // #555: ids of text boxes whose fitted line overflows its bound
+  // (textFit floor spill), published by PreviewCanvas when the set
+  // changes; each affected row renders a warn-only notice.
+  const [textOverflowBoxIds, setTextOverflowBoxIds] = useState<ReadonlySet<string>>(() => new Set());
+  // #555 (PR #559 bot finding): the guided "Your Message" inputs above render
+  // BEFORE the first reveal, while PreviewCanvas is not yet mounted —
+  // so no canvas publishes the overflow report for them and their
+  // warnings could never fire. Until reveal, compute the same report
+  // here through the shared text-layer renderer on an offscreen canvas
+  // (same fit code path, same shape/frame inputs, reference dimensions
+  // at the recipe's aspect ratio). After reveal PreviewCanvas owns
+  // publishing and this effect stands down.
+  const preRevealOverflowCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const preRevealOverflowSignatureRef = useRef<string>("");
+  useEffect(() => {
+    if (revealed) return;
+    const canvas =
+      preRevealOverflowCanvasRef.current ?? document.createElement("canvas");
+    preRevealOverflowCanvasRef.current = canvas;
+    const width = 600;
+    const height = Math.max(1, Math.round(width / aspectRatioToNumber(aspectRatio)));
+    const textOverflow = new Set<string>();
+    renderStarMapTextLayer({
+      canvas,
+      width,
+      height,
+      textBoxes,
+      pixelRatio: 1,
+      textOverflow,
+      shape,
+      frameEnabled: resolveTextFitFrameEnabled("preview", renderOptions),
+      shapeLayoutVersion: renderOptions?.shapeLayoutVersion,
+    });
+    const signature = [...textOverflow].sort().join(",");
+    if (signature !== preRevealOverflowSignatureRef.current) {
+      preRevealOverflowSignatureRef.current = signature;
+      setTextOverflowBoxIds(textOverflow);
+    }
+  }, [revealed, textBoxes, shape, aspectRatio, renderOptions]);
   const [revealStageIndex, setRevealStageIndex] = useState(0);
   const revealTimerRef = useRef<number | null>(null);
   const allowAdvanced = !isQuick || allowAdvancedInQuick;
@@ -968,6 +1008,7 @@ export function MobileCreate({
                     className="h-10 w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
                     placeholder={`Enter ${box.label.toLowerCase()}...`}
                   />
+                  {textOverflowBoxIds.has(box.id) && <TextFitOverflowWarning />}
                 </div>
               ))}
             </div>
@@ -1065,6 +1106,7 @@ export function MobileCreate({
                       className="h-10 w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
                       placeholder={`Enter ${box.label.toLowerCase()}...`}
                     />
+                    {textOverflowBoxIds.has(box.id) && <TextFitOverflowWarning />}
                   </div>
                 ))}
               </div>
@@ -1106,6 +1148,7 @@ export function MobileCreate({
                           </button>
                         </div>
                       </div>
+                      {textOverflowBoxIds.has(box.id) && <TextFitOverflowWarning />}
                       {!isCollapsed && (
                         <div id={`text-style-${box.id}`} className="space-y-2">
                           <ApplyTextRowStyle sourceId={box.id} />
@@ -1562,7 +1605,7 @@ export function MobileCreate({
                 </div>
               </div>
             )}
-            {revealed && <PreviewCanvas onRendered={onCanvasReady} />}
+            {revealed && <PreviewCanvas onRendered={onCanvasReady} onTextOverflowChange={setTextOverflowBoxIds} />}
           </div>
         </div>
 
