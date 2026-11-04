@@ -233,6 +233,7 @@ export default function LocationTypeahead({
   // window the tag still names the previous query, so no stale verdict
   // flashes for text whose search has not finished yet.
   const showNoMatches = !error && !loading && !hasResults && resultsQuery === value;
+  const listboxOpen = dropdownOpen && !error && hasResults;
 
   return (
     <div className="relative">
@@ -268,63 +269,70 @@ export default function LocationTypeahead({
         role="combobox"
         aria-haspopup="listbox"
         aria-autocomplete="list"
-        aria-expanded={dropdownOpen}
-        aria-controls={dropdownOpen ? listId : undefined}
-        aria-activedescendant={highlightedIndex >= 0 ? `${listId}-option-${highlightedIndex}` : undefined}
+        aria-expanded={listboxOpen}
+        aria-controls={listboxOpen ? listId : undefined}
+        aria-activedescendant={
+          listboxOpen && currentResults[highlightedIndex] ? `${listId}-option-${highlightedIndex}` : undefined
+        }
         className={className}
       />
       {loading && (
-        <div className="absolute inset-y-0 right-3 flex items-center text-xs tracking-wide text-neutral-500 uppercase">
+        <div role="status" className="absolute inset-y-0 right-3 flex items-center text-xs tracking-wide text-neutral-500 uppercase">
           Searching…
         </div>
       )}
 
-      {dropdownOpen && (error || hasResults || showNoMatches) && (
+      {dropdownOpen && (error || showNoMatches) && (
+        <p
+          role="status"
+          className="absolute z-20 mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-neutral-600 shadow-lg shadow-black/10"
+        >
+          {error || "No matches found. Try another name."}
+        </p>
+      )}
+      {listboxOpen && (
         <div
           id={listId}
           role="listbox"
+          aria-label="Location suggestions"
           className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-black/10 bg-white shadow-lg shadow-black/10"
         >
-          {error && <div className="px-3 py-2 text-sm text-rose-600">{error}</div>}
-          {showNoMatches && (
-            <div className="px-3 py-2 text-sm text-neutral-600">No matches found. Try another name.</div>
-          )}
-          {!error &&
-            currentResults.map((result, index) => {
-              const isHighlighted = index === highlightedIndex;
-              const isSelected = result.name === selectedName;
-              return (
-                <button
-                  key={result.id}
-                  ref={(el) => {
-                    optionRefs.current[index] = el;
-                  }}
-                  id={`${listId}-option-${index}`}
-                  type="button"
-                  onMouseDown={(event) => {
-                    // Mousedown (not click): fires before the input blurs,
-                    // and preventDefault keeps focus from moving first.
-                    event.preventDefault();
-                    pickResult(result);
-                  }}
-                  onMouseEnter={() => setHighlightedIndex(index)}
-                  role="option"
-                  aria-selected={isSelected}
-                  className={`block w-full px-3 py-2 text-left text-sm transition ${
-                    isHighlighted
-                      ? "bg-amber-100 text-neutral-900"
-                      : isSelected
-                        ? "bg-amber-50 text-neutral-800"
-                        : "text-neutral-800 hover:bg-amber-50"
-                  }`}
-                >
-                  <div className="font-semibold">{result.name}</div>
-                  <div className="text-xs text-neutral-600">
-                    {result.latitude.toFixed(4)}, {result.longitude.toFixed(4)}
-                  </div>
-                </button>
-              );
-            })}
+          {currentResults.map((result, index) => {
+            const isHighlighted = index === highlightedIndex;
+            const isSelected = result.name === selectedName;
+            return (
+              <button
+                key={result.id}
+                ref={(el) => {
+                  optionRefs.current[index] = el;
+                }}
+                id={`${listId}-option-${index}`}
+                type="button"
+                tabIndex={-1}
+                onMouseDown={(event) => {
+                  // Mousedown (not click): fires before the input blurs,
+                  // and preventDefault keeps focus from moving first.
+                  event.preventDefault();
+                  pickResult(result);
+                }}
+                onMouseEnter={() => setHighlightedIndex(index)}
+                role="option"
+                aria-selected={isSelected}
+                className={`block w-full px-3 py-2 text-left text-sm transition ${
+                  isHighlighted
+                    ? "bg-amber-100 text-neutral-900"
+                    : isSelected
+                      ? "bg-amber-50 text-neutral-800"
+                      : "text-neutral-800 hover:bg-amber-50"
+                }`}
+              >
+                <div className="font-semibold">{result.name}</div>
+                <div className="text-xs text-neutral-600">
+                  {result.latitude.toFixed(4)}, {result.longitude.toFixed(4)}
+                </div>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

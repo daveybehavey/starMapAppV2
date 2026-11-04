@@ -78,7 +78,7 @@ export default function HeroEditorDeferred() {
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="min-w-0">
-            <label className="sr-only" htmlFor="hero-date">
+            <label className="mb-1 block text-sm font-medium text-white" htmlFor="hero-date">
               When was it?
             </label>
             <IOSSafeDateInput
@@ -90,7 +90,7 @@ export default function HeroEditorDeferred() {
             />
           </div>
           <div className="min-w-0">
-            <label className="sr-only" htmlFor="hero-location">
+            <label className="mb-1 block text-sm font-medium text-white" htmlFor="hero-location">
               Where was it?
             </label>
             <LocationTypeahead

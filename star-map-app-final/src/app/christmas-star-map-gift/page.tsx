@@ -1,3 +1,4 @@
+import StorefrontProductSchema from "@/components/StorefrontProductSchema";
 import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
@@ -284,6 +285,7 @@ export default async function ChristmasStarMapGiftPage() {
       </section>
 
       <FaqSchema items={faqItems.map((item) => ({ question: item.question, answer: item.answer }))} />
+      <StorefrontProductSchema name="Christmas star map gift" siteUrl={siteUrl} />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>
   );
