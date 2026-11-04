@@ -143,6 +143,7 @@
     "prettier": "^3.4.2",
     "prettier-plugin-tailwindcss": "^0.6.9",
     "react-doctor": "^0.4.0",
+    "react-test-renderer": "19.2.0",
     "tailwindcss": "^4",
     "typescript": "^5",
     "wrangler": "^4.95.0"

@@ -1,3 +1,4 @@
+import StorefrontProductSchema from "@/components/StorefrontProductSchema";
 import Link from "next/link";
 import AccuracyAuthorityCard from "@/components/AccuracyAuthorityCard";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
@@ -279,6 +280,7 @@ export default function StarMapGiftPage() {
         </div>
       </section>
       <FaqSchema items={faqItems} />
+      <StorefrontProductSchema name="Personalized star map gift" siteUrl={siteUrl} />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>
   );
