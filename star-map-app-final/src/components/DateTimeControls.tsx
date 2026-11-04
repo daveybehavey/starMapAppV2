@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import IOSSafeDateInput from "@/components/IOSSafeDateInput";
 import {
   DEFAULT_TIME,
@@ -19,7 +19,7 @@ type Props = {
   timezone?: string;
 };
 
-export default function DateTimeControls({ dateTime, onChange, timezone }: Props) {
+function DateTimeControls({ dateTime, onChange, timezone }: Props) {
   const selectedDate = useMemo(() => new Date(dateTime), [dateTime]);
   // U01: the fields read and write wall-clock time AT THE PLACE (the
   // location's timezone), not the visitor's device timezone — a Sydney map
@@ -140,3 +140,7 @@ function formatLocalPreview(date: Date, timezone: string) {
     return "";
   }
 }
+
+// Parent text/style edits do not change these props. Local state and store
+// subscriptions still update normally; use React's default prop comparison.
+export default memo(DateTimeControls);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, useCallback } from "react";
+import { memo, useEffect, useId, useRef, useState, useCallback } from "react";
 import { useStore } from "@/lib/store";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -14,7 +14,7 @@ type LocationSearchProps = {
   onLocationChange?: () => void;
 };
 
-export default function LocationSearch({ onLocationChange }: LocationSearchProps) {
+function LocationSearch({ onLocationChange }: LocationSearchProps) {
   const { location, setLocation } = useStore(
     useShallow((state) => ({
       location: state.location,
@@ -375,3 +375,7 @@ export default function LocationSearch({ onLocationChange }: LocationSearchProps
     </div>
   );
 }
+
+// Parent text/style edits do not change these props. Local state and store
+// subscriptions still update normally; use React's default prop comparison.
+export default memo(LocationSearch);
