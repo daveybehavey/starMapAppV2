@@ -1,3 +1,4 @@
+import StorefrontProductSchema from "@/components/StorefrontProductSchema";
 import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import FaqSchema from "@/components/FaqSchema";
@@ -140,6 +141,7 @@ export default function ConstellationMapPage() {
         </div>
       </section>
       <FaqSchema items={CONSTELLATION_MAP_FAQ_ITEMS} />
+      <StorefrontProductSchema name="Custom constellation map" siteUrl={siteUrl} />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>
   );

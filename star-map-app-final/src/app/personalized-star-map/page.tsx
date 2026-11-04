@@ -1,3 +1,4 @@
+import StorefrontProductSchema from "@/components/StorefrontProductSchema";
 import Image from "next/image";
 import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
@@ -362,6 +363,7 @@ export default function PersonalizedStarMapPage() {
           },
         ]}
       />
+      <StorefrontProductSchema name="Personalized star map" siteUrl={siteUrl} />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>
   );

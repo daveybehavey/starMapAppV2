@@ -1,3 +1,4 @@
+import StorefrontProductSchema from "@/components/StorefrontProductSchema";
 import Link from "next/link";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
@@ -179,6 +180,7 @@ export default function CustomNightSkyMapPage() {
         </div>
       </section>
       <FaqSchema items={CUSTOM_NIGHT_SKY_MAP_FAQ_ITEMS} />
+      <StorefrontProductSchema name="Custom night sky map" siteUrl={siteUrl} />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>
   );
