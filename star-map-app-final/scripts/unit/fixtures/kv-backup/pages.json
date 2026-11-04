@@ -1,0 +1,7 @@
+{
+  "first": {"success":true,"result":[{"name":"stripe:session:fixture-1","metadata":{"fixture":true},"expiration":2000000000}],"result_info":{"cursor":"next/page"}},
+  "second": {"success":true,"result":[{"name":"stripe:session:fixture-2"}],"result_info":{"cursor":""}},
+  "empty": {"success":true,"result":[],"result_info":{"cursor":""}},
+  "claim": {"success":true,"result":[{"name":"claim:synthetic-token"}],"result_info":{"cursor":""}},
+  "print": {"success":true,"result":[{"name":"print:order:fixture"}],"result_info":{"cursor":""}}
+}
