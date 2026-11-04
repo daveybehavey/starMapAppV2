@@ -171,7 +171,7 @@ export default function StarMapGeneratorPage() {
       <section className="content-visibility-auto mt-8 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-midnight text-xl font-semibold">Generate a map that is actually accurate</h2>
         <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
-          This is not a stock illustration. The map is calculated from real astronomical data so the
+          This is not a stock illustration. The map is calculated from real <Link href="/blog/astronomy-behind-star-maps" className="text-amber-700 underline hover:text-amber-800">astronomical data</Link> so the
           constellations and star positions match your date and location.
         </p>
         <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
@@ -196,7 +196,7 @@ export default function StarMapGeneratorPage() {
       >
         <h2 className="text-midnight text-lg font-semibold">How to use the star map generator</h2>
         <ol className="list-decimal space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
-          <li id="generator-step-1">Enter the date, time, and location that matter to you</li>
+          <li id="generator-step-1">Enter the <Link href="/blog/choose-date-location-custom-star-map" className="text-amber-700 underline hover:text-amber-800">date, time, and location</Link> that matter to you</li>
           <li id="generator-step-2">Choose a style, shape, and text layout</li>
           <li id="generator-step-3">Preview the sky</li>
           <li id="generator-step-4">

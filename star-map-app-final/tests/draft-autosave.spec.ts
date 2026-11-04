@@ -29,10 +29,24 @@ test.describe("SimplifiedEditor draft autosave", () => {
 
     const locationInput = page.getByRole("combobox", { name: /Location search/i });
     await locationInput.fill("Paris");
-    await page.waitForTimeout(500);
+    await expect(page.getByRole("option").first()).toBeVisible({ timeout: 10_000 });
     await page.getByRole("option").first().click();
 
-    await page.waitForTimeout(900);
+    // Reload only after this exact edit has reached persistent storage.
+    await expect.poll(() => page.evaluate(() => {
+      const raw = localStorage.getItem("starmap-simplified-draft");
+      if (!raw) return null;
+      const draft = JSON.parse(raw);
+      return {
+        date: draft.dateTime?.slice(0, 10),
+        location: draft.location?.name,
+        title: draft.textBoxes?.find((box: { id: string; text: string }) => box.id === "title")?.text,
+      };
+    }), { timeout: 15_000 }).toEqual({
+      date: "2024-06-15",
+      location: "Paris, France",
+      title: "Our Paris Night",
+    });
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: /your moment/i })).toBeVisible({ timeout: 15000 });

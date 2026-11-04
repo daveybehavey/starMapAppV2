@@ -1,3 +1,4 @@
+import { BreadcrumbSchema } from "@/components/Breadcrumbs";
 import type { Metadata } from "next";
 import Link from "next/link";
 import GiftFormatLadder from "@/components/GiftFormatLadder";
@@ -625,6 +626,7 @@ export default function ShopPage() {
         secondaryHref="/editor?mode=quick&source=sticky-shop-sticker&merch_family=sticker_kisscut"
         secondaryPlan="merch_sticker"
       />
+      <BreadcrumbSchema items={[{ href: "/", label: "Home" }, { href: "/shop", label: "Shop" }]} baseUrl={siteUrl} />
       <ProductSchema
         name="Personalized Star Map"
         description={

@@ -35,3 +35,6 @@ gsc.json
 
 # Local Printful / catalog scan scratch (never commit)
 star-map-app-final/.tmp-*
+
+# C18 sensitive KV snapshots, including incomplete exports
+star-map-app-final/kv-backups/

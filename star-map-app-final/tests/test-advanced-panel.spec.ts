@@ -39,7 +39,6 @@ test.describe('SimplifiedEditor Advanced Panel', () => {
     // Click Illustrated mode
     const illustratedBtn = page.locator('button:has-text("Illustrated")');
     await illustratedBtn.click();
-    await page.waitForTimeout(1500);
 
     // Verify button is now selected (has amber styling)
     await expect(illustratedBtn).toHaveClass(/border-amber-300/);
@@ -71,7 +70,6 @@ test.describe('SimplifiedEditor Advanced Panel', () => {
 
     // Click to expand
     await constellationsHeader.click();
-    await page.waitForTimeout(300);
 
     // Should now see Lines options
     await expect(page.locator('button:has-text("Thin")')).toBeVisible();
@@ -84,11 +82,9 @@ test.describe('SimplifiedEditor Advanced Panel', () => {
     const constellationsHeader = page.locator('button:has-text("Constellations")');
     await constellationsHeader.focus();
     await constellationsHeader.press('Enter');
-    await page.waitForTimeout(300);
     await expect(page.locator('button:has-text("Thin")')).toBeVisible();
 
     await constellationsHeader.press('Space');
-    await page.waitForTimeout(300);
     await expect(page.locator('button:has-text("Thin")')).not.toBeVisible();
   });
 
@@ -97,7 +93,6 @@ test.describe('SimplifiedEditor Advanced Panel', () => {
 
     // Expand Premium Effects section
     await page.locator('button:has-text("Premium Effects")').click();
-    await page.waitForTimeout(300);
 
     // Should see lock icons on premium options
     const subtleBtn = page.locator('button:has-text("Subtle")');

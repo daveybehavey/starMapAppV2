@@ -4,10 +4,10 @@
  *  /home-mockups/offer-unframed-print.png depicted a portrait poster. */
 export const HOME_MOCKUPS = {
   digitalHd: "/home-mockups/offer-digital-hd.png",
-  framedBedroom: "/home-mockups/offer-framed-print.png",
+  framedBedroom: "/home-mockups/offer-framed-print.webp",
   unframedPoster: "/printproof/unframed-mockup.jpg",
-  livingRoomFramed: "/home-mockups/gallery-living-room-framed.png",
-  starPoster: "/home-mockups/gallery-star-poster.png",
+  livingRoomFramed: "/home-mockups/gallery-living-room-framed.webp",
+  starPoster: "/home-mockups/gallery-star-poster.webp",
   familyBedroom: "/home-mockups/gallery-family-bedroom.png",
   framedLightWood: "/home-mockups/gallery-framed-light-wood.png",
   tabletRender: "/home-mockups/gallery-tablet-render.png",

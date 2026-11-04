@@ -260,7 +260,7 @@ export default function WeddingPage() {
             alt: "Framed wedding star map cutout proof",
           },
           {
-            src: "/home-mockups/gallery-living-room-framed.png",
+            src: "/home-mockups/gallery-living-room-framed.webp",
             alt: "Framed wedding star map in a living room setting",
             aspect: "4:3",
           },

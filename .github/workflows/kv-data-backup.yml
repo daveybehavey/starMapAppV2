@@ -1,0 +1,42 @@
+name: Manual KV data backup
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kv-data-backup
+  cancel-in-progress: false
+
+jobs:
+  export:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: star-map-app-final
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test export logic without credentials
+        run: node --test scripts/unit/kvBackup.test.mjs
+      - name: Export KV (GET requests only)
+        env:
+          CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
+          CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
+        run: node scripts/export-kv-backup.mjs
+      # Sensitive customer records. Download to owner-controlled backup storage
+      # before retention expires; never expose contents in logs or PR evidence.
+      - name: Retain completed snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: kv-backup-${{ github.run_id }}-${{ github.run_attempt }}
+          path: star-map-app-final/kv-backups/kv-*/*
+          if-no-files-found: error
+          retention-days: 7
