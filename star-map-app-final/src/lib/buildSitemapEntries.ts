@@ -66,6 +66,11 @@ export function buildSitemapEntries(options: BuildSitemapOptions): MetadataRoute
   // Marketing, hub, location, and occasion URLs omit lastModified until a truthful
   // content date exists (do not invent dates from git history).
   const staticEntries: MetadataRoute.Sitemap = [
+    ...["wedding-star-map", "anniversary-star-map", "new-baby-star-map"].map((slug) => ({
+      url: `${baseUrl}/gifts/${slug}`,
+      changeFrequency: "monthly" as const,
+      priority: 0.8,
+    })),
     {
       url: `${baseUrl}/`,
       changeFrequency: "weekly",
