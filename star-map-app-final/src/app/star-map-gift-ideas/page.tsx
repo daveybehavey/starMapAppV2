@@ -26,7 +26,7 @@ const breadcrumbs = [
 const seasonalIdeas = [
   {
     title: "Valentine's Day",
-    description: "A romantic map of the night you met, first kissed, or said yes.",
+    description: <>A romantic map of the <Link href="/blog/valentines-day-star-map" className="text-amber-700 underline hover:text-amber-800">night you met</Link>, first kissed, or said yes.</>,
     href: "/star-map-for/valentines-day",
   },
   {
@@ -250,7 +250,7 @@ export default function StarMapGiftIdeasPage() {
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
         <h2 className="text-midnight text-lg font-semibold">Milestone gift ideas</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
-          Star maps shine for anniversaries, weddings, birthdays, new homes, and memorials. Start with one
+          Star maps shine for anniversaries, weddings, birthdays, new homes, and <Link href="/blog/memorial-star-map" className="text-amber-700 underline hover:text-amber-800">memorials</Link>. Start with one
           free preview, then take the framed route, unframed route, or HD digital route that fits your timing
           and budget.
         </p>
