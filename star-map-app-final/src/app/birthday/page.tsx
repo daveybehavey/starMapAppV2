@@ -205,7 +205,7 @@ export default function BirthdayPage() {
           be included—so the gift feels as unique as they are.
         </p>
         <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
-          <li>Accurate to the birth date, time, and location</li>
+          <li>Accurate to the <Link href="/blog/birth-star-map" className="text-amber-700 underline hover:text-amber-800">birth date, time, and location</Link></li>
           <li>Print-ready, high-resolution files for framing or gifting</li>
           <li>Styles that work for any age—clean, elegant, or celebratory</li>
           <li>Optional dedication lines for names, wishes, or a milestone year</li>
@@ -215,7 +215,7 @@ export default function BirthdayPage() {
       <section className="mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-midnight text-xl font-semibold">Milestone birthdays, written in the stars</h2>
         <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
-          A milestone birthday deserves more than a generic card. The generator recreates the exact
+          A <Link href="/blog/personalized-star-map-birthday-gift" className="text-amber-700 underline hover:text-amber-800">milestone birthday</Link> deserves more than a generic card. The generator recreates the exact
           night sky from any past date, so a milestone map shows the sky from the night they were
           born — plotted from real astronomical data, not a stock design.
         </p>
