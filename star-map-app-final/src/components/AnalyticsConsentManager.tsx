@@ -158,7 +158,7 @@ export default function AnalyticsConsentManager() {
     <>
       <PosthogProvider enabled={consent === "granted"} />
       {consent === "unset" ? (
-        <aside className="cookie-banner" role="dialog" aria-live="polite" aria-label="Cookie consent">
+        <div className="cookie-banner" role="dialog" aria-live="polite" aria-label="Cookie consent">
           <p className="cookie-text text-sm">
             Optional analytics help improve StarMapCo. Accept or decline.
             <Link href="/privacy" prefetch={false} className="ml-1 underline">
@@ -182,7 +182,7 @@ export default function AnalyticsConsentManager() {
               Allow
             </button>
           </div>
-        </aside>
+        </div>
       ) : null}
     </>
   );

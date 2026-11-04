@@ -243,12 +243,14 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
       />
-      <HomeHero />
-      <HomeStaticSections
-        priceLabels={priceLabels}
-        promoStatus={promoStatus}
-        promoCode={promoCode}
-      />
+      <main>
+        <HomeHero />
+        <HomeStaticSections
+          priceLabels={priceLabels}
+          promoStatus={promoStatus}
+          promoCode={promoCode}
+        />
+      </main>
     </>
   );
 }

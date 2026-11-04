@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { giftGuidePosts } from "@/lib/giftGuidePosts";
 
 export type BlogPost = {
   slug: string;
@@ -15,6 +16,7 @@ export type BlogPost = {
 export type BlogSummary = Pick<BlogPost, "slug" | "title" | "description" | "date">;
 
 export const blogPosts: BlogPost[] = [
+  ...giftGuidePosts,
   {
     slug: "canada-day-star-map-gift-ideas",
     title: "Canada Day Star Map Gift Ideas: Celebrate July 1 With a Meaningful Keepsake",
