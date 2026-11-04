@@ -1,3 +1,4 @@
+import StorefrontProductSchema from "@/components/StorefrontProductSchema";
 import Link from "next/link";
 import { LandingViewTracker } from "@/components/analytics/LandingViewTracker";
 import AccuracyAuthorityCard from "@/components/AccuracyAuthorityCard";
@@ -205,6 +206,7 @@ export default function HdStarMapPage() {
       </section>
 
       <FaqSchema items={[...faqItems]} />
+      <StorefrontProductSchema name="HD star map" siteUrl={siteUrl} digitalOnly />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>
   );
