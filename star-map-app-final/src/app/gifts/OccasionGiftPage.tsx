@@ -131,7 +131,11 @@ export default function OccasionGiftPage({ gift }: { gift: OccasionGift }) {
                       {formatPrice(product.priceCadFallbackCents, "CAD")}
                     </span>
                   </p>
-                  <Link href={editorHref} prefetch={false} className={`${primaryCta} mt-auto`}>
+                  <Link
+                    href={`${editorHref}&checkout=print&print_variant=${product.id}`}
+                    prefetch={false}
+                    className={`${primaryCta} mt-auto`}
+                  >
                     Customize your star map
                   </Link>
                 </div>

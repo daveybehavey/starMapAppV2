@@ -39,6 +39,10 @@ for (const width of [390, 1280]) {
         await expect(card.getByRole("heading")).toHaveText(product.labelFallback);
         await expect(card).toContainText(formatPrice(product.priceFallbackCents, "USD"));
         await expect(card).toContainText(formatPrice(product.priceCadFallbackCents, "CAD"));
+        await expect(card.getByRole("link", { name: "Customize your star map" })).toHaveAttribute(
+          "href",
+          `/editor?mode=quick&source=${slug}&checkout=print&print_variant=${product.id}`
+        );
       }
       for (const row of ["Framed print · Canada Dec 3", "Framed print · US Dec 8", "Posters Dec 10"]) {
         await expect(main.getByRole("row", { name: row })).toBeVisible();
