@@ -263,7 +263,7 @@ export default function PreviewStartForm({
       <form action="/editor" method="GET" className="mt-4" onSubmit={handleSubmit}>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="min-w-0">
-            <label className="sr-only" htmlFor="preview-date">
+            <label className="mb-1 block text-sm font-medium text-neutral-800" htmlFor="preview-date">
               Date
             </label>
             <IOSSafeDateInput
@@ -275,7 +275,7 @@ export default function PreviewStartForm({
             />
           </div>
           <div className="min-w-0">
-            <label className="sr-only" htmlFor="preview-location">
+            <label className="mb-1 block text-sm font-medium text-neutral-800" htmlFor="preview-location">
               Location
             </label>
             <LocationTypeahead
