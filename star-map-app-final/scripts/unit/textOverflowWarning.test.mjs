@@ -235,6 +235,10 @@ test("wiring: PreviewCanvas collects the set and publishes only on change", () =
   assert.match(source, /onTextOverflowChange\?: \(overflowBoxIds: ReadonlySet<string>\) => void/);
   assert.match(source, /textOverflow: textOverflowRef\.current/);
   assert.match(source, /publishedOverflowSignatureRef/);
+  // The signature starts at null (unpublished), never "": an initial
+  // empty string would compare equal to the first empty report and
+  // suppress it, stranding a stale pre-reveal warning (PR #559).
+  assert.match(source, /publishedOverflowSignatureRef = useRef<string \| null>\(null\)/);
   assert.match(source, /onTextOverflowChangeRef\.current\?\.\(new Set\(textOverflowRef\.current\)\)/);
 });
 

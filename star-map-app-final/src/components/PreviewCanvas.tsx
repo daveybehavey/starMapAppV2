@@ -114,7 +114,12 @@ export default function PreviewCanvas({
   // change — the text layer re-renders on every keystroke and drag
   // frame, and the panels must not re-render with it.
   const textOverflowRef = useRef<Set<string>>(new Set());
-  const publishedOverflowSignatureRef = useRef<string>("");
+  // Starts null — "no report published yet" — so the first text-layer
+  // render always publishes, even an empty report: a panel's
+  // pre-reveal computation may already have shown a warning, and the
+  // preview's first (empty) report must be able to clear it (PR #559
+  // bot finding; an initial "" would compare equal and suppress it).
+  const publishedOverflowSignatureRef = useRef<string | null>(null);
   const onTextOverflowChangeRef = useRef(onTextOverflowChange);
   useEffect(() => {
     onTextOverflowChangeRef.current = onTextOverflowChange;
