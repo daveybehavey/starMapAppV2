@@ -54,17 +54,22 @@ test.describe("LocationInput Keyboard & Search Behavior", () => {
     });
 
     const locationInput = page.getByRole("combobox", { name: /Location search/i });
+    // Pause browser timers so CI stalls cannot split one typing burst.
+    await page.clock.install();
+    await page.clock.pauseAt(new Date());
     await locationInput.click();
     await locationInput.fill("P");
-    await page.waitForTimeout(50);
+    await page.clock.runFor(50);
     await locationInput.fill("Pa");
-    await page.waitForTimeout(50);
+    await page.clock.runFor(50);
     await locationInput.fill("Par");
-    await page.waitForTimeout(50);
+    await page.clock.runFor(50);
     await locationInput.fill("Pari");
-    await page.waitForTimeout(50);
+    await page.clock.runFor(50);
     await locationInput.fill("Paris");
 
+    expect(requestCount).toBe(0);
+    await page.clock.runFor(1000);
     await expect.poll(() => requestCount, { timeout: 5000 }).toBeGreaterThan(0);
     await expect.poll(() => lastQuery, { timeout: 5000 }).toBe("Paris");
     expect(requestCount).toBeLessThanOrEqual(2);
@@ -83,7 +88,7 @@ test.describe("LocationInput Keyboard & Search Behavior", () => {
 
     const locationInput = page.getByRole("combobox", { name: /Location search/i });
     await locationInput.fill("Now");
-    await page.waitForTimeout(500);
+    await expect(page.getByRole("option").first()).toBeVisible({ timeout: 10_000 });
     await page.getByRole("option").first().click();
 
     const timezone = await page.evaluate(() => {
