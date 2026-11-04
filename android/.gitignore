@@ -1,0 +1,7 @@
+# Generate locally; keep signing material and built applications out of this repo.
+/generated/
+/twa-manifest.json
+*.keystore
+*.jks
+*.aab
+*.apk

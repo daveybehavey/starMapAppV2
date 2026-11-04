@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.starmapco.com",
+      "sha256_cert_fingerprints": [
+        "OWNER_REQUIRED_PLAY_APP_SIGNING_CERTIFICATE_SHA256"
+      ]
+    }
+  }
+]
