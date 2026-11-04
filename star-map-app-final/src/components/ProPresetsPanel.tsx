@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import Image from "next/image";
 import { proPresets } from "@/lib/proPresets";
 
@@ -8,7 +9,7 @@ type ProPresetsPanelProps = {
   onSelect: (id: string) => void;
 };
 
-export function ProPresetsPanel({ selectedOccasion, onSelect }: ProPresetsPanelProps) {
+function ProPresetsPanel({ selectedOccasion, onSelect }: ProPresetsPanelProps) {
   return (
     <div className="hidden rounded-2xl border border-white/15 bg-white/5 p-3 shadow-sm shadow-black/30 backdrop-blur-sm lg:block">
       <div className="flex items-center justify-between">
@@ -54,3 +55,8 @@ export function ProPresetsPanel({ selectedOccasion, onSelect }: ProPresetsPanelP
     </div>
   );
 }
+
+// Parent text/style edits do not change these props. Local state and store
+// subscriptions still update normally; use React's default prop comparison.
+const MemoizedProPresetsPanel = memo(ProPresetsPanel);
+export { MemoizedProPresetsPanel as ProPresetsPanel };

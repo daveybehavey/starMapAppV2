@@ -4,7 +4,7 @@ import { getPrintFreeShippingOfferLine } from "../src/lib/printFreeShipping";
 import { formatPrice } from "../src/lib/pricing";
 
 for (const width of [390, 1280]) {
-  test(`Black Friday catalogue and campaign disclosures at ${width}px`, async ({ page }) => {
+  test(`Black Friday current-phase copy, catalogue and disclosures at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     // A public campaign-clock override must not advance the landing page's offer.
     await page.goto("/black-friday?christmas_now=2026-11-27");
@@ -25,8 +25,14 @@ for (const width of [390, 1280]) {
           : null;
     if (blackFridayText) {
       await expect(main.getByTestId("blackfriday-offer")).toHaveText(blackFridayText);
+      if (today < "2026-11-27") {
+        await expect(main).not.toContainText("BLACKFRIDAY25 is live now");
+      } else {
+        await expect(main).not.toContainText("activates Nov 27, 2026");
+      }
     } else {
       await expect(main.getByTestId("blackfriday-offer")).toHaveCount(0);
+      await expect(main).not.toContainText(/BLACKFRIDAY25 (?:is live now|\(up to 25% off prints\) activates)/);
     }
     if (today >= "2026-11-01" && today < "2026-11-27") {
       await expect(main.getByTestId("current-offer")).toHaveText(

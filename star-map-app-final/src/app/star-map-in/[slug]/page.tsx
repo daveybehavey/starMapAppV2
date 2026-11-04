@@ -1,3 +1,4 @@
+import StorefrontProductSchema from "@/components/StorefrontProductSchema";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
@@ -328,6 +329,7 @@ export default async function StarMapLocationPage({ params }: PageProps) {
       </section>
 
       <FaqSchema items={faqItems} />
+      <StorefrontProductSchema name={survivor.heading} siteUrl={siteUrl} />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>
   );
