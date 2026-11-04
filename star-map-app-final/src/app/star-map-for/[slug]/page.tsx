@@ -1,3 +1,4 @@
+import StorefrontProductSchema from "@/components/StorefrontProductSchema";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { LandingViewTracker } from "@/components/analytics/LandingViewTracker";
@@ -327,6 +328,7 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
       </section>
 
       <FaqSchema items={occasion.faqs} />
+      <StorefrontProductSchema name={getOccasionPageH1(occasion)} siteUrl={siteUrl} />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>
   );
