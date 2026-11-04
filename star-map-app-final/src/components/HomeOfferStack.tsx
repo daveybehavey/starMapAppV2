@@ -29,7 +29,7 @@ type HomeOfferStackProps = {
 
 const OFFER_MOCKUPS = {
   digital: "/home-mockups/offer-digital-hd.png",
-  framed: "/home-mockups/offer-framed-print.png",
+  framed: "/home-mockups/offer-framed-print.webp",
   unframed: "/printproof/unframed-mockup.jpg",
 } as const;
 

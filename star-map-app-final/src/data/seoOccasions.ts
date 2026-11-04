@@ -197,7 +197,7 @@ export const seoOccasions: SeoOccasion[] = [
         alt: "Memorial star map example in Starlace style",
       },
       {
-        src: "/home-mockups/gallery-star-poster.png",
+        src: "/home-mockups/gallery-star-poster.webp",
         alt: "Star map poster mockup for a remembrance gift",
         aspect: "4:3",
       },
@@ -854,7 +854,7 @@ export const seoOccasions: SeoOccasion[] = [
     storyCtaLabel: "Start free preview",
     artwork: [
       {
-        src: "/home-mockups/gallery-living-room-framed.png",
+        src: "/home-mockups/gallery-living-room-framed.webp",
         alt: "Framed star map in a living room holiday setting",
         aspect: "4:3",
       },
@@ -863,7 +863,7 @@ export const seoOccasions: SeoOccasion[] = [
         alt: "Framed star map with light wood frame mockup",
       },
       {
-        src: "/home-mockups/offer-framed-print.png",
+        src: "/home-mockups/offer-framed-print.webp",
         alt: "Framed star map print product mockup",
         aspect: "16:9",
       },
