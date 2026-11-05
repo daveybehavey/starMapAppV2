@@ -151,13 +151,19 @@ export default function ShippingPage() {
               </tbody>
               </table>
             </div>
-            {/* Census D04: right-edge fade cue that the table scrolls
-                sideways on small screens; hidden at sm+ where the table
-                fits at full width. */}
+            {/* Census D04 / IA-4 D-M1-2: right-edge scroll cue on small
+                screens — the plain white fade was too faint to read as an
+                affordance (IA-4 mobile run, 2026-11-05), so the cue is now
+                a warm shadow gradient plus a chevron chip. Presentation
+                only; hidden at sm+ where the table fits at full width. */}
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 right-0 w-10 rounded-r-2xl bg-gradient-to-l from-white/95 to-transparent sm:hidden"
-            />
+              className="pointer-events-none absolute inset-y-0 right-0 flex w-12 items-start justify-end rounded-r-2xl bg-gradient-to-l from-amber-200/80 via-amber-100/35 to-transparent pr-1.5 pt-3 sm:hidden"
+            >
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-midnight text-base font-bold leading-none text-amber-200 shadow-md">
+                ›
+              </span>
+            </div>
           </div>
         </section>
 

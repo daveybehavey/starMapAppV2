@@ -598,27 +598,36 @@ html:has(.cookie-banner) body {
 }
 
 @media (max-width: 640px) {
-  /* Reserved space tracks the banner height incl. the safe-area inset that
-     is added to the banner's own bottom padding (D11). */
+  /* IA-4 D-M1-1: at small widths the banner is NOT fixed — it renders in
+     normal flow at the top of the page (the consent manager is the first
+     element in <body>), so it can never cover a buy CTA or any other
+     content in the pre-consent state. Same copy, same Accept/Decline
+     interaction, no auto-dismiss; it scrolls away with the page like the
+     announcement bar. Because nothing is docked at the bottom, the
+     bottom space reservation that existed for the fixed sheet (D11) is
+     retired at this width. */
   html:has(.cookie-banner) {
-    scroll-padding-bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
+    scroll-padding-bottom: 0;
   }
 
   html:has(.cookie-banner) body {
-    padding-bottom: calc(4.25rem + env(safe-area-inset-bottom, 0px));
+    padding-bottom: 0;
   }
 
   .cookie-banner {
-    bottom: 0;
-    left: 0;
-    right: 0;
+    position: relative;
+    bottom: auto;
+    left: auto;
+    right: auto;
     max-width: none;
     margin-left: 0;
-    border-radius: 0.85rem 0.85rem 0 0;
+    border: none;
+    border-bottom: 1px solid rgba(215, 181, 108, 0.28);
+    border-radius: 0;
     flex-direction: row;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.4rem 0.65rem calc(0.4rem + env(safe-area-inset-bottom, 0px));
+    padding: 0.4rem 0.65rem;
   }
 
   .cookie-text {
