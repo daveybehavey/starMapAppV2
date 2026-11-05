@@ -1,4 +1,5 @@
 import { kv } from "./kv";
+import { CHECKOUT_TIMING_COUNTERS, type CheckoutTimingCounter } from "./checkoutTiming";
 import { type Ga4PurchaseInput, recordGa4PurchaseOnce } from "./ga4MeasurementProtocol";
 import { recordPosthogPurchaseOnce } from "./posthogServerPurchase";
 import { FUNNEL_STEPS, type FunnelStep } from "./funnelSteps";
@@ -375,6 +376,33 @@ export async function recordFunnelStep(input: FunnelRecordInput): Promise<void> 
   }
 
   await Promise.all(tasks);
+}
+
+/**
+ * Checkout stage-timing counters (measurement only). Same total + daily
+ * KV counter pattern as {@link recordFunnelStep}, under a dedicated
+ * `checkout_timing:*` namespace so the funnel steps themselves are
+ * untouched. These size how often the Stripe fallback creates and the
+ * URL-recovery retrieve fire, and how slow the merch Printful quote is —
+ * the events that previously existed only as console warnings.
+ * Counter names + the bucket mapping live in `lib/checkoutTiming.ts`.
+ *
+ * Read back via KV:
+ *   checkout_timing:total:<counter>            (no TTL)
+ *   checkout_timing:daily:<YYYY-MM-DD>:<counter> (DAILY_TTL_SECONDS)
+ */
+const CHECKOUT_TIMING_COUNTER_SET = new Set<string>(CHECKOUT_TIMING_COUNTERS);
+
+export async function recordCheckoutTimingCounter(counter: CheckoutTimingCounter): Promise<void> {
+  // Allowlist guard: counters are fixed strings from the route, never
+  // derived from client input — refuse anything else rather than mint
+  // arbitrary KV keys.
+  if (!CHECKOUT_TIMING_COUNTER_SET.has(counter)) return;
+  const today = utcDateKey(new Date());
+  await Promise.all([
+    kv.incr(`checkout_timing:total:${counter}`, 1),
+    kv.incr(`checkout_timing:daily:${today}:${counter}`, 1, { ex: DAILY_TTL_SECONDS }),
+  ]);
 }
 
 export async function recordPaymentVerifiedOnce(input: {
