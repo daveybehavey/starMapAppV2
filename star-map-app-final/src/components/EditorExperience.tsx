@@ -2572,6 +2572,24 @@ export function EditorExperience({
             </div>
           </div>
         ) : null}
+        {/* S4 A1 (gate fix, Codex P2 on #589): the autosave failure
+            warning must reach mobile visitors too — both contextual
+            save-copy sites live in the desktop branch below, and
+            MobileCreate receives no save status, so on mobile a
+            failed write updated the status invisibly. Rendered here,
+            beside the map-load warning and outside the
+            desktop/mobile conditional; desktop keeps its contextual
+            copy, so the banner is mobile-only. */}
+        {draftSaveStatus.state === "failed" && !isDesktop ? (
+          <div
+            className="mx-auto mb-4 w-full max-w-3xl rounded-xl border border-amber-300/40 bg-amber-400/10 px-4 py-3"
+            role="alert"
+          >
+            <p className="text-sm font-semibold text-amber-100">
+              {draftSaveFailureText(draftSaveStatus)}
+            </p>
+          </div>
+        ) : null}
         {/* Conditional rendering with key to force React to replace tree */}
         {!editorReady ? (
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center text-sm text-neutral-300 shadow-sm shadow-black/30">

@@ -115,6 +115,25 @@ test("A1 wiring: both save-copy sites render the failure state instead of the au
   assert.doesNotMatch(src, /lastDraftSavedAt/);
 });
 
+test("A1 wiring: the failure warning also renders for mobile, outside the desktop/mobile conditional", () => {
+  // Gate fix (Codex P2 on #589): both save-copy sites above sit in
+  // the desktop branch and MobileCreate receives no save status, so
+  // a mobile visitor's failed write surfaced nowhere. The banner
+  // beside the map-load warning covers that surface.
+  const src = read("src/components/EditorExperience.tsx");
+  const bannerAt = src.indexOf('draftSaveStatus.state === "failed" && !isDesktop');
+  assert.ok(bannerAt !== -1, "mobile save-failure banner is rendered");
+  const conditionalAt = src.indexOf(") : isDesktop ? (");
+  assert.ok(conditionalAt !== -1, "desktop/mobile conditional present");
+  assert.ok(
+    bannerAt < conditionalAt,
+    "banner sits outside (before) the desktop/mobile conditional",
+  );
+  const bannerSegment = src.slice(bannerAt, bannerAt + 700);
+  assert.match(bannerSegment, /role="alert"/);
+  assert.match(bannerSegment, /draftSaveFailureText\(draftSaveStatus\)/);
+});
+
 test("A1 wiring: SimplifiedEditor surfaces its debounced-save failures the same way", () => {
   const src = read("src/components/SimplifiedEditor/SimplifiedEditor.tsx");
   assert.match(src, /from "@\/lib\/editorDraftSaveStatus";/);
