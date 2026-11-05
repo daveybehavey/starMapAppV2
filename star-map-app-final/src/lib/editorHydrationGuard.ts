@@ -135,3 +135,59 @@ export function shouldStartMapHydration(
   }
   return true;
 }
+
+export type LinkedMapLoadResult =
+  | { status: "applied"; data: unknown }
+  | {
+      status: "failed";
+      reason: "http-error" | "invalid-recipe" | "fetch-failed";
+    }
+  | { status: "defeated" };
+
+/**
+ * One map-link hydration attempt, classified (S4 sweep A2).
+ *
+ * The hydration effect used to run this sequence inline and
+ * return silently from every failure branch — non-OK HTTP, an
+ * unparseable body, a payload that is not a recipe, a rejected
+ * fetch — so the editor continued with the local draft and the
+ * user could not tell the linked design had never loaded, and
+ * had no way to retry. The attempt now reports its outcome:
+ *
+ * - `applied`: the recipe arrived and the caller's apply fence
+ *   (shouldApplyHydratedMapRecipe, via `shouldApply`) allowed it.
+ * - `failed`: the load itself failed. The caller surfaces an
+ *   explicit load-failed state with a retry action — a failed
+ *   load is never silent again.
+ * - `defeated`: the recipe arrived but the fence refused it (the
+ *   user edited during the flight, the effect was cleaned up, or
+ *   the URL moved on). That is the fence working as designed —
+ *   NOT a load failure, and the caller must not surface it as
+ *   one.
+ *
+ * The fetch and the recipe-shape check are injected so the
+ * classification is testable without a network or a component.
+ */
+export async function loadLinkedMapRecipe(input: {
+  mapId: string;
+  fetchRecipe: (mapId: string) => Promise<{
+    ok: boolean;
+    json: () => Promise<unknown>;
+  }>;
+  isHydratable: (data: unknown) => boolean;
+  shouldApply: () => boolean;
+}): Promise<LinkedMapLoadResult> {
+  let data: unknown;
+  try {
+    const res = await input.fetchRecipe(input.mapId);
+    if (!res.ok) return { status: "failed", reason: "http-error" };
+    data = await res.json();
+  } catch {
+    return { status: "failed", reason: "fetch-failed" };
+  }
+  if (!input.isHydratable(data)) {
+    return { status: "failed", reason: "invalid-recipe" };
+  }
+  if (!input.shouldApply()) return { status: "defeated" };
+  return { status: "applied", data };
+}
