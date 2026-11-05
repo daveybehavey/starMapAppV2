@@ -222,7 +222,18 @@ export default async function ChristmasStarMapGiftPage() {
         <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
           Christmas gifts get personal when they capture a shared night — a first date, a wedding, a birth, or
           another once-in-a-lifetime sky. Preview the exact map free, then choose the delivery format that
-          still makes Christmas for your shipping country.
+          still makes Christmas for your shipping country. Celebrating a{" "}
+          <Link href="/first-christmas-star-map" className="font-semibold text-amber-800 underline hover:text-amber-950">
+            baby’s first Christmas or your first Christmas together
+          </Link>
+          ? Start from that dedicated page, or follow{" "}
+          <Link
+            href="/how-personalized-star-map-works"
+            className="font-semibold text-amber-800 underline hover:text-amber-950"
+          >
+            how a personalized star map works
+          </Link>{" "}
+          for the full editor flow.
         </p>
         <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li>Astronomically accurate to the date, time, and location you choose</li>

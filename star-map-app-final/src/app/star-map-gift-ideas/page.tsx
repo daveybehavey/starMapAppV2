@@ -60,6 +60,11 @@ const seasonalIdeas = [
     href: "/star-map-for/christmas",
   },
   {
+    title: "First Christmas",
+    description: "Baby’s first Christmas or our first Christmas together under a shared sky.",
+    href: "/first-christmas-star-map",
+  },
+  {
     title: "New Baby",
     description: "Capture the sky from the night they arrived.",
     href: "/star-map-for/new-baby",
@@ -194,6 +199,12 @@ export default function StarMapGiftIdeasPage() {
                 className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5"
               >
                 New Baby
+              </Link>
+              <Link
+                href="/first-christmas-star-map"
+                className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5"
+              >
+                First Christmas
               </Link>
               <Link
                 href="/star-map-for/memorial"

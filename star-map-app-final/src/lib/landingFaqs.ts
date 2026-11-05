@@ -158,6 +158,40 @@ export const HOW_TO_PRINT_STAR_MAP_FAQ_ITEMS: LandingFaqItem[] = [
   },
 ];
 
+/** FAQ for /how-personalized-star-map-works. */
+export const HOW_PERSONALIZED_STAR_MAP_WORKS_FAQ_ITEMS: LandingFaqItem[] = [
+  {
+    question: "Do I need an account to create a star map?",
+    answer:
+      "No. The free preview does not require an account or payment. You only pay if you unlock HD digital or place a print order.",
+  },
+  {
+    question: "What do I enter first in the editor?",
+    answer:
+      "A date and a confirmed place unlock the preview. Until both are set, the primary control stays locked with “Add date + place to unlock preview.”",
+  },
+  {
+    question: "Can I customize text on the map?",
+    answer:
+      "Yes. The editor’s Text Styling controls include a title, subtitle, and dedication line, with font, color, size, and alignment options.",
+  },
+  {
+    question: "Which shapes are available?",
+    answer:
+      "Rectangle, Heart, Circle, Star, and Diamond. Heart, Star, and Diamond are labeled HD only in the editor — you can still preview them before unlocking HD.",
+  },
+  {
+    question: "What happens after I generate a preview?",
+    answer:
+      "After you click Generate preview, the sky unlocks. From there you can refine style, shape, and frame options, then choose a free watermarked preview export, HD digital, or a print path from the same design.",
+  },
+  {
+    question: "Is the sky calculated from real astronomy?",
+    answer:
+      "Yes. StarMapCo calculates the map from your date, time, timezone, and location using real astronomical data — see the accuracy guide for detail.",
+  },
+];
+
 /** FAQ for /night-sky-map-gift. */
 export const NIGHT_SKY_MAP_GIFT_FAQ_ITEMS: LandingFaqItem[] = [
   {
