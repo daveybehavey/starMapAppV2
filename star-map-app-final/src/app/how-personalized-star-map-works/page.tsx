@@ -71,9 +71,10 @@ export default function HowPersonalizedStarMapWorksPage() {
           How a Personalized Star Map Works
         </h1>
         <p className="text-sm text-neutral-200 sm:text-base">
-          A personalized star map is the night sky for a date and place you choose — calculated in the
-          editor, customized with your wording, then delivered as framed print, unframed print, canvas, or
-          HD digital. Follow the same steps the product uses.
+          A personalized star map captures a meaningful night sky for a date and place you choose — the map
+          shows that exact sky. Calculated in the editor, customized with your wording, then delivered as
+          framed print, unframed print, canvas, or HD digital. Follow the same steps the product uses to make
+          a moment into a keepsake.
         </p>
         <MoneyPagePriceAtGlance className="mx-auto max-w-lg" />
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
@@ -246,13 +247,24 @@ export default function HowPersonalizedStarMapWorksPage() {
       <section className="content-visibility-auto mt-6 space-y-3 rounded-3xl border border-black/5 bg-amber-50/80 p-6 shadow-inner shadow-black/5">
         <h2 className="text-midnight text-lg font-semibold">Popular gift occasions</h2>
         <p className="text-sm text-neutral-800 sm:text-base">
-          Once you understand the flow, start from the occasion that matches your date —{" "}
+          Gift occasions get personal when they capture a shared night — a wedding, a birth, an anniversary,
+          or another once-in-a-lifetime sky. The sky on the night they arrived suits a nursery keepsake; a
+          proposal or ceremony date keeps the exact sky from the day they said yes. Once you understand the
+          flow, start from the occasion that matches your date —{" "}
           <Link href="/anniversary" className="font-semibold text-amber-800 underline hover:text-amber-950">
             anniversary
           </Link>
           ,{" "}
           <Link href="/wedding" className="font-semibold text-amber-800 underline hover:text-amber-950">
             wedding
+          </Link>
+          ,{" "}
+          <Link href="/new-baby" className="font-semibold text-amber-800 underline hover:text-amber-950">
+            new baby
+          </Link>
+          ,{" "}
+          <Link href="/proposal" className="font-semibold text-amber-800 underline hover:text-amber-950">
+            wedding &amp; proposal
           </Link>
           ,{" "}
           <Link

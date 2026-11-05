@@ -75,9 +75,25 @@ test("first Christmas page follows occasion money-page pattern", () => {
   assert.match(source, /OccasionStorySection/);
   assert.match(source, /buildFramedHdCheckoutHref\("first-christmas-hero-framed-hd"\)/);
   assert.match(source, /href="\/christmas-star-map-gift"/);
-  assert.match(source, /href="\/star-map-for\/new-baby"/);
+  assert.match(source, /href="\/star-map-for\/new-baby"|href="\/new-baby"/);
   assert.match(source, /href="\/how-personalized-star-map-works"/);
   assert.doesNotMatch(source, /\binstantly\b/i);
+});
+
+test("wave-1 pages weave existing site buyer phrases", () => {
+  const firstXmas = readSrc(FIRST_XMAS);
+  assert.match(firstXmas, /capture a meaningful night sky as a\s+Christmas keepsake/);
+  assert.match(firstXmas, /the sky on the night they arrived/);
+  assert.match(firstXmas, /shared night/);
+  assert.match(firstXmas, /the map shows that exact sky/);
+  assert.match(firstXmas, /Make a moment into a keepsake/);
+  assert.match(firstXmas, /[Tt]he sky on the day someone was born is truly one of a kind/);
+
+  const howTo = readSrc(HOW_TO);
+  assert.match(howTo, /meaningful night sky/);
+  assert.match(howTo, /the map\s+shows that exact sky/);
+  assert.match(howTo, /make\s+a moment into a keepsake/i);
+  assert.match(howTo, /shared night/);
 });
 
 test("anniversary page carries the deepened gift guide section", () => {

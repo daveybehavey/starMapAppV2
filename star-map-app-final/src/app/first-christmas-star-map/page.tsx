@@ -128,9 +128,10 @@ export default async function FirstChristmasStarMapPage() {
           First Christmas Star Map Gift
         </h1>
         <p className="text-sm text-neutral-200 sm:text-base">
-          Baby’s first Christmas or our first Christmas together — keep the sky from a birth night, a first
-          home, or the holiday itself as a framed, poster, or HD digital keepsake. Preview free, then choose
-          the format that still makes Christmas for your shipping country.
+          Baby’s first Christmas or our first Christmas together — capture a meaningful night sky as a
+          Christmas keepsake. For a new arrival, keep the sky on the night they arrived; for a couple, keep a
+          shared night from a first home or the holiday itself. Preview free, then choose framed print,
+          poster, or HD digital for your shipping country.
         </p>
         <MoneyPagePriceAtGlance className="mx-auto max-w-lg" />
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
@@ -228,10 +229,10 @@ export default async function FirstChristmasStarMapPage() {
       <OccasionStorySection
         heading="Two firsts under the same sky idea"
         paragraphs={[
-          "A first Christmas asks for something quieter than a gadget and more lasting than a sweater. For a new baby, the sky on the night they arrived — or the first Christmas Eve in the family home — becomes a nursery keepsake with their name and date. For a couple, Our First Christmas can mark the night you moved in, the night you met, or the holiday sky over your first shared address.",
-          "StarMapCo uses the same editor flow either way: enter the date and place, generate a free preview, add a title and dedication, then choose framed print, unframed print, or HD digital. Soft parchment styles suit a nursery wall; a deep navy look suits a living room or bedroom gift.",
+          "A first Christmas asks for something quieter than a gadget and more lasting than a sweater. Christmas gifts get personal when they capture a shared night. For a new baby, the sky on the night they arrived — or the first Christmas Eve in the family home — becomes a nursery keepsake with their name and date. For a couple, Our First Christmas can mark the night you moved in, the night you met, or the holiday sky over your first shared address — the map shows that exact sky.",
+          "Remember the day their world began, or the night your first Christmas together started. StarMapCo uses the same editor flow either way: enter the date and place, generate a free preview, add a title and dedication, then choose framed print, unframed print, or HD digital. Soft parchment styles suit a nursery wall; a deep navy look suits a living room or bedroom gift.",
           "If print order-by dates still work for your country, framed + HD arrives as a ready-to-hang piece with the HD file as backup. If you are past a print cutoff, HD digital unlocks right after payment so the gift can still land before Christmas.",
-          "Start with the free preview. There is no account to create and nothing to pay to see the map. Check the wording, try a style, and only decide on a format once it feels like the night you meant to keep.",
+          "Make a moment into a keepsake. Start with the free preview — there is no account to create and nothing to pay to see the map. Check the wording, try a style, and only decide on a format once it feels like the night you meant to keep. The sky on the day someone was born is truly one of a kind; so is the sky above a couple’s first Christmas.",
         ]}
         ctaHref="/editor?mode=quick&source=occasion-first-christmas-story-preview&utm_source=site&utm_medium=landing&utm_campaign=first_christmas_story"
         ctaLabel="Start free preview"
@@ -299,7 +300,7 @@ export default async function FirstChristmasStarMapPage() {
           <Link href="/christmas-star-map-gift" className="text-amber-700 underline hover:text-amber-800">
             Christmas star map gift
           </Link>
-          <Link href="/star-map-for/new-baby" className="text-amber-700 underline hover:text-amber-800">
+          <Link href="/new-baby" className="text-amber-700 underline hover:text-amber-800">
             New baby star map
           </Link>
           <Link href="/gifts/new-baby-star-map" className="text-amber-700 underline hover:text-amber-800">
