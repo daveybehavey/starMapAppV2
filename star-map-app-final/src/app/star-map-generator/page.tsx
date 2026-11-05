@@ -239,7 +239,7 @@ export default function StarMapGeneratorPage() {
             Birthday star map
           </Link>
           <Link
-            href="/star-map-for/new-baby"
+            href="/new-baby"
             className="rounded-full border border-amber-200/60 bg-amber-50/70 px-3 py-1.5 transition hover:border-amber-400 hover:bg-amber-100"
           >
             New baby star map

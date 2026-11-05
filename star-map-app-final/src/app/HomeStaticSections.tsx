@@ -245,7 +245,7 @@ export default function HomeStaticSections({ priceLabels, promoStatus, promoCode
           </Link>
           , or{" "}
           <Link
-            href="/star-map-for/new-baby"
+            href="/new-baby"
             className="font-semibold text-amber-300 underline decoration-amber-400/60 underline-offset-2 hover:text-amber-200"
           >
             new baby

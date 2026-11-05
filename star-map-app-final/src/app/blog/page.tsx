@@ -100,7 +100,7 @@ const blogOccasionHubLinks = BLOG_MONEY_PAGE_LINKS.filter((link) =>
     "/wedding",
     "/anniversary",
     "/birthday",
-    "/star-map-for/new-baby",
+    "/new-baby",
     "/star-map-for/memorial",
     "/hd-star-map",
     "/shop",

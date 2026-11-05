@@ -1314,7 +1314,7 @@ export const blogPosts: BlogPost[] = [
           <strong>Why it matters:</strong> This sky existed only once — for a few moments — and then it was
           gone forever. A birth star map preserves that instant, making it one of the most emotionally
           meaningful uses of this art form. Start on the{" "}
-          <Link href="/star-map-for/new-baby">new baby star map page</Link> when you have birth details ready.
+          <Link href="/new-baby">new baby star map page</Link> when you have birth details ready.
         </p>
 
         <h2>5) Memorials: Remembering With Quiet Meaning</h2>
@@ -1423,7 +1423,7 @@ export const blogPosts: BlogPost[] = [
           <li>It becomes display-worthy decor, not just a one-day gift item.</li>
           <li>
             It works across occasions: anniversaries, weddings, birthdays, and{" "}
-            <Link href="/star-map-for/new-baby">new-baby milestones</Link>.
+            <Link href="/new-baby">new-baby milestones</Link>.
           </li>
         </ul>
         <p>
@@ -1722,7 +1722,7 @@ export const blogPosts: BlogPost[] = [
         <p>
           Read the full guide at{" "}
           <Link href="/blog/birth-star-map">Birth Star Map: A Meaningful Nursery Gift From the Night They Arrived</Link>{" "}
-          or start on the <Link href="/star-map-for/new-baby">new baby star map page</Link>.
+          or start on the <Link href="/new-baby">new baby star map page</Link>.
         </p>
       </article>
     ),
