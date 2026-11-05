@@ -137,9 +137,16 @@ test("source: checkout route emits checkout_timing and the timing counters, beha
   const route = fs.readFileSync(CHECKOUT_ROUTE, "utf8");
   assert.match(route, /createCheckoutTimingCollector/);
   assert.match(route, /logCheckoutTiming/);
-  assert.match(route, /recordCheckoutTimingCounter\("consent_fallback_fired"\)/);
-  assert.match(route, /recordCheckoutTimingCounter\("discount_fallback_fired"\)/);
-  assert.match(route, /recordCheckoutTimingCounter\("url_recovery_fired"\)/);
+  // Counters are queued as events fire and flushed after the Stripe
+  // stage is finalized, so KV latency never inflates measured stages.
+  assert.match(route, /queueTimingCounter\("consent_fallback_fired"/);
+  assert.match(route, /queueTimingCounter\("discount_fallback_fired"/);
+  assert.match(route, /queueTimingCounter\("url_recovery_fired"/);
+  assert.match(route, /flushQueuedTimingCounters/);
+  assert.match(route, /recordCheckoutTimingCounter\(queued\.counter\)/);
+  // stripeCreateMs is finalized on every error exit, and URL recovery
+  // is marked when the retrieve is attempted, not only on success.
+  assert.match(route, /finalizeStripeCreateMs/);
   assert.match(route, /checkoutTimingCounterForPrintfulQuoteBucket/);
   // The Stripe client configuration is untouched by the instrumentation.
   assert.match(route, /timeout: 20_000/);

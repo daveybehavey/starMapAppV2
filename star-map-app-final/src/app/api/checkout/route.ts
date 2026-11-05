@@ -43,6 +43,7 @@ import {
   logCheckoutTiming,
   printfulQuoteBucket,
   type CheckoutTimingCollector,
+  type CheckoutTimingCounter,
 } from "@/lib/checkoutTiming";
 import { getGeoDigitalSinglePrice, getRequestCountry } from "@/lib/geoPricing";
 import { evaluatePrintMarginForCheckout } from "@/lib/printMargin";
@@ -1067,6 +1068,27 @@ async function createCheckoutSession(input: {
     throw new Error("Stripe not configured");
   }
 
+  // Instrumentation only: timing counters are QUEUED as their events
+  // fire and flushed once the Stripe create stage has been finalized
+  // (every createCheckoutSession exit below flushes before returning or
+  // rethrowing), so a slow KV write can neither delay session creation
+  // nor inflate the stage durations being measured. Each flush write
+  // still goes through bestEffortCheckoutSideEffect, so a counter
+  // failure can never fail or change a checkout.
+  const queuedTimingCounters: Array<{ counter: CheckoutTimingCounter; stage: string }> = [];
+  const queueTimingCounter = (counter: CheckoutTimingCounter, stage: string): void => {
+    queuedTimingCounters.push({ counter, stage });
+  };
+  const flushQueuedTimingCounters = async (): Promise<void> => {
+    for (const queued of queuedTimingCounters.splice(0)) {
+      await bestEffortCheckoutSideEffect({
+        correlationId: input.correlationId ?? "unknown",
+        stage: queued.stage,
+        run: () => recordCheckoutTimingCounter(queued.counter),
+      });
+    }
+  };
+
   const normalizedOrderType = parseOrderType(orderType);
   const isPrintOrder = normalizedOrderType === "print";
   const normalizedPrintVariant = parsePrintVariant(printVariant);
@@ -1165,11 +1187,7 @@ async function createCheckoutSession(input: {
       printfulQuoteBucket(input.timing.merchPrintfulQuoteMs),
     );
     if (quoteCounter && !input.qaContext?.enabled) {
-      await bestEffortCheckoutSideEffect({
-        correlationId: input.correlationId ?? "unknown",
-        stage: "checkout_timing_counter_printful_quote",
-        run: () => recordCheckoutTimingCounter(quoteCounter),
-      });
+      queueTimingCounter(quoteCounter, "checkout_timing_counter_printful_quote");
     }
   }
   let printShippingOptions = printShippingSelection.shippingOptions;
@@ -1639,16 +1657,15 @@ async function createCheckoutSession(input: {
     shipping_options: printShippingOptions,
   };
 
-  // Instrumentation only: mark + count a URL recovery (once per checkout).
+  // Instrumentation only: mark + queue a URL recovery count (once per
+  // checkout). Callers mark at the point the recovery FIRES (retrieve
+  // attempt entry, or a recovered URL after strict validation), so the
+  // counter measures attempts, not only successful recoveries.
   const markUrlRecoveryFired = async (): Promise<void> => {
     if (!input.timing || input.timing.urlRecoveryFired) return;
     input.timing.urlRecoveryFired = true;
     if (!input.qaContext?.enabled) {
-      await bestEffortCheckoutSideEffect({
-        correlationId: input.correlationId ?? "unknown",
-        stage: "checkout_timing_counter_url_recovery",
-        run: () => recordCheckoutTimingCounter("url_recovery_fired"),
-      });
+      queueTimingCounter("url_recovery_fired", "checkout_timing_counter_url_recovery");
     }
   };
 
@@ -1682,11 +1699,7 @@ async function createCheckoutSession(input: {
       if (input.timing && !input.timing.consentFallbackFired) {
         input.timing.consentFallbackFired = true;
         if (!input.qaContext?.enabled) {
-          await bestEffortCheckoutSideEffect({
-            correlationId: input.correlationId ?? "unknown",
-            stage: "checkout_timing_counter_consent_fallback",
-            run: () => recordCheckoutTimingCounter("consent_fallback_fired"),
-          });
+          queueTimingCounter("consent_fallback_fired", "checkout_timing_counter_consent_fallback");
         }
       }
       const withoutPromotions: CheckoutSessionCreateParams = {
@@ -1711,6 +1724,14 @@ async function createCheckoutSession(input: {
   // once a session with a usable URL exists (fallback creates and the
   // URL-recovery retrieve included — that is the real time to a session).
   const stripeCreateStartedAt = input.timing ? performance.now() : null;
+  // Instrumentation only: finalize the Stripe stage duration (idempotent)
+  // so EVERY error exit below reports a real stripeCreateMs once Stripe
+  // work has run, instead of leaving null for the error timing line.
+  const finalizeStripeCreateMs = (): void => {
+    if (input.timing && stripeCreateStartedAt !== null && input.timing.stripeCreateMs === null) {
+      input.timing.stripeCreateMs = performance.now() - stripeCreateStartedAt;
+    }
+  };
   try {
     session = await createSessionWithConsentFallback(sessionParams, stripeIdempotencyKey);
   } catch (error) {
@@ -1720,11 +1741,14 @@ async function createCheckoutSession(input: {
       if (input.timing && stripeCreateStartedAt !== null) {
         input.timing.stripeCreateMs = performance.now() - stripeCreateStartedAt;
       }
+      await flushQueuedTimingCounters();
       throw error;
     }
     // Manual promo codes must surface the inapplicable-code error and STOP —
     // never mint a silent full-price fallback session behind the rejection.
     if (!fallbackOnDiscountError) {
+      finalizeStripeCreateMs();
+      await flushQueuedTimingCounters();
       throw new CheckoutError(
         "This code isn't valid for this item.",
         "promotion_not_applicable",
@@ -1735,15 +1759,11 @@ async function createCheckoutSession(input: {
       promotionCodeId,
       plan,
     });
-    // Instrumentation only: mark + count the discount fallback.
+    // Instrumentation only: mark + queue the discount fallback count.
     if (input.timing && !input.timing.discountFallbackFired) {
       input.timing.discountFallbackFired = true;
       if (!input.qaContext?.enabled) {
-        await bestEffortCheckoutSideEffect({
-          correlationId: input.correlationId ?? "unknown",
-          stage: "checkout_timing_counter_discount_fallback",
-          run: () => recordCheckoutTimingCounter("discount_fallback_fired"),
-        });
+        queueTimingCounter("discount_fallback_fired", "checkout_timing_counter_discount_fallback");
       }
     }
     const fallbackMetadata = { ...metadata };
@@ -1765,13 +1785,23 @@ async function createCheckoutSession(input: {
     discountRejected = true;
     // Stripe idempotency keys must match request params — use a distinct key for the no-discount retry.
     const fallbackIdempotencyKey = stripeIdempotencyKey ? `${stripeIdempotencyKey}:no-discount` : undefined;
-    session = await createSessionWithConsentFallback(fallbackParams, fallbackIdempotencyKey);
+    try {
+      session = await createSessionWithConsentFallback(fallbackParams, fallbackIdempotencyKey);
+    } catch (fallbackError) {
+      finalizeStripeCreateMs();
+      await flushQueuedTimingCounters();
+      throw fallbackError;
+    }
   }
 
   // Once Stripe has created a session, never strand the buyer on unknown_error.
   // Prefer the strict allowlist; if the path shape drifts, recover any Stripe-owned HTTPS URL.
   let resolved = resolveStripeCheckoutHandoffUrl(session.url);
   if (!resolved.url && stripe && session.id) {
+    // Instrumentation only: the recovery fires when the retrieve is
+    // attempted — mark it here so a throwing/failing retrieve is still
+    // counted (the attempt consumed the latency either way).
+    await markUrlRecoveryFired();
     try {
       const retrieved = await stripe.checkout.sessions.retrieve(session.id);
       resolved = resolveStripeCheckoutHandoffUrl(retrieved.url);
@@ -1782,7 +1812,6 @@ async function createCheckoutSession(input: {
           recovered: resolved.recovered,
           ...describeStripeCheckoutUrlShape(resolved.url),
         });
-        await markUrlRecoveryFired();
       }
     } catch (retrieveError) {
       console.warn("checkout_url_retrieve_failed", {
@@ -1804,6 +1833,7 @@ async function createCheckoutSession(input: {
     if (input.timing && stripeCreateStartedAt !== null) {
       input.timing.stripeCreateMs = performance.now() - stripeCreateStartedAt;
     }
+    await flushQueuedTimingCounters();
     throw new Error("missing_stripe_checkout_url");
   }
   if (resolved.recovered) {
@@ -1820,6 +1850,7 @@ async function createCheckoutSession(input: {
   if (input.timing && stripeCreateStartedAt !== null) {
     input.timing.stripeCreateMs = performance.now() - stripeCreateStartedAt;
   }
+  await flushQueuedTimingCounters();
   return { url: resolved.url, discountRejected };
 }
 
