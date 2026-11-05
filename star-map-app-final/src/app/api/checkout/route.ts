@@ -1171,17 +1171,14 @@ async function createCheckoutSession(input: {
   // arguments, and its result handling are unchanged.
   const merchQuoteStartedAt =
     input.timing && isPrintOrder && isMerchOrder && resolvedMerch ? performance.now() : null;
-  const printShippingSelection =
-    isPrintOrder && isMerchOrder && resolvedMerch
-      ? await getMerchShippingOptionsForCountry(
-          resolvedMerch.catalogVariantId,
-          resolvedShippingCountry,
-          checkoutCurrency
-        )
-      : isPrintOrder
-        ? getPrintShippingOptionsForCountry(normalizedPrintVariant, resolvedShippingCountry, checkoutCurrency)
-        : { shippingOptions: undefined, shippingChargeCents: null };
-  if (input.timing && merchQuoteStartedAt !== null) {
+  // Instrumentation only: record the quote duration (and queue its
+  // bucket counter) on BOTH the success and the rejection path — a
+  // Printful network failure still consumed the latency, so the error
+  // timing line and the counter must not lose it.
+  let merchQuoteRecorded = false;
+  const recordMerchQuoteTiming = (): void => {
+    if (!input.timing || merchQuoteStartedAt === null || merchQuoteRecorded) return;
+    merchQuoteRecorded = true;
     input.timing.merchPrintfulQuoteMs = performance.now() - merchQuoteStartedAt;
     const quoteCounter = checkoutTimingCounterForPrintfulQuoteBucket(
       printfulQuoteBucket(input.timing.merchPrintfulQuoteMs),
@@ -1189,7 +1186,25 @@ async function createCheckoutSession(input: {
     if (quoteCounter && !input.qaContext?.enabled) {
       queueTimingCounter(quoteCounter, "checkout_timing_counter_printful_quote");
     }
+  };
+  let printShippingSelection;
+  try {
+    printShippingSelection =
+      isPrintOrder && isMerchOrder && resolvedMerch
+        ? await getMerchShippingOptionsForCountry(
+            resolvedMerch.catalogVariantId,
+            resolvedShippingCountry,
+            checkoutCurrency
+          )
+        : isPrintOrder
+          ? getPrintShippingOptionsForCountry(normalizedPrintVariant, resolvedShippingCountry, checkoutCurrency)
+          : { shippingOptions: undefined, shippingChargeCents: null };
+  } catch (quoteError) {
+    recordMerchQuoteTiming();
+    await flushQueuedTimingCounters();
+    throw quoteError;
   }
+  recordMerchQuoteTiming();
   let printShippingOptions = printShippingSelection.shippingOptions;
   let printShippingChargeCents = printShippingSelection.shippingChargeCents;
   // The geo-pricing experiment never prices CA (design §1.2); for a CA
@@ -1744,11 +1759,15 @@ async function createCheckoutSession(input: {
       await flushQueuedTimingCounters();
       throw error;
     }
-    // Manual promo codes must surface the inapplicable-code error and STOP —
-    // never mint a silent full-price fallback session behind the rejection.
+    // Instrumentation only: the manual-promo rejection exit below
+    // throws immediately, so finalize + flush here, before that throw.
     if (!fallbackOnDiscountError) {
       finalizeStripeCreateMs();
       await flushQueuedTimingCounters();
+    }
+    // Manual promo codes must surface the inapplicable-code error and STOP —
+    // never mint a silent full-price fallback session behind the rejection.
+    if (!fallbackOnDiscountError) {
       throw new CheckoutError(
         "This code isn't valid for this item.",
         "promotion_not_applicable",
