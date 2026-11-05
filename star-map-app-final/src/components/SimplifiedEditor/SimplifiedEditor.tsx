@@ -51,6 +51,12 @@ import {
 import { checkoutUrlErrorMessage, redirectToStripeCheckout } from "@/lib/stripeCheckoutNavigation";
 import { syncSampleDesignTextBoxes } from "@/lib/sampleDesignTextSync";
 import { resolveSharedFirstDraftRestore } from "@/lib/editorDraft";
+import {
+  draftSaveStatusAfterWrite,
+  draftSaveFailureText,
+  INITIAL_DRAFT_SAVE_STATUS,
+  type DraftSaveStatus,
+} from "@/lib/editorDraftSaveStatus";
 
 // Lazy load the canvas for better initial load
 const PreviewCanvas = dynamic(() => import("@/components/PreviewCanvas"), {
@@ -140,6 +146,12 @@ function getDownloadLocationHint() {
 
 export function SimplifiedEditor() {
   const [mode, setMode] = useState<EditorMode>("sample");
+  // S4 A1: the debounced draft save reports its outcome here —
+  // a failed write surfaces instead of being caught and ignored,
+  // and only a later successful write clears the failure.
+  const [draftSaveStatus, setDraftSaveStatus] = useState<DraftSaveStatus>(
+    INITIAL_DRAFT_SAVE_STATUS
+  );
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showExactTime, setShowExactTime] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -363,8 +375,23 @@ export function SimplifiedEditor() {
           })
         );
         localStorage.setItem(SHARED_DRAFT_STORAGE_KEY, JSON.stringify(sharedDraft));
+        setDraftSaveStatus((prev) =>
+          draftSaveStatusAfterWrite(prev, {
+            status: "saved",
+            savedAtLabel: new Date().toLocaleTimeString([], {
+              hour: "numeric",
+              minute: "2-digit",
+            }),
+          }),
+        );
       } catch {
-        // ignore storage errors
+        // S4 A1: a failed write (storage denied, quota) is
+        // surfaced, not ignored — the visitor's latest edits are
+        // not on this device, and the UI must say so until a later
+        // write succeeds.
+        setDraftSaveStatus((prev) =>
+          draftSaveStatusAfterWrite(prev, { status: "storage-unavailable" }),
+        );
       }
     }, 300);
     return () => {
@@ -953,6 +980,14 @@ export function SimplifiedEditor() {
         } transition-opacity duration-300`}
         aria-disabled={mode === "sample"}
       >
+        {draftSaveStatus.state === "failed" ? (
+          <p
+            className="rounded-xl border border-amber-300/40 bg-amber-400/10 px-3 py-2 text-xs font-semibold text-amber-200"
+            role="alert"
+          >
+            {draftSaveFailureText(draftSaveStatus)}
+          </p>
+        ) : null}
         <form
           className="glass-panel min-w-0 rounded-2xl p-5 sm:p-6"
           onSubmit={(e) => e.preventDefault()}

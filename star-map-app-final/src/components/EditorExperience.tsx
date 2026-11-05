@@ -136,6 +136,7 @@ import {
 } from "@/lib/mapRecipeHydration";
 import { parseMapIdParam } from "@/lib/mapId";
 import {
+  loadLinkedMapRecipe,
   shouldApplyHydratedMapRecipe,
   shouldStartMapHydration,
 } from "@/lib/editorHydrationGuard";
@@ -144,6 +145,12 @@ import {
   resolveRestoredCustomOccasion,
   writeEditorDraftToHost,
 } from "@/lib/editorDraft";
+import {
+  draftSaveStatusAfterWrite,
+  draftSaveFailureText,
+  INITIAL_DRAFT_SAVE_STATUS,
+  type DraftSaveStatus,
+} from "@/lib/editorDraftSaveStatus";
 
 const MobileCreate = dynamic(() => import("@/app/MobileCreate").then((mod) => mod.MobileCreate), {
   ssr: false,
@@ -491,7 +498,12 @@ export function EditorExperience({
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [isRevealing, setIsRevealing] = useState(false);
   const [revealStageIndex, setRevealStageIndex] = useState(0);
-  const [lastDraftSavedAt, setLastDraftSavedAt] = useState<string | null>(null);
+  // S4 A1: every autosave outcome (saved / invalid /
+  // storage-unavailable) moves this status — a failed write is
+  // surfaced, never silently dropped.
+  const [draftSaveStatus, setDraftSaveStatus] = useState<DraftSaveStatus>(
+    INITIAL_DRAFT_SAVE_STATUS
+  );
   const revealTimerRef = useRef<number | null>(null);
   const searchParams = useSearchParams();
   const isDesktopQuery = useIsDesktop();
@@ -504,6 +516,14 @@ export function EditorExperience({
   const printIntentHandledRef = useRef(false);
   const digitalIntentHandledRef = useRef(false);
   const mapFromUrlHandledRef = useRef(false);
+  // S4 A2: a failed map-link hydration is explicit state, not a
+  // silent fallback — the banner below offers a retry (which
+  // re-arms the handled-once flag and bumps the attempt nonce) or
+  // an explicit choice to keep working on the current draft.
+  const [mapHydrationFailure, setMapHydrationFailure] = useState<{
+    mapId: string;
+  } | null>(null);
+  const [mapHydrationRetryNonce, setMapHydrationRetryNonce] = useState(0);
   const loadedMapIdRef = useRef<string | null>(null);
   const loadedMapFingerprintRef = useRef<string | null>(null);
   const draftWritesBlockedRef = useRef(false);
@@ -1237,26 +1257,40 @@ export function EditorExperience({
     let cancelled = false;
 
     void (async () => {
-      try {
-        const res = await fetch(`/api/maps?id=${encodeURIComponent(requestedMapId)}`);
-        if (!res.ok) return;
-        const data = (await res.json()) as unknown;
-        if (!isHydratableMapRecipe(data)) return;
-        // A response that arrives after the user edited anything,
-        // after this effect was cleaned up, or for a map the URL no
-        // longer names must not overwrite the live editor state.
-        if (
-          !shouldApplyHydratedMapRecipe({
+      // S4 A2: the attempt is classified by loadLinkedMapRecipe.
+      // A response that arrives after the user edited anything,
+      // after this effect was cleaned up, or for a map the URL no
+      // longer names must not overwrite the live editor state —
+      // the fence's shouldApply below decides that, and a refusal
+      // is "defeated", NOT a failure. A load that itself failed
+      // (HTTP error, unreadable body, not a recipe, rejected
+      // fetch) is surfaced as explicit failure state with a retry
+      // instead of silently leaving the local draft in place.
+      const result = await loadLinkedMapRecipe({
+        mapId: requestedMapId,
+        fetchRecipe: (mapId) =>
+          fetch(`/api/maps?id=${encodeURIComponent(mapId)}`),
+        isHydratable: isHydratableMapRecipe,
+        shouldApply: () =>
+          shouldApplyHydratedMapRecipe({
             cancelled,
             requestedMapId,
             currentMapId: mapIdFromQueryRef.current,
             editGenerationAtFetchStart: generationAtFetchStart,
             editGenerationNow: useStore.getState().editGeneration,
-          })
-        ) {
-          return;
-        }
+          }),
+      });
 
+      if (result.status === "failed") {
+        if (!cancelled) {
+          setMapHydrationFailure({ mapId: requestedMapId });
+        }
+        return;
+      }
+      if (result.status !== "applied") return;
+
+      const data = result.data as HydratableMapRecipe & { datetimeISO: string };
+      try {
         draftWritesBlockedRef.current = false;
         applyHydratedMapRecipe(data);
         loadedMapIdRef.current = requestedMapId;
@@ -1284,14 +1318,38 @@ export function EditorExperience({
           hasLocation: Boolean(data.location?.name),
         });
       } catch {
-        // ignore failed hydration; editor still works from draft
+        // Applying a valid recipe failed; keep the current draft
+        // (the pre-S4 behaviour for the apply phase — load failures
+        // themselves are surfaced above, never swallowed here).
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [applyHydratedMapRecipe, aspectRatio, mapIdFromQuery, renderOptions, restored, selectedStyle, shape, visualOptionsInitialized]);
+  }, [applyHydratedMapRecipe, aspectRatio, mapIdFromQuery, mapHydrationRetryNonce, renderOptions, restored, selectedStyle, shape, visualOptionsInitialized]);
+
+  // S4 A2: retrying a failed map-link load is an explicit user
+  // decision, so the start gate's baselines re-anchor at the
+  // click: the handled-once flag is re-armed, the restore
+  // baseline becomes the generation at the click (the B-01 gate
+  // then only refuses for work that predates the retry itself),
+  // and the attempt nonce re-runs the hydration effect. Edits
+  // made while the retry is in flight still defeat application
+  // via the fetch-start generation the effect captures.
+  const handleRetryMapHydration = useCallback(() => {
+    setMapHydrationFailure(null);
+    mapFromUrlHandledRef.current = false;
+    editGenerationAtRestoreRef.current = useStore.getState().editGeneration;
+    setMapHydrationRetryNonce((n) => n + 1);
+  }, []);
+
+  // S4 A2: the explicit alternative — keep the current draft and
+  // dismiss the failure. The handled-once flag stays set, so the
+  // load is not retried implicitly.
+  const handleContinueWithDraft = useCallback(() => {
+    setMapHydrationFailure(null);
+  }, []);
 
   useEffect(() => {
     if (!restored || !revealed || paid || digitalIntentHandledRef.current) return;
@@ -1378,14 +1436,24 @@ export function EditorExperience({
       dateTimeIsUntouchedDefault: state.dateTimeIsUntouchedDefault,
     };
     const saveOutcome = writeEditorDraftToHost(window, draft);
-    if (saveOutcome.status === "saved") {
-      setLastDraftSavedAt(
-        new Date(saveOutcome.savedAt).toLocaleTimeString([], {
-          hour: "numeric",
-          minute: "2-digit",
-        })
-      );
-    }
+    // S4 A1: EVERY outcome moves the save status — a failed write
+    // (storage-unavailable / invalid) surfaces an honest failure
+    // state instead of leaving the previous saved copy standing,
+    // and only a later successful write clears it.
+    setDraftSaveStatus((prev) =>
+      draftSaveStatusAfterWrite(
+        prev,
+        saveOutcome.status === "saved"
+          ? {
+              status: "saved",
+              savedAtLabel: new Date(saveOutcome.savedAt).toLocaleTimeString([], {
+                hour: "numeric",
+                minute: "2-digit",
+              }),
+            }
+          : saveOutcome,
+      ),
+    );
   }, [
     aspectRatio,
     dateTime,
@@ -2470,6 +2538,40 @@ export function EditorExperience({
         data-force={forceViewport || "none"}
         data-is-desktop={String(isDesktop)}
       >
+        {/* S4 A2: a failed map-link load is never silent — the
+            visitor is told the linked design did not load, and
+            chooses explicitly between retrying and keeping the
+            draft they are looking at. */}
+        {mapHydrationFailure && mapHydrationFailure.mapId === mapIdFromQuery ? (
+          <div
+            className="mx-auto mb-4 w-full max-w-3xl rounded-xl border border-amber-300/40 bg-amber-400/10 px-4 py-3"
+            role="alert"
+          >
+            <p className="text-sm font-semibold text-amber-100">
+              We couldn't load the design from your link.
+            </p>
+            <p className="mt-1 text-xs text-amber-100/80">
+              You're seeing your saved draft instead. Try loading the linked design again, or
+              keep working on this draft.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleRetryMapHydration}
+                className="rounded-full border border-amber-200/60 bg-amber-300/20 px-3 py-1.5 text-[11px] font-semibold text-amber-50 transition hover:bg-amber-300/30"
+              >
+                Try again
+              </button>
+              <button
+                type="button"
+                onClick={handleContinueWithDraft}
+                className="rounded-full border border-white/20 bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:border-white/40 hover:bg-white/10"
+              >
+                Continue with this draft
+              </button>
+            </div>
+          </div>
+        ) : null}
         {/* Conditional rendering with key to force React to replace tree */}
         {!editorReady ? (
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center text-sm text-neutral-300 shadow-sm shadow-black/30">
@@ -2535,11 +2637,17 @@ export function EditorExperience({
                         <p className="text-xs text-neutral-300">
                           Advanced controls stay tucked away until you want them.
                         </p>
-                        <p className="text-[11px] text-neutral-400">
-                          {lastDraftSavedAt
-                            ? `Draft autosaved on this device at ${lastDraftSavedAt}.`
-                            : "Draft autosaves on this device."}
-                        </p>
+                        {draftSaveStatus.state === "failed" ? (
+                          <p className="text-[11px] font-semibold text-amber-300">
+                            {draftSaveFailureText(draftSaveStatus)}
+                          </p>
+                        ) : (
+                          <p className="text-[11px] text-neutral-400">
+                            {draftSaveStatus.state === "saved"
+                              ? `Draft autosaved on this device at ${draftSaveStatus.savedAtLabel}.`
+                              : "Draft autosaves on this device."}
+                          </p>
+                        )}
                       </>
                     ) : (
                       <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2">
@@ -2548,8 +2656,14 @@ export function EditorExperience({
                             Editing mode
                           </p>
                           <p className="text-sm font-semibold text-white">Refine your map</p>
-                          {lastDraftSavedAt ? (
-                            <p className="text-[10px] text-neutral-400">Saved {lastDraftSavedAt}</p>
+                          {draftSaveStatus.state === "failed" ? (
+                            <p className="text-[10px] font-semibold text-amber-300">
+                              {draftSaveFailureText(draftSaveStatus)}
+                            </p>
+                          ) : draftSaveStatus.state === "saved" ? (
+                            <p className="text-[10px] text-neutral-400">
+                              Saved {draftSaveStatus.savedAtLabel}
+                            </p>
                           ) : (
                             <p className="text-[10px] text-neutral-500">Draft autosaves on this device</p>
                           )}
