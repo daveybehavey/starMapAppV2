@@ -36,7 +36,15 @@ import {
   type PromotionSource,
 } from "@/lib/checkoutPromotions";
 import { PREMIUM_COOKIE_NAME } from "@/lib/premium";
-import { recordFunnelStep } from "@/lib/funnel";
+import { recordCheckoutTimingCounter, recordFunnelStep } from "@/lib/funnel";
+import {
+  checkoutTimingCounterForPrintfulQuoteBucket,
+  createCheckoutTimingCollector,
+  logCheckoutTiming,
+  printfulQuoteBucket,
+  type CheckoutTimingCollector,
+  type CheckoutTimingCounter,
+} from "@/lib/checkoutTiming";
 import { getGeoDigitalSinglePrice, getRequestCountry } from "@/lib/geoPricing";
 import { evaluatePrintMarginForCheckout } from "@/lib/printMargin";
 import { applyPrintFreeShippingToCheckout } from "@/lib/printFreeShipping";
@@ -1021,6 +1029,10 @@ async function createCheckoutSession(input: {
   merchFamily?: MerchFamilyId;
   merchOptions?: { size?: string; color?: string };
   qaContext?: QaRequestContext;
+  /** Instrumentation only: correlation id for best-effort timing counters. */
+  correlationId?: string;
+  /** Instrumentation only: stage-timing collector filled in as stages run. */
+  timing?: CheckoutTimingCollector;
 }): Promise<CheckoutSessionResult> {
   const {
     plan,
@@ -1055,6 +1067,27 @@ async function createCheckoutSession(input: {
   if (!stripe) {
     throw new Error("Stripe not configured");
   }
+
+  // Instrumentation only: timing counters are QUEUED as their events
+  // fire and flushed once the Stripe create stage has been finalized
+  // (every createCheckoutSession exit below flushes before returning or
+  // rethrowing), so a slow KV write can neither delay session creation
+  // nor inflate the stage durations being measured. Each flush write
+  // still goes through bestEffortCheckoutSideEffect, so a counter
+  // failure can never fail or change a checkout.
+  const queuedTimingCounters: Array<{ counter: CheckoutTimingCounter; stage: string }> = [];
+  const queueTimingCounter = (counter: CheckoutTimingCounter, stage: string): void => {
+    queuedTimingCounters.push({ counter, stage });
+  };
+  const flushQueuedTimingCounters = async (): Promise<void> => {
+    for (const queued of queuedTimingCounters.splice(0)) {
+      await bestEffortCheckoutSideEffect({
+        correlationId: input.correlationId ?? "unknown",
+        stage: queued.stage,
+        run: () => recordCheckoutTimingCounter(queued.counter),
+      });
+    }
+  };
 
   const normalizedOrderType = parseOrderType(orderType);
   const isPrintOrder = normalizedOrderType === "print";
@@ -1133,16 +1166,45 @@ async function createCheckoutSession(input: {
     clientCountry,
   });
   const isCadCheckout = checkoutCurrency === "cad";
-  const printShippingSelection =
-    isPrintOrder && isMerchOrder && resolvedMerch
-      ? await getMerchShippingOptionsForCountry(
-          resolvedMerch.catalogVariantId,
-          resolvedShippingCountry,
-          checkoutCurrency
-        )
-      : isPrintOrder
-        ? getPrintShippingOptionsForCountry(normalizedPrintVariant, resolvedShippingCountry, checkoutCurrency)
-        : { shippingOptions: undefined, shippingChargeCents: null };
+  // Instrumentation only: time the merch Printful quote (the one live
+  // third-party call inside session creation). The call itself, its
+  // arguments, and its result handling are unchanged.
+  const merchQuoteStartedAt =
+    input.timing && isPrintOrder && isMerchOrder && resolvedMerch ? performance.now() : null;
+  // Instrumentation only: record the quote duration (and queue its
+  // bucket counter) on BOTH the success and the rejection path — a
+  // Printful network failure still consumed the latency, so the error
+  // timing line and the counter must not lose it.
+  let merchQuoteRecorded = false;
+  const recordMerchQuoteTiming = (): void => {
+    if (!input.timing || merchQuoteStartedAt === null || merchQuoteRecorded) return;
+    merchQuoteRecorded = true;
+    input.timing.merchPrintfulQuoteMs = performance.now() - merchQuoteStartedAt;
+    const quoteCounter = checkoutTimingCounterForPrintfulQuoteBucket(
+      printfulQuoteBucket(input.timing.merchPrintfulQuoteMs),
+    );
+    if (quoteCounter && !input.qaContext?.enabled) {
+      queueTimingCounter(quoteCounter, "checkout_timing_counter_printful_quote");
+    }
+  };
+  let printShippingSelection;
+  try {
+    printShippingSelection =
+      isPrintOrder && isMerchOrder && resolvedMerch
+        ? await getMerchShippingOptionsForCountry(
+            resolvedMerch.catalogVariantId,
+            resolvedShippingCountry,
+            checkoutCurrency
+          )
+        : isPrintOrder
+          ? getPrintShippingOptionsForCountry(normalizedPrintVariant, resolvedShippingCountry, checkoutCurrency)
+          : { shippingOptions: undefined, shippingChargeCents: null };
+  } catch (quoteError) {
+    recordMerchQuoteTiming();
+    await flushQueuedTimingCounters();
+    throw quoteError;
+  }
+  recordMerchQuoteTiming();
   let printShippingOptions = printShippingSelection.shippingOptions;
   let printShippingChargeCents = printShippingSelection.shippingChargeCents;
   // The geo-pricing experiment never prices CA (design §1.2); for a CA
@@ -1610,6 +1672,18 @@ async function createCheckoutSession(input: {
     shipping_options: printShippingOptions,
   };
 
+  // Instrumentation only: mark + queue a URL recovery count (once per
+  // checkout). Callers mark at the point the recovery FIRES (retrieve
+  // attempt entry, or a recovered URL after strict validation), so the
+  // counter measures attempts, not only successful recoveries.
+  const markUrlRecoveryFired = async (): Promise<void> => {
+    if (!input.timing || input.timing.urlRecoveryFired) return;
+    input.timing.urlRecoveryFired = true;
+    if (!input.qaContext?.enabled) {
+      queueTimingCounter("url_recovery_fired", "checkout_timing_counter_url_recovery");
+    }
+  };
+
   async function createStripeSession(
     params: CheckoutSessionCreateParams,
     key?: string
@@ -1635,6 +1709,14 @@ async function createCheckoutSession(input: {
         plan,
         orderType: normalizedOrderType,
       });
+      // Instrumentation only: mark + count the consent fallback (once
+      // per checkout, even if a later discount fallback re-enters here).
+      if (input.timing && !input.timing.consentFallbackFired) {
+        input.timing.consentFallbackFired = true;
+        if (!input.qaContext?.enabled) {
+          queueTimingCounter("consent_fallback_fired", "checkout_timing_counter_consent_fallback");
+        }
+      }
       const withoutPromotions: CheckoutSessionCreateParams = {
         ...params,
         consent_collection: buildCheckoutConsentCollection(false),
@@ -1653,13 +1735,35 @@ async function createCheckoutSession(input: {
     : undefined;
   let session: Stripe.Checkout.Session;
   let discountRejected = false;
+  // Instrumentation only: the Stripe create stage starts here and ends
+  // once a session with a usable URL exists (fallback creates and the
+  // URL-recovery retrieve included — that is the real time to a session).
+  const stripeCreateStartedAt = input.timing ? performance.now() : null;
+  // Instrumentation only: finalize the Stripe stage duration (idempotent)
+  // so EVERY error exit below reports a real stripeCreateMs once Stripe
+  // work has run, instead of leaving null for the error timing line.
+  const finalizeStripeCreateMs = (): void => {
+    if (input.timing && stripeCreateStartedAt !== null && input.timing.stripeCreateMs === null) {
+      input.timing.stripeCreateMs = performance.now() - stripeCreateStartedAt;
+    }
+  };
   try {
     session = await createSessionWithConsentFallback(sessionParams, stripeIdempotencyKey);
   } catch (error) {
     const isDiscountError =
       Boolean(promotionCodeId) && shouldRetryCheckoutWithoutDiscount(error);
     if (!isDiscountError) {
+      if (input.timing && stripeCreateStartedAt !== null) {
+        input.timing.stripeCreateMs = performance.now() - stripeCreateStartedAt;
+      }
+      await flushQueuedTimingCounters();
       throw error;
+    }
+    // Instrumentation only: the manual-promo rejection exit below
+    // throws immediately, so finalize + flush here, before that throw.
+    if (!fallbackOnDiscountError) {
+      finalizeStripeCreateMs();
+      await flushQueuedTimingCounters();
     }
     // Manual promo codes must surface the inapplicable-code error and STOP —
     // never mint a silent full-price fallback session behind the rejection.
@@ -1674,6 +1778,13 @@ async function createCheckoutSession(input: {
       promotionCodeId,
       plan,
     });
+    // Instrumentation only: mark + queue the discount fallback count.
+    if (input.timing && !input.timing.discountFallbackFired) {
+      input.timing.discountFallbackFired = true;
+      if (!input.qaContext?.enabled) {
+        queueTimingCounter("discount_fallback_fired", "checkout_timing_counter_discount_fallback");
+      }
+    }
     const fallbackMetadata = { ...metadata };
     delete fallbackMetadata.promotion_code_id;
     delete fallbackMetadata.referral_offer_applied;
@@ -1693,13 +1804,23 @@ async function createCheckoutSession(input: {
     discountRejected = true;
     // Stripe idempotency keys must match request params — use a distinct key for the no-discount retry.
     const fallbackIdempotencyKey = stripeIdempotencyKey ? `${stripeIdempotencyKey}:no-discount` : undefined;
-    session = await createSessionWithConsentFallback(fallbackParams, fallbackIdempotencyKey);
+    try {
+      session = await createSessionWithConsentFallback(fallbackParams, fallbackIdempotencyKey);
+    } catch (fallbackError) {
+      finalizeStripeCreateMs();
+      await flushQueuedTimingCounters();
+      throw fallbackError;
+    }
   }
 
   // Once Stripe has created a session, never strand the buyer on unknown_error.
   // Prefer the strict allowlist; if the path shape drifts, recover any Stripe-owned HTTPS URL.
   let resolved = resolveStripeCheckoutHandoffUrl(session.url);
   if (!resolved.url && stripe && session.id) {
+    // Instrumentation only: the recovery fires when the retrieve is
+    // attempted — mark it here so a throwing/failing retrieve is still
+    // counted (the attempt consumed the latency either way).
+    await markUrlRecoveryFired();
     try {
       const retrieved = await stripe.checkout.sessions.retrieve(session.id);
       resolved = resolveStripeCheckoutHandoffUrl(retrieved.url);
@@ -1728,6 +1849,10 @@ async function createCheckoutSession(input: {
       hasSessionPath: shape.hasSessionPath,
       hostname: shape.hostname,
     });
+    if (input.timing && stripeCreateStartedAt !== null) {
+      input.timing.stripeCreateMs = performance.now() - stripeCreateStartedAt;
+    }
+    await flushQueuedTimingCounters();
     throw new Error("missing_stripe_checkout_url");
   }
   if (resolved.recovered) {
@@ -1739,12 +1864,19 @@ async function createCheckoutSession(input: {
       hasSessionPath: shape.hasSessionPath,
       hostname: shape.hostname,
     });
+    await markUrlRecoveryFired();
   }
+  if (input.timing && stripeCreateStartedAt !== null) {
+    input.timing.stripeCreateMs = performance.now() - stripeCreateStartedAt;
+  }
+  await flushQueuedTimingCounters();
   return { url: resolved.url, discountRejected };
 }
 
 export async function GET(req: NextRequest) {
   const correlationId = resolveCheckoutCorrelationId(req.headers.get("x-correlation-id"));
+  // Instrumentation only: stage-timing collector for this checkout.
+  const timing = createCheckoutTimingCollector();
   const ip = getClientIp(req);
   const rateLimit = await checkRateLimit(`checkout:${ip}`, 20, 60);
   if (!rateLimit.allowed) {
@@ -1818,9 +1950,11 @@ export async function GET(req: NextRequest) {
   const referralAttribution = readReferralAttributionFromCookie(req);
   const referral = await resolveReferral(referralParam ?? fallbackReferralCode, currentSessionId);
   const referralAutoOffer = resolveReferralAutoOffer(referral.code);
+  const promoStartedAt = performance.now();
   let promotion = canUseManualPromotionCode(orderType, plan)
     ? await resolvePromotionCodeId(promoCodeParam)
     : { promotionCodeId: undefined, invalid: false, lookupFailed: false };
+  timing.promoMs = performance.now() - promoStartedAt;
   if (
     !promotion.invalid &&
     !promotion.lookupFailed &&
@@ -1972,6 +2106,9 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    // Instrumentation only: everything from handler entry to here is
+    // the pre-create bucket (rate limit, referral, asset, map, promo).
+    timing.preCreateMs = performance.now() - timing.startedAtPerf;
     const sessionResult = await createCheckoutSession({
       plan,
       mapId,
@@ -2000,9 +2137,21 @@ export async function GET(req: NextRequest) {
       merchFamily,
       merchOptions: merchFamily ? { size: merchSize, color: merchColor } : undefined,
       qaContext,
+      correlationId,
+      timing,
     });
+    const postCreateStartedAt = performance.now();
     const resolvedGetUrl = resolveStripeCheckoutHandoffUrl(sessionResult.url);
     if (!resolvedGetUrl.url) {
+      timing.postCreateMs = performance.now() - postCreateStartedAt;
+      logCheckoutTiming({
+        correlationId,
+        method: "GET",
+        checkoutKind: orderType === "print" ? `print_${printVariant}` : `digital_${plan}`,
+        outcome: "error",
+        qa: qaContext.enabled,
+        collector: timing,
+      });
       return NextResponse.json(
         buildUnknownCheckoutFailureResponse(correlationId, "missing_stripe_checkout_url"),
         { status: 500 },
@@ -2034,6 +2183,17 @@ export async function GET(req: NextRequest) {
           }),
       });
     }
+    // Instrumentation only: post-create side effects are done — emit
+    // the one timing line for this checkout.
+    timing.postCreateMs = performance.now() - postCreateStartedAt;
+    logCheckoutTiming({
+      correlationId,
+      method: "GET",
+      checkoutKind: orderType === "print" ? `print_${printVariant}` : `digital_${plan}`,
+      outcome: "created",
+      qa: qaContext.enabled,
+      collector: timing,
+    });
     // HTML handoff still requires the strict allowlist (prevents open redirects in HTML bodies).
     if (!isValidStripeCheckoutUrl(resolvedGetUrl.url)) {
       // Recovered Stripe URL that fails the HTML allowlist: return JSON so the client can navigate.
@@ -2051,6 +2211,16 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (err) {
+    // Instrumentation only: one timing line for a checkout that reached
+    // session creation and failed (stages that never ran stay null).
+    logCheckoutTiming({
+      correlationId,
+      method: "GET",
+      checkoutKind: orderType === "print" ? `print_${printVariant}` : `digital_${plan}`,
+      outcome: "error",
+      qa: qaContext.enabled,
+      collector: timing,
+    });
     if (err instanceof CheckoutError || err instanceof MerchCheckoutError) {
       await bestEffortCheckoutSideEffect({
         correlationId,
@@ -2102,6 +2272,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   // Rate limit: 20 requests per minute per IP (shared NAT / promo retries)
   const correlationId = resolveCheckoutCorrelationId(req.headers.get("x-correlation-id"));
+  // Instrumentation only: stage-timing collector for this checkout.
+  const timing = createCheckoutTimingCollector();
   const ip = getClientIp(req);
   const rateLimit = await checkRateLimit(`checkout:${ip}`, 20, 60);
   if (!rateLimit.allowed) {
@@ -2314,9 +2486,11 @@ export async function POST(req: NextRequest) {
     } else {
       await assertConfiguredSkyForCheckout(mapId);
     }
+    const promoStartedAt = performance.now();
     let promotion = canUseManualPromotionCode(orderType, plan)
       ? await resolvePromotionCodeId(promoCode)
       : { promotionCodeId: undefined, invalid: false, lookupFailed: false };
+    timing.promoMs = performance.now() - promoStartedAt;
     if (
       !promotion.invalid &&
       !promotion.lookupFailed &&
@@ -2423,6 +2597,10 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Instrumentation only: everything from handler entry to here is
+    // the pre-create bucket (rate limit, referral, asset, map, promo,
+    // idempotency cache check, request-received funnel step).
+    timing.preCreateMs = performance.now() - timing.startedAtPerf;
     const session = await createCheckoutSession({
       plan,
       mapId,
@@ -2453,7 +2631,10 @@ export async function POST(req: NextRequest) {
       merchFamily,
       merchOptions: merchFamily ? { size: merchSize, color: merchColor } : undefined,
       qaContext,
+      correlationId,
+      timing,
     });
+    const postCreateStartedAt = performance.now();
     // Referral-auto discount rejection may still produce a no-discount session (discountRejected).
     // Manual codes never reach here — createCheckoutSession throws promotion_not_applicable instead.
     if (orderType === "digital" && promoCode && session.discountRejected && selectedPromotion.source === "manual") {
@@ -2501,6 +2682,17 @@ export async function POST(req: NextRequest) {
             }),
         });
       }
+      // Instrumentation only: post-create side effects are done — emit
+      // the one timing line for this (discount-rejected) checkout.
+      timing.postCreateMs = performance.now() - postCreateStartedAt;
+      logCheckoutTiming({
+        correlationId,
+        method: "POST",
+        checkoutKind: orderType === "print" ? `print_${printVariant}` : `digital_${plan}`,
+        outcome: "created",
+        qa: qaContext.enabled,
+        collector: timing,
+      });
       const rejectedResolved = resolveStripeCheckoutHandoffUrl(session.url);
       if (!rejectedResolved.url) {
         return NextResponse.json(
@@ -2580,6 +2772,16 @@ export async function POST(req: NextRequest) {
 
     const checkoutResolved = resolveStripeCheckoutHandoffUrl(session.url);
     if (!checkoutResolved.url) {
+      // Instrumentation only: one timing line for this checkout.
+      timing.postCreateMs = performance.now() - postCreateStartedAt;
+      logCheckoutTiming({
+        correlationId,
+        method: "POST",
+        checkoutKind: orderType === "print" ? `print_${printVariant}` : `digital_${plan}`,
+        outcome: "error",
+        qa: qaContext.enabled,
+        collector: timing,
+      });
       await bestEffortCheckoutSideEffect({
         correlationId,
         stage: "buyer_failure_diag_invalid_url",
@@ -2600,6 +2802,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Instrumentation only: post-create side effects are done — emit
+    // the one timing line for this checkout.
+    timing.postCreateMs = performance.now() - postCreateStartedAt;
+    logCheckoutTiming({
+      correlationId,
+      method: "POST",
+      checkoutKind: orderType === "print" ? `print_${printVariant}` : `digital_${plan}`,
+      outcome: "created",
+      qa: qaContext.enabled,
+      collector: timing,
+    });
     return NextResponse.json({
       url: checkoutResolved.url,
       promoApplied: handoffFlags.promoApplied,
@@ -2611,6 +2824,16 @@ export async function POST(req: NextRequest) {
       recoveredCheckoutUrl: checkoutResolved.recovered || undefined,
     });
   } catch (err) {
+    // Instrumentation only: one timing line for a failed checkout
+    // (stages that never ran stay null).
+    logCheckoutTiming({
+      correlationId,
+      method: "POST",
+      checkoutKind: orderType === "print" ? `print_${printVariant}` : `digital_${plan}`,
+      outcome: "error",
+      qa: qaContext.enabled,
+      collector: timing,
+    });
     if (err instanceof CheckoutError || err instanceof MerchCheckoutError) {
       await bestEffortCheckoutSideEffect({
         correlationId,
