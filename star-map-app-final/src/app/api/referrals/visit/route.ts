@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "node:crypto";
-import { kv } from "@/lib/kv";
+import { kv, withSerializedKvUpdate } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 import { normalizeReferralCode, referralKey, type ReferralRecord } from "@/lib/referrals";
 import { PREMIUM_COOKIE_NAME } from "@/lib/premium";
@@ -75,31 +75,52 @@ export async function POST(req: NextRequest) {
 
   const userAgent = req.headers.get("user-agent")?.slice(0, 200) ?? "";
   const fingerprint = fingerprintVisitor(ip, userAgent);
-  const duplicate = await kv.get<{ seen?: boolean }>(dedupeKey(code, fingerprint));
-  if (duplicate?.seen) {
+
+  // S4 B1: the dedupe check and the counter write run inside a
+  // per-record serialized boundary, and the counter is computed
+  // from a FRESH record read taken inside that boundary — never
+  // from the authorizing read above. The pre-fix shape (read
+  // once, await the dedupe round-trips, then write a replacement
+  // built from the stale read) lost one increment whenever two
+  // distinct visits interleaved, and clobbered any unrelated
+  // field a concurrent writer had updated in between. Counter
+  // mechanics only: no reward, conversion, or payment logic is
+  // touched, and dedupe semantics are unchanged.
+  return withSerializedKvUpdate(referralKey(code), async () => {
+    const duplicate = await kv.get<{ seen?: boolean }>(dedupeKey(code, fingerprint));
+    if (duplicate?.seen) {
+      await appendReferralEvent({
+        code,
+        type: "visit_deduped",
+        details: { reason: "recent_duplicate", ...(attribution ?? {}) },
+      });
+      return NextResponse.json({ ok: true, deduped: true });
+    }
+
+    const fresh = await kv.get<ReferralRecord>(referralKey(code));
+    if (!fresh?.sessionId) {
+      return NextResponse.json(
+        { ok: false, error: "Referral not found" },
+        { status: 404 },
+      );
+    }
+
+    await kv.set(
+      dedupeKey(code, fingerprint),
+      { seen: true, createdAt: Date.now() },
+      { ex: VISIT_DEDUPE_WINDOW_SECONDS },
+    );
+
+    await kv.set(referralKey(code), {
+      ...fresh,
+      visits: (fresh.visits ?? 0) + 1,
+    });
     await appendReferralEvent({
       code,
-      type: "visit_deduped",
-      details: { reason: "recent_duplicate", ...(attribution ?? {}) },
+      type: "visit_recorded",
+      details: attribution ?? undefined,
     });
-    return NextResponse.json({ ok: true, deduped: true });
-  }
 
-  await kv.set(
-    dedupeKey(code, fingerprint),
-    { seen: true, createdAt: Date.now() },
-    { ex: VISIT_DEDUPE_WINDOW_SECONDS },
-  );
-
-  await kv.set(referralKey(code), {
-    ...record,
-    visits: (record.visits ?? 0) + 1,
+    return NextResponse.json({ ok: true, deduped: false });
   });
-  await appendReferralEvent({
-    code,
-    type: "visit_recorded",
-    details: attribution ?? undefined,
-  });
-
-  return NextResponse.json({ ok: true, deduped: false });
 }

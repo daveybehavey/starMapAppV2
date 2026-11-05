@@ -527,3 +527,55 @@ export const kv = {
     };
   },
 };
+
+/* ---------------- serialized update boundary ---------------- */
+
+const serializedKvUpdateChains = new Map<string, Promise<void>>();
+
+/**
+ * Serialized read-modify-write boundary for ONE KV key (S4 sweep
+ * B1), in the same shape as the consistency coordinator's
+ * sanctioned in-process per-object lock: callers for the same key
+ * run their critical sections strictly one at a time, in arrival
+ * order; callers for different keys never wait on each other.
+ *
+ * Why this exists: several records are updated by a read →
+ * awaited side work → whole-record write sequence. Two concurrent
+ * callers that both read before either writes build their writes
+ * on the same stale snapshot, and one update is silently lost
+ * (the referral visit counter was the confirmed case: the route
+ * awaited its dedupe read/write between the record read and the
+ * counter write). Running the sequence inside this boundary —
+ * with the authoritative read taken INSIDE it — makes the
+ * interleaving unreachable for every caller that uses the
+ * boundary, and a concurrent write to an unrelated field of the
+ * same record between the authorizing read and the boundary is
+ * preserved because the write is computed from the fresh read.
+ *
+ * Scope, stated plainly (consistent with the settlement mapping
+ * on kv.setDurable above): this serializes callers within the
+ * current isolate/process. It is not a distributed lock, a
+ * transaction, or a compare-and-swap, and it does not change any
+ * guarantee of the underlying KV puts themselves.
+ */
+export async function withSerializedKvUpdate<T>(
+  key: string,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const prev = serializedKvUpdateChains.get(key) ?? Promise.resolve();
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const tail = prev.then(() => gate);
+  serializedKvUpdateChains.set(key, tail);
+  await prev;
+  try {
+    return await fn();
+  } finally {
+    release();
+    if (serializedKvUpdateChains.get(key) === tail) {
+      serializedKvUpdateChains.delete(key);
+    }
+  }
+}
