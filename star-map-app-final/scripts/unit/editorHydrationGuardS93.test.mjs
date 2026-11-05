@@ -169,10 +169,12 @@ test("scenario 3: automatic initialization, then a user edit during the fetch ->
 
 test("wiring: initialization is marked by the visual-options callback and gates the fetch start", () => {
   const src = read("src/components/EditorExperience.tsx");
-  // The guard's start predicate is imported.
+  // The guard's start predicate is imported (S4 A2 added
+  // loadLinkedMapRecipe to the same import — the attempt
+  // classifier; the fence predicates themselves are unchanged).
   assert.match(
     src,
-    /import \{\s*shouldApplyHydratedMapRecipe,\s*shouldStartMapHydration,\s*\} from "@\/lib\/editorHydrationGuard";/,
+    /import \{\s*loadLinkedMapRecipe,\s*shouldApplyHydratedMapRecipe,\s*shouldStartMapHydration,\s*\} from "@\/lib\/editorHydrationGuard";/,
   );
   // Initialization state exists…
   assert.match(
@@ -199,7 +201,7 @@ test("wiring: initialization is marked by the visual-options callback and gates 
   assert.ok(gateAt !== -1 && handledAt !== -1 && gateAt < handledAt);
   assert.match(
     src,
-    /\[applyHydratedMapRecipe, aspectRatio, mapIdFromQuery, renderOptions, restored, selectedStyle, shape, visualOptionsInitialized\]\);/,
+    /\[applyHydratedMapRecipe, aspectRatio, mapIdFromQuery, mapHydrationRetryNonce, renderOptions, restored, selectedStyle, shape, visualOptionsInitialized\]\);/,
   );
 });
 
