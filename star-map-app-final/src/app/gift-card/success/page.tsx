@@ -4,6 +4,11 @@ import GiftCardSuccessClient from "./GiftCardSuccessClient";
 export const metadata: Metadata = {
   title: "Your Gift Certificate | StarMapCo",
   robots: { index: false, follow: false },
+  // Q1 bearer hygiene: this page's URL carries the checkout session
+  // id (the certificate-view credential) on arrival. Never let it
+  // leave as a Referer — mirrors the no-referrer meta on the Stripe
+  // checkout handoff document (stripeCheckoutNavigation.ts).
+  other: { referrer: "no-referrer" },
 };
 
 export default async function GiftCardSuccessPage({

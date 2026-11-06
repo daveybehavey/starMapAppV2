@@ -24,6 +24,21 @@ type CertificateState =
 export default function GiftCardSuccessClient({ sessionId }: { sessionId: string | null }) {
   const [state, setState] = useState<CertificateState>({ status: "loading" });
 
+  // Bearer hygiene (Tier C review, Q1): the session id in the URL is
+  // the credential for the certificate view. The component already
+  // holds it as a prop, so strip it from the address bar on mount —
+  // anything that runs afterwards (analytics page views on later
+  // navigations, referers on outbound clicks, copied URLs) can no
+  // longer carry it. The page also ships a no-referrer meta (see
+  // page.tsx). The initial-load capture window that remains is
+  // recorded as a dry-run activation check in the return packet.
+  useEffect(() => {
+    if (!sessionId) return;
+    if (window.location.search.includes("session_id")) {
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, [sessionId]);
+
   useEffect(() => {
     if (!sessionId) {
       setState({ status: "error" });
