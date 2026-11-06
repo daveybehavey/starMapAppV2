@@ -117,6 +117,11 @@ import {
 } from "@/lib/stripeConsentCollection";
 import { evaluateCheckoutSkyGuard } from "@/lib/checkoutSkyGuard";
 import { CHECKOUT_GIFT_METADATA_KEY } from "@/lib/checkoutGiftFlag";
+import {
+  GIFT_CERTIFICATE_METADATA_KEY,
+  GIFT_CERTIFICATE_TIER_METADATA_KEY,
+  giftCertificateTierForPlan,
+} from "@/lib/giftCertificates";
 
 export const runtime = "nodejs";
 
@@ -1013,6 +1018,14 @@ async function createCheckoutSession(input: {
   includeSecondCopy?: boolean;
   /** Buyer marked the order as a gift (editor checkbox). Never priced; carried in the checkout reuse identity (gift segment) so a toggled checkbox cannot reuse the wrong session. */
   isGift?: boolean;
+  /**
+   * Gift-certificate purchase (digital single/pack3 only): the buyer
+   * purchases the tier itself as a certificate — no map, no entitlement
+   * for the buyer; the webhook mints a redeem code instead (see
+   * giftCertificates.ts). Carried in session metadata; the success URL
+   * lands on the certificate confirmation page.
+   */
+  giftCertificate?: boolean;
   shippingCountry?: string;
   clientCountry?: string | null;
   /** Optional pre-checkout email for Stripe recovery emails (`customer_email`). */
@@ -1059,6 +1072,7 @@ async function createCheckoutSession(input: {
     checkoutHandoff = "missing",
     idempotencyKey,
     isGift = false,
+    giftCertificate = false,
     merchFamily,
     merchOptions,
     qaContext = { enabled: false, source: null, status: "absent" },
@@ -1112,7 +1126,13 @@ async function createCheckoutSession(input: {
   const mapQuery = mapId ? `&map_id=${encodeURIComponent(mapId)}` : "";
   const orderQuery = `&order_type=${normalizedOrderType}`;
   const printQuery = isPrintOrder ? `&print_variant=${normalizedPrintVariant}` : "";
-  const successUrl = `${siteOrigin()}/success?session_id={CHECKOUT_SESSION_ID}${mapQuery}${orderQuery}${printQuery}`;
+  // Certificate purchases land on the certificate confirmation page —
+  // the generic /success flow settles a buyer entitlement, which a
+  // certificate purchase must never do (the entitlement belongs to the
+  // recipient, minted at redemption).
+  const successUrl = giftCertificate
+    ? `${siteOrigin()}/gift-card/success?session_id={CHECKOUT_SESSION_ID}`
+    : `${siteOrigin()}/success?session_id={CHECKOUT_SESSION_ID}${mapQuery}${orderQuery}${printQuery}`;
   const digitalTiers = getPricingTiers();
   const tier = digitalTiers[effectivePlan];
   const printTiers = getPrintPricingTiers();
@@ -1211,7 +1231,7 @@ async function createCheckoutSession(input: {
   // buyer the native CAD book takes precedence so the session stays
   // single-currency. Non-CA behaviour is untouched.
   const geoDigitalSingle =
-    !isPrintOrder && effectivePlan === "single" && !isCadCheckout
+    !isPrintOrder && effectivePlan === "single" && !isCadCheckout && !giftCertificate
       ? getGeoDigitalSinglePrice(clientCountry)
       : null;
   const useGeoDigitalSinglePricing = Boolean(geoDigitalSingle?.amountCents);
@@ -1226,6 +1246,17 @@ async function createCheckoutSession(input: {
   // Gift orders are excluded from review asks (T1). Metadata-only: the flag
   // never touches amounts, line items, or the idempotency/cache key.
   if (isGift) metadata[CHECKOUT_GIFT_METADATA_KEY] = "true";
+  // A certificate purchase is also flagged as a gift purchase (the
+  // buyer receives no entitlement of their own).
+  if (giftCertificate) metadata[CHECKOUT_GIFT_METADATA_KEY] = "true";
+  // Gift-certificate purchases carry their own marker + tier so the
+  // webhook mints a redeem code instead of a buyer entitlement, and
+  // verify refuses to settle them. The tier is the plan itself.
+  if (giftCertificate) {
+    metadata[GIFT_CERTIFICATE_METADATA_KEY] = "true";
+    const certificateTier = giftCertificateTierForPlan(effectivePlan);
+    if (certificateTier) metadata[GIFT_CERTIFICATE_TIER_METADATA_KEY] = certificateTier.id;
+  }
   if (mapId) metadata.map_id = mapId;
   if (isPrintOrder) {
     metadata.print_variant = normalizedPrintVariant;
@@ -1433,6 +1464,29 @@ async function createCheckoutSession(input: {
       promotionEstimateLineItems.push({ amountCents: copyPriceCents, priceId: null });
       promotionEstimateLineItemsUsd.push({ amountCents: copyUsdPriceCents, priceId: null });
     }
+  } else if (giftCertificate) {
+    // Gift certificate: always price_data from the price books (never a
+    // Stripe Price ID — the line must name the certificate, and the
+    // amount must be exactly the tier's book price in the session
+    // currency). The webhook grants nothing to the buyer for this
+    // session; it mints a redeem code for the tier instead.
+    const certificateTier = giftCertificateTierForPlan(effectivePlan);
+    const certificateAmountCents = isCadCheckout ? digitalCadPriceCents : tier.amountCents;
+    lineItems.push({
+      price_data: {
+        currency: isCadCheckout ? "cad" : tier.currency,
+        unit_amount: certificateAmountCents,
+        product_data: {
+          name: `StarMapCo Gift Certificate — ${certificateTier?.label ?? tier.label}`,
+          description:
+            "Gift certificate: the recipient redeems the code, creates their own star map, and downloads it in HD. Code redeemable for 12 months.",
+          images: [`${siteUrl}/custom-star-map-anniversary.webp`],
+        },
+      },
+      quantity: 1,
+    });
+    promotionEstimateLineItems.push({ amountCents: certificateAmountCents, priceId: null });
+    promotionEstimateLineItemsUsd.push({ amountCents: tier.amountCents, priceId: null });
   } else {
     const digitalLineItem:
       | { price: string }
@@ -2299,6 +2353,7 @@ export async function POST(req: NextRequest) {
     let includeCardAddOn = false;
     let includeSecondCopy = false;
     let isGift = false;
+    let giftCertificate = false;
     let merchFamily: MerchFamilyId | undefined;
     let merchSize: string | undefined;
     let merchColor: string | undefined;
@@ -2321,6 +2376,7 @@ export async function POST(req: NextRequest) {
         includeCardAddOn?: boolean;
         includeSecondCopy?: boolean;
         isGift?: boolean;
+        giftCertificate?: boolean;
         merchFamily?: string;
         merchOptions?: { size?: string; color?: string };
         printAssetId?: string;
@@ -2344,6 +2400,7 @@ export async function POST(req: NextRequest) {
       includeCardAddOn = parseBoolean(body?.includeCardAddOn, false);
       includeSecondCopy = parseBoolean(body?.includeSecondCopy, false);
       isGift = parseBoolean(body?.isGift, false);
+      giftCertificate = parseBoolean(body?.giftCertificate, false);
       if (body?.merchFamily && isMerchFamilyId(body.merchFamily.trim())) {
         merchFamily = body.merchFamily.trim() as MerchFamilyId;
       }
@@ -2405,6 +2462,31 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(ANDROID_APP_DIGITAL_BLOCKED, { status: 403 });
       }
       includeDigitalAddOn = decision.includeDigitalAddOn;
+    }
+
+    // Gift certificates: digital tiers only (single / pack3), no map —
+    // the recipient creates their own after redeeming — and never the
+    // subscription. The buyer is the giver, so the order also carries
+    // the ordinary gift flag (review-ask exclusion).
+    if (giftCertificate) {
+      if (orderType !== "digital") {
+        return NextResponse.json(
+          { error: "Gift certificates are available for digital downloads only.", code: "gift_certificate_digital_only" },
+          { status: 400 }
+        );
+      }
+      if (plan === "subscription") {
+        return NextResponse.json(
+          { error: "Gift certificates aren't available for the subscription.", code: "gift_certificate_plan_invalid" },
+          { status: 400 }
+        );
+      }
+      isGift = true;
+      // Certificates take no discounts on either side (mirrors
+      // OurImprint's exclusion): a promo code or referral code sent
+      // with the request is disregarded, never applied.
+      promoCode = undefined;
+      referralCode = undefined;
     }
 
     // Presence-only browser handoff required for digital session creation (stops direct/bot POSTs).
@@ -2482,7 +2564,11 @@ export async function POST(req: NextRequest) {
       );
     }
     if (orderType !== "print") {
-      await assertDigitalCheckoutMap(mapId, plan);
+      // Certificate purchases have no map to assert — the recipient
+      // designs theirs after redeeming the code.
+      if (!giftCertificate) {
+        await assertDigitalCheckoutMap(mapId, plan);
+      }
     } else {
       await assertConfiguredSkyForCheckout(mapId);
     }
@@ -2531,6 +2617,13 @@ export async function POST(req: NextRequest) {
       orderType,
       plan,
     });
+    if (giftCertificate) {
+      // Certificate exclusion, enforced at selection time as well as at
+      // request parsing: even a cookie-carried referral code must not
+      // discount a certificate purchase.
+      selectedPromotion.promotionCodeId = undefined;
+      selectedPromotion.source = "none";
+    }
 
     const pricingIdentity = resolveCheckoutPricingIdentity({
       plan,
@@ -2619,15 +2712,16 @@ export async function POST(req: NextRequest) {
       shippingCountry,
       clientCountry,
       customerEmail,
-      referralCode: referral.code,
-      referrerSessionId: referral.referrerSessionId,
-      referralAttribution,
+      referralCode: giftCertificate ? undefined : referral.code,
+      referrerSessionId: giftCertificate ? undefined : referral.referrerSessionId,
+      referralAttribution: giftCertificate ? null : referralAttribution,
       referralAutoOfferVariant:
         selectedPromotion.source === "referral_auto" ? referralAutoOffer.variant : undefined,
       checkoutSource: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
       checkoutHandoff,
       idempotencyKey: idempotencyKey ?? undefined,
       isGift,
+      giftCertificate,
       merchFamily,
       merchOptions: merchFamily ? { size: merchSize, color: merchColor } : undefined,
       qaContext,

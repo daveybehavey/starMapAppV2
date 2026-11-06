@@ -12,6 +12,7 @@ import {
   isQaStripeSession,
 } from "@/lib/commerceAnalytics";
 import { recordPaymentVerifiedOnce } from "@/lib/funnel";
+import { isGiftCertificateSessionMetadata } from "@/lib/giftCertificates";
 import {
   evaluateCheckoutSessionDiscountFulfillment,
   isDiscountFulfillmentRetryable,
@@ -309,6 +310,19 @@ export async function GET(req: NextRequest) {
       isFulfillableCheckoutPayment(session);
     if (!paidViaStripe) {
       return NextResponse.json({ paid: false }, { headers: { "Cache-Control": "no-store" } });
+    }
+
+    // Gift-certificate sessions never settle here: the buyer bought a
+    // redeem code, not a download. Settlement would grant the buyer
+    // the tier AND leave the code redeemable — a double grant. The
+    // webhook mints the certificate; this route only confirms payment
+    // and points the client at the certificate flow. No premium
+    // cookie is set for a certificate session.
+    if (isGiftCertificateSessionMetadata(session.metadata)) {
+      return NextResponse.json(
+        { paid: true, giftCertificate: true },
+        { headers: { "Cache-Control": "no-store" } },
+      );
     }
 
     const orderType = getOrderType(session);
