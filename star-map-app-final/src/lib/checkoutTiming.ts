@@ -49,7 +49,7 @@ export function roundTimingMs(value: number | null | undefined): number | null {
  * Checkout timing counter names (KV counters in `lib/funnel.ts`).
  * Fixed allowlist — counter names are never derived from client input.
  */
-export const CHECKOUT_TIMING_COUNTERS = [
+const BASE_CHECKOUT_TIMING_COUNTERS = [
   "consent_fallback_fired",
   "discount_fallback_fired",
   "url_recovery_fired",
@@ -59,7 +59,70 @@ export const CHECKOUT_TIMING_COUNTERS = [
   "printful_quote_gt10s",
 ] as const;
 
-export type CheckoutTimingCounter = (typeof CHECKOUT_TIMING_COUNTERS)[number];
+/** Stages of one timed checkout, mirroring {@link CheckoutTimingCollector}. */
+export const CHECKOUT_TIMING_STAGES = [
+  "pre_create",
+  "promo",
+  "printful_quote",
+  "stripe_create",
+  "post_create",
+  "total",
+] as const;
+
+export type CheckoutTimingStage = (typeof CHECKOUT_TIMING_STAGES)[number];
+
+/**
+ * Fixed duration buckets for the persistent stage aggregates. The first
+ * three cuts match the existing Printful quote buckets (1s / 3s / 10s);
+ * two slower buckets are added so a ~30s checkout stays visible instead
+ * of landing in a single open-ended bucket.
+ */
+export const CHECKOUT_TIMING_DURATION_BUCKETS = [
+  "lt1s",
+  "1_3s",
+  "3_10s",
+  "10_30s",
+  "gt30s",
+] as const;
+
+export type CheckoutTimingDurationBucket =
+  (typeof CHECKOUT_TIMING_DURATION_BUCKETS)[number];
+
+export function checkoutTimingDurationBucket(
+  ms: number | null | undefined
+): CheckoutTimingDurationBucket | null {
+  if (typeof ms !== "number" || !Number.isFinite(ms) || ms < 0) return null;
+  if (ms < 1_000) return "lt1s";
+  if (ms < 3_000) return "1_3s";
+  if (ms < 10_000) return "3_10s";
+  if (ms < 30_000) return "10_30s";
+  return "gt30s";
+}
+
+/** Denominator counter: one per timed checkout (creation attempt). */
+export const CHECKOUT_ATTEMPTS_COUNTER = "checkout_attempts";
+
+type CheckoutTimingStageAggregateCounter =
+  `stage_${CheckoutTimingStage}_${"count" | "sum_ms" | CheckoutTimingDurationBucket}`;
+
+export type CheckoutTimingCounter =
+  | (typeof BASE_CHECKOUT_TIMING_COUNTERS)[number]
+  | typeof CHECKOUT_ATTEMPTS_COUNTER
+  | CheckoutTimingStageAggregateCounter;
+
+export const CHECKOUT_TIMING_COUNTERS: readonly CheckoutTimingCounter[] = [
+  ...BASE_CHECKOUT_TIMING_COUNTERS,
+  CHECKOUT_ATTEMPTS_COUNTER,
+  ...CHECKOUT_TIMING_STAGES.flatMap(
+    (stage): CheckoutTimingStageAggregateCounter[] => [
+      `stage_${stage}_count`,
+      `stage_${stage}_sum_ms`,
+      ...CHECKOUT_TIMING_DURATION_BUCKETS.map(
+        (bucket): CheckoutTimingStageAggregateCounter => `stage_${stage}_${bucket}`
+      ),
+    ]
+  ),
+];
 
 /** Printful quote duration buckets for the KV counters in `lib/funnel.ts`. */
 export type PrintfulQuoteBucket = "lt1s" | "1-3s" | "3-10s" | "gt10s";
@@ -128,6 +191,65 @@ export function createCheckoutTimingCollector(
     discountFallbackFired: false,
     urlRecoveryFired: false,
   };
+}
+
+export type CheckoutTimingAggregateIncrement = {
+  counter: CheckoutTimingCounter;
+  amount: number;
+};
+
+function checkoutTimingStageDurationMs(
+  collector: CheckoutTimingCollector,
+  stage: CheckoutTimingStage,
+  totalMs: number | null | undefined
+): number | null {
+  switch (stage) {
+    case "pre_create":
+      return collector.preCreateMs;
+    case "promo":
+      return collector.promoMs;
+    case "printful_quote":
+      return collector.merchPrintfulQuoteMs;
+    case "stripe_create":
+      return collector.stripeCreateMs;
+    case "post_create":
+      return collector.postCreateMs;
+    case "total":
+      return totalMs ?? null;
+  }
+}
+
+/**
+ * KV increments that persist one timed checkout as retrievable stage
+ * aggregates: the `checkout_attempts` denominator plus, per stage that
+ * actually ran (null stages are skipped, never zeroed), a count, the
+ * rounded duration sum in ms, and exactly one duration-bucket count.
+ * Read back from KV as `checkout_timing:total:<counter>` /
+ * `checkout_timing:daily:<YYYY-MM-DD>:<counter>` — e.g. the mean stage
+ * duration is `stage_stripe_create_sum_ms / stage_stripe_create_count`
+ * and the bucket counters give the distribution.
+ */
+export function checkoutTimingAggregateIncrements(
+  collector: CheckoutTimingCollector,
+  totalMs: number | null | undefined
+): CheckoutTimingAggregateIncrement[] {
+  const increments: CheckoutTimingAggregateIncrement[] = [
+    { counter: CHECKOUT_ATTEMPTS_COUNTER, amount: 1 },
+  ];
+  for (const stage of CHECKOUT_TIMING_STAGES) {
+    const rounded = roundTimingMs(
+      checkoutTimingStageDurationMs(collector, stage, totalMs)
+    );
+    const bucket = checkoutTimingDurationBucket(rounded);
+    if (rounded === null || bucket === null) continue;
+    increments.push({ counter: `stage_${stage}_count`, amount: 1 });
+    const sumMs = Math.round(rounded);
+    if (sumMs > 0) {
+      increments.push({ counter: `stage_${stage}_sum_ms`, amount: sumMs });
+    }
+    increments.push({ counter: `stage_${stage}_${bucket}`, amount: 1 });
+  }
+  return increments;
 }
 
 /** Which Stripe fallback(s) fired, as one stable log tag. */
