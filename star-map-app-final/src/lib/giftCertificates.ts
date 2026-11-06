@@ -284,9 +284,14 @@ export function createGiftCertificateKvStore(): GiftCertificateStore {
       return kv.get<GiftCertificateRecord>(GIFT_CERTIFICATE_KV.bySession(sessionId));
     },
     async insertIfAbsent(record) {
-      // Serialized per code hash: two issuance passes for the same
-      // session (duplicate webhook events) converge on one record.
-      return withSerializedKvUpdate(GIFT_CERTIFICATE_KV.byCodeHash(record.codeHash), async () => {
+      // Serialized per SESSION id (Tier C gate fix): two concurrent
+      // issuance passes for the same session derive DIFFERENT codes
+      // (each pass mints a fresh salt), so serializing on the code
+      // hash would not serialize them against each other at all —
+      // both could insert, and the session index would keep only the
+      // last record while both codes stayed redeemable. The session
+      // id is the stable key both passes share.
+      return withSerializedKvUpdate(GIFT_CERTIFICATE_KV.bySession(record.stripeSessionId), async () => {
         const existingByCode = await kv.get<GiftCertificateRecord>(
           GIFT_CERTIFICATE_KV.byCodeHash(record.codeHash),
         );
@@ -442,7 +447,10 @@ export type RedeemGiftCertificateResult =
  * a normal session-shaped entitlement record under that id, so
  * re-running it (a retry after a partial failure, or the losing side
  * of a race) converges on the same record instead of minting a
- * second entitlement. Consumption is the final step, and a
+ * second entitlement. The optional `prepareDelivery` runs next —
+ * still before consumption — so the caller's access credential is
+ * minted while a failure can still abort with the code redeemable.
+ * Consumption is the final step, and a
  * consumption that reports "already redeemed" still succeeds when
  * the recorded entitlement is the deterministic one this call
  * granted — both sides of the race land on the same entitlement.
@@ -459,6 +467,18 @@ export async function redeemGiftCertificate(
     now: number;
     isPaymentRevoked?: (record: GiftCertificateRecord) => Promise<boolean>;
     grantEntitlement: (input: {
+      entitlementSessionId: string;
+      record: GiftCertificateRecord;
+    }) => Promise<void>;
+    /**
+     * Optional delivery preparation, invoked after the grant and
+     * BEFORE the code is consumed (Tier C gate fix): the caller mints
+     * whatever credential delivers access (the claim token) here, so
+     * a delivery failure aborts the redemption with the code still
+     * redeemable instead of stranding the recipient with a consumed
+     * code and no access. Must be idempotent — a retry re-runs it.
+     */
+    prepareDelivery?: (input: {
       entitlementSessionId: string;
       record: GiftCertificateRecord;
     }) => Promise<void>;
@@ -482,6 +502,9 @@ export async function redeemGiftCertificate(
 
   const entitlementSessionId = giftCertificateEntitlementSessionId(record.id);
   await input.grantEntitlement({ entitlementSessionId, record });
+  if (input.prepareDelivery) {
+    await input.prepareDelivery({ entitlementSessionId, record });
+  }
   const consumed = await store.markRedeemed(codeHash, {
     redeemedAt: input.now,
     entitlementSessionId,

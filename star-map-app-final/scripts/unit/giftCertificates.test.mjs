@@ -332,6 +332,42 @@ test("certificate email carries the code, the deadline, and the expiry distincti
   assert.ok(!rendered.text.toLowerCase().includes("instant"));
 });
 
+test("delivery preparation runs before consumption; its failure leaves the code redeemable", async () => {
+  const store = createMemoryStore();
+  const issued = await issue(store, { sessionId: "cs_test_delivery", plan: "single", currency: "usd" });
+  let grants = 0;
+  const grantEntitlement = async () => {
+    grants += 1;
+  };
+
+  let redeemedAtPrepareTime = "unset";
+  await assert.rejects(
+    redeemGiftCertificate(store, SECRET, {
+      code: issued.code,
+      now: T0,
+      grantEntitlement,
+      prepareDelivery: async () => {
+        const standing = await store.findBySessionId("cs_test_delivery");
+        redeemedAtPrepareTime = standing.redeemedAt;
+        throw new Error("claim token persistence failed");
+      },
+    }),
+    /claim token persistence failed/,
+  );
+  assert.equal(redeemedAtPrepareTime, null, "delivery is prepared while the code is still unconsumed");
+  const standingAfterFailure = await store.findBySessionId("cs_test_delivery");
+  assert.equal(standingAfterFailure.redeemedAt, null, "a delivery failure does not consume the code");
+
+  const retry = await redeemGiftCertificate(store, SECRET, {
+    code: issued.code,
+    now: T0 + DAY_MS,
+    grantEntitlement,
+    prepareDelivery: async () => {},
+  });
+  assert.equal(retry.kind, "redeemed", "the same code redeems on retry after a delivery failure");
+  assert.equal(grants, 2, "the grant re-ran on retry (production grant is create-if-absent)");
+});
+
 test("route wiring: checkout exclusion, webhook order, verify refusal (source pins)", () => {
   const checkout = read("src/app/api/checkout/route.ts");
   assert.ok(checkout.includes('metadata[GIFT_CERTIFICATE_METADATA_KEY] = "true"'));
@@ -371,4 +407,25 @@ test("route wiring: checkout exclusion, webhook order, verify refusal (source pi
   const certGuard = verify.indexOf("isGiftCertificateSessionMetadata(session.metadata)");
   const settle = verify.indexOf("settleSessionPurchase({");
   assert.ok(certGuard >= 0 && settle > certGuard, "verify refuses certificate sessions before settling");
+
+  // Tier C gate fixes (Codex P1s): issuance serializes on the stable
+  // session id (concurrent passes mint different salts, so the code
+  // hash cannot serialize them); the service prepares delivery before
+  // consuming the code; the redeem route's grant is create-if-absent
+  // under serialization (an overwrite would replenish spent credits)
+  // and mints the claim token inside prepareDelivery.
+  const service = read("src/lib/giftCertificates.ts");
+  assert.ok(
+    service.includes("withSerializedKvUpdate(GIFT_CERTIFICATE_KV.bySession(record.stripeSessionId)"),
+    "issuance insert serializes on the checkout session id",
+  );
+  const prepareCall = service.indexOf("await input.prepareDelivery({ entitlementSessionId, record })");
+  const consumeCall = service.indexOf("const consumed = await store.markRedeemed(codeHash, {");
+  assert.ok(prepareCall >= 0 && consumeCall > prepareCall, "delivery is prepared before the code is consumed");
+
+  const redeemRoute = read("src/app/api/gift-certificates/redeem/route.ts");
+  assert.ok(redeemRoute.includes("withSerializedKvUpdate(key, async () => {"), "grant is serialized per entitlement");
+  assert.ok(redeemRoute.includes("if (existing) return;"), "grant is create-if-absent, never an overwrite");
+  assert.ok(redeemRoute.includes("prepareDelivery: async ({ entitlementSessionId }) => {"), "route supplies delivery preparation");
+  assert.ok(redeemRoute.includes("await getOrCreateClaimToken(entitlementSessionId, entitlement);"), "claim token is minted during delivery preparation");
 });

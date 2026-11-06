@@ -12,7 +12,7 @@ import {
   GIFT_CERTIFICATE_TIERS,
   redeemGiftCertificate,
 } from "@/lib/giftCertificates";
-import { kv } from "@/lib/kv";
+import { kv, withSerializedKvUpdate } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 
 /**
@@ -74,7 +74,34 @@ export async function POST(req: NextRequest) {
         // off for gift-provenance records (checkoutGiftFlag contract).
         isGift: true,
       };
-      await kv.setDurable(ENTITLEMENT_KV.stripeSession(entitlementSessionId), entitlement);
+      // Initialize ONCE (Tier C gate fix): the write is create-if-
+      // absent under the entitlement key's serialization. An
+      // unconditional overwrite is NOT idempotent for mutable
+      // accounting — a racing second redemption whose grant landed
+      // after the recipient spent a credit would silently replenish
+      // the balance. With create-if-absent, re-running the grant (a
+      // retry, or the losing side of the race) is a no-op and the
+      // standing record — including its spent credits — is preserved.
+      const key = ENTITLEMENT_KV.stripeSession(entitlementSessionId);
+      await withSerializedKvUpdate(key, async () => {
+        const existing = await kv.get<StripeSessionEntitlement>(key);
+        if (existing) return;
+        await kv.setDurable(key, entitlement);
+      });
+    },
+    prepareDelivery: async ({ entitlementSessionId }) => {
+      // Mint the governing claim token BEFORE the code is consumed
+      // (Tier C gate fix): if token persistence fails, the redemption
+      // aborts here and the recipient can simply retry — the code is
+      // still redeemable. getOrCreate is idempotent, so the success
+      // path below re-reads the very token minted here.
+      const entitlement = await kv.get<StripeSessionEntitlement>(
+        ENTITLEMENT_KV.stripeSession(entitlementSessionId),
+      );
+      if (!entitlement) {
+        throw new Error("recipient entitlement missing at delivery preparation");
+      }
+      await getOrCreateClaimToken(entitlementSessionId, entitlement);
     },
   }).catch(() => null);
 
