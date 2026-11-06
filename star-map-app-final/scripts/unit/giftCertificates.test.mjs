@@ -423,6 +423,17 @@ test("route wiring: checkout exclusion, webhook order, verify refusal (source pi
   const consumeCall = service.indexOf("const consumed = await store.markRedeemed(codeHash, {");
   assert.ok(prepareCall >= 0 && consumeCall > prepareCall, "delivery is prepared before the code is consumed");
 
+  // Tier C gate fix (Codex P2): a transient certificate-email failure
+  // must stay retryable — the cert arm returns retryable BEFORE the
+  // dedupe marker is persisted, so Stripe redelivery re-enters
+  // fulfillment and retries the send.
+  const certArmStart = webhook.indexOf("async function processGiftCertificateFulfillment");
+  const certArm = webhook.slice(certArmStart, certArmStart + 4000);
+  const retryReturn = certArm.indexOf("if (emailFailedTransiently) {");
+  const dedupePersist = certArm.indexOf("persistWebhookEventDedupe(eventDedupeKey)");
+  assert.ok(retryReturn >= 0 && dedupePersist > retryReturn, "transient email failure returns retryable before dedupe persists");
+  assert.ok(webhook.includes("emailFailedTransiently: true"), "fulfillment reports transient email failure");
+
   const redeemRoute = read("src/app/api/gift-certificates/redeem/route.ts");
   assert.ok(redeemRoute.includes("withSerializedKvUpdate(key, async () => {"), "grant is serialized per entitlement");
   assert.ok(redeemRoute.includes("if (existing) return;"), "grant is create-if-absent, never an overwrite");
