@@ -1,5 +1,6 @@
 import { androidAppCheckoutDecision, isAndroidAppModeRequest } from "@/lib/androidAppMode";
 import { NextRequest, NextResponse } from "next/server";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import Stripe from "stripe";
 import {
   getDigitalCadPriceCents,
@@ -131,8 +132,12 @@ import { CHECKOUT_GIFT_METADATA_KEY } from "@/lib/checkoutGiftFlag";
  * KV). The aggregate write is fire-and-forget through the best-effort
  * side-effect wrapper — it is never awaited on the checkout path, so it
  * cannot delay session creation or inflate the stages being measured,
- * and a KV failure can never fail or change a checkout. QA checkouts are
- * skipped, matching the existing timing counters.
+ * and a KV failure can never fail or change a checkout. The promise is
+ * registered with the Workers execution context (`waitUntil`) so the
+ * runtime does not cancel the KV writes when the response is returned;
+ * off-Workers there is no execution context to extend and the promise
+ * simply runs unregistered. QA checkouts are skipped, matching the
+ * existing timing counters.
  */
 function logCheckoutTiming(input: CheckoutTimingLogInput): void {
   logCheckoutTimingLine(input);
@@ -140,11 +145,16 @@ function logCheckoutTiming(input: CheckoutTimingLogInput): void {
   const totalMs = (input.endedAtPerf ?? performance.now()) - input.collector.startedAtPerf;
   const increments = checkoutTimingAggregateIncrements(input.collector, totalMs);
   if (!increments.length) return;
-  void bestEffortCheckoutSideEffect({
+  const persistence = bestEffortCheckoutSideEffect({
     correlationId: input.correlationId,
     stage: "checkout_timing_stage_aggregates",
     run: () => recordCheckoutTimingAggregateIncrements(increments),
   });
+  try {
+    getCloudflareContext().ctx.waitUntil(persistence);
+  } catch {
+    void persistence;
+  }
 }
 
 export const runtime = "nodejs";

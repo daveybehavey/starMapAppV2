@@ -238,8 +238,12 @@ test("source: checkout route emits checkout_timing and the timing counters, beha
 test("source: stage aggregates are fire-and-forget at the timing log emit, Stripe create untouched", () => {
   const route = fs.readFileSync(CHECKOUT_ROUTE, "utf8");
   // The route-level emit wrapper persists the aggregates without
-  // awaiting them (void + best-effort wrapper), and skips QA checkouts.
-  assert.match(route, /void bestEffortCheckoutSideEffect\(\{\s+correlationId: input\.correlationId,\s+stage: "checkout_timing_stage_aggregates",\s+run: \(\) => recordCheckoutTimingAggregateIncrements\(increments\),\s+\}\)/);
+  // awaiting them (best-effort wrapper), and skips QA checkouts. The
+  // promise is registered with the Workers execution context so the
+  // runtime cannot cancel the KV writes when the response returns.
+  assert.match(route, /const persistence = bestEffortCheckoutSideEffect\(\{\s+correlationId: input\.correlationId,\s+stage: "checkout_timing_stage_aggregates",\s+run: \(\) => recordCheckoutTimingAggregateIncrements\(increments\),\s+\}\)/);
+  assert.match(route, /getCloudflareContext\(\)\.ctx\.waitUntil\(persistence\)/);
+  assert.doesNotMatch(route, /await bestEffortCheckoutSideEffect\(\{\s+correlationId: input\.correlationId,\s+stage: "checkout_timing_stage_aggregates"/);
   assert.match(route, /checkoutTimingAggregateIncrements\(input\.collector, totalMs\)/);
   // The Stripe session create call site is byte-identical to the
   // pre-aggregate instrumentation: same callee, same params, same
