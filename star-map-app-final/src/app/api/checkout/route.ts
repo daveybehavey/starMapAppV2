@@ -2665,8 +2665,8 @@ export async function POST(req: NextRequest) {
       androidAppMode,
       customerEmail: customerEmail ?? null,
       isGift,
-      giftCertificate,
       pricingIdentity,
+      giftCertificate,
     });
     if (idempotencyKey) {
       // S95-2 N1: replay the stored discount outcome with the URL — a
