@@ -219,7 +219,7 @@ export default function BirthStarMapPostPage() {
                   star map generator
                 </Link>{" "}
                 or the{" "}
-                <Link href="/star-map-for/new-baby" className="text-amber-300 hover:underline">
+                <Link href="/new-baby" className="text-amber-300 hover:underline">
                   new baby star map gift page
                 </Link>
               </li>
@@ -235,7 +235,7 @@ export default function BirthStarMapPostPage() {
                 Preview framed nursery gift
               </Link>
               <Link
-                href="/star-map-for/new-baby"
+                href="/new-baby"
                 className="inline-flex items-center justify-center rounded-full border border-amber-200/40 bg-amber-400/10 px-5 py-2.5 text-sm font-semibold text-amber-100 transition hover:bg-amber-400/20"
               >
                 New baby gift page

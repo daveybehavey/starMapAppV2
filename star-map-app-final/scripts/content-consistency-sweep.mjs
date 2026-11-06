@@ -198,6 +198,30 @@ const pageChecks = [
     forbiddenAny: [],
   },
   {
+    path: "/how-personalized-star-map-works",
+    requiredAny: ["personalized", "star map", "preview"],
+    requiredAll: commercePolicyLinks,
+    forbiddenAny: [],
+  },
+  {
+    path: "/new-baby",
+    requiredAny: ["baby", "star map", "keepsake"],
+    requiredAll: commercePolicyLinks,
+    forbiddenAny: [],
+  },
+  {
+    path: "/first-christmas-star-map",
+    requiredAny: ["Christmas", "star map", "gift"],
+    requiredAll: commercePolicyLinks,
+    forbiddenAny: [],
+  },
+  {
+    path: "/proposal",
+    requiredAny: ["proposal", "wedding", "star map"],
+    requiredAll: commercePolicyLinks,
+    forbiddenAny: [],
+  },
+  {
     path: "/shipping",
     requiredAny: ["shipping", "delivery"],
     requiredAll: ["/returns"],

@@ -91,6 +91,16 @@ export function buildSitemapEntries(options: BuildSitemapOptions): MetadataRoute
       priority: 0.8,
     },
     {
+      url: `${baseUrl}/new-baby`,
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
+    {
+      url: `${baseUrl}/proposal`,
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
+    {
       url: `${baseUrl}/birthday`,
       changeFrequency: "monthly",
       priority: 0.8,
@@ -141,6 +151,11 @@ export function buildSitemapEntries(options: BuildSitemapOptions): MetadataRoute
       priority: 0.8,
     },
     {
+      url: `${baseUrl}/first-christmas-star-map`,
+      changeFrequency: "weekly",
+      priority: 0.8,
+    },
+    {
       url: `${baseUrl}/star-map-generator`,
       changeFrequency: "weekly",
       priority: 0.9,
@@ -159,6 +174,11 @@ export function buildSitemapEntries(options: BuildSitemapOptions): MetadataRoute
       url: `${baseUrl}/how-to-print-star-map`,
       changeFrequency: "monthly",
       priority: 0.7,
+    },
+    {
+      url: `${baseUrl}/how-personalized-star-map-works`,
+      changeFrequency: "monthly",
+      priority: 0.75,
     },
     {
       url: `${baseUrl}/star-map-gift`,
