@@ -204,8 +204,20 @@ const pageChecks = [
     forbiddenAny: [],
   },
   {
+    path: "/new-baby",
+    requiredAny: ["baby", "star map", "keepsake"],
+    requiredAll: commercePolicyLinks,
+    forbiddenAny: [],
+  },
+  {
     path: "/first-christmas-star-map",
     requiredAny: ["Christmas", "star map", "gift"],
+    requiredAll: commercePolicyLinks,
+    forbiddenAny: [],
+  },
+  {
+    path: "/proposal",
+    requiredAny: ["proposal", "wedding", "star map"],
     requiredAll: commercePolicyLinks,
     forbiddenAny: [],
   },

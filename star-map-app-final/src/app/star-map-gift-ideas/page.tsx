@@ -67,7 +67,12 @@ const seasonalIdeas = [
   {
     title: "New Baby",
     description: "Capture the sky from the night they arrived.",
-    href: "/star-map-for/new-baby",
+    href: "/new-baby",
+  },
+  {
+    title: "Wedding & Proposal",
+    description: "Turn the proposal moment — or the wedding night — into a timeless keepsake of the exact sky.",
+    href: "/proposal",
   },
 ];
 
@@ -195,7 +200,7 @@ export default function StarMapGiftIdeasPage() {
                 Graduation
               </Link>
               <Link
-                href="/star-map-for/new-baby"
+                href="/new-baby"
                 className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5"
               >
                 New Baby
@@ -205,6 +210,12 @@ export default function StarMapGiftIdeasPage() {
                 className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5"
               >
                 First Christmas
+              </Link>
+              <Link
+                href="/proposal"
+                className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5"
+              >
+                Wedding &amp; Proposal
               </Link>
               <Link
                 href="/star-map-for/memorial"
