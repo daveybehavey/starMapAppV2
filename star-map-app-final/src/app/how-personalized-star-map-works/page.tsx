@@ -259,11 +259,11 @@ export default function HowPersonalizedStarMapWorksPage() {
             wedding
           </Link>
           ,{" "}
-          <Link href="/star-map-for/new-baby" className="font-semibold text-amber-800 underline hover:text-amber-950">
+          <Link href="/new-baby" className="font-semibold text-amber-800 underline hover:text-amber-950">
             new baby
           </Link>
           ,{" "}
-          <Link href="/star-map-for/proposal" className="font-semibold text-amber-800 underline hover:text-amber-950">
+          <Link href="/proposal" className="font-semibold text-amber-800 underline hover:text-amber-950">
             wedding &amp; proposal
           </Link>
           ,{" "}

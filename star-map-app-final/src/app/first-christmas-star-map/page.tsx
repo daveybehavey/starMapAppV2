@@ -300,7 +300,7 @@ export default async function FirstChristmasStarMapPage() {
           <Link href="/christmas-star-map-gift" className="text-amber-700 underline hover:text-amber-800">
             Christmas star map gift
           </Link>
-          <Link href="/star-map-for/new-baby" className="text-amber-700 underline hover:text-amber-800">
+          <Link href="/new-baby" className="text-amber-700 underline hover:text-amber-800">
             New baby star map
           </Link>
           <Link href="/gifts/new-baby-star-map" className="text-amber-700 underline hover:text-amber-800">
