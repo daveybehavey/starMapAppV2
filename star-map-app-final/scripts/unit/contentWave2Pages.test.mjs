@@ -104,3 +104,12 @@ test("internal linking surfaces point at the new money pages", () => {
   assert.match(llms, /https:\/\/starmapco\.com\/new-baby/);
   assert.match(llms, /https:\/\/starmapco\.com\/proposal/);
 });
+
+test("wave-2 pages preserve landing-view tracking from the occasion pages they replace", () => {
+  const newBaby = readSrc(NEW_BABY);
+  assert.match(newBaby, /import \{ LandingViewTracker \} from "@\/components\/analytics\/LandingViewTracker";/);
+  assert.match(newBaby, /<LandingViewTracker source="occasion-new-baby" \/>/);
+  const proposal = readSrc(PROPOSAL);
+  assert.match(proposal, /import \{ LandingViewTracker \} from "@\/components\/analytics\/LandingViewTracker";/);
+  assert.match(proposal, /<LandingViewTracker source="occasion-proposal" \/>/);
+});

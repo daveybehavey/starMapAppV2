@@ -1,6 +1,7 @@
 import Link from "next/link";
 import AccuracyAuthorityCard from "@/components/AccuracyAuthorityCard";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
+import { LandingViewTracker } from "@/components/analytics/LandingViewTracker";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FaqSchema from "@/components/FaqSchema";
 import FramedProofSection from "@/components/FramedProofSection";
@@ -145,6 +146,7 @@ export default function NewBabyPage() {
 
   return (
     <main className="mx-auto max-w-4xl px-4 pt-10 pb-12 sm:pt-14">
+      <LandingViewTracker source="occasion-new-baby" />
       <header className="space-y-3 text-center">
         <Breadcrumbs items={breadcrumbs} className="flex justify-center" />
         <p className="text-xs tracking-[0.3em] text-amber-300 uppercase">StarMapCo</p>
