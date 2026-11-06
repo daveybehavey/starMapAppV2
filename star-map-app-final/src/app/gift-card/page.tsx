@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import FaqSchema from "@/components/FaqSchema";
@@ -6,22 +7,30 @@ import GiftCertificateBuy from "@/components/GiftCertificateBuy";
 import OccasionLinks from "@/components/OccasionLinks";
 import {
   GIFT_CERTIFICATE_TIERS,
+  formatGiftCertificateExpiryDate,
   getGiftCertificatePriceCents,
+  giftCertificateExpiresAt,
+  isGiftCertificatesEnabled,
 } from "@/lib/giftCertificates";
 import { formatPrice } from "@/lib/pricing";
 
-export const revalidate = 86400; // refresh once per day
+// Rendered per request, not statically: the sale/discovery flag
+// (Tier C review condition 2) must take effect when the owner flips
+// it — a cached render would keep the page dark (or live) past the
+// flip — and the pre-purchase expiry date below is computed for
+// "today" from the same function that stamps issued certificates.
+export const dynamic = "force-dynamic";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 const ogImage = `${siteUrl}/custom-star-map-anniversary.webp`;
 const breadcrumbs = [
   { href: "/", label: "Home" },
-  { href: "/gift-card", label: "Gift card" },
+  { href: "/gift-card", label: "Gift certificate" },
 ];
 
 const giftCardTitle = "Star Map Gift Certificate | Give a Personalized Star Map | StarMapCo";
 const giftCardDescription =
-  "Give a StarMapCo gift certificate for a personalized HD star map download. The recipient redeems the code, creates their own map, and downloads it in HD. Code redeemable for 12 months.";
+  "Give a StarMapCo gift certificate for a personalized HD star map download. The recipient redeems the code, creates their own map, and downloads it in HD. The code is redeemable for 12 calendar months from purchase.";
 
 export const metadata: Metadata = {
   title: giftCardTitle,
@@ -51,7 +60,7 @@ const faqItems = [
   {
     question: "How long is the certificate valid?",
     answer:
-      "The redeem code can be used once, any time within 12 months of purchase. Once it is redeemed, the download itself follows our usual terms — paid downloads do not expire.",
+      "The redeem code can be used once, any time within 12 calendar months of purchase — the exact last day is shown on this page before you buy and printed on the certificate itself. Once it is redeemed, the download itself follows our usual terms — paid downloads do not expire.",
   },
   {
     question: "Can I use a promo code or referral discount on a gift certificate?",
@@ -79,6 +88,17 @@ function priceLines(tierId: keyof typeof GIFT_CERTIFICATE_TIERS): string[] {
 }
 
 export default function GiftCardPage() {
+  // Discovery gate (Tier C review condition 2): the buy page exists
+  // only while certificate sales are enabled. Redemption and the
+  // certificate view for issued certificates live on other routes
+  // and are never gated.
+  if (!isGiftCertificatesEnabled()) {
+    notFound();
+  }
+  // Pre-purchase expiry disclosure (Tier C review condition 3): the
+  // actual date a code bought today stops being redeemable, computed
+  // by the same function that stamps issued certificates.
+  const redeemByToday = formatGiftCertificateExpiryDate(giftCertificateExpiresAt(Date.now()));
   const tiers = [
     {
       tierId: GIFT_CERTIFICATE_TIERS.hd_single.id,
@@ -115,6 +135,10 @@ export default function GiftCardPage() {
           Prices shown in USD and CAD; the checkout charges the book for your location, at the same
           prices as the downloads themselves.
         </p>
+        <p className="mt-2 text-center text-xs text-neutral-400">
+          Buy today and the recipient can redeem the code until {redeemByToday} — 12 calendar months
+          from purchase. The exact date is printed on the certificate.
+        </p>
       </section>
 
       <section className="mt-12 space-y-3">
@@ -141,7 +165,10 @@ export default function GiftCardPage() {
       <section className="mt-10 space-y-3">
         <h2 className="text-xl font-semibold text-white">Good to know</h2>
         <ul className="list-disc space-y-2 pl-5 text-sm leading-relaxed text-neutral-200">
-          <li>The code can be redeemed once, any time within 12 months of purchase.</li>
+          <li>
+            The code can be redeemed once, any time within 12 calendar months of purchase (a code
+            bought today is redeemable until {redeemByToday}).
+          </li>
           <li>
             Once redeemed, the download follows our usual terms — paid downloads do not expire, so
             there is no deadline on using it after redemption.

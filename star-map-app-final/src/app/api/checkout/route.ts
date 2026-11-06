@@ -121,6 +121,7 @@ import {
   GIFT_CERTIFICATE_METADATA_KEY,
   GIFT_CERTIFICATE_TIER_METADATA_KEY,
   giftCertificateTierForPlan,
+  isGiftCertificatesEnabled,
 } from "@/lib/giftCertificates";
 
 export const runtime = "nodejs";
@@ -1490,7 +1491,7 @@ async function createCheckoutSession(input: {
         product_data: {
           name: `StarMapCo Gift Certificate — ${certificateTier?.label ?? tier.label}`,
           description:
-            "Gift certificate: the recipient redeems the code, creates their own star map, and downloads it in HD. Code redeemable for 12 months.",
+            "Gift certificate: the recipient redeems the code, creates their own star map, and downloads it in HD. Code redeemable for 12 calendar months from purchase.",
           images: [`${siteUrl}/custom-star-map-anniversary.webp`],
         },
       },
@@ -2480,6 +2481,17 @@ export async function POST(req: NextRequest) {
     // subscription. The buyer is the giver, so the order also carries
     // the ordinary gift flag (review-ask exclusion).
     if (giftCertificate) {
+      // Sale flag (Tier C review condition 2, 2026-11-06): certificate
+      // checkout creation is default-OFF until the owner enables it
+      // after the Black Friday dry run. This gates CREATION only —
+      // redemption, delivery, and the certificate view for already-
+      // issued certificates are never gated.
+      if (!isGiftCertificatesEnabled()) {
+        return NextResponse.json(
+          { error: "Gift certificates aren't available yet.", code: "gift_certificates_not_enabled" },
+          { status: 403 }
+        );
+      }
       if (orderType !== "digital") {
         return NextResponse.json(
           { error: "Gift certificates are available for digital downloads only.", code: "gift_certificate_digital_only" },

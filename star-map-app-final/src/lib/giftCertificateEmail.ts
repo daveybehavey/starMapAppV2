@@ -83,7 +83,7 @@ export function renderGiftCertificateEmail(
     "2. They enter the code at the redeem link above — no account needed.",
     "3. The code adds the download to their access right away, and they create their own star map with it.",
     "",
-    "Good to know: the code can be redeemed once, any time within 12 months of purchase.",
+    "Good to know: the code can be redeemed once, any time within 12 calendar months of purchase.",
     "Once it is redeemed, the download itself follows our usual terms — paid downloads do not expire.",
     "",
     `Questions? Email ${supportEmail}.`,
@@ -131,7 +131,7 @@ export function renderGiftCertificateEmail(
     )}
     ${renderInfoCard(
       "Good to know",
-      `<p style="margin:0;font-size:14px;line-height:1.65;color:#cbd5e1;">The code can be redeemed once, any time within 12 months of purchase (by ${escapeHtml(expiryLabel)}). Once it is redeemed, the download itself follows our usual terms — paid downloads do not expire.</p>`,
+      `<p style="margin:0;font-size:14px;line-height:1.65;color:#cbd5e1;">The code can be redeemed once, any time within 12 calendar months of purchase (by ${escapeHtml(expiryLabel)}). Once it is redeemed, the download itself follows our usual terms — paid downloads do not expire.</p>`,
       { marginTop: "16px" },
     )}
     ${renderPrimaryButton(redeemUrl, "Open the redeem page")}

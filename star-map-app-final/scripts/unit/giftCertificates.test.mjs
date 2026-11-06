@@ -10,9 +10,9 @@
  *   the purchased tier;
  * - issuance idempotency: a duplicate issuance event for the same
  *   session returns the same record and code and mints nothing new;
- * - negative controls: wrong code, expired code (12-month code
- *   window), already-redeemed code, refunded purchase — all rejected,
- *   with no grant performed;
+ * - negative controls: wrong code, expired code (12-calendar-month
+ *   code window), already-redeemed code, refunded purchase — all
+ *   rejected, with no grant performed;
  * - hash-only storage: the persisted record never contains the
  *   plaintext code, in raw or formatted form;
  * - the certificate email carries the code, the redemption deadline,
@@ -33,13 +33,15 @@ import { register } from "node:module";
 register("./tsAliasLoader.mjs", import.meta.url);
 
 const {
-  GIFT_CERTIFICATE_LIFETIME_MS,
   GIFT_CERTIFICATE_TIERS,
   deriveGiftCertificateCode,
   formatGiftCertificateCode,
+  formatGiftCertificateExpiryDate,
   getGiftCertificatePriceCents,
+  giftCertificateExpiresAt,
   giftCertificateTierForPlan,
   hashGiftCertificateCode,
+  isGiftCertificatesEnabled,
   issueGiftCertificate,
   normalizeGiftCertificateCode,
   redeemGiftCertificate,
@@ -130,7 +132,7 @@ test("happy path: issue → redeem grants exactly the purchased tier (both tiers
     const sessionId = `cs_test_${plan}_${currency}`;
     const issued = await issue(store, { sessionId, plan, currency });
     assert.equal(issued.created, true);
-    assert.equal(issued.record.expiresAt, T0 + GIFT_CERTIFICATE_LIFETIME_MS);
+    assert.equal(issued.record.expiresAt, giftCertificateExpiresAt(T0));
     assert.equal(issued.record.amountCents, getGiftCertificatePriceCents(issued.record.tier === "hd_single" ? GIFT_CERTIFICATE_TIERS.hd_single : GIFT_CERTIFICATE_TIERS.hd_pack3, currency));
 
     let grant = null;
@@ -194,7 +196,7 @@ test("wrong and tampered codes are rejected without a grant", async () => {
   assert.equal(grants, 0);
 });
 
-test("expired code is rejected at the 12-month boundary; one millisecond earlier it redeems", async () => {
+test("expired code is rejected at the 12-calendar-month boundary; one millisecond earlier it redeems", async () => {
   const store = createMemoryStore();
   const issued = await issue(store, { sessionId: "cs_test_expiry", plan: "single", currency: "usd" });
   let grants = 0;
@@ -203,7 +205,7 @@ test("expired code is rejected at the 12-month boundary; one millisecond earlier
   };
   const atExpiry = await redeemGiftCertificate(store, SECRET, {
     code: issued.code,
-    now: T0 + GIFT_CERTIFICATE_LIFETIME_MS,
+    now: giftCertificateExpiresAt(T0),
     grantEntitlement,
   });
   assert.deepEqual([atExpiry.kind, atExpiry.reason], ["rejected", "expired"]);
@@ -211,11 +213,33 @@ test("expired code is rejected at the 12-month boundary; one millisecond earlier
 
   const justInTime = await redeemGiftCertificate(store, SECRET, {
     code: issued.code,
-    now: T0 + GIFT_CERTIFICATE_LIFETIME_MS - 1,
+    now: giftCertificateExpiresAt(T0) - 1,
     grantEntitlement,
   });
   assert.equal(justInTime.kind, "redeemed");
   assert.equal(grants, 1);
+});
+
+test("expiry is 12 calendar months from issuance, month-end clamped (Tier C condition 3)", () => {
+  // Ordinary dates land on the same day one year later, time preserved.
+  assert.equal(giftCertificateExpiresAt(Date.parse("2026-11-05T12:00:00Z")), Date.parse("2027-11-05T12:00:00Z"));
+  assert.equal(giftCertificateExpiresAt(Date.parse("2026-08-31T00:00:00Z")), Date.parse("2027-08-31T00:00:00Z"));
+  assert.equal(giftCertificateExpiresAt(Date.parse("2026-01-31T23:59:59Z")), Date.parse("2027-01-31T23:59:59Z"));
+  // The one impossible landing: Feb 29 in a leap year → Feb 28 next year.
+  assert.equal(giftCertificateExpiresAt(Date.parse("2028-02-29T08:30:00Z")), Date.parse("2029-02-28T08:30:00Z"));
+  // And the displayed date is the computed deadline (the email/page date).
+  assert.equal(formatGiftCertificateExpiryDate(giftCertificateExpiresAt(T0)), "November 5, 2027");
+  assert.equal(formatGiftCertificateExpiryDate(giftCertificateExpiresAt(Date.parse("2028-02-29T00:00:00Z"))), "February 28, 2029");
+});
+
+test("sale/discovery flag is default-off and parses the house truthy set (Tier C condition 2)", () => {
+  assert.equal(isGiftCertificatesEnabled({}), false);
+  assert.equal(isGiftCertificatesEnabled({ GIFT_CERTIFICATES_ENABLED: "" }), false);
+  assert.equal(isGiftCertificatesEnabled({ GIFT_CERTIFICATES_ENABLED: "0" }), false);
+  assert.equal(isGiftCertificatesEnabled({ GIFT_CERTIFICATES_ENABLED: "false" }), false);
+  assert.equal(isGiftCertificatesEnabled({ GIFT_CERTIFICATES_ENABLED: "1" }), true);
+  assert.equal(isGiftCertificatesEnabled({ GIFT_CERTIFICATES_ENABLED: "true" }), true);
+  assert.equal(isGiftCertificatesEnabled({ GIFT_CERTIFICATES_ENABLED: "YES" }), true);
 });
 
 test("an already-redeemed code is rejected on the second attempt", async () => {
@@ -324,7 +348,9 @@ test("certificate email carries the code, the deadline, and the expiry distincti
   assert.ok(rendered.html.includes(formatGiftCertificateCode(issued.code)));
   assert.ok(rendered.text.includes(formatGiftCertificateCode(issued.code)));
   assert.ok(rendered.text.includes("starmapco.com/redeem"));
-  assert.ok(rendered.text.includes("November 5, 2027"), "12-month redemption deadline is stated");
+  assert.ok(rendered.text.includes("November 5, 2027"), "12-calendar-month redemption deadline is stated");
+  assert.ok(rendered.text.includes("12 calendar months of purchase"), "the email states the calendar-month rule");
+  assert.ok(rendered.html.includes("12 calendar months of purchase"), "the HTML email states the same rule");
   assert.ok(
     rendered.text.includes("paid downloads do not expire"),
     "the redeemed download's no-expiry terms are distinguished from the code window",
@@ -365,7 +391,7 @@ test("delivery preparation runs before consumption; its failure leaves the code 
     prepareDelivery: async () => {},
   });
   assert.equal(retry.kind, "redeemed", "the same code redeems on retry after a delivery failure");
-  assert.equal(grants, 2, "the grant re-ran on retry (production grant is create-if-absent)");
+  assert.equal(grants, 2, "the grant re-ran on retry (the production grant is idempotent by construction — see giftCertificateGrant.test.mjs)");
 });
 
 test("route wiring: checkout exclusion, webhook order, verify refusal (source pins)", () => {
@@ -435,8 +461,72 @@ test("route wiring: checkout exclusion, webhook order, verify refusal (source pi
   assert.ok(webhook.includes("emailFailedTransiently: true"), "fulfillment reports transient email failure");
 
   const redeemRoute = read("src/app/api/gift-certificates/redeem/route.ts");
-  assert.ok(redeemRoute.includes("withSerializedKvUpdate(key, async () => {"), "grant is serialized per entitlement");
-  assert.ok(redeemRoute.includes("if (existing) return;"), "grant is create-if-absent, never an overwrite");
+  // Tier C review condition 1 (2026-11-06): the KV-only create-if-
+  // absent grant (read-then-write under withSerializedKvUpdate) is
+  // REPLACED — it serialized only within one isolate and a delayed
+  // grant write could replenish spent credits across isolates.
+  // Publication ownership now goes through the serialized
+  // GiftCertificateGrantDO via publishGiftCertificateGrant; the
+  // executable interleaving lives in giftCertificateGrant.test.mjs.
+  assert.ok(redeemRoute.includes("await publishGiftCertificateGrant({"), "grant publication goes through the grant authority");
+  assert.ok(redeemRoute.includes("client: createGiftCertificateGrantClient(),"), "the route uses the production grant client");
+  assert.ok(!redeemRoute.includes("if (existing) return;"), "the KV-only create-if-absent grant is gone");
   assert.ok(redeemRoute.includes("prepareDelivery: async ({ entitlementSessionId }) => {"), "route supplies delivery preparation");
   assert.ok(redeemRoute.includes("await getOrCreateClaimToken(entitlementSessionId, entitlement);"), "claim token is minted during delivery preparation");
+});
+
+test("Tier C conditions 2–4 wiring: flag gates, expiry wording, bearer hygiene (source pins)", () => {
+  // Condition 2: checkout creation refuses while the flag is off,
+  // ahead of every other certificate validation.
+  const checkout = read("src/app/api/checkout/route.ts");
+  const flagGate = checkout.indexOf('code: "gift_certificates_not_enabled"');
+  const firstCertValidation = checkout.indexOf('code: "gift_certificate_digital_only"');
+  assert.ok(flagGate >= 0 && firstCertValidation > flagGate, "checkout refuses certificate creation while the flag is off");
+  assert.ok(checkout.includes("if (!isGiftCertificatesEnabled())"), "checkout reads the flag through the lib helper");
+  assert.ok(
+    checkout.includes("Code redeemable for 12 calendar months from purchase."),
+    "the Stripe line-item description states the calendar-month rule",
+  );
+
+  // Condition 2: the buy page 404s while off and is force-dynamic so
+  // the flip takes effect; condition 3: it shows the actual expiry
+  // date for a code bought today, computed by the issuing function.
+  const buyPage = read("src/app/gift-card/page.tsx");
+  assert.ok(buyPage.includes("if (!isGiftCertificatesEnabled())"), "buy page reads the flag");
+  assert.ok(buyPage.includes("notFound();"), "buy page is dark while the flag is off");
+  assert.ok(buyPage.includes('export const dynamic = "force-dynamic";'), "buy page renders per request so the flag flip lands");
+  assert.ok(
+    buyPage.includes("formatGiftCertificateExpiryDate(giftCertificateExpiresAt(Date.now()))"),
+    "buy page shows the pre-purchase expiry date from the issuing function",
+  );
+  assert.ok(buyPage.includes("12 calendar months"), "buy page states the calendar-month rule");
+
+  // Condition 2: the sitemap lists /gift-card only when enabled.
+  const sitemapRoute = read("src/app/sitemap.ts");
+  assert.ok(sitemapRoute.includes("giftCertificatesEnabled: isGiftCertificatesEnabled()"), "sitemap route passes the flag");
+  const sitemapLib = read("src/lib/buildSitemapEntries.ts");
+  assert.ok(sitemapLib.includes("...(giftCertificatesEnabled"), "the /gift-card entry is conditional on the flag");
+
+  // Condition 2 (other half): redemption and delivery are NOT gated —
+  // the redeem route, certificate view route, webhook issuance and
+  // success page never consult the sale flag.
+  for (const rel of [
+    "src/app/api/gift-certificates/redeem/route.ts",
+    "src/app/api/gift-certificates/certificate/route.ts",
+    "src/app/gift-card/success/page.tsx",
+    "src/app/gift-card/success/GiftCardSuccessClient.tsx",
+  ]) {
+    assert.ok(!read(rel).includes("isGiftCertificatesEnabled"), `${rel} stays ungated`);
+  }
+
+  // Condition 4: bearer hygiene on the certificate view — the success
+  // page ships a no-referrer meta and the client strips the session
+  // id from the address bar on mount.
+  const successPage = read("src/app/gift-card/success/page.tsx");
+  assert.ok(successPage.includes('other: { referrer: "no-referrer" }'), "success page ships the no-referrer meta");
+  const successClient = read("src/app/gift-card/success/GiftCardSuccessClient.tsx");
+  assert.ok(
+    successClient.includes('window.history.replaceState(null, "", window.location.pathname)'),
+    "success client strips the bearer session id from the URL on mount",
+  );
 });

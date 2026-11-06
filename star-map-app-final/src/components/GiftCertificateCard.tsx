@@ -79,7 +79,8 @@ export default function GiftCertificateCard({
           Redeem at {redeemUrl} by {expiryLabel}
         </p>
         <p className="mt-1 text-xs text-neutral-400 print:text-neutral-600">
-          One redemption per code. Once redeemed, the download does not expire.
+          One redemption per code, within 12 calendar months of purchase. Once redeemed, the
+          download does not expire.
         </p>
       </div>
       <div className="flex flex-wrap justify-center gap-3 print:hidden">

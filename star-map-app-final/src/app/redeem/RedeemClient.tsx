@@ -77,8 +77,8 @@ export default function RedeemClient() {
           {busy ? "Redeeming…" : "Redeem and create my star map"}
         </button>
         <p className="text-xs leading-relaxed text-neutral-400">
-          No account needed. The code can be redeemed once, within 12 months of purchase — and once it
-          is redeemed, your download does not expire.
+          No account needed. The code can be redeemed once, within 12 calendar months of purchase —
+          and once it is redeemed, your download does not expire.
         </p>
       </form>
     </div>

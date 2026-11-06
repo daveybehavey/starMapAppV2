@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { blogPosts } from "@/lib/blogPosts";
 import { buildSitemapEntries } from "@/lib/buildSitemapEntries";
+import { isGiftCertificatesEnabled } from "@/lib/giftCertificates";
 
 const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://starmapco.com";
 const bulkEnabled = /^(1|true|yes)$/i.test((process.env.BULK_EVENT_ORDERS_ENABLED || "").trim());
@@ -13,5 +14,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     blogPosts,
     bulkEnabled,
     shopNavEnabled,
+    giftCertificatesEnabled: isGiftCertificatesEnabled(),
   });
 }

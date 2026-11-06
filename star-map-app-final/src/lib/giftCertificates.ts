@@ -19,7 +19,8 @@
  * redemption, no print tiers, no subscription gifting.
  *
  * EXPIRY — two different clocks that must never be conflated:
- * - The certificate CODE expires 12 months (365 days) after issuance;
+ * - The certificate CODE expires 12 calendar months after issuance
+ *   (month-end clamped, computed in UTC — see giftCertificateExpiresAt);
  *   an expired code can no longer be redeemed. This mirrors
  *   OurImprint, where the certificate is the recovery entitlement with
  *   a 12-month fuse instead of the standard window.
@@ -53,8 +54,61 @@ import { kv, withSerializedKvUpdate } from "@/lib/kv";
 export const GIFT_CERTIFICATE_METADATA_KEY = "gift_certificate";
 export const GIFT_CERTIFICATE_TIER_METADATA_KEY = "gift_certificate_tier";
 
-/** Certificate codes live 12 months from issuance (see header note). */
-export const GIFT_CERTIFICATE_LIFETIME_MS = 365 * 24 * 60 * 60 * 1000;
+/**
+ * Sale/discovery flag for gift certificates (Tier C review condition,
+ * 2026-11-06): certificate checkout creation and every discovery
+ * surface (buy page, sitemap) stay OFF until the owner enables them
+ * after the Black Friday dry run. Redemption and delivery are NOT
+ * gated — a legitimately issued certificate must keep working while
+ * the shop-facing side is dark. Deliberately NOT a [vars] entry in
+ * wrangler.toml (same posture as the DL-1 routing flag): activation
+ * is an explicit owner action in the dashboard, never a deploy side
+ * effect. Absent/unset is OFF.
+ */
+export const GIFT_CERTIFICATES_ENABLED_ENV = "GIFT_CERTIFICATES_ENABLED";
+
+export function isGiftCertificatesEnabled(
+  env: Record<string, string | undefined> = process.env,
+): boolean {
+  return /^(1|true|yes)$/i.test((env[GIFT_CERTIFICATES_ENABLED_ENV] || "").trim());
+}
+
+/**
+ * Redemption window (David's decided term, pinned precisely by the
+ * Tier C review, 2026-11-06): the code is redeemable for 12 CALENDAR
+ * months from issuance, computed in UTC, clamped to the target
+ * month's last day when the issuance day does not exist there
+ * (issued Feb 29 → expires Feb 28 in a non-leap year). Every surface
+ * states this same rule and shows the computed date.
+ */
+export function giftCertificateExpiresAt(issuedAt: number): number {
+  const issued = new Date(issuedAt);
+  const year = issued.getUTCFullYear();
+  const month = issued.getUTCMonth();
+  const day = issued.getUTCDate();
+  const targetYear = year + 1;
+  // Day 0 of the following month is the target month's last day.
+  const lastDayOfTargetMonth = new Date(Date.UTC(targetYear, month + 1, 0)).getUTCDate();
+  return Date.UTC(
+    targetYear,
+    month,
+    Math.min(day, lastDayOfTargetMonth),
+    issued.getUTCHours(),
+    issued.getUTCMinutes(),
+    issued.getUTCSeconds(),
+    issued.getUTCMilliseconds(),
+  );
+}
+
+/** Human expiry date for buyer/recipient surfaces (UTC, en-US long form). */
+export function formatGiftCertificateExpiryDate(expiresAt: number): string {
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(expiresAt));
+}
 
 /** 16 Crockford base32 characters = 80 bits, grouped in fours. */
 export const GIFT_CERTIFICATE_CODE_LENGTH = 16;
@@ -226,7 +280,7 @@ export type GiftCertificateRecord = {
   /** Keyed HMAC of the normalized code. The raw code is never stored. */
   codeHash: string;
   issuedAt: number;
-  /** Code redemption deadline: issuedAt + 12 months. NOT an entitlement expiry. */
+  /** Code redemption deadline: issuedAt + 12 calendar months (clamped). NOT an entitlement expiry. */
   expiresAt: number;
   redeemedAt: number | null;
   /** Synthetic entitlement session id created for the recipient. */
@@ -398,7 +452,7 @@ export async function issueGiftCertificate(
     salt,
     codeHash: hashGiftCertificateCode(signingSecret, code),
     issuedAt: input.now,
-    expiresAt: input.now + GIFT_CERTIFICATE_LIFETIME_MS,
+    expiresAt: giftCertificateExpiresAt(input.now),
     redeemedAt: null,
     redeemedEntitlementSessionId: null,
     emailSentAt: null,
@@ -533,7 +587,7 @@ export function giftCertificateRedeemErrorMessage(
     case "already_redeemed":
       return "This gift certificate has already been redeemed.";
     case "expired":
-      return "This gift certificate has expired — codes can be redeemed for 12 months after purchase.";
+      return "This gift certificate has expired — codes can be redeemed for 12 calendar months after purchase.";
     case "payment_revoked":
       return "This gift certificate is no longer valid. Please ask the buyer to contact support.";
     default:
