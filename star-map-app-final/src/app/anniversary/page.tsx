@@ -36,6 +36,7 @@ import {
   getPrintDeliveryEstimateExampleLine,
   getPrintUrgentHdUpsellLine,
 } from "@/lib/commerceFacts";
+import { styles, shapes } from "@/lib/config";
 import { getPricingTiers, getPrintPricingTiers } from "@/lib/pricing";
 import type { Metadata } from "next";
 
@@ -312,13 +313,120 @@ export default function AnniversaryPage() {
           Share a preview for free. Once the wording feels right, take the framed route, the unframed route,
           or HD digital delivery from the same approved design.
         </p>
-        <div className="pt-2">
+        <div className="flex flex-wrap gap-3 pt-2">
           <Link
             href={framedHdHref}
             className="text-midnight focus:ring-amber-700 inline-flex items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:ring-2 focus:ring-offset-2 focus:ring-offset-amber-50 focus:outline-none"
           >
             Preview framed + HD gift
           </Link>
+          <Link
+            href="/how-personalized-star-map-works"
+            className="inline-flex items-center justify-center rounded-full border border-amber-300/60 bg-white px-5 py-3 text-sm font-semibold text-midnight transition hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-700 focus:ring-offset-2 focus:ring-offset-amber-50"
+          >
+            How the map works
+          </Link>
+        </div>
+      </section>
+
+      <section
+        className="mt-6 space-y-5 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10"
+        data-testid="anniversary-gift-guide"
+      >
+        <h2 className="text-midnight text-xl font-semibold">Anniversary star map gift guide</h2>
+        <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
+          Use this guide when you are choosing the date, deciding what the map should show, and planning how
+          to present the gift. Every step below matches the live editor and the formats offered after
+          preview.
+        </p>
+
+        <div className="space-y-3">
+          <h3 className="text-midnight text-lg font-semibold">How to choose a date</h3>
+          <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
+            Common date ideas include your wedding date or the night you first met. Any meaningful date
+            works — anniversaries, first dates, and engagements are all solid options. If you know the
+            exact time, add it: Moon, planet, and constellation positions shift during the night, so a
+            known hour makes the sky more precise. If you only remember the day and the city, the map still
+            recreates that night’s sky for that place.
+          </p>
+          <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
+            The generator works for any date — whether your milestone was last year or decades ago. You can
+            recreate the sky from a first date in 1985 just as easily as one from last summer. For a first
+            anniversary, the wedding night or the night you met both read clearly as “your” sky; for a later
+            milestone, the original wedding date often becomes the family default.
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          <h3 className="text-midnight text-lg font-semibold">What the map shows</h3>
+          <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
+            The map is generated from real astronomical data for the date, time, and location you enter —
+            not a stock illustration. Star positions match that specific moment. When enabled in the editor,
+            the renderer can also show the Moon and planets for that sky. Weather, light pollution, and
+            nearby buildings still affect what someone literally saw outdoors; the map aims to place the sky
+            correctly for the moment you chose.
+          </p>
+          <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
+            After you generate a preview, Text Styling lets you add a title, subtitle, and dedication —
+            names, a date line, or a short vow. Styles in the editor include{" "}
+            {styles.map((style) => style.name).join(", ")}. Shapes include{" "}
+            {shapes.map((shape) => shape.label).join(", ")}
+            {shapes.some((shape) => shape.id !== "rectangle" && shape.id !== "circle")
+              ? ` (${shapes
+                  .filter((shape) => shape.id !== "rectangle" && shape.id !== "circle")
+                  .map((shape) => shape.label)
+                  .join(", ")} are labeled HD only for export, but remain previewable)`
+              : ""}
+            . For a fuller walkthrough of the create flow, see{" "}
+            <Link
+              href="/how-personalized-star-map-works"
+              className="font-semibold text-amber-800 underline hover:text-amber-950"
+            >
+              how a personalized star map works
+            </Link>
+            . For astronomy detail, see{" "}
+            <Link
+              href="/how-accurate-are-star-maps"
+              className="font-semibold text-amber-800 underline hover:text-amber-950"
+            >
+              how accurate star maps are
+            </Link>
+            .
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          <h3 className="text-midnight text-lg font-semibold">Gift presentation</h3>
+          <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
+            Preview free with no account. When the wording feels right, choose how the gift arrives from the
+            same approved design:
+          </p>
+          <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
+            <li>
+              <strong>Framed + HD</strong> — the premium gift route: a ready-to-hang framed print plus the
+              HD digital file ({bundlePriceLine}).
+            </li>
+            <li>
+              <strong>Unframed print</strong> — the lower-cost physical option when you already have a frame
+              plan.
+            </li>
+            <li>
+              <strong>Canvas gallery wrap</strong> — a premium wall option between poster and framed.
+            </li>
+            <li>
+              <strong>HD digital</strong> — unlocks right after payment with no production or shipping wait,
+              useful when the anniversary is close.
+            </li>
+          </ul>
+          <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
+            Made to order in {PRINT_ORDER_FULFILLMENT_BUSINESS_DAYS}. U.S. transit typically{" "}
+            {PRINT_US_STANDARD_TRANSIT_BUSINESS_DAYS}.{" "}
+            <Link href="/shipping" className="font-semibold text-amber-800 underline hover:text-amber-950">
+              Delivery ranges by destination
+            </Link>
+            . Pair the finished piece with a handwritten card, or share a free preview first if you want a
+            reaction before you order.
+          </p>
         </div>
       </section>
       <AccuracyAuthorityCard source="anniversary-accuracy-card" />
