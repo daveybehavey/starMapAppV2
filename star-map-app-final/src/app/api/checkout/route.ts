@@ -2648,6 +2648,7 @@ export async function POST(req: NextRequest) {
       clientCountry,
     });
     const idempotencyKey = checkoutIdempotencyKey({
+      giftCertificate,
       mapId,
       plan,
       orderType,
@@ -2666,7 +2667,6 @@ export async function POST(req: NextRequest) {
       customerEmail: customerEmail ?? null,
       isGift,
       pricingIdentity,
-      giftCertificate,
     });
     if (idempotencyKey) {
       // S95-2 N1: replay the stored discount outcome with the URL — a
