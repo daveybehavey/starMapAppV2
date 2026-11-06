@@ -30,7 +30,7 @@ const breadcrumbs = [
 
 const giftCardTitle = "Star Map Gift Certificate | Give a Personalized Star Map | StarMapCo";
 const giftCardDescription =
-  "Give a StarMapCo gift certificate for a personalized HD star map download. The recipient redeems the code, creates their own map, and downloads it in HD. The code is redeemable for 12 calendar months from purchase.";
+  "Give a StarMapCo gift certificate for a personalized HD star map download. The recipient redeems the code, creates their own map, and downloads it in HD. The code is redeemable for 12 calendar months from issuance.";
 
 export const metadata: Metadata = {
   title: giftCardTitle,
@@ -60,7 +60,7 @@ const faqItems = [
   {
     question: "How long is the certificate valid?",
     answer:
-      "The redeem code can be used once, any time within 12 calendar months of purchase — the exact last day is shown on this page before you buy and printed on the certificate itself. Once it is redeemed, the download itself follows our usual terms — paid downloads do not expire.",
+      "The redeem code can be used once, any time within 12 calendar months of issuance — the exact last day is shown on this page before you buy and printed on the certificate itself. Once it is redeemed, the download itself follows our usual terms — paid downloads do not expire.",
   },
   {
     question: "Can I use a promo code or referral discount on a gift certificate?",
@@ -137,7 +137,7 @@ export default function GiftCardPage() {
         </p>
         <p className="mt-2 text-center text-xs text-neutral-400">
           Buy today and the recipient can redeem the code until {redeemByToday} — 12 calendar months
-          from purchase. The exact date is printed on the certificate.
+          from issuance. The exact date is printed on the certificate.
         </p>
       </section>
 
@@ -166,7 +166,7 @@ export default function GiftCardPage() {
         <h2 className="text-xl font-semibold text-white">Good to know</h2>
         <ul className="list-disc space-y-2 pl-5 text-sm leading-relaxed text-neutral-200">
           <li>
-            The code can be redeemed once, any time within 12 calendar months of purchase (a code
+            The code can be redeemed once, any time within 12 calendar months of issuance (a code
             bought today is redeemable until {redeemByToday}).
           </li>
           <li>

@@ -587,7 +587,7 @@ export function giftCertificateRedeemErrorMessage(
     case "already_redeemed":
       return "This gift certificate has already been redeemed.";
     case "expired":
-      return "This gift certificate has expired — codes can be redeemed for 12 calendar months after purchase.";
+      return "This gift certificate has expired — codes can be redeemed for 12 calendar months after issuance.";
     case "payment_revoked":
       return "This gift certificate is no longer valid. Please ask the buyer to contact support.";
     default:

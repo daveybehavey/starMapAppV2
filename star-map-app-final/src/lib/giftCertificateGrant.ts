@@ -6,20 +6,32 @@
  * giftCertificateGrantState.ts. This module resolves the DO namespace
  * (request context or explicit env), mirrors the entitlement
  * authority's fail-closed local-fallback posture, and exposes
- * `publishGiftCertificateGrant` — the exact grant sequence the redeem
- * route runs, factored out so the two-isolate interleaving test
- * executes THIS code against scripted stores rather than a copy.
+ * `publishGiftCertificateGrant` — the redeem route's grant entry
+ * point, delegating to the authority's single serialized `publish`
+ * operation (the DO performs the entitlement KV write itself; the
+ * local fallback runs the same sequence under its per-session lock).
+ * Factored out so the two-isolate interleaving test executes THIS
+ * code against scripted stores rather than a copy.
  */
 
 import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { ENTITLEMENT_KV } from "@/lib/entitlementsStore";
 import {
+  buildGiftCertificateEntitlementRecord,
   confirmGiftCertificateGrantPublished,
   createEmptyGiftCertificateGrantRow,
   initializeGiftCertificateGrant,
   type ConfirmGiftCertificateGrantResult,
+  type GiftCertificateEntitlementRecord,
+  type GiftCertificateGrantPublishResult,
   type GiftCertificateGrantRow,
   type GiftCertificateGrantTerms,
   type InitializeGiftCertificateGrantResult,
+} from "@/lib/giftCertificateGrantState";
+
+export {
+  buildGiftCertificateEntitlementRecord,
+  type GiftCertificateEntitlementRecord,
 } from "@/lib/giftCertificateGrantState";
 
 type GiftCertificateGrantNamespace = {
@@ -34,6 +46,14 @@ type GiftCertificateGrantNamespace = {
       entitlementSessionId: string,
       input: { now: number },
     ): Promise<ConfirmGiftCertificateGrantResult>;
+    publish(
+      entitlementSessionId: string,
+      input: {
+        terms: GiftCertificateGrantTerms;
+        now: number;
+        entitlementKey: string;
+      },
+    ): Promise<GiftCertificateGrantPublishResult>;
   };
 };
 
@@ -47,6 +67,16 @@ export type GiftCertificateGrantClient = {
     entitlementSessionId: string,
     input: { now: number },
   ): Promise<ConfirmGiftCertificateGrantResult | null>;
+  publish(
+    entitlementSessionId: string,
+    input: {
+      terms: GiftCertificateGrantTerms;
+      now: number;
+      writeEntitlementRecord: (
+        record: GiftCertificateEntitlementRecord,
+      ) => Promise<void>;
+    },
+  ): Promise<GiftCertificateGrantPublishResult | null>;
 };
 
 const memoryRows = new Map<string, GiftCertificateGrantRow>();
@@ -184,48 +214,74 @@ export function createGiftCertificateGrantClient(
       }
       return null;
     },
-  };
-}
-
-/** The session-shaped entitlement record a certificate grant publishes. */
-export type GiftCertificateEntitlementRecord = {
-  paid: true;
-  created: number;
-  revoked: false;
-  plan: string;
-  creditsRemaining: number;
-  creditsTotal: number;
-  orderType: "digital";
-  isGift: true;
-};
-
-export function buildGiftCertificateEntitlementRecord(input: {
-  plan: string;
-  creditsTotal: number;
-  initializedAt: number;
-}): GiftCertificateEntitlementRecord {
-  return {
-    paid: true,
-    created: input.initializedAt,
-    revoked: false,
-    plan: input.plan,
-    creditsRemaining: input.creditsTotal,
-    creditsTotal: input.creditsTotal,
-    orderType: "digital",
-    isGift: true,
+    async publish(entitlementSessionId, input) {
+      const trimmed = entitlementSessionId.trim();
+      if (!trimmed) return null;
+      const ns = resolveNamespace();
+      if (ns) {
+        try {
+          // The authority performs the entitlement write itself,
+          // inside its serialized publish operation — the caller's
+          // writer is deliberately NOT used on this path, so no
+          // write authorization ever sits in the caller's hands
+          // across an await.
+          const stub = ns.get(ns.idFromName(trimmed));
+          return await stub.publish(trimmed, {
+            terms: input.terms,
+            now: input.now,
+            entitlementKey: ENTITLEMENT_KV.stripeSession(trimmed),
+          });
+        } catch {
+          if (!isLocalGiftCertificateGrantFallbackAllowed()) return null;
+        }
+      }
+      if (isLocalGiftCertificateGrantFallbackAllowed()) {
+        // The same serialized sequence as the DO's publish, run
+        // under the per-session lock — the lock covers the write,
+        // so a second pass cannot confirm, deliver, or spend while
+        // this pass's write is outstanding.
+        return withMemoryLock(trimmed, async () => {
+          const initialized = initializeGiftCertificateGrant(getMemoryRow(trimmed), {
+            terms: input.terms,
+            now: input.now,
+          });
+          if (initialized.changed) memoryRows.set(trimmed, initialized.row);
+          if (!initialized.created && initialized.row.publishedAt !== null) {
+            return { published: false, created: false };
+          }
+          await input.writeEntitlementRecord(
+            buildGiftCertificateEntitlementRecord({
+              plan: initialized.grant.plan,
+              creditsTotal: initialized.grant.creditsTotal,
+              initializedAt: initialized.grant.initializedAt,
+            }),
+          );
+          const confirmed = confirmGiftCertificateGrantPublished(initialized.row, {
+            now: input.now,
+          });
+          if (!confirmed.confirmed) {
+            throw new Error("gift certificate grant publication could not be confirmed");
+          }
+          if (confirmed.changed) memoryRows.set(trimmed, confirmed.row);
+          return { published: true, created: initialized.created };
+        });
+      }
+      return null;
+    },
   };
 }
 
 /**
- * The redeem route's grant sequence (see the state module for the
- * proof): ask the serialized authority who owns publication, write
- * the KV entitlement record ONLY inside the open publication window
- * (the initialize winner, or a repair pass while unconfirmed — both
- * write the standing terms byte-identically), then confirm. A pass
- * that finds the grant confirmed writes NOTHING, so its writes can
- * never land after a spend. Throws on any authority failure; the
- * caller treats a throw as a retryable abort with the code still
- * redeemable.
+ * The redeem route's grant entry point: ONE serialized publish
+ * operation in the grant authority (see the state module for the
+ * proof). The authority decides create-if-absent, performs the
+ * entitlement write itself, and persists confirmation only after
+ * the write resolves — so when this returns, no grant write is
+ * outstanding, and delivery (the claim-token mint) and any later
+ * spend are causally after the single publication write. A pass
+ * that finds the grant confirmed writes NOTHING. Throws on any
+ * authority failure; the caller treats a throw as a retryable abort
+ * with the code still redeemable.
  */
 export async function publishGiftCertificateGrant(input: {
   client: GiftCertificateGrantClient;
@@ -234,32 +290,13 @@ export async function publishGiftCertificateGrant(input: {
   now: number;
   writeEntitlementRecord: (record: GiftCertificateEntitlementRecord) => Promise<void>;
 }): Promise<{ published: boolean; created: boolean }> {
-  const initialized = await input.client.initialize(input.entitlementSessionId, {
+  const result = await input.client.publish(input.entitlementSessionId, {
     terms: input.terms,
     now: input.now,
+    writeEntitlementRecord: input.writeEntitlementRecord,
   });
-  if (!initialized) {
+  if (!result) {
     throw new Error("gift certificate grant authority unavailable");
   }
-  if (!initialized.created && initialized.row.publishedAt !== null) {
-    // Already published by the winning pass. This pass must not
-    // write the entitlement record under any circumstances — its
-    // local view of KV may be stale, and a write here is exactly the
-    // replenishment write the condition prohibits.
-    return { published: false, created: false };
-  }
-  await input.writeEntitlementRecord(
-    buildGiftCertificateEntitlementRecord({
-      plan: initialized.grant.plan,
-      creditsTotal: initialized.grant.creditsTotal,
-      initializedAt: initialized.grant.initializedAt,
-    }),
-  );
-  const confirmed = await input.client.confirmPublished(input.entitlementSessionId, {
-    now: input.now,
-  });
-  if (!confirmed || !confirmed.confirmed) {
-    throw new Error("gift certificate grant publication could not be confirmed");
-  }
-  return { published: true, created: initialized.created };
+  return result;
 }

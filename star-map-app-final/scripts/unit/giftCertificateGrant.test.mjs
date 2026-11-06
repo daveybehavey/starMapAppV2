@@ -16,10 +16,17 @@
  *
  * The closure (giftCertificateGrantState.ts): create-if-absent for
  * the grant is decided ONCE by the serialized GiftCertificateGrantDO
- * (one instance per entitlement session id, DO input is serialized),
- * and publishGiftCertificateGrant — the redeem route's own grant
- * sequence — writes the KV record only inside the open publication
- * window and never after confirmation.
+ * (one instance per entitlement session id), and publication is a
+ * single serialized operation — the authority performs the KV write
+ * itself and persists confirmation only after the write resolves,
+ * so no grant write can be outstanding when a publish returns (and
+ * delivery, then any spend, becomes possible). The first closure
+ * left the write in the redeem route; the gate's return verdict
+ * showed a repair pass could confirm and deliver while the winner's
+ * write was still outstanding, and the delayed write then set the
+ * balance a second time — the "winner's outstanding write" test
+ * below is that exact interleaving, and it failed against the
+ * route-side write before the fix.
  *
  * The interleaving tests execute the PRODUCTION orchestration
  * (publishGiftCertificateGrant + the production client over its
@@ -165,32 +172,33 @@ test("state machine: structural validation rejects corrupt rows", () => {
   );
 });
 
-test("DO shell: initialize/confirm persist across a restart; absence is an empty row", async () => {
-  class FakeSqlStorage {
-    constructor(rows = new Map()) {
-      this.rows = rows;
-    }
-    exec(sql, ...params) {
-      const head = sql.trimStart().slice(0, 6).toUpperCase();
-      if (head.startsWith("CREATE")) return { toArray: () => [] };
-      if (head.startsWith("SELECT")) {
-        const row = this.rows.get(params[0]);
-        return { toArray: () => (row ? [row] : []) };
-      }
-      if (head.startsWith("INSERT")) {
-        const [id, stateJson, updatedAt] = params;
-        this.rows.set(id, { session_id: id, state_json: stateJson, updated_at: updatedAt });
-        return { toArray: () => [] };
-      }
-      throw new Error(`unexpected SQL in fake: ${sql.slice(0, 80)}`);
-    }
+class FakeSqlStorage {
+  constructor(rows = new Map()) {
+    this.rows = rows;
   }
-  const fakeCtx = (sql) => ({
-    storage: { sql },
-    blockConcurrencyWhile(fn) {
-      return fn();
-    },
-  });
+  exec(sql, ...params) {
+    const head = sql.trimStart().slice(0, 6).toUpperCase();
+    if (head.startsWith("CREATE")) return { toArray: () => [] };
+    if (head.startsWith("SELECT")) {
+      const row = this.rows.get(params[0]);
+      return { toArray: () => (row ? [row] : []) };
+    }
+    if (head.startsWith("INSERT")) {
+      const [id, stateJson, updatedAt] = params;
+      this.rows.set(id, { session_id: id, state_json: stateJson, updated_at: updatedAt });
+      return { toArray: () => [] };
+    }
+    throw new Error(`unexpected SQL in fake: ${sql.slice(0, 80)}`);
+  }
+}
+const fakeCtx = (sql) => ({
+  storage: { sql },
+  blockConcurrencyWhile(fn) {
+    return fn();
+  },
+});
+
+test("DO shell: initialize/confirm persist across a restart; absence is an empty row", async () => {
   const sql = new FakeSqlStorage();
   const first = new GiftCertificateGrantDO(fakeCtx(sql), {});
   const absent = await first.getRow(SESSION);
@@ -207,6 +215,69 @@ test("DO shell: initialize/confirm persist across a restart; absence is an empty
   assert.equal(row.publishedAt, T1 + 5);
   const reInit = await restarted.initialize(SESSION, { terms: TERMS, now: T1 + 99 });
   assert.equal(reInit.created, false);
+});
+
+test("DO publish: the winner's in-flight KV write blocks a second publish; exactly one put ever lands", async () => {
+  // The chair's interleaving at the production layer: the DO performs
+  // the entitlement put itself, inside the serialized publish
+  // operation — so while the winner's put is in flight, a second
+  // publish cannot confirm, cannot write, and cannot return (the
+  // start path cannot proceed), and no put remains outstanding once
+  // a publish has returned.
+  const sql = new FakeSqlStorage();
+  const kvData = new Map();
+  let putCount = 0;
+  let putIssued = false;
+  let releasePut;
+  const putGate = new Promise((resolve) => {
+    releasePut = resolve;
+  });
+  const fakeKv = {
+    async put(key, value) {
+      putCount += 1;
+      if (putCount === 1) {
+        putIssued = true;
+        await putGate; // the first put is in flight; it has NOT landed
+      }
+      kvData.set(key, value);
+    },
+  };
+  const grant = new GiftCertificateGrantDO(fakeCtx(sql), { STAR_MAP_KV: fakeKv });
+
+  const passA = grant.publish(SESSION, { terms: TERMS, now: T1, entitlementKey: KEY });
+  for (let i = 0; i < 50 && !putIssued; i++) {
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+  assert.ok(putIssued, "the authority reached its publication put");
+
+  let bSettled = false;
+  const passB = grant
+    .publish(SESSION, { terms: TERMS, now: T1 + 1000, entitlementKey: KEY })
+    .then((result) => {
+      bSettled = true;
+      return result;
+    });
+  for (let i = 0; i < 10; i++) {
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+  assert.equal(bSettled, false, "a second publish cannot proceed while the winner's put is outstanding");
+  assert.equal(kvData.has(KEY), false, "no entitlement record stands before the winner's put lands");
+
+  releasePut();
+  assert.deepEqual(await passA, { published: true, created: true });
+  assert.deepEqual(await passB, { published: false, created: false });
+  assert.equal(putCount, 1, "exactly one entitlement put ever happens");
+  const record = JSON.parse(kvData.get(KEY));
+  assert.equal(record.creditsRemaining, 3);
+  assert.equal(record.created, T1, "the record's created is the winning initialize time");
+
+  // The recipient spends (whole-record rewrite, as the consume route
+  // performs) — and a further publish still writes nothing.
+  kvData.set(KEY, JSON.stringify({ ...record, creditsRemaining: record.creditsRemaining - 1 }));
+  const third = await grant.publish(SESSION, { terms: TERMS, now: T1 + 60_000, entitlementKey: KEY });
+  assert.deepEqual(third, { published: false, created: false });
+  assert.equal(putCount, 1, "no put after confirmation");
+  assert.equal(JSON.parse(kvData.get(KEY)).creditsRemaining, 2, "the spent credit stays spent");
 });
 
 test("interleaving: a delayed second grant pass cannot replenish a spent credit", async () => {
@@ -258,6 +329,94 @@ test("interleaving: a delayed second grant pass cannot replenish a spent credit"
   );
 });
 
+test("interleaving: the winner's outstanding write cannot land after a second pass confirms and a spend settles (G-dot return verdict)", async () => {
+  // The interleaving the chair named on the return: pass A initializes
+  // and its entitlement write is ISSUED but has not landed; a second
+  // pass must not be able to confirm publication, deliver, and let a
+  // spend settle while A's write is still outstanding — otherwise A's
+  // write lands last and sets the initial balance a second time.
+  __resetGiftCertificateGrantMemoryForTests();
+  const backing = createBackingKv();
+  const client = createGiftCertificateGrantClient();
+  const writes = [];
+  let releaseAWrite;
+  const aWriteGate = new Promise((resolve) => {
+    releaseAWrite = resolve;
+  });
+  let aWriteIssued = false;
+  const writerA = async (record) => {
+    aWriteIssued = true;
+    await aWriteGate; // the put is in flight; it has NOT landed
+    writes.push(record);
+    backing.data.set(KEY, record);
+  };
+  const writerB = async (record) => {
+    writes.push(record);
+    backing.data.set(KEY, record);
+  };
+
+  // Pass A (isolate 1): wins initialize, then stalls inside its write.
+  const passA = publishGiftCertificateGrant({
+    client,
+    entitlementSessionId: SESSION,
+    terms: TERMS,
+    now: T1,
+    writeEntitlementRecord: writerA,
+  });
+  for (let i = 0; i < 50 && !aWriteIssued; i++) {
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+  assert.ok(aWriteIssued, "pass A reached its entitlement write");
+
+  // Pass B (isolate 2): a racing redemption of the same code while
+  // A's grant stands initialized-but-unconfirmed with a write
+  // outstanding.
+  let bSettled = false;
+  const passB = publishGiftCertificateGrant({
+    client,
+    entitlementSessionId: SESSION,
+    terms: TERMS,
+    now: T1 + 1000,
+    writeEntitlementRecord: writerB,
+  }).then((result) => {
+    bSettled = true;
+    return result;
+  });
+  for (let i = 0; i < 10; i++) {
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+  assert.equal(
+    bSettled,
+    false,
+    "the start path must not proceed while an initialized grant has a write outstanding",
+  );
+  assert.equal(
+    backing.data.has(KEY),
+    false,
+    "no entitlement record may stand while the winner's write is outstanding",
+  );
+
+  // A's write lands and A confirms; only now may B complete — and it
+  // must write nothing.
+  releaseAWrite();
+  const resultA = await passA;
+  assert.deepEqual(resultA, { published: true, created: true });
+  const resultB = await passB;
+  assert.deepEqual(resultB, { published: false, created: false });
+  assert.equal(writes.length, 1, "exactly one entitlement write ever happens");
+  assert.equal(backing.data.get(KEY).creditsRemaining, 3);
+
+  // Delivery has happened (a grant returned), so the recipient
+  // spends — and nothing remains outstanding that could set the
+  // balance again.
+  assert.equal(await spendOneCredit(backing), 2);
+  assert.equal(
+    backing.data.get(KEY).creditsRemaining,
+    2,
+    "the balance was set exactly once — no replenishment",
+  );
+});
+
 test("interleaving: concurrent passes create once; every write is the identical initial record", async () => {
   __resetGiftCertificateGrantMemoryForTests();
   const backing = createBackingKv();
@@ -284,12 +443,10 @@ test("interleaving: concurrent passes create once; every write is the identical 
     }),
   ]);
   assert.equal([a, b].filter((r) => r.created).length, 1, "exactly one pass created the grant");
-  // The losing pass may write only while publication is unconfirmed,
-  // and then only the standing terms byte-identically (initializedAt
-  // is the winner's) — never a record of its own. No spend can exist
-  // yet (no grant has returned, so no credential was minted), so any
-  // such write is harmless by construction.
-  assert.ok(written.length >= 1, "the grant was published");
+  // Publication is serialized: the losing pass runs only after the
+  // winner's publish has fully completed (write landed + confirmed),
+  // finds the grant confirmed, and writes nothing at all.
+  assert.equal(written.length, 1, "exactly one write: the winner's, inside its serialized publish");
   for (const record of written) {
     assert.deepEqual(record, written[0], "every concurrent write is the identical initial record");
     assert.equal(record.created, T1, "initializedAt is the winning initialize time");
@@ -311,34 +468,32 @@ test("interleaving: concurrent passes create once; every write is the identical 
   assert.equal(backing.data.get(KEY).creditsRemaining, 2);
 });
 
-test("interleaving: a crash between write and confirm is repaired byte-identically, then closes", async () => {
+test("interleaving: a grant left initialized and written but unconfirmed (crashed winner) is repaired byte-identically, then closes", async () => {
   __resetGiftCertificateGrantMemoryForTests();
   const backing = createBackingKv();
   const realClient = createGiftCertificateGrantClient();
-  // Pass A dies after its KV write, before confirmation lands.
-  const crashingClient = {
-    ...realClient,
-    confirmPublished: async () => {
-      throw new Error("isolate evicted");
-    },
-  };
   const seenWrites = [];
   const writer = async (record) => {
     seenWrites.push(record);
     await backing.facade().setDurable(KEY, record);
   };
-  await assert.rejects(
-    publishGiftCertificateGrant({
-      client: crashingClient,
-      entitlementSessionId: SESSION,
-      terms: TERMS,
-      now: T1,
-      writeEntitlementRecord: writer,
+  // The crashed winner, constructed from public operations: it
+  // initialized the grant and its entitlement write landed, then it
+  // died before confirmation persisted — the state the first
+  // version's crash test injected by sabotaging confirmPublished
+  // (publication is one serialized operation now, so the crash seam
+  // is the state it leaves behind, not a mid-sequence throw).
+  const init = await realClient.initialize(SESSION, { terms: TERMS, now: T1 });
+  assert.equal(init.created, true);
+  await writer(
+    buildGiftCertificateEntitlementRecord({
+      plan: init.grant.plan,
+      creditsTotal: init.grant.creditsTotal,
+      initializedAt: init.grant.initializedAt,
     }),
-    /isolate evicted|publication could not be confirmed/,
   );
   assert.equal(seenWrites.length, 1);
-  // No delivery can have happened (the grant never returned), so no
+  // No delivery can have happened (no publish ever returned), so no
   // spend is possible yet — the repair window is safe by construction.
 
   // Pass B (the recipient's retry): not the creator, but publication
@@ -454,4 +609,18 @@ test("wiring: DO binding, migration, worker export, env type, sentry allowlist (
   const redeemRoute = read("src/app/api/gift-certificates/redeem/route.ts");
   assert.ok(redeemRoute.includes("terms: {"), "the route passes grant terms to the authority");
   assert.ok(redeemRoute.includes("creditsTotal: tier.credits"), "the granted credits are the tier's");
+  // Return-verdict closure: the serialized publish operation and the
+  // authority-side write are pinned so the write cannot drift back
+  // into the route.
+  const doShell = read("src/durable-objects/GiftCertificateGrantDO.ts");
+  assert.ok(doShell.includes("async publish("), "the DO exposes the serialized publish operation");
+  assert.ok(doShell.includes("STAR_MAP_KV"), "the DO writes via its own STAR_MAP_KV binding");
+  assert.ok(
+    doShell.includes("await this.putEntitlementRecord("),
+    "the entitlement write happens inside the serialized publish, awaited before confirmation persists",
+  );
+  assert.ok(
+    wrangler.includes('binding = "STAR_MAP_KV"'),
+    "the KV binding the DO writes through is the app's namespace",
+  );
 });

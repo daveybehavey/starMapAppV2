@@ -17,32 +17,54 @@
  * prevent overwriting the same one.
  *
  * THE CLOSURE — decide create-if-absent ONCE, in a serialized
- * authority, and make the KV write conditional on that decision:
+ * authority, and perform the KV write INSIDE that authority's
+ * serialized publish operation:
  *
  * - `initialize` records the grant's terms in this row the first
  *   time it runs and answers `created: true` to exactly one caller,
  *   ever. Every later caller gets `created: false` and the standing
  *   terms.
- * - Only the `created` caller — or a repair pass that finds the row
- *   still UNCONFIRMED (`publishedAt === null`) — may write the
- *   entitlement record to KV, always with the row's standing terms
- *   and `initializedAt` (so a repair write is byte-identical to the
- *   original). The writer then calls `confirmPublished`.
- * - Once confirmed, NO grant pass ever writes the KV record again,
- *   whatever its local KV read says.
+ * - Publication is a single serialized operation (the DO's
+ *   `publish`, mirrored by the local fallback under its per-session
+ *   lock): initialize → write the entitlement record built from the
+ *   STANDING terms (`created` = the recorded `initializedAt`, so a
+ *   repair write is byte-identical to the original) → persist
+ *   confirmation. The write is issued and awaited inside the
+ *   operation; the row's confirmation is persisted only after the
+ *   write resolves. No caller ever holds a write authorization
+ *   across an await outside the authority.
+ * - Once confirmed, NO publish operation ever writes the KV record
+ *   again, whatever its local KV read says.
  *
- * Soundness: confirmation happens only after the KV write, and the
+ * Why the write had to move inside (G-dot's return verdict on the
+ * first closure): deciding create-if-absent in the authority while
+ * leaving the write in the redeem route was NOT sufficient. The
+ * winning pass's write could still be outstanding when a second
+ * pass — finding the row initialized-but-unconfirmed — repaired,
+ * confirmed, and returned; delivery then minted the claim token and
+ * a spend settled, and only then did the winner's delayed write
+ * land, setting the initial balance a second time. The per-pass
+ * argument ("while unconfirmed, no credential exists") did not
+ * survive two passes: confirmation by one pass closed the window
+ * while another pass's write was still in flight.
+ *
+ * Soundness of the serialized publish: grant passes are totally
+ * ordered by the authority, and a pass's write resolves before its
+ * confirmation persists and before the operation returns. The
  * recipient's delivery credential (the claim token) is minted only
- * after the grant returns — so while `publishedAt === null`, the
- * grant cannot have completed, no credential exists, and no spend is
- * possible; the entitlement record either does not exist yet or
- * still holds exactly the initial terms, which makes the repair
- * write harmless. After confirmation the single grant write is
- * causally before every spend, and later passes write nothing — so
- * no interleaving of grant and spend writes can raise the balance.
+ * after a publish operation returns — so at the moment any spend
+ * becomes possible, every write the authority has ever authorized
+ * has already resolved, and no write is outstanding. A publish
+ * operation interrupted before confirmation (isolate/DO failure)
+ * leaves the row unconfirmed and the code undelivered; a later
+ * operation re-runs the same sequence and its write — the standing
+ * terms, byte-identical — lands over a record nobody can spend
+ * from yet. After confirmation, later operations write nothing. No
+ * interleaving of grant and spend writes can raise the balance.
  *
- * The DO is the serialization point, not the judge: it orders grant
- * passes against one row. It never touches KV itself.
+ * The DO is the serialization point: it orders grant passes against
+ * one row AND performs the publication write itself (via its own
+ * STAR_MAP_KV binding), so the write is never in a caller's hands.
  */
 
 export type GiftCertificateGrantTerms = {
@@ -169,3 +191,45 @@ export function confirmGiftCertificateGrantPublished(
 export function isGiftCertificateGrantPublicationOpen(row: GiftCertificateGrantRow): boolean {
   return row.grant !== null && row.publishedAt === null;
 }
+
+/** The session-shaped entitlement record a certificate grant publishes. */
+export type GiftCertificateEntitlementRecord = {
+  paid: true;
+  created: number;
+  revoked: false;
+  plan: string;
+  creditsRemaining: number;
+  creditsTotal: number;
+  orderType: "digital";
+  isGift: true;
+};
+
+/**
+ * Build the entitlement record from the grant's STANDING terms —
+ * the winner's `initializedAt`, never the publishing pass's clock —
+ * so every publication write of a grant is byte-identical.
+ */
+export function buildGiftCertificateEntitlementRecord(input: {
+  plan: string;
+  creditsTotal: number;
+  initializedAt: number;
+}): GiftCertificateEntitlementRecord {
+  return {
+    paid: true,
+    created: input.initializedAt,
+    revoked: false,
+    plan: input.plan,
+    creditsRemaining: input.creditsTotal,
+    creditsTotal: input.creditsTotal,
+    orderType: "digital",
+    isGift: true,
+  };
+}
+
+/** Outcome of one serialized publish operation. */
+export type GiftCertificateGrantPublishResult = {
+  /** True when this operation performed the publication write. */
+  published: boolean;
+  /** True only for the operation that first recorded the grant. */
+  created: boolean;
+};

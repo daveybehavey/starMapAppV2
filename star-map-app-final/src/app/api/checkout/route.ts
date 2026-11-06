@@ -1491,7 +1491,7 @@ async function createCheckoutSession(input: {
         product_data: {
           name: `StarMapCo Gift Certificate — ${certificateTier?.label ?? tier.label}`,
           description:
-            "Gift certificate: the recipient redeems the code, creates their own star map, and downloads it in HD. Code redeemable for 12 calendar months from purchase.",
+            "Gift certificate: the recipient redeems the code, creates their own star map, and downloads it in HD. Code redeemable for 12 calendar months from issuance.",
           images: [`${siteUrl}/custom-star-map-anniversary.webp`],
         },
       },

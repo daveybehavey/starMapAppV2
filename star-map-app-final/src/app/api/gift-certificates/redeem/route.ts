@@ -67,19 +67,26 @@ export async function POST(req: NextRequest) {
     grantEntitlement: async ({ entitlementSessionId, record }) => {
       const tier = GIFT_CERTIFICATE_TIERS[record.tier];
       const key = ENTITLEMENT_KV.stripeSession(entitlementSessionId);
-      // Publication ownership is decided by the GiftCertificateGrantDO
-      // (Tier C review condition 1, 2026-11-06). The earlier fix —
-      // create-if-absent as a KV read-then-write under
-      // withSerializedKvUpdate — serializes only within one isolate:
-      // two isolates could both observe absence, and the losing pass's
-      // delayed write landed after the recipient's first spend and
-      // silently replenished the balance. The serialized grant
-      // authority now decides create-if-absent exactly once; only the
-      // winning (or still-unconfirmed repair) pass writes the record,
-      // and a confirmed grant is never written again. See
+      // Publication is owned by the GiftCertificateGrantDO (Tier C
+      // review condition 1, 2026-11-06). The first fix — create-if-
+      // absent as a KV read-then-write under withSerializedKvUpdate —
+      // serializes only within one isolate: two isolates could both
+      // observe absence, and the losing pass's delayed write landed
+      // after the recipient's first spend and silently replenished
+      // the balance. The second fix decided create-if-absent in the
+      // authority but left the write here, and the gate's return
+      // verdict showed the winner's write could still be outstanding
+      // when a repair pass confirmed and delivered — the same
+      // replenishment one step later. The authority now performs the
+      // publication itself: one serialized initialize → write →
+      // confirm operation (the DO writes via its own KV binding), so
+      // when the grant returns, no write is outstanding and a
+      // confirmed grant is never written again. The writer passed
+      // below serves only the client's local fallback, which runs
+      // the same sequence under its per-session lock. See
       // giftCertificateGrantState.ts for the soundness argument and
       // giftCertificateGrant.test.mjs for the two-isolate
-      // interleaving, including the negative control against this
+      // interleavings, including the negative control against this
       // route's previous KV-only strategy. Authority failure throws,
       // the route answers 503, and the code stays redeemable.
       // (`isGift: true` in the published record keeps review asks off

@@ -366,8 +366,8 @@ test("certificate email carries the code, the deadline, and the expiry distincti
   assert.ok(rendered.text.includes(formatGiftCertificateCode(issued.code)));
   assert.ok(rendered.text.includes("starmapco.com/redeem"));
   assert.ok(rendered.text.includes("November 5, 2027"), "12-calendar-month redemption deadline is stated");
-  assert.ok(rendered.text.includes("12 calendar months of purchase"), "the email states the calendar-month rule");
-  assert.ok(rendered.html.includes("12 calendar months of purchase"), "the HTML email states the same rule");
+  assert.ok(rendered.text.includes("12 calendar months of issuance"), "the email states the calendar-month rule (from issuance, per the chair's copy correction)");
+  assert.ok(rendered.html.includes("12 calendar months of issuance"), "the HTML email states the same rule");
   assert.ok(
     rendered.text.includes("paid downloads do not expire"),
     "the redeemed download's no-expiry terms are distinguished from the code window",
@@ -501,7 +501,7 @@ test("Tier C conditions 2–4 wiring: flag gates, expiry wording, bearer hygiene
   assert.ok(flagGate >= 0 && firstCertValidation > flagGate, "checkout refuses certificate creation while the flag is off");
   assert.ok(checkout.includes("if (!isGiftCertificatesEnabled())"), "checkout reads the flag through the lib helper");
   assert.ok(
-    checkout.includes("Code redeemable for 12 calendar months from purchase."),
+    checkout.includes("Code redeemable for 12 calendar months from issuance."),
     "the Stripe line-item description states the calendar-month rule",
   );
 
@@ -517,6 +517,25 @@ test("Tier C conditions 2–4 wiring: flag gates, expiry wording, bearer hygiene
     "buy page shows the pre-purchase expiry date from the issuing function",
   );
   assert.ok(buyPage.includes("12 calendar months"), "buy page states the calendar-month rule");
+
+  // Chair's copy correction on the return: the implementation
+  // starts the expiry clock at ISSUANCE (giftCertificateExpiresAt
+  // stamps issuedAt + 12 months), so no customer-facing surface may
+  // state the rule as running from purchase.
+  const expirySurfaces = [
+    "src/app/gift-card/page.tsx",
+    "src/app/redeem/RedeemClient.tsx",
+    "src/components/GiftCertificateCard.tsx",
+    "src/lib/giftCertificateEmail.ts",
+    "src/lib/giftCertificates.ts",
+    "src/app/api/checkout/route.ts",
+  ];
+  for (const rel of expirySurfaces) {
+    const text = read(rel);
+    assert.ok(!text.includes("calendar months of purchase"), `${rel} must not run the expiry rule from purchase`);
+    assert.ok(!text.includes("calendar months from purchase"), `${rel} must not run the expiry rule from purchase`);
+    assert.ok(!text.includes("calendar months after purchase"), `${rel} must not run the expiry rule from purchase`);
+  }
 
   // Condition 2: the sitemap lists /gift-card only when enabled.
   const sitemapRoute = read("src/app/sitemap.ts");
