@@ -340,6 +340,24 @@ test("route wiring: checkout exclusion, webhook order, verify refusal (source pi
   assert.ok(checkout.includes("referralCode: giftCertificate ? undefined : referral.code"));
   assert.ok(checkout.includes("if (!giftCertificate)"), "certificate purchases skip the map assertion");
   assert.ok(checkout.includes("promoCode = undefined"), "certificate disregards a sent promo code");
+  // Tier C gate fix: certificate purchases force isGift, so the reuse
+  // identity needs its own segment — otherwise a certificate and a
+  // plain gift purchase of the same map/plan share a cached URL /
+  // Stripe idempotency key and the second buyer gets the wrong
+  // flavour's session. Append-only: non-certificate keys unchanged.
+  assert.ok(
+    checkout.includes('const certSegment = input.giftCertificate ? ":cert" : "";'),
+    "certificate purchases carry their own idempotency-key segment",
+  );
+  assert.ok(
+    checkout.includes("${giftSegment}${copySegment}${certSegment}"),
+    "cert segment is appended after the gift and copy segments",
+  );
+  assert.match(
+    checkout,
+    /const idempotencyKey = checkoutIdempotencyKey\(\{[\s\S]*?giftCertificate,[\s\S]*?\}\);/,
+    "the POST handler passes giftCertificate into the reuse identity",
+  );
 
   const webhook = read("src/app/api/stripe/webhook/route.ts");
   const fulfillmentStart = webhook.indexOf("async function processCheckoutFulfillment");

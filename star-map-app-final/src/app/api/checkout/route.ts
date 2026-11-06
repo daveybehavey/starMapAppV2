@@ -971,6 +971,8 @@ function checkoutIdempotencyKey(input: {
   pricingIdentity?: string;
   /** Gift flag; scopes the key so a toggled gift checkbox can never reuse the other flavour's session. */
   isGift?: boolean;
+  /** Gift-certificate flag; scopes the key so a certificate purchase (which forces isGift) can never reuse a plain gift session, or vice versa. */
+  giftCertificate?: boolean;
 }) {
   const mapId = typeof input.mapId === "string" ? input.mapId.trim() : "";
   if (!mapId) return null;
@@ -999,7 +1001,15 @@ function checkoutIdempotencyKey(input: {
   // byte-identical and a copy order can never reuse a non-copy session
   // (or vice versa).
   const copySegment = input.includeSecondCopy ? ":c2" : "";
-  const baseWithoutMapId = `${CHECKOUT_IDEMPOTENCY_PREFIX}${orderType}:${plan}:${printVariant}:${includeDigitalAddOn}:${includeCardAddOn}:${merchFamily}:${merchSize}:${merchColor}:${shipping}:${promo}:${referral}${emailSegment}${input.androidAppMode ? ":app-android" : ""}${pricingSegment}${giftSegment}${copySegment}`;
+  // Gift-certificate segment (Tier C gate, PR #596): a certificate
+  // purchase forces isGift, so without its own segment it would share
+  // this key with a plain gift purchase of the same map/plan — the two
+  // flavours mean different things at fulfillment (a redeem code vs
+  // the buyer's own entitlement) and must never reuse each other's
+  // session in either direction. Append-only after the copy segment,
+  // so every non-certificate key stays byte-identical to before.
+  const certSegment = input.giftCertificate ? ":cert" : "";
+  const baseWithoutMapId = `${CHECKOUT_IDEMPOTENCY_PREFIX}${orderType}:${plan}:${printVariant}:${includeDigitalAddOn}:${includeCardAddOn}:${merchFamily}:${merchSize}:${merchColor}:${shipping}:${promo}:${referral}${emailSegment}${input.androidAppMode ? ":app-android" : ""}${pricingSegment}${giftSegment}${copySegment}${certSegment}`;
   return appendCheckoutIdempotencyQaSegment(baseWithoutMapId, input.qaContext, mapId);
 }
 
@@ -2654,6 +2664,7 @@ export async function POST(req: NextRequest) {
       androidAppMode,
       customerEmail: customerEmail ?? null,
       isGift,
+      giftCertificate,
       pricingIdentity,
     });
     if (idempotencyKey) {
