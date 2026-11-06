@@ -230,6 +230,20 @@ class_name = "ConsistencyCoordinatorDO"
 tag = "v5-consistency-coordinator"
 new_sqlite_classes = ["ConsistencyCoordinatorDO"]
 
+# Gift-certificate grant authority (Tier C review condition 1,
+# 2026-11-06): one instance per gift-certificate entitlement session
+# id; serializes the grant's create-if-absent decision across isolates
+# so a delayed grant write can never replenish spent credits. Inert
+# for every other flow; redemption fails closed (503, code still
+# redeemable) if the authority is unreachable.
+[[durable_objects.bindings]]
+name = "GIFT_CERTIFICATE_GRANT"
+class_name = "GiftCertificateGrantDO"
+
+[[migrations]]
+tag = "v6-gift-certificate-grant"
+new_sqlite_classes = ["GiftCertificateGrantDO"]
+
 # Persist Worker console logs in Cloudflare dashboard (Workers Logs).
 # Logging in checkout is structured and excludes PII/secrets; see checkoutResilience.ts.
 [observability]

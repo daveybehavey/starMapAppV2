@@ -120,6 +120,15 @@ import {
   sessionHasAppliedDiscount,
   type CouponLookup,
 } from "@/lib/checkoutPromotions";
+import {
+  createGiftCertificateKvStore,
+  getGiftCertificateSigningSecret,
+  giftCertificateTierForPlan,
+  isGiftCertificateSessionMetadata,
+  issueGiftCertificate,
+} from "@/lib/giftCertificates";
+import { renderGiftCertificateEmail } from "@/lib/giftCertificateEmail";
+import { isResendConfigured, sendResendEmail } from "@/lib/resend";
 
 export const runtime = "nodejs";
 
@@ -662,6 +671,145 @@ async function markSessionPaid(
   }
 
   return { kind: "settled" };
+}
+
+/**
+ * Gift-certificate fulfillment: mint the redeem code for a paid
+ * certificate session and deliver it (certificate email; the buyer's
+ * printable certificate view re-derives the same code server-side).
+ * The buyer receives NO entitlement for this session — the tier is
+ * granted to whoever redeems the code. Issuance is idempotent by
+ * session, so a duplicate completed/async-succeeded event re-enters
+ * safely: it re-reads the same record and only retries the email when
+ * no delivery has been recorded yet. A TRANSIENT email failure is
+ * reported back so the caller can leave the event un-deduped and let
+ * Stripe's redelivery retry the send; permanent outcomes (missing
+ * buyer email, Resend unconfigured) are recorded on the record and
+ * are not retried — the buyer's confirmation page remains the
+ * delivery channel for those.
+ */
+async function fulfillGiftCertificateSession(
+  session: Stripe.Checkout.Session,
+): Promise<{ emailFailedTransiently: boolean }> {
+  if (!session.id) return { emailFailedTransiently: false };
+  const store = createGiftCertificateKvStore();
+  const plan = getPlan(session, "digital", false);
+  const issued = await issueGiftCertificate(store, getGiftCertificateSigningSecret(), {
+    stripeSessionId: session.id,
+    paymentIntentId: typeof session.payment_intent === "string" ? session.payment_intent : null,
+    plan,
+    currency: session.currency,
+    amountCents: session.amount_total,
+    buyerEmail: normalizeEmail(session.customer_details?.email ?? session.customer_email),
+    now: Date.now(),
+  });
+  if (issued.kind === "refused") {
+    console.warn("Gift certificate issuance refused", { sessionId: session.id, reason: issued.reason });
+    return { emailFailedTransiently: false };
+  }
+  const { record, code } = issued;
+  if (record.emailSentAt) return { emailFailedTransiently: false };
+  const tier = giftCertificateTierForPlan(record.plan);
+  if (!tier) return { emailFailedTransiently: false };
+  if (!record.buyerEmail) {
+    await store.recordEmailOutcome(session.id, { sentAt: null, error: "missing_buyer_email" });
+    return { emailFailedTransiently: false };
+  }
+  if (!isResendConfigured()) {
+    await store.recordEmailOutcome(session.id, { sentAt: null, error: "resend_not_configured" });
+    return { emailFailedTransiently: false };
+  }
+  const rendered = renderGiftCertificateEmail({
+    buyerName: session.customer_details?.name ?? null,
+    tier,
+    amountCents: record.amountCents,
+    currency: record.currency,
+    code,
+    expiresAt: record.expiresAt,
+    stripeSessionId: session.id,
+    siteUrl,
+    supportEmail: process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim() || "support@starmapco.com",
+  });
+  const result = await sendResendEmail({
+    to: record.buyerEmail,
+    subject: rendered.subject,
+    html: rendered.html,
+    text: rendered.text,
+    idempotencyKey: `gift-certificate:${session.id}`,
+  });
+  await store.recordEmailOutcome(session.id, {
+    sentAt: result.ok ? Date.now() : null,
+    error: result.ok ? null : result.error,
+  });
+  if (!result.ok) {
+    // Transient delivery failure: the caller leaves the webhook
+    // event un-deduped, so Stripe redelivers it and the send is
+    // retried (issuance is idempotent; the Resend send itself carries
+    // an idempotency key). The certificate also remains available on
+    // the buyer's confirmation page throughout.
+    console.warn("Gift certificate email delivery failed", { sessionId: session.id, error: result.error });
+    return { emailFailedTransiently: true };
+  }
+  return { emailFailedTransiently: false };
+}
+
+/**
+ * The certificate arm of checkout fulfillment, kept apart from
+ * processCheckoutFulfillment: certificate sessions settle nothing for
+ * the buyer — no entitlement, no print queue, no referral reward —
+ * the webhook mints a redeem code instead. Issuance is idempotent by
+ * session, so duplicate fulfillment events converge on one record,
+ * one code, and at most one certificate email.
+ */
+async function processGiftCertificateFulfillment(
+  fulfilledSession: Stripe.Checkout.Session,
+  eventDedupeKey: string,
+): Promise<{ retryable: boolean }> {
+  if (isFulfillableCheckoutPayment(fulfilledSession)) {
+    let issuanceBlocked = false;
+    if (stripe && sessionHasAppliedDiscount(fulfilledSession)) {
+      // Certificates are sold without discounts; a session that
+      // somehow carries one goes through the same fulfillment gate as
+      // any other order before anything is minted.
+      const certDiscountGate = await evaluateCheckoutSessionDiscountFulfillment({
+        session: fulfilledSession,
+        orderType: getOrderType(fulfilledSession),
+        plan: getPlan(
+          fulfilledSession,
+          getOrderType(fulfilledSession),
+          includesDigitalAddOn(fulfilledSession),
+        ),
+        lookup: createStripeCouponLookup(stripe),
+      });
+      if (!certDiscountGate.ok) {
+        if (isDiscountFulfillmentRetryable(certDiscountGate)) {
+          return { retryable: true };
+        }
+        issuanceBlocked = true;
+        console.warn(
+          `Skipping gift certificate issuance for session ${fulfilledSession.id}: ${certDiscountGate.reason}`,
+        );
+      }
+    }
+    if (!issuanceBlocked) {
+      const { emailFailedTransiently } = await fulfillGiftCertificateSession(fulfilledSession);
+      if (emailFailedTransiently) {
+        // Do NOT persist the dedupe marker: Stripe redelivers the
+        // event, fulfillment re-enters (issuance is idempotent), and
+        // the certificate email is retried. Without this, the dedupe
+        // marker would acknowledge every redelivery and the promised
+        // retry could never happen (Tier C gate fix, Codex P2).
+        return { retryable: true };
+      }
+    }
+  } else {
+    console.info("gift_certificate_payment_not_fulfillable", {
+      sessionId: fulfilledSession.id,
+      paymentStatus: fulfilledSession.payment_status,
+    });
+  }
+  const deduped = await persistWebhookEventDedupe(eventDedupeKey);
+  return { retryable: !deduped };
 }
 
 async function markSessionRevoked(sessionId: string, reason: string) {
@@ -2853,6 +3001,14 @@ async function processCheckoutFulfillment(
       fulfilledSession = await stripe.checkout.sessions.retrieve(fulfilledSession.id, {
         expand: ["total_details.breakdown"],
       });
+    }
+    // Gift-certificate sessions fulfill on their own path (see
+    // processGiftCertificateFulfillment): the webhook mints a redeem
+    // code instead of settling anything for the buyer. This branch
+    // runs before every ordinary grant so a certificate purchase can
+    // never also settle as the buyer's own download.
+    if (isGiftCertificateSessionMetadata(fulfilledSession.metadata)) {
+      return processGiftCertificateFulfillment(fulfilledSession, eventDedupeKey);
     }
     const orderType = getOrderType(fulfilledSession);
     const hasDigitalAddOn = includesDigitalAddOn(fulfilledSession);

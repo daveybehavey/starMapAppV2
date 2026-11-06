@@ -11,6 +11,7 @@ import { ReviewRequestSuppressionDO as ReviewRequestSuppressionDOBase } from "./
 import { EntitlementAuthorityDO as EntitlementAuthorityDOBase } from "./src/durable-objects/EntitlementAuthorityDO";
 import { ConsistencyCoordinatorDO as ConsistencyCoordinatorDOBase } from "./src/durable-objects/ConsistencyCoordinatorDO";
 import { ReferralDiscoveryDO as ReferralDiscoveryDOBase } from "./src/durable-objects/ReferralDiscoveryDO";
+import { GiftCertificateGrantDO as GiftCertificateGrantDOBase } from "./src/durable-objects/GiftCertificateGrantDO";
 
 /**
  * SQ-58 / issue #429 — Sentry wiring for the Worker surface.
@@ -73,6 +74,10 @@ export const ConsistencyCoordinatorDO = Sentry.instrumentDurableObjectWithSentry
 export const ReferralDiscoveryDO = Sentry.instrumentDurableObjectWithSentry(
   sentryOptions,
   ReferralDiscoveryDOBase
+);
+export const GiftCertificateGrantDO = Sentry.instrumentDurableObjectWithSentry(
+  sentryOptions,
+  GiftCertificateGrantDOBase
 );
 
 const workerHandler = {

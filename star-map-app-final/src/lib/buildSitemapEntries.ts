@@ -24,6 +24,9 @@ export type BuildSitemapOptions = {
   blogPosts: SitemapBlogPostRef[];
   bulkEnabled?: boolean;
   shopNavEnabled?: boolean;
+  /** /gift-card is listed only while certificate sales are enabled
+   * (Tier C review condition 2 — discovery is default-off). */
+  giftCertificatesEnabled?: boolean;
 };
 
 /**
@@ -42,6 +45,7 @@ export function buildSitemapEntries(options: BuildSitemapOptions): MetadataRoute
   const baseUrl = options.baseUrl.replace(/\/$/, "");
   const bulkEnabled = Boolean(options.bulkEnabled);
   const shopNavEnabled = Boolean(options.shopNavEnabled);
+  const giftCertificatesEnabled = Boolean(options.giftCertificatesEnabled);
 
   const staticIndexableBlogRoutes: MetadataRoute.Sitemap = [
     {
@@ -145,6 +149,15 @@ export function buildSitemapEntries(options: BuildSitemapOptions): MetadataRoute
       changeFrequency: "weekly",
       priority: 0.85,
     },
+    ...(giftCertificatesEnabled
+      ? [
+          {
+            url: `${baseUrl}/gift-card`,
+            changeFrequency: "monthly" as const,
+            priority: 0.8,
+          },
+        ]
+      : []),
     {
       url: `${baseUrl}/first-christmas-star-map`,
       changeFrequency: "weekly",
