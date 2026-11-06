@@ -350,8 +350,8 @@ test("route wiring: checkout exclusion, webhook order, verify refusal (source pi
     "certificate purchases carry their own idempotency-key segment",
   );
   assert.ok(
-    checkout.includes("${giftSegment}${copySegment}${certSegment}"),
-    "cert segment is appended after the gift and copy segments",
+    checkout.includes("`${baseWithoutMapId}${certSegment}`"),
+    "cert segment is appended to the pinned key base, after the gift and copy segments",
   );
   assert.match(
     checkout,

@@ -1001,16 +1001,17 @@ function checkoutIdempotencyKey(input: {
   // byte-identical and a copy order can never reuse a non-copy session
   // (or vice versa).
   const copySegment = input.includeSecondCopy ? ":c2" : "";
+  const baseWithoutMapId = `${CHECKOUT_IDEMPOTENCY_PREFIX}${orderType}:${plan}:${printVariant}:${includeDigitalAddOn}:${includeCardAddOn}:${merchFamily}:${merchSize}:${merchColor}:${shipping}:${promo}:${referral}${emailSegment}${input.androidAppMode ? ":app-android" : ""}${pricingSegment}${giftSegment}${copySegment}`;
   // Gift-certificate segment (Tier C gate, PR #596): a certificate
   // purchase forces isGift, so without its own segment it would share
   // this key with a plain gift purchase of the same map/plan — the two
   // flavours mean different things at fulfillment (a redeem code vs
   // the buyer's own entitlement) and must never reuse each other's
-  // session in either direction. Append-only after the copy segment,
-  // so every non-certificate key stays byte-identical to before.
+  // session in either direction. Appended to the base above (before
+  // the QA segment), so every non-certificate key stays byte-identical
+  // to before — the construction the existing pins assert is untouched.
   const certSegment = input.giftCertificate ? ":cert" : "";
-  const baseWithoutMapId = `${CHECKOUT_IDEMPOTENCY_PREFIX}${orderType}:${plan}:${printVariant}:${includeDigitalAddOn}:${includeCardAddOn}:${merchFamily}:${merchSize}:${merchColor}:${shipping}:${promo}:${referral}${emailSegment}${input.androidAppMode ? ":app-android" : ""}${pricingSegment}${giftSegment}${copySegment}${certSegment}`;
-  return appendCheckoutIdempotencyQaSegment(baseWithoutMapId, input.qaContext, mapId);
+  return appendCheckoutIdempotencyQaSegment(`${baseWithoutMapId}${certSegment}`, input.qaContext, mapId);
 }
 
 async function createCheckoutSession(input: {
