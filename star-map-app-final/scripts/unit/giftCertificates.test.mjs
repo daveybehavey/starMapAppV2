@@ -343,8 +343,25 @@ test("certificate email carries the code, the deadline, and the expiry distincti
     currency: "cad",
     code: issued.code,
     expiresAt: issued.record.expiresAt,
+    stripeSessionId: "cs_test_email",
     siteUrl: "https://starmapco.com",
   });
+  // The confirmation link is the buyer's OWN confirmation page (the
+  // one that shows this certificate) — never the /gift-card sales
+  // page, which cannot retrieve a certificate and is dark while
+  // sales are disabled (Codex P2 on the gate return).
+  assert.ok(
+    rendered.text.includes("https://starmapco.com/gift-card/success?session_id=cs_test_email"),
+    "text email links the purchase-specific confirmation page",
+  );
+  assert.ok(
+    rendered.html.includes("https://starmapco.com/gift-card/success?session_id=cs_test_email"),
+    "HTML email links the purchase-specific confirmation page",
+  );
+  assert.ok(
+    !rendered.html.includes('href="https://starmapco.com/gift-card"'),
+    "the sales page is not linked as the confirmation page",
+  );
   assert.ok(rendered.html.includes(formatGiftCertificateCode(issued.code)));
   assert.ok(rendered.text.includes(formatGiftCertificateCode(issued.code)));
   assert.ok(rendered.text.includes("starmapco.com/redeem"));

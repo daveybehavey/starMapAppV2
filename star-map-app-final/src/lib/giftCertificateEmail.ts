@@ -33,6 +33,15 @@ export type GiftCertificateEmailData = {
   code: string;
   /** Code redemption deadline (ms epoch). */
   expiresAt: number;
+  /**
+   * The buyer's checkout session id — builds the purchase-specific
+   * confirmation-page link (`/gift-card/success?session_id=…`), the
+   * page that actually shows this certificate. Required: linking the
+   * generic `/gift-card` sales page instead would strand the buyer
+   * (it cannot retrieve a certificate, and it is dark while
+   * certificate sales are disabled — delivery must stay available).
+   */
+  stripeSessionId: string;
   siteUrl?: string | null;
   supportEmail?: string | null;
 };
@@ -63,7 +72,7 @@ export function renderGiftCertificateEmail(
   const amountLabel = formatPrice(data.amountCents, data.currency);
   const expiryLabel = formatExpiryDate(data.expiresAt);
   const redeemUrl = `${siteUrl}/redeem`;
-  const certificateUrl = `${siteUrl}/gift-card`;
+  const certificateUrl = `${siteUrl}/gift-card/success?session_id=${encodeURIComponent(data.stripeSessionId)}`;
 
   const subject = "Your StarMapCo gift certificate is ready to give";
 
@@ -77,6 +86,7 @@ export function renderGiftCertificateEmail(
     `Redeem code: ${code}`,
     `Redeem at: ${redeemUrl}`,
     `Please redeem by: ${expiryLabel}`,
+    `Your confirmation page: ${certificateUrl}`,
     "",
     "How it works:",
     "1. Give the recipient this email (or print the certificate from your purchase confirmation page).",

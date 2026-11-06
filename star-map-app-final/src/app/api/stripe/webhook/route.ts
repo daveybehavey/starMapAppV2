@@ -726,6 +726,7 @@ async function fulfillGiftCertificateSession(
     currency: record.currency,
     code,
     expiresAt: record.expiresAt,
+    stripeSessionId: session.id,
     siteUrl,
     supportEmail: process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim() || "support@starmapco.com",
   });
