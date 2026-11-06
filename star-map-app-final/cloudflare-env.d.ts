@@ -13,6 +13,7 @@ declare namespace Cloudflare {
 		ENTITLEMENT_AUTHORITY: DurableObjectNamespace /* EntitlementAuthorityDO */;
 		CONSISTENCY_COORDINATOR: DurableObjectNamespace /* ConsistencyCoordinatorDO */;
 		REFERRAL_DISCOVERY: DurableObjectNamespace /* ReferralDiscoveryDO */;
+		GIFT_CERTIFICATE_GRANT: DurableObjectNamespace /* GiftCertificateGrantDO */;
 		NEXTJS_ENV: "production";
 		NEXT_INC_CACHE_R2_PREFIX: "incremental-cache";
 		STRIPE_SECRET_KEY: string;

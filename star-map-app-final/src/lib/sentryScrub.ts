@@ -93,6 +93,7 @@ const DO_NAME_SET: ReadonlySet<string> = new Set([
   "EntitlementAuthorityDO",
   "ConsistencyCoordinatorDO",
   "ReferralDiscoveryDO",
+  "GiftCertificateGrantDO",
 ]);
 const TAG_KEY_SET: ReadonlySet<string> = new Set([
   "runtime",

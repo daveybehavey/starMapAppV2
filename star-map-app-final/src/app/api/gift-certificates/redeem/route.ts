@@ -12,7 +12,11 @@ import {
   GIFT_CERTIFICATE_TIERS,
   redeemGiftCertificate,
 } from "@/lib/giftCertificates";
-import { kv, withSerializedKvUpdate } from "@/lib/kv";
+import {
+  createGiftCertificateGrantClient,
+  publishGiftCertificateGrant,
+} from "@/lib/giftCertificateGrant";
+import { kv } from "@/lib/kv";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rateLimit";
 
 /**
@@ -62,31 +66,37 @@ export async function POST(req: NextRequest) {
     },
     grantEntitlement: async ({ entitlementSessionId, record }) => {
       const tier = GIFT_CERTIFICATE_TIERS[record.tier];
-      const entitlement: StripeSessionEntitlement = {
-        paid: true,
-        created: Date.now(),
-        revoked: false,
-        plan: record.plan,
-        creditsRemaining: tier.credits,
-        creditsTotal: tier.credits,
-        orderType: "digital",
-        // The recipient's access came from a gift: review asks stay
-        // off for gift-provenance records (checkoutGiftFlag contract).
-        isGift: true,
-      };
-      // Initialize ONCE (Tier C gate fix): the write is create-if-
-      // absent under the entitlement key's serialization. An
-      // unconditional overwrite is NOT idempotent for mutable
-      // accounting — a racing second redemption whose grant landed
-      // after the recipient spent a credit would silently replenish
-      // the balance. With create-if-absent, re-running the grant (a
-      // retry, or the losing side of the race) is a no-op and the
-      // standing record — including its spent credits — is preserved.
       const key = ENTITLEMENT_KV.stripeSession(entitlementSessionId);
-      await withSerializedKvUpdate(key, async () => {
-        const existing = await kv.get<StripeSessionEntitlement>(key);
-        if (existing) return;
-        await kv.setDurable(key, entitlement);
+      // Publication ownership is decided by the GiftCertificateGrantDO
+      // (Tier C review condition 1, 2026-11-06). The earlier fix —
+      // create-if-absent as a KV read-then-write under
+      // withSerializedKvUpdate — serializes only within one isolate:
+      // two isolates could both observe absence, and the losing pass's
+      // delayed write landed after the recipient's first spend and
+      // silently replenished the balance. The serialized grant
+      // authority now decides create-if-absent exactly once; only the
+      // winning (or still-unconfirmed repair) pass writes the record,
+      // and a confirmed grant is never written again. See
+      // giftCertificateGrantState.ts for the soundness argument and
+      // giftCertificateGrant.test.mjs for the two-isolate
+      // interleaving, including the negative control against this
+      // route's previous KV-only strategy. Authority failure throws,
+      // the route answers 503, and the code stays redeemable.
+      // (`isGift: true` in the published record keeps review asks off
+      // for gift-provenance records — checkoutGiftFlag contract.)
+      await publishGiftCertificateGrant({
+        client: createGiftCertificateGrantClient(),
+        entitlementSessionId,
+        terms: {
+          certificateId: record.id,
+          tier: record.tier,
+          plan: record.plan,
+          creditsTotal: tier.credits,
+        },
+        now: Date.now(),
+        writeEntitlementRecord: async (entitlement) => {
+          await kv.setDurable(key, entitlement);
+        },
       });
     },
     prepareDelivery: async ({ entitlementSessionId }) => {
