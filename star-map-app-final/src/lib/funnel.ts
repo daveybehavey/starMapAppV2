@@ -1,5 +1,9 @@
 import { kv } from "./kv";
-import { CHECKOUT_TIMING_COUNTERS, type CheckoutTimingCounter } from "./checkoutTiming";
+import {
+  CHECKOUT_TIMING_COUNTERS,
+  type CheckoutTimingAggregateIncrement,
+  type CheckoutTimingCounter,
+} from "./checkoutTiming";
 import { type Ga4PurchaseInput, recordGa4PurchaseOnce } from "./ga4MeasurementProtocol";
 import { recordPosthogPurchaseOnce } from "./posthogServerPurchase";
 import { FUNNEL_STEPS, type FunnelStep } from "./funnelSteps";
@@ -393,16 +397,39 @@ export async function recordFunnelStep(input: FunnelRecordInput): Promise<void> 
  */
 const CHECKOUT_TIMING_COUNTER_SET = new Set<string>(CHECKOUT_TIMING_COUNTERS);
 
-export async function recordCheckoutTimingCounter(counter: CheckoutTimingCounter): Promise<void> {
+export async function recordCheckoutTimingCounter(
+  counter: CheckoutTimingCounter,
+  amount: number = 1
+): Promise<void> {
   // Allowlist guard: counters are fixed strings from the route, never
   // derived from client input — refuse anything else rather than mint
   // arbitrary KV keys.
   if (!CHECKOUT_TIMING_COUNTER_SET.has(counter)) return;
+  const increment = Math.round(amount);
+  if (!Number.isFinite(increment) || increment <= 0) return;
   const today = utcDateKey(new Date());
   await Promise.all([
-    kv.incr(`checkout_timing:total:${counter}`, 1),
-    kv.incr(`checkout_timing:daily:${today}:${counter}`, 1, { ex: DAILY_TTL_SECONDS }),
+    kv.incr(`checkout_timing:total:${counter}`, increment),
+    kv.incr(`checkout_timing:daily:${today}:${counter}`, increment, { ex: DAILY_TTL_SECONDS }),
   ]);
+}
+
+/**
+ * Persist one timed checkout's stage aggregates (see
+ * `checkoutTimingAggregateIncrements` in `lib/checkoutTiming.ts`): the
+ * checkout_attempts denominator plus per-stage count / sum_ms / bucket
+ * counters, under the same `checkout_timing:*` total + daily keys as the
+ * event counters above, so stage durations are retrievable from KV
+ * instead of living only in the `checkout_timing` console line.
+ */
+export async function recordCheckoutTimingAggregateIncrements(
+  increments: readonly CheckoutTimingAggregateIncrement[]
+): Promise<void> {
+  await Promise.all(
+    increments.map((increment) =>
+      recordCheckoutTimingCounter(increment.counter, increment.amount)
+    )
+  );
 }
 
 export async function recordPaymentVerifiedOnce(input: {

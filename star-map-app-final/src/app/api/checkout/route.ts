@@ -36,14 +36,20 @@ import {
   type PromotionSource,
 } from "@/lib/checkoutPromotions";
 import { PREMIUM_COOKIE_NAME } from "@/lib/premium";
-import { recordCheckoutTimingCounter, recordFunnelStep } from "@/lib/funnel";
 import {
+  recordCheckoutTimingAggregateIncrements,
+  recordCheckoutTimingCounter,
+  recordFunnelStep,
+} from "@/lib/funnel";
+import {
+  checkoutTimingAggregateIncrements,
   checkoutTimingCounterForPrintfulQuoteBucket,
   createCheckoutTimingCollector,
-  logCheckoutTiming,
+  logCheckoutTiming as logCheckoutTimingLine,
   printfulQuoteBucket,
   type CheckoutTimingCollector,
   type CheckoutTimingCounter,
+  type CheckoutTimingLogInput,
 } from "@/lib/checkoutTiming";
 import { getGeoDigitalSinglePrice, getRequestCountry } from "@/lib/geoPricing";
 import { evaluatePrintMarginForCheckout } from "@/lib/printMargin";
@@ -117,6 +123,29 @@ import {
 } from "@/lib/stripeConsentCollection";
 import { evaluateCheckoutSkyGuard } from "@/lib/checkoutSkyGuard";
 import { CHECKOUT_GIFT_METADATA_KEY } from "@/lib/checkoutGiftFlag";
+
+/**
+ * Instrumentation only: emit the one `checkout_timing` log line for a
+ * checkout AND queue its retrievable stage aggregates (checkout_attempts
+ * denominator + per-stage count / sum_ms / duration-bucket counters in
+ * KV). The aggregate write is fire-and-forget through the best-effort
+ * side-effect wrapper — it is never awaited on the checkout path, so it
+ * cannot delay session creation or inflate the stages being measured,
+ * and a KV failure can never fail or change a checkout. QA checkouts are
+ * skipped, matching the existing timing counters.
+ */
+function logCheckoutTiming(input: CheckoutTimingLogInput): void {
+  logCheckoutTimingLine(input);
+  if (input.qa) return;
+  const totalMs = (input.endedAtPerf ?? performance.now()) - input.collector.startedAtPerf;
+  const increments = checkoutTimingAggregateIncrements(input.collector, totalMs);
+  if (!increments.length) return;
+  void bestEffortCheckoutSideEffect({
+    correlationId: input.correlationId,
+    stage: "checkout_timing_stage_aggregates",
+    run: () => recordCheckoutTimingAggregateIncrements(increments),
+  });
+}
 
 export const runtime = "nodejs";
 

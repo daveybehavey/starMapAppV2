@@ -5,9 +5,14 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
+  CHECKOUT_ATTEMPTS_COUNTER,
   CHECKOUT_TIMING_COUNTERS,
+  CHECKOUT_TIMING_DURATION_BUCKETS,
+  CHECKOUT_TIMING_STAGES,
   buildCheckoutTimingLog,
+  checkoutTimingAggregateIncrements,
   checkoutTimingCounterForPrintfulQuoteBucket,
+  checkoutTimingDurationBucket,
   createCheckoutTimingCollector,
   printfulQuoteBucket,
   resetCheckoutIsolateTimingForTests,
@@ -54,19 +59,91 @@ test("timing: every Printful bucket maps to exactly one KV counter", () => {
       `counter for ${bucket} is allowlisted`,
     );
   }
-  assert.deepEqual(
-    [...CHECKOUT_TIMING_COUNTERS].sort(),
-    [
-      "consent_fallback_fired",
-      "discount_fallback_fired",
-      "printful_quote_1_3s",
-      "printful_quote_3_10s",
-      "printful_quote_gt10s",
-      "printful_quote_lt1s",
-      "url_recovery_fired",
-    ],
-    "the counter allowlist is exactly the seven instrumentation counters",
-  );
+  for (const base of [
+    "consent_fallback_fired",
+    "discount_fallback_fired",
+    "printful_quote_1_3s",
+    "printful_quote_3_10s",
+    "printful_quote_gt10s",
+    "printful_quote_lt1s",
+    "url_recovery_fired",
+  ]) {
+    assert.ok(CHECKOUT_TIMING_COUNTERS.includes(base), `base counter ${base} is allowlisted`);
+  }
+});
+
+test("timing: duration buckets split at 1s / 3s / 10s / 30s", () => {
+  assert.equal(checkoutTimingDurationBucket(0), "lt1s");
+  assert.equal(checkoutTimingDurationBucket(999), "lt1s");
+  assert.equal(checkoutTimingDurationBucket(1_000), "1_3s");
+  assert.equal(checkoutTimingDurationBucket(2_999), "1_3s");
+  assert.equal(checkoutTimingDurationBucket(3_000), "3_10s");
+  assert.equal(checkoutTimingDurationBucket(9_999), "3_10s");
+  assert.equal(checkoutTimingDurationBucket(10_000), "10_30s");
+  assert.equal(checkoutTimingDurationBucket(29_999), "10_30s");
+  assert.equal(checkoutTimingDurationBucket(30_000), "gt30s");
+  assert.equal(checkoutTimingDurationBucket(null), null);
+  assert.equal(checkoutTimingDurationBucket(Number.NaN), null);
+  assert.equal(checkoutTimingDurationBucket(-1), null);
+});
+
+test("timing: stage aggregate increments carry attempts, count, sum and one bucket per stage", () => {
+  const collector = createCheckoutTimingCollector(0);
+  collector.preCreateMs = 500;
+  collector.promoMs = 1_500;
+  collector.merchPrintfulQuoteMs = 2_500;
+  collector.stripeCreateMs = 12_000;
+  collector.postCreateMs = 45_000;
+  const increments = checkoutTimingAggregateIncrements(collector, 65_000);
+  const byCounter = new Map(increments.map((increment) => [increment.counter, increment.amount]));
+  assert.equal(byCounter.get(CHECKOUT_ATTEMPTS_COUNTER), 1);
+  assert.equal(CHECKOUT_ATTEMPTS_COUNTER, "checkout_attempts");
+  const expected = {
+    pre_create: { sum: 500, bucket: "lt1s" },
+    promo: { sum: 1_500, bucket: "1_3s" },
+    printful_quote: { sum: 2_500, bucket: "1_3s" },
+    stripe_create: { sum: 12_000, bucket: "10_30s" },
+    post_create: { sum: 45_000, bucket: "gt30s" },
+    total: { sum: 65_000, bucket: "gt30s" },
+  };
+  for (const stage of CHECKOUT_TIMING_STAGES) {
+    assert.equal(byCounter.get(`stage_${stage}_count`), 1, `${stage} count`);
+    assert.equal(byCounter.get(`stage_${stage}_sum_ms`), expected[stage].sum, `${stage} sum`);
+    assert.equal(
+      byCounter.get(`stage_${stage}_${expected[stage].bucket}`),
+      1,
+      `${stage} bucket ${expected[stage].bucket}`,
+    );
+    for (const bucket of CHECKOUT_TIMING_DURATION_BUCKETS) {
+      if (bucket !== expected[stage].bucket) {
+        assert.equal(
+          byCounter.get(`stage_${stage}_${bucket}`),
+          undefined,
+          `${stage} lands in exactly one bucket`,
+        );
+      }
+    }
+    assert.ok(
+      CHECKOUT_TIMING_COUNTERS.includes(`stage_${stage}_count`),
+      `stage counter for ${stage} is allowlisted`,
+    );
+  }
+  // attempts + 6 stages x (count + sum + bucket)
+  assert.equal(increments.length, 1 + CHECKOUT_TIMING_STAGES.length * 3);
+});
+
+test("timing: stage aggregates skip stages that never ran and round sums", () => {
+  const collector = createCheckoutTimingCollector(0);
+  collector.stripeCreateMs = 250.26;
+  const increments = checkoutTimingAggregateIncrements(collector, null);
+  const byCounter = new Map(increments.map((increment) => [increment.counter, increment.amount]));
+  assert.equal(byCounter.get("checkout_attempts"), 1);
+  assert.equal(byCounter.get("stage_stripe_create_count"), 1);
+  assert.equal(byCounter.get("stage_stripe_create_sum_ms"), 250);
+  assert.equal(byCounter.get("stage_stripe_create_lt1s"), 1);
+  assert.equal(byCounter.get("stage_pre_create_count"), undefined);
+  assert.equal(byCounter.get("stage_total_count"), undefined);
+  assert.equal(increments.length, 4, "attempts + the one stage that ran");
 });
 
 test("timing: fallback tag joins fired fallbacks, none when clean", () => {
@@ -131,6 +208,11 @@ test("source: funnel owns the KV timing counter writer in the recordFunnelStep p
   assert.match(funnel, /checkout_timing:total:\$\{counter\}/);
   assert.match(funnel, /checkout_timing:daily:\$\{today\}:\$\{counter\}/);
   assert.match(funnel, /CHECKOUT_TIMING_COUNTER_SET\.has\(counter\)/);
+  // Stage aggregates persist through the same writer, with the sum_ms
+  // amount carried as the KV increment.
+  assert.match(funnel, /export async function recordCheckoutTimingAggregateIncrements/);
+  assert.match(funnel, /kv\.incr\(`checkout_timing:total:\$\{counter\}`, increment\)/);
+  assert.match(funnel, /kv\.incr\(`checkout_timing:daily:\$\{today\}:\$\{counter\}`, increment,/);
 });
 
 test("source: checkout route emits checkout_timing and the timing counters, behaviour untouched", () => {
@@ -151,4 +233,22 @@ test("source: checkout route emits checkout_timing and the timing counters, beha
   // The Stripe client configuration is untouched by the instrumentation.
   assert.match(route, /timeout: 20_000/);
   assert.match(route, /maxNetworkRetries: 2/);
+});
+
+test("source: stage aggregates are fire-and-forget at the timing log emit, Stripe create untouched", () => {
+  const route = fs.readFileSync(CHECKOUT_ROUTE, "utf8");
+  // The route-level emit wrapper persists the aggregates without
+  // awaiting them (void + best-effort wrapper), and skips QA checkouts.
+  assert.match(route, /void bestEffortCheckoutSideEffect\(\{\s+correlationId: input\.correlationId,\s+stage: "checkout_timing_stage_aggregates",\s+run: \(\) => recordCheckoutTimingAggregateIncrements\(increments\),\s+\}\)/);
+  assert.match(route, /checkoutTimingAggregateIncrements\(input\.collector, totalMs\)/);
+  // The Stripe session create call site is byte-identical to the
+  // pre-aggregate instrumentation: same callee, same params, same
+  // idempotency-key option, exactly one direct create in the route.
+  const createSnippet =
+    "return stripe.checkout.sessions.create(params, key ? { idempotencyKey: key } : undefined);";
+  assert.equal(
+    route.split(createSnippet).length - 1,
+    1,
+    "exactly one direct Stripe create call site, unchanged",
+  );
 });
