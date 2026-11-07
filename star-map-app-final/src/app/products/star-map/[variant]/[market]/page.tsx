@@ -8,7 +8,12 @@ import {
   getPrintProductionReviewDisclosure,
   getPrintShippingDisclosure,
 } from "@/lib/printCheckoutConfig";
-import { getPrintFreeShippingThresholdCents } from "@/lib/printFreeShipping";
+import {
+  getPrintFreeShippingThresholdCents,
+  getPrintMerchandiseSubtotalCents,
+  qualifiesForPrintFreeShipping,
+} from "@/lib/printFreeShipping";
+import { formatPrice } from "@/lib/pricing";
 import { isSecondCopyEligibleVariant } from "@/lib/printCatalog";
 import { resolveSecondCopyOfferVisibility } from "@/lib/secondCopyOffer";
 import SecondCopyOfferNote from "@/components/SecondCopyOfferNote";
@@ -66,6 +71,16 @@ export default async function VariantLandingPage({ params }: PageProps) {
   // The single threshold statement lives inside shippingDisclosure,
   // whose offer line is USD-denominated; the pill below claims no amount.
   const freeShippingActive = getPrintFreeShippingThresholdCents() !== null;
+  // Same eligibility check the standalone price-line helper applies
+  // (merchandise subtotal vs the threshold, judged on USD item values as
+  // at checkout), but the amount stays this page's market-resolved offer
+  // price: a standalone framed print qualifies, so its line must not read
+  // "+ shipping"; below-threshold formats keep the generic line.
+  const priceWithShippingLine = qualifiesForPrintFreeShipping(
+    getPrintMerchandiseSubtotalCents({ variant: offer.variant }),
+  )
+    ? `${formatPrice(offer.amountCents, offer.currency)} · free standard shipping`
+    : formatPrintPriceWithShipping(offer.amountCents, offer.currency);
   // Lever A note (S55-7): only when this page's exact checkout variant
   // is second-copy eligible and the server-resolved offer visibility is
   // on. The editor handoff preselects this variant, and the editor's
@@ -120,7 +135,7 @@ export default async function VariantLandingPage({ params }: PageProps) {
               </p>
               <p className="mt-2 text-2xl font-semibold text-white">{offer.formattedPrice}</p>
               <p className="mt-2 text-sm text-amber-100/90">
-                {formatPrintPriceWithShipping(offer.amountCents, offer.currency)} — the exact{" "}
+                {priceWithShippingLine} — the exact{" "}
                 {offer.label.toLowerCase()} price charged at checkout for this format.
               </p>
               <p className="mt-2 text-xs leading-relaxed text-white/78">

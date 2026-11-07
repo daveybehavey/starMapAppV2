@@ -1,6 +1,7 @@
 import { formatPrintDeliveryDisclosure } from "@/lib/printfulShipping";
 import {
   formatPrintPriceWithShipping,
+  formatStandalonePrintPriceWithShipping,
   getFramedHdBundlePriceLine,
   getPrintFreeShippingShortTag,
   getPrintProductionReviewDisclosure,
@@ -41,10 +42,7 @@ export default function MoneyPagePriceAtGlance({
   const printTiers = getPrintPricingTiers();
   const pricing = getPricingInfo();
   const digitalPrice = formatPrice(pricing.activeAmountCents, pricing.currency);
-  const framedPrice = formatPrintPriceWithShipping(
-    printTiers.poster_framed.amountCents,
-    printTiers.poster_framed.currency,
-  );
+  const framedPrice = formatStandalonePrintPriceWithShipping("poster_framed");
   const unframedPrice = formatPrintPriceWithShipping(
     printTiers.poster_unframed_16x16.amountCents,
     printTiers.poster_unframed_16x16.currency,
