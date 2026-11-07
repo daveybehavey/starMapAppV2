@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import HomeHero from "./HomeHero";
 import HomeStaticSections, { buildHomeFaqItems } from "./HomeStaticSections";
 import { formatPrice, getPricingTiers, getPrintPricingTiers } from "@/lib/pricing";
-import { formatPrintPriceWithShipping, isUsOnlyPrintCheckout } from "@/lib/printCheckoutConfig";
+import {
+  formatPrintPriceWithShipping,
+  formatStandalonePrintPriceWithShipping,
+  isUsOnlyPrintCheckout,
+} from "@/lib/printCheckoutConfig";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 const homepageDescription =
@@ -77,10 +81,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     tiers.subscription.amountCents,
     (tiers.subscription.currency || "USD").toUpperCase()
   );
-  const printFramedLabel = formatPrintPriceWithShipping(
-    printTiers.poster_framed.amountCents,
-    (printTiers.poster_framed.currency || "USD").toUpperCase(),
-  );
+  const printFramedLabel = formatStandalonePrintPriceWithShipping("poster_framed");
   const printUnframedOfferLabel = formatPrintPriceWithShipping(
     printTiers.poster_unframed_16x16.amountCents,
     (printTiers.poster_unframed_16x16.currency || "USD").toUpperCase(),

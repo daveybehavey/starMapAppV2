@@ -103,8 +103,9 @@ export default function ShippingPage() {
             <p className="mt-2">{freeShippingOffer}</p>
             {freeShippingHint ? <p className="mt-2 text-neutral-800">{freeShippingHint}</p> : null}
             <p className="mt-2 text-neutral-800">
-              Merchandise subtotal is calculated before shipping and tax. Promo codes that reduce the subtotal below the
-              threshold may remove free shipping.
+              Merchandise subtotal is calculated before shipping and tax. Free shipping is judged on that subtotal
+              before any promo-code discount is applied, so a promo code never removes free shipping your order
+              already qualifies for.
             </p>
           </section>
         ) : null}

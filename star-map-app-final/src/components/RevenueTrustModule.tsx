@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   formatPrintPriceWithShipping,
+  formatStandalonePrintPriceWithShipping,
   getPrintFreeShippingShortTag,
   getPrintProductionReviewDisclosure,
   getPrintShippingDisclosure,
@@ -24,10 +25,7 @@ export default function RevenueTrustModule({
   const printTiers = getPrintPricingTiers();
   const digitalAddOn = getPrintDigitalAddOnPrice();
   const printFormats = [
-    `${printTiers.poster_framed.label} at ${formatPrintPriceWithShipping(
-      printTiers.poster_framed.amountCents,
-      printTiers.poster_framed.currency,
-    )}`,
+    `${printTiers.poster_framed.label} at ${formatStandalonePrintPriceWithShipping("poster_framed")}`,
     `${printTiers.poster_unframed.label} at ${formatPrintPriceWithShipping(
       printTiers.poster_unframed.amountCents,
       printTiers.poster_unframed.currency,

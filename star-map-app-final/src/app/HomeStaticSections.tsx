@@ -14,6 +14,7 @@ import { HOME_MOCKUPS } from "@/lib/homeMockups";
 import { formatPrice, getPrintDigitalAddOnPrice, getPrintPricingTiers } from "@/lib/pricing";
 import {
   formatPrintPriceWithShipping,
+  formatStandalonePrintPriceWithShipping,
   getFramedHdBundlePriceLine,
   getPrintAvailabilityBadgeLabel,
   getPrintShippingDisclosure,
@@ -175,10 +176,7 @@ export default function HomeStaticSections({ priceLabels, promoStatus, promoCode
       printTiers.poster_unframed_16x16.amountCents,
       printTiers.poster_unframed_16x16.currency
     ),
-    framed: formatPrintPriceWithShipping(
-      printTiers.poster_framed.amountCents,
-      printTiers.poster_framed.currency
-    ),
+    framed: formatStandalonePrintPriceWithShipping("poster_framed"),
     digitalAddOn: formatPrice(printDigitalAddOn.amountCents, printDigitalAddOn.currency),
   };
   const printBadgeLabel = getPrintAvailabilityBadgeLabel();

@@ -7,6 +7,7 @@ import { getPrintPricingTiers } from "@/lib/pricing";
 import {
   buildPrintEditorCheckoutHref,
   formatPrintPriceWithShipping,
+  formatStandalonePrintPriceWithShipping,
   getFramedHdBundlePriceLine,
   getPrintFreeShippingShortTag,
   getPrintShippingDisclosure,
@@ -51,10 +52,7 @@ export default function DeliveryFormatModule({
       printTiers.poster_unframed.amountCents,
       printTiers.poster_unframed.currency
     ),
-    framed: formatPrintPriceWithShipping(
-      printTiers.poster_framed.amountCents,
-      printTiers.poster_framed.currency
-    ),
+    framed: formatStandalonePrintPriceWithShipping("poster_framed"),
   };
   const shippingDisclosure = getPrintShippingDisclosure();
   const baselineDeliveryDisclosure = formatPrintDeliveryDisclosure("poster_framed", null);
