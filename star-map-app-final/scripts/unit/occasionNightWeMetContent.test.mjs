@@ -85,3 +85,35 @@ test("night-we-met copy uses the buyers' own phrasings (W23-2)", async () => {
   assert.match(serialized, /where you met/i);
   assert.match(serialized, /exact time/i);
 });
+
+test("night-we-met rendered copy carries no typed price figures (copy-accuracy, 2026-11-07)", async () => {
+  // Prices live in the page's MoneyPagePriceAtGlance / GiftFormatLadder
+  // components, never typed into this entry's prose — typed figures go
+  // stale silently (the #599 gate data-copy flag). Covers the meta
+  // description, intro/detail, story paragraphs and every FAQ answer.
+  const entry = await loadNightWeMetEntry();
+  const rendered = [
+    entry.seoDescription ?? "",
+    entry.intro,
+    entry.detail ?? "",
+    ...(entry.storyParagraphs ?? []),
+    ...entry.faqs.flatMap((faq) => [faq.question, faq.answer]),
+  ].join("\n");
+  assert.doesNotMatch(rendered, /\$\s?\d/, "typed price figure in night-we-met copy");
+  assert.doesNotMatch(rendered, /\b\d+\s?dollars?\b/i, "spelled-out price figure in night-we-met copy");
+});
+
+test("night-we-met does not present the shop-only mug as an orderable format (copy-accuracy, 2026-11-07)", async () => {
+  // The mug is a shop-only SKU, not an editor/paywall format — the
+  // entry must not list it among the formats a design can be ordered
+  // as (the #599 gate data-copy flag).
+  const entry = await loadNightWeMetEntry();
+  assert.doesNotMatch(JSON.stringify(entry), /mug/i);
+  const whatFaq = entry.faqs.find((faq) => faq.question === "What is a night we met star map?");
+  assert.ok(whatFaq, "the format-list FAQ must exist");
+  assert.match(
+    whatFaq.answer,
+    /framed print, unframed poster, canvas, keepsake card, or HD digital file/,
+    "orderable format list must be exactly the editor/paywall formats",
+  );
+});
