@@ -105,6 +105,11 @@ export function buildSitemapEntries(options: BuildSitemapOptions): MetadataRoute
       priority: 0.8,
     },
     {
+      url: `${baseUrl}/long-distance`,
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
+    {
       url: `${baseUrl}/birthday`,
       changeFrequency: "monthly",
       priority: 0.8,
@@ -187,6 +192,11 @@ export function buildSitemapEntries(options: BuildSitemapOptions): MetadataRoute
       url: `${baseUrl}/how-personalized-star-map-works`,
       changeFrequency: "monthly",
       priority: 0.75,
+    },
+    {
+      url: `${baseUrl}/star-map-size-guide`,
+      changeFrequency: "monthly",
+      priority: 0.7,
     },
     {
       url: `${baseUrl}/star-map-gift`,

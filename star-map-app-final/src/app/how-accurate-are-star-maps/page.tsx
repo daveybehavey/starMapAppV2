@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
+import { LandingViewTracker } from "@/components/analytics/LandingViewTracker";
 import FaqSchema from "@/components/FaqSchema";
 
 export const revalidate = 86400;
@@ -61,6 +62,16 @@ const faqItems = [
     answer:
       "Yes. When enabled, the renderer calculates visible planets and Moon phase for the selected moment, not just a static star background.",
   },
+  {
+    question: "Would the same night look different from two cities?",
+    answer:
+      "Yes. Accuracy is place-dependent. The same date and time produce a different sky for each latitude and longitude, so two cities need a pair of maps — one sky per map — not one design with two skies.",
+  },
+  {
+    question: "Can one star map show two cities at once?",
+    answer:
+      "No. Each design is calculated from one date and one place. For a long-distance pair gift, create two maps with the same date and time — one per city — and add both city names in each dedication line.",
+  },
 ];
 
 export default function HowAccurateAreStarMapsPage() {
@@ -86,6 +97,7 @@ export default function HowAccurateAreStarMapsPage() {
 
   return (
     <main className="mx-auto max-w-4xl px-4 pb-12 pt-10 sm:pt-14">
+      <LandingViewTracker source="how-accurate-are-star-maps" />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }} />
       <Breadcrumbs items={breadcrumbs} className="flex justify-center" />
       <article className="mt-4 space-y-6 rounded-[32px] border border-white/10 bg-[linear-gradient(180deg,rgba(8,15,36,0.92),rgba(6,12,30,0.96))] p-6 text-white shadow-[0_24px_64px_rgba(0,0,0,0.35)] sm:p-8">
@@ -148,6 +160,24 @@ export default function HowAccurateAreStarMapsPage() {
             That is why the right promise is not “this is exactly what your eyes saw under every condition.” The right
             promise is that the map is calculated from the correct sky mechanics for your chosen moment, then styled into
             a keepsake.
+          </p>
+        </section>
+
+        <section className="space-y-3 rounded-3xl border border-white/10 bg-white/5 p-5">
+          <h2 className="text-xl font-semibold text-white">The same night from two cities</h2>
+          <p className="text-sm leading-relaxed text-neutral-200 sm:text-base">
+            Accuracy is place-dependent. The same date and time still produce a different sky for each latitude
+            and longitude — the horizon, which constellations rise, and what sits overhead all shift with
+            location. That is why a long-distance gift is a pair of maps (one sky per city), never one map
+            showing two skies.
+          </p>
+          <p className="text-sm leading-relaxed text-neutral-200 sm:text-base">
+            For the gift flow — shared dedication lines, HD digital when you are apart, and print shipped to
+            them — see the{" "}
+            <Link href="/long-distance" className="font-semibold text-amber-200 underline hover:text-amber-100">
+              long-distance star map gift
+            </Link>{" "}
+            page.
           </p>
         </section>
 
