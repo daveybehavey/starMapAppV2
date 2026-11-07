@@ -1,12 +1,14 @@
 /**
- * Occasion pages PR 3 (#424): the upgraded first-date entry keeps its tuned
- * title/H1 and URL, carries the full christmas/new-baby story treatment,
- * its artwork files exist, it demonstrates the SQ-59 First Date outline
- * (first-meeting-vs-first-date selection, date/location decisions) rather
- * than echoing Night We Met, uses the buyers' own phrasings ("first date",
- * "exact time" — Grok W23-2 headline finding), and stays inside the lane's
- * copy rules (no "instant" delivery language, no pruned city links). The
- * shared OccasionLinks retrofit gives the standalone Anniversary, Birthday
+ * Occasion pages PR 3 (#424) + content wave 5: the upgraded first-date entry
+ * keeps its tuned title/H1, carries the full christmas/new-baby story
+ * treatment, its artwork files exist, it demonstrates the SQ-59 First Date
+ * outline (first-meeting-vs-first-date selection, date/location decisions)
+ * rather than echoing Night We Met, uses the buyers' own phrasings ("first
+ * date", "exact time" — Grok W23-2 headline finding), and stays inside the
+ * lane's copy rules (no "instant" delivery language, no pruned city links).
+ * Wave 5 promotes the slug to the canonical `/first-date` money page
+ * (removed from INDEXABLE_OCCASION_SLUGS, added to CANONICAL_OCCASION_REDIRECTS).
+ * The shared OccasionLinks retrofit gives the standalone Anniversary, Birthday
  * and Wedding pages their Night We Met cross-link.
  */
 import assert from "node:assert/strict";
@@ -31,10 +33,12 @@ async function loadFirstDateEntry() {
   return entry;
 }
 
-test("first-date stays indexable and self-canonical (no redirect)", async () => {
-  const { isIndexableOccasionSlug, getCanonicalOccasionPath } = await loadTs("src/data/seoIndexing.ts");
-  assert.equal(isIndexableOccasionSlug("first-date"), true);
-  assert.equal(getCanonicalOccasionPath("first-date"), null);
+test("first-date canonicalizes to /first-date (wave-5 money-page promotion)", async () => {
+  const { isIndexableOccasionSlug, getCanonicalOccasionPath, resolveOccasionIntentPath } =
+    await loadTs("src/data/seoIndexing.ts");
+  assert.equal(isIndexableOccasionSlug("first-date"), false);
+  assert.equal(getCanonicalOccasionPath("first-date"), "/first-date");
+  assert.equal(resolveOccasionIntentPath("first-date"), "/first-date");
 });
 
 test("first-date keeps its GSC-tuned title and H1 (First Date is the search phrase)", async () => {
@@ -85,7 +89,8 @@ test("no pruned city links in the first-date entry", async () => {
 test("first-date holds the intent split: first intentional date, not the meeting or the milestone", async () => {
   const entry = await loadFirstDateEntry();
   const serialized = JSON.stringify(entry);
-  assert.match(serialized, /\/star-map-for\/night-we-met/, "differentiation must reference the Night We Met page");
+  assert.match(serialized, /\/night-we-met/, "differentiation must reference the Night We Met page");
+  assert.doesNotMatch(serialized, /\/star-map-for\/night-we-met/);
   assert.match(serialized, /\/anniversary/, "differentiation must reference the Anniversary page");
 });
 

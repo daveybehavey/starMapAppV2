@@ -246,6 +246,12 @@ const pageChecks = [
     forbiddenAny: [],
   },
   {
+    path: "/first-date",
+    requiredAny: ["first date", "star map", "date"],
+    requiredAll: commercePolicyLinks,
+    forbiddenAny: [],
+  },
+  {
     path: "/star-map-size-guide",
     requiredAny: ["size", "square", "star map"],
     requiredAll: commercePolicyLinks,

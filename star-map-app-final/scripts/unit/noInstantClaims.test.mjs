@@ -117,6 +117,7 @@ const IDENTIFIER_FILES = [
   "src/app/first-home/page.tsx",
   "src/app/night-we-met/page.tsx",
   "src/app/graduation/page.tsx",
+  "src/app/first-date/page.tsx",
   "src/app/personalized-star-map/page.tsx",
   "src/app/star-map-generator/page.tsx",
   "src/app/star-map-size-guide/page.tsx",
