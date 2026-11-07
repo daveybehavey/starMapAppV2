@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { formatPrice, getPricingTiers, getPrintPricingTiers } from "@/lib/pricing";
+import { formatStandalonePrintPriceWithShipping } from "@/lib/printCheckoutConfig";
 
 type GiftFormatRoadmapModuleProps = {
   sourcePrefix: string;
@@ -9,10 +10,7 @@ export default function GiftFormatRoadmapModule({ sourcePrefix }: GiftFormatRoad
   const digitalTier = getPricingTiers().single;
   const printTiers = getPrintPricingTiers();
   const digitalPriceLabel = formatPrice(digitalTier.amountCents, digitalTier.currency);
-  const framedPriceLabel = formatPrice(
-    printTiers.poster_framed.amountCents,
-    printTiers.poster_framed.currency
-  );
+  const framedPriceLabel = formatStandalonePrintPriceWithShipping("poster_framed");
   const unframedPriceLabel = formatPrice(
     printTiers.poster_unframed_16x16.amountCents,
     printTiers.poster_unframed_16x16.currency
@@ -41,7 +39,7 @@ export default function GiftFormatRoadmapModule({ sourcePrefix }: GiftFormatRoad
           <ul className="mt-2 space-y-1 text-sm text-neutral-800">
             <li data-digital-offer>HD digital ({digitalPriceLabel})</li>
             <li>Unframed print ({unframedPriceLabel} + shipping)</li>
-            <li>Framed print ({framedPriceLabel} + shipping)</li>
+            <li>Framed print ({framedPriceLabel})</li>
           </ul>
           <div className="mt-3 flex flex-wrap gap-2">
             <Link

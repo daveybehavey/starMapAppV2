@@ -23,7 +23,7 @@ import {
  */
 export default function VariantFormatLinks({
   tone = "light",
-  heading = "Every format, on its own page",
+  heading = "Each format here, on its own page",
   intro = "Each format has a page with the exact price checkout charges for US orders — open one to see it up close before you customize.",
 }: {
   tone?: "light" | "dark";

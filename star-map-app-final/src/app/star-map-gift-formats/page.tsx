@@ -13,6 +13,7 @@ import { formatPrice, getPricingTiers, getPrintDigitalAddOnPrice, getPrintPricin
 import { getPrintPhysicalOrderSummaryLine } from "@/lib/commerceFacts";
 import {
   formatPrintPriceWithShipping,
+  formatStandalonePrintPriceWithShipping,
   getPrintAllowedCountries,
   getPrintFreeShippingShortTag,
   getPrintShippingDisclosure,
@@ -83,10 +84,7 @@ export default function StarMapGiftFormatsPage() {
     {
       title: `${printPricing.poster_framed.label}`,
       badge: FRAMED_HD_RECOMMENDED_BADGE,
-      price: formatPrintPriceWithShipping(
-        printPricing.poster_framed.amountCents,
-        printPricing.poster_framed.currency
-      ),
+      price: formatStandalonePrintPriceWithShipping("poster_framed"),
       detail: `Premium ready-to-hang gift path. ${PRINT_NEUTRAL_SHIPPING_CARD_NOTE}`,
       href: "/editor?mode=quick&source=gift-formats-framed&checkout=print&print_variant=poster_framed",
       imageSrc: proofImages.framed,
