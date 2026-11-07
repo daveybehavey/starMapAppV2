@@ -131,7 +131,7 @@ test("night-we-met and graduation money pages reuse seoOccasions entry story con
   const nightWeMet = readSrc(NIGHT_WE_MET);
   assert.match(nightWeMet, /getOccasion\("night-we-met"\)/);
   assert.match(nightWeMet, /occasion\.storyParagraphs/);
-  assert.match(nightWeMet, /href="\/star-map-for\/first-date"/);
+  assert.match(nightWeMet, /href="\/first-date"/);
   assert.match(nightWeMet, /href="\/long-distance"/);
   assert.match(nightWeMet, /href="\/first-home"/);
   assert.match(nightWeMet, /href="\/anniversary"/);

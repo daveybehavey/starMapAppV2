@@ -29,7 +29,7 @@ export const seoOccasions: SeoOccasion[] = [
     seoTitle: "Engagement Star Map Gift — Proposal Night Sky | StarMapCo",
     seoH1: "Engagement Star Map Gift",
     seoDescription:
-      "Create a personalized engagement star map from the proposal date and place. Free preview, then framed + HD digital (free shipping $89+), unframed poster, or HD digital for same-night gifts.",
+      "Create a personalized engagement star map from the proposal date and place. Free preview, then framed + HD digital, unframed poster, or HD digital for same-night gifts.",
     intro:
       "Celebrate the engagement with a star map that captures the exact sky from the proposal night. Personal, romantic, and ready to print.",
     detail:
@@ -99,7 +99,7 @@ export const seoOccasions: SeoOccasion[] = [
     seoTitle: "New Baby Star Map | Birth Night Sky Gift | StarMapCo",
     seoH1: "New Baby Star Map Gift",
     seoDescription:
-      "The night sky over the place they arrived, with name, date and city. Free preview, no account. HD from $9; framed + HD for the nursery.",
+      "The night sky over the place they arrived, with name, date and city. Free preview, no account. HD digital or framed + HD for the nursery.",
     intro:
       "The sky on the night they arrived, with their name, date and city. A nursery keepsake that grows with them. Preview free, no account.",
     detail:
@@ -379,7 +379,7 @@ export const seoOccasions: SeoOccasion[] = [
     seoTitle: "Valentine's Day Star Map Gift — Romantic Night Sky | StarMapCo",
     seoH1: "Valentine's Day Star Map Gift",
     seoDescription:
-      "The real night sky from the night you met, a first date, or February 14 itself — as a framed print, poster, canvas, mug or HD file. Free preview, no account. HD from $9.",
+      "The real night sky from the night you met, a first date, or February 14 itself — as a framed print, poster, canvas or HD file. Free preview, no account.",
     intro:
       "The sky from the night you met, the first date, or Valentine’s night itself — the real stars over that place, on that date, rendered from astronomy data. Preview free, no account.",
     detail:
@@ -389,7 +389,7 @@ export const seoOccasions: SeoOccasion[] = [
     storyParagraphs: [
       "Most Valentine’s gifts could be given to anyone. A star map can only belong to one person: it shows the actual night sky over the place where your story started, on the date it happened — the night you met, the night of the first date, or a February 14 that still matters. It is rendered from real astronomy data for that date and place, so it can be checked, not just admired.",
       "Choosing the date is the whole gift, and it is worth taking a minute over: the city, the date, and the time if you remember it. The time is optional — date plus city still produces an accurate sky — but adding it places the Moon and planets exactly where they stood. Then add both names and a line of your own. A few words from that night beat a long inscription.",
-      "For a wall-ready gift, framed print + HD digital is the recommended route: the print arrives ready to hang and the HD file is yours to keep. Unframed posters are $39–$49, canvas and mugs carry the same design, and the keepsake card is a $19 card-sized version of the same design. If you want one for each of you, a second copy of the same design is 10% off on posters, canvas and framed prints.",
+      "For a wall-ready gift, framed print + HD digital is the recommended route: the print arrives ready to hang and the HD file is yours to keep. Unframed posters and canvas carry the same design, and the keepsake card is a card-sized version of the same design. If you want one for each of you, a second copy of the same design is 10% off on posters, canvas and framed prints.",
       "Distance does not have to decide the gift. If you are apart this February, the HD digital file is available to download right after checkout, so the same sky can be on their screen the day you send it — and a print can follow to either address. Use the place and date of the night that matters most to you both.",
       "There is no need to decide before you see it. The preview is free and needs no account, so you can try the night you met and the first date side by side, check the spelling of every name, and order only when it looks right. Couples often come back for the same design in a new style on an anniversary — the sky does not change, even as the years add up.",
     ],
@@ -425,12 +425,12 @@ export const seoOccasions: SeoOccasion[] = [
       {
         question: "What can I write on the map?",
         answer:
-          "Add both names, a title, and a short dedication line in the editor before checkout. The same design can be ordered as a framed print, unframed poster, canvas, mug, keepsake card, or HD digital file.",
+          "Add both names, a title, and a short dedication line in the editor before checkout. The same design can be ordered as a framed print, unframed poster, canvas, keepsake card, or HD digital file.",
       },
       {
         question: "Which format fits Valentine’s Day best?",
         answer:
-          "Framed print + HD digital ($106) is the wall-ready route: ready to hang, with the HD file included. Unframed posters are $39–$49, the keepsake card is $19, and the HD file on its own starts at $9. A second copy of the same design is 10% off on posters, canvas, and framed prints.",
+          "Framed print + HD digital is the wall-ready route: ready to hang, with the HD file included. Unframed posters and canvas carry the same sky at full print size; the keepsake card is the card-sized version of the same design, and the HD file is there on its own if the gift cannot wait for a print. A second copy of the same design is 10% off on posters, canvas, and framed prints.",
       },
       {
         question: "We are long-distance. Can I still give one?",
@@ -440,7 +440,7 @@ export const seoOccasions: SeoOccasion[] = [
       {
         question: "Will a print arrive by February 14?",
         answer:
-          "Check the shipping page for the current Valentine’s order-by dates before relying on a specific delivery date — print orders of $89 or more ship free. The free preview lets you design yours now, and the HD file is there if you leave it late.",
+          "Check the shipping page for the current Valentine’s order-by dates before relying on a specific delivery date. The free preview lets you design yours now, and the HD file is there if you leave it late.",
       },
     ],
   },
@@ -734,7 +734,7 @@ export const seoOccasions: SeoOccasion[] = [
     seoTitle: "First Date Star Map Gift — Custom Night Sky | StarMapCo",
     seoH1: "First Date Star Map Gift",
     seoDescription:
-      "A custom star map of the sky over the place of your first date, on that date — by date and location. Free preview, no account. Framed print, poster, canvas or HD file; HD from $9.",
+      "A custom star map of the sky over the place of your first date, on that date — by date and location. Free preview, no account. Framed print, poster, canvas or HD file.",
     intro:
       "The real stars over where your first date happened, on that date — rendered from astronomy data for that date and place. Preview free, no account.",
     detail:
@@ -746,7 +746,7 @@ export const seoOccasions: SeoOccasion[] = [
       "Deciding which night counts is the one real choice on this page, and there is a simple test: the first date is the first time you went out meaning it — the coffee that ran for three hours, the group thing where the two of you drifted away from everyone else, the walk that was not on the way anywhere. If you first met on the date itself, set up by friends or matched online, the meeting and the date may be the same night, and the Night We Met page is the companion piece for the moment before it. Pick the night you would celebrate, and the map follows.",
       "Pinning the date down is detective work with good evidence: the reservation or ticket confirmation in an old inbox, a calendar entry, the timestamp on the first photo of you together, the card receipt, the message afterwards that said tonight was fun. For the place, the venue or neighbourhood is more personal than the city alone, and the editor takes either. For the time, use roughly when the evening began; if it is gone, choose the evening hour that feels right — date and place carry the sky, and the exact time mainly sharpens where the Moon and planets sit.",
       "The words under the stars do the rest. A clear title (Our First Date), both names, and the place carry most of it; the dedication line is better short — the restaurant's name, what one of you ordered, the thing that made you stay for one more drink. You can check every spelling in the free preview before anything is made, and if you are torn between the meeting night and the first date, preview both and keep the one that feels like the start.",
-      "For the gift itself, think print first: framed print + HD digital ($106) arrives ready to hang, with the HD file included for keeping and sharing. Posters run $39–$49 unframed and canvas is $79, with print orders of $89 or more shipping free; order a second copy of the same design — one for each of you — and it is 10% off on posters, canvas and framed prints. The $19 keepsake card carries the same sky at card size, and the HD file alone is $9, available to download right after checkout when the print would arrive too late.",
+      "For the gift itself, think print first: framed print + HD digital arrives ready to hang, with the HD file included for keeping and sharing. Unframed posters and canvas carry the same sky at full print size; order a second copy of the same design — one for each of you — and it is 10% off on posters, canvas and framed prints. The keepsake card carries the same sky at card size, and the HD file on its own is available to download right after checkout when the print would arrive too late.",
     ],
     storyCtaHref:
       "/editor?mode=quick&source=occasion-first-date-story-preview&utm_source=site&utm_medium=landing&utm_campaign=first-date_story",
@@ -765,12 +765,12 @@ export const seoOccasions: SeoOccasion[] = [
       {
         question: "What is a first date star map?",
         answer:
-          "It is a custom star map showing the real night sky over the place of your first date, on that date, rendered from astronomy data for that date and place. You build the design and wording in a free preview, then order it as a framed print, unframed poster, canvas, mug, keepsake card, or HD digital file.",
+          "It is a custom star map showing the real night sky over the place of your first date, on that date, rendered from astronomy data for that date and place. You build the design and wording in a free preview, then order it as a framed print, unframed poster, canvas, keepsake card, or HD digital file.",
       },
       {
         question: "We met before we ever went out. Which night is our first date?",
         answer:
-          "The first time you went out meaning it — the first occasion that was a date, not the first time you were in the same room. If the night you want to keep is the meeting itself, the Night We Met page (/star-map-for/night-we-met) is the better fit. For the milestone you celebrate each year, the Anniversary page (/anniversary) covers wedding and relationship anniversaries.",
+          "The first time you went out meaning it — the first occasion that was a date, not the first time you were in the same room. If the night you want to keep is the meeting itself, the Night We Met page (/night-we-met) is the better fit. For the milestone you celebrate each year, the Anniversary page (/anniversary) covers wedding and relationship anniversaries.",
       },
       {
         question: "How do I work out the date of our first date?",
@@ -795,7 +795,7 @@ export const seoOccasions: SeoOccasion[] = [
       {
         question: "Which format works best as a gift?",
         answer:
-          "Framed print + HD digital ($106) is the wall-ready route: ready to hang, with the HD file included, and print orders of $89 or more ship free. Unframed posters are $39–$49 and canvas is $79; a second copy of the same design is 10% off on posters, canvas and framed prints. The keepsake card is $19, and the HD file on its own is $9.",
+          "Framed print + HD digital is the wall-ready route: ready to hang, with the HD file included. Unframed posters and canvas carry the same sky at full print size; a second copy of the same design is 10% off on posters, canvas and framed prints. The keepsake card carries the same sky at card size, and the HD file is there on its own if the gift cannot wait for a print.",
       },
     ],
   },
@@ -837,7 +837,7 @@ export const seoOccasions: SeoOccasion[] = [
     seoTitle: "Christmas Star Map Gift | Personalized | StarMapCo",
     seoH1: "Christmas Star Map Gift",
     seoDescription:
-      "A personalized star map for Christmas: the sky from a wedding, a birth or a first Christmas together. Free preview. HD digital from $9.",
+      "A personalized star map for Christmas: the sky from a wedding, a birth or a first Christmas together. Free preview. HD digital available.",
     intro:
       "A gift that is only theirs: the sky from the night you met, a wedding, a birth, or your first Christmas together. Preview free, no account.",
     exampleLine: "Christmas Night · New York, NY · December 25, 2023",

@@ -65,6 +65,11 @@ const seasonalIdeas = [
     href: "/night-we-met",
   },
   {
+    title: "First Date",
+    description: "The real stars over where your first date happened, on that date.",
+    href: "/first-date",
+  },
+  {
     title: "Christmas",
     description: "A meaningful holiday gift that feels personal and timeless.",
     href: "/star-map-for/christmas",

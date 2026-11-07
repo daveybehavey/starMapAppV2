@@ -11,6 +11,7 @@ const occasionLinks: OccasionLink[] = [
   { kind: "slug", slug: "proposal", label: "Wedding & Proposal" },
   { kind: "slug", slug: "engagement", label: "Engagement" },
   { kind: "slug", slug: "night-we-met", label: "Night We Met" },
+  { kind: "slug", slug: "first-date", label: "First Date" },
   { kind: "slug", slug: "birthday", label: "Birthday" },
   { kind: "slug", slug: "new-baby", label: "New Baby" },
   { kind: "slug", slug: "long-distance", label: "Long Distance" },

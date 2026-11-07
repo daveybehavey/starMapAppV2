@@ -313,7 +313,7 @@ export default function NightWeMetPage() {
       <section className="mt-6 space-y-3 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
         <h2 className="text-midnight text-lg font-semibold">Related gift occasions</h2>
         <div className="flex flex-wrap gap-3 text-sm text-neutral-800">
-          <Link href="/star-map-for/first-date" className="text-amber-700 underline hover:text-amber-800">
+          <Link href="/first-date" className="text-amber-700 underline hover:text-amber-800">
             First date star maps
           </Link>
           <Link href="/long-distance" className="text-amber-700 underline hover:text-amber-800">
