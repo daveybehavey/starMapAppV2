@@ -356,7 +356,7 @@ export default function LongDistancePage() {
           <Link href="/anniversary" className="text-amber-700 underline hover:text-amber-800">
             Anniversary star maps
           </Link>
-          <Link href="/star-map-for/night-we-met" className="text-amber-700 underline hover:text-amber-800">
+          <Link href="/night-we-met" className="text-amber-700 underline hover:text-amber-800">
             Night we met
           </Link>
           <Link href="/how-accurate-are-star-maps" className="text-amber-700 underline hover:text-amber-800">

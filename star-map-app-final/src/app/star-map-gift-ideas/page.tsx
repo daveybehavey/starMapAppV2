@@ -52,7 +52,17 @@ const seasonalIdeas = [
   {
     title: "Graduation",
     description: "Mark the night they finished the journey with a bold, celebratory map.",
-    href: "/star-map-for/graduation",
+    href: "/graduation",
+  },
+  {
+    title: "First Home",
+    description: "Commemorate a first home with a star map from move-in night or closing day.",
+    href: "/first-home",
+  },
+  {
+    title: "Night We Met",
+    description: "The real sky over where you met, on the night it happened.",
+    href: "/night-we-met",
   },
   {
     title: "Christmas",
@@ -199,7 +209,7 @@ export default function StarMapGiftIdeasPage() {
                 Birthday
               </Link>
               <Link
-                href="/star-map-for/graduation"
+                href="/graduation"
                 className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5"
               >
                 Graduation

@@ -47,7 +47,7 @@ test("long-distance money page renders pricing helpers and story section", () =>
   assert.match(source, /href="\/how-accurate-are-star-maps"/);
   assert.match(source, /href="\/star-map-size-guide"/);
   assert.match(source, /href="\/anniversary"/);
-  assert.match(source, /href="\/star-map-for\/night-we-met"/);
+  assert.match(source, /href="\/night-we-met"/);
   assert.match(source, /href="\/editor/);
 });
 

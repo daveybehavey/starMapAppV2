@@ -5,14 +5,15 @@ const CANONICAL_OCCASION_REDIRECTS = {
   "new-baby": "/new-baby",
   proposal: "/proposal",
   "long-distance": "/long-distance",
+  "first-home": "/first-home",
+  "night-we-met": "/night-we-met",
+  graduation: "/graduation",
 } as const;
 
 export const INDEXABLE_OCCASION_SLUGS = [
   "engagement",
   "memorial",
-  "graduation",
   "valentines-day",
-  "night-we-met",
   "mothers-day",
   "fathers-day",
   "christmas",
