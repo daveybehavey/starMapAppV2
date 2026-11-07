@@ -222,6 +222,18 @@ const pageChecks = [
     forbiddenAny: [],
   },
   {
+    path: "/long-distance",
+    requiredAny: ["long-distance", "star map", "shared"],
+    requiredAll: commercePolicyLinks,
+    forbiddenAny: [],
+  },
+  {
+    path: "/star-map-size-guide",
+    requiredAny: ["size", "square", "star map"],
+    requiredAll: commercePolicyLinks,
+    forbiddenAny: [],
+  },
+  {
     path: "/shipping",
     requiredAny: ["shipping", "delivery"],
     requiredAll: ["/returns"],

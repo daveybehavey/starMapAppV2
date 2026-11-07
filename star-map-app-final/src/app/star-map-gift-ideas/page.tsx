@@ -74,6 +74,11 @@ const seasonalIdeas = [
     description: "Turn the proposal moment — or the wedding night — into a timeless keepsake of the exact sky.",
     href: "/proposal",
   },
+  {
+    title: "Long Distance",
+    description: "Celebrate long-distance love with a shared night sky — or a pair of maps for two cities.",
+    href: "/long-distance",
+  },
 ];
 
 export const metadata: Metadata = {
@@ -216,6 +221,12 @@ export default function StarMapGiftIdeasPage() {
                 className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5"
               >
                 Wedding &amp; Proposal
+              </Link>
+              <Link
+                href="/long-distance"
+                className="rounded-full border border-amber-200/60 bg-white/80 px-3 py-1.5"
+              >
+                Long Distance
               </Link>
               <Link
                 href="/star-map-for/memorial"

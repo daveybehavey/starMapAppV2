@@ -5,6 +5,7 @@ import { listVariantPagePaths } from "../src/lib/variantPageManifest";
 // Cover every existing Product surface and every new landing-page instance.
 const productPaths = [
   "/", "/shop", "/wedding", "/anniversary", "/birthday", "/new-baby", "/proposal",
+  "/long-distance",
   "/night-sky-map-gift",
   "/star-map-generator", "/star-map-poster", "/star-map-poster/framed-hd-bundle",
   "/star-map-keepsake-card", "/christmas-star-map-gift", "/custom-night-sky-map",
@@ -15,6 +16,7 @@ const productPaths = [
 ];
 const collectionPaths = [
   "/star-map-for", "/star-map-in", "/star-map-gift-ideas", "/star-map-gift-formats",
+  "/star-map-size-guide",
   "/star-map-gallery", "/black-friday",
 ];
 

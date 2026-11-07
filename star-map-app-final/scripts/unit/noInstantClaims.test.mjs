@@ -113,8 +113,11 @@ const IDENTIFIER_FILES = [
   "src/app/new-baby/page.tsx",
   "src/app/night-sky-map-gift/page.tsx",
   "src/app/proposal/page.tsx",
+  "src/app/long-distance/page.tsx",
   "src/app/personalized-star-map/page.tsx",
   "src/app/star-map-generator/page.tsx",
+  "src/app/star-map-size-guide/page.tsx",
+  "src/app/how-accurate-are-star-maps/page.tsx",
   "src/components/ChristmasOrderByTable.tsx",
   "src/lib/christmasCampaign.ts",
 ];
