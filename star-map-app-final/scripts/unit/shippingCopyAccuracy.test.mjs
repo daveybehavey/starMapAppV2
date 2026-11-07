@@ -14,6 +14,19 @@
  *   keep the generic label.
  * - F3: the keepsake card has no variant product page, so the format
  *   link list must not claim "every format" has one.
+ * - F4 (follow-up, PR #600 gate observation): the gate's round-1 probe
+ *   read the home FAQ JSON-LD as still saying framed "+ shipping".
+ *   Re-verified after the deploy settled: the schema is built from the
+ *   same `buildHomeFaqItems` items as the visible block and receives
+ *   the eligibility-aware framed label, at source and in the live
+ *   HTML — the observation was the same deploy lag the gate recorded
+ *   for /shipping and /shop. The schema wiring is pinned below so it
+ *   cannot silently regress. The same sweep found one genuine
+ *   remaining instance of the F2 class: the success page's print
+ *   upsell cards appended "+ shipping shown at checkout" to every
+ *   variant, including the framed card they recommend — its sibling
+ *   surface (the download page's upsell cards) already branches on
+ *   eligibility. Those cards now use the standalone helper too.
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -30,6 +43,7 @@ const deliveryFormats = read("../../src/components/DeliveryFormatModule.tsx");
 const revenueTrust = read("../../src/components/RevenueTrustModule.tsx");
 const roadmap = read("../../src/components/GiftFormatRoadmapModule.tsx");
 const formatLinks = read("../../src/components/VariantFormatLinks.tsx");
+const successClient = read("../../src/app/success/SuccessClient.tsx");
 
 test("F1: /shipping states the pre-discount free-shipping rule", () => {
   assert.match(
@@ -74,6 +88,25 @@ test("F2: the variant product page qualifies its own offer before labelling ship
   assert.match(productPage, /· free standard shipping/);
   // Below-threshold variants fall back to the generic line.
   assert.match(productPage, /: formatPrintPriceWithShipping\(offer\.amountCents, offer\.currency\)/);
+});
+
+test("F4: the home FAQ JSON-LD is built from the same items with the eligibility-aware framed label", () => {
+  // page.tsx feeds the FAQPage schema the shared item set, with the
+  // framed slot filled by the standalone helper's label — the schema
+  // cannot carry a framed "+ shipping" line the visible block lacks.
+  assert.match(
+    homePage,
+    /mainEntity: buildHomeFaqItems\(\{\s+single: priceLabel,\s+framed: printFramedLabel,\s+unframed: printUnframedOfferLabel,/,
+  );
+  // Both framed answers in the shared builder interpolate that label;
+  // neither hardcodes a framed price or shipping claim of its own.
+  assert.match(homeSections, /framed route from \$\{input\.framed\}/);
+  assert.match(homeSections, /framed print \(\$\{input\.framed\}\)/);
+});
+
+test("F4: success-page print upsell cards use the eligibility-aware standalone helper", () => {
+  assert.match(successClient, /priceLine: formatStandalonePrintPriceWithShipping\(card\.variant\)/);
+  assert.doesNotMatch(successClient, /\+ shipping shown at checkout/);
 });
 
 test("F3: the format link list no longer claims every format has a page", () => {

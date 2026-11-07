@@ -22,7 +22,7 @@ import {
   type PrintVariant,
 } from "@/lib/pricing";
 import { getPrintFulfillmentProgressSteps, getPrintOrderIncludesDigitalNote } from "@/lib/commerceFacts";
-import { getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
+import { formatStandalonePrintPriceWithShipping, getPrintShippingDisclosure } from "@/lib/printCheckoutConfig";
 import {
   buildReferralShareUrl,
   getReferralFriendOfferLabel,
@@ -141,7 +141,7 @@ export default function SuccessClient() {
     return listDownloadPrintUpsellCards().map((card) => ({
       ...card,
       label: printTiers[card.variant].label,
-      priceLine: `${formatPrice(printTiers[card.variant].amountCents, printTiers[card.variant].currency)} + shipping shown at checkout`,
+      priceLine: formatStandalonePrintPriceWithShipping(card.variant),
     }));
   }, [printTiers]);
   const successPrintRecommendedCard = useMemo(
