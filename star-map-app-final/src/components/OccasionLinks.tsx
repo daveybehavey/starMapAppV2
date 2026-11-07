@@ -14,6 +14,8 @@ const occasionLinks: OccasionLink[] = [
   { kind: "slug", slug: "birthday", label: "Birthday" },
   { kind: "slug", slug: "new-baby", label: "New Baby" },
   { kind: "slug", slug: "long-distance", label: "Long Distance" },
+  { kind: "slug", slug: "first-home", label: "First Home" },
+  { kind: "slug", slug: "graduation", label: "Graduation" },
   { kind: "href", href: "/christmas-star-map-gift", label: "Christmas" },
   { kind: "href", href: "/first-christmas-star-map", label: "First Christmas" },
   { kind: "slug", slug: "valentines-day", label: "Valentine's Day" },

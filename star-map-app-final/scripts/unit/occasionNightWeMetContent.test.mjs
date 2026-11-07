@@ -1,11 +1,9 @@
 /**
- * Occasion pages PR 2 (#419): the new night-we-met entry is indexable with no
- * canonical redirect, carries the full christmas/new-baby story treatment,
- * its artwork files exist, it cross-references the First Date and Anniversary
- * pages (the load-bearing intent split), uses the buyers' own phrasings
- * ("where we met", "exact time" — Grok W23-2 headline finding), and stays
- * inside the lane's copy rules (no "instant" delivery language, no links to
- * pruned city pages).
+ * Occasion pages PR 2 (#419) + content wave 4: night-we-met keeps its data
+ * entry and story treatment; wave 4 promotes the slug to the canonical
+ * `/night-we-met` money page (removed from INDEXABLE_OCCASION_SLUGS, added to
+ * CANONICAL_OCCASION_REDIRECTS). Artwork, intent-split cross-links, buyer
+ * phrasings, and copy fences remain.
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -29,10 +27,12 @@ async function loadNightWeMetEntry() {
   return entry;
 }
 
-test("night-we-met is indexable and self-canonical (no redirect)", async () => {
-  const { isIndexableOccasionSlug, getCanonicalOccasionPath } = await loadTs("src/data/seoIndexing.ts");
-  assert.equal(isIndexableOccasionSlug("night-we-met"), true);
-  assert.equal(getCanonicalOccasionPath("night-we-met"), null);
+test("night-we-met canonicalizes to /night-we-met (wave-4 money-page promotion)", async () => {
+  const { isIndexableOccasionSlug, getCanonicalOccasionPath, resolveOccasionIntentPath } =
+    await loadTs("src/data/seoIndexing.ts");
+  assert.equal(isIndexableOccasionSlug("night-we-met"), false);
+  assert.equal(getCanonicalOccasionPath("night-we-met"), "/night-we-met");
+  assert.equal(resolveOccasionIntentPath("night-we-met"), "/night-we-met");
 });
 
 test("night-we-met entry carries the full story treatment", async () => {

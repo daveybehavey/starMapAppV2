@@ -228,6 +228,24 @@ const pageChecks = [
     forbiddenAny: [],
   },
   {
+    path: "/first-home",
+    requiredAny: ["first home", "star map", "closing"],
+    requiredAll: commercePolicyLinks,
+    forbiddenAny: [],
+  },
+  {
+    path: "/night-we-met",
+    requiredAny: ["night we met", "star map", "met"],
+    requiredAll: commercePolicyLinks,
+    forbiddenAny: [],
+  },
+  {
+    path: "/graduation",
+    requiredAny: ["graduation", "star map", "ceremony"],
+    requiredAll: commercePolicyLinks,
+    forbiddenAny: [],
+  },
+  {
     path: "/star-map-size-guide",
     requiredAny: ["size", "square", "star map"],
     requiredAll: commercePolicyLinks,
