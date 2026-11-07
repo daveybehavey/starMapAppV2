@@ -659,7 +659,7 @@ export const seoOccasions: SeoOccasion[] = [
     seoTitle: "Night We Met Star Map — Custom Star Map of Where You Met | StarMapCo",
     seoH1: "Star Map of the Night We Met — or the Day We Met",
     seoDescription:
-      "A custom star map of the sky over where you met, on the night it happened — by date and location. Free preview, no account. Framed print, poster, canvas or HD file; HD from $9.",
+      "A custom star map of the sky over where you met, on the night it happened — by date and location. Free preview, no account. Framed print, poster, canvas or HD file.",
     intro:
       "The real stars over where you met, on the night it happened — rendered from astronomy data for that date and place. Preview free, no account.",
     detail:
@@ -671,7 +671,7 @@ export const seoOccasions: SeoOccasion[] = [
       "Most people remember where they met more clearly than when, so start there: the city, and the place itself if it fits the line under the stars. For the date, work backwards from the anchors you already have — the date stamp on an early photo, the first message in your chat thread, a concert or match ticket, the receipt you kept for no reason. If the exact time is gone, it is not a problem: choose the evening hour closest to how you remember it. Date and city carry the sky; the time mainly sharpens where the Moon and planets sit.",
       "If you met in daylight — a morning class, a lunchtime shift, a Saturday game — use the evening of that same date. The map then shows the first night sky that arrived after you met, which is the one couples usually mean when they picture that day. And if the meeting and the first date blur together in your memory, they are different nights and different maps: this page is the meeting. A first date has its own page, and an anniversary marks the milestone you celebrate every year.",
       "The words matter as much as the sky. A clear title (The Night We Met), both names, and the place where you met carry most of it; the dedication line is better short — a few words from that night, an inside joke, the first thing one of you said. You can check every spelling in the free preview before anything is made, and try the meeting night and the first date side by side if you are deciding between them.",
-      "As a gift, the framed print + HD digital route ($106) is the wall-ready one: it arrives ready to hang, and the HD file is yours to keep. Unframed posters are $39–$49, canvas is $79, and if you want one for each of you, a second copy of the same design is 10% off on posters, canvas and framed prints. The keepsake card is a $19 card-sized version of the same design, and the HD file on its own is $9 — available to download right after checkout if the occasion cannot wait for a print.",
+      "As a gift, the framed print + HD digital route is the wall-ready one: it arrives ready to hang, and the HD file is yours to keep. Unframed posters and canvas carry the same sky at full print size, and if you want one for each of you, a second copy of the same design is 10% off on posters, canvas and framed prints. The keepsake card is a card-sized version of the same design, and the HD file on its own is available to download right after checkout if the occasion cannot wait for a print.",
     ],
     storyCtaHref:
       "/editor?mode=quick&source=occasion-night-we-met-story-preview&utm_source=site&utm_medium=landing&utm_campaign=night-we-met_story",
@@ -694,7 +694,7 @@ export const seoOccasions: SeoOccasion[] = [
       {
         question: "What is a night we met star map?",
         answer:
-          "It is a custom star map showing the real night sky over where you met, on the date you met, rendered from astronomy data for that date and place. You build the design and wording in a free preview, then order it as a framed print, unframed poster, canvas, mug, keepsake card, or HD digital file.",
+          "It is a custom star map showing the real night sky over where you met, on the date you met, rendered from astronomy data for that date and place. You build the design and wording in a free preview, then order it as a framed print, unframed poster, canvas, keepsake card, or HD digital file.",
       },
       {
         question: "We don’t remember the exact time we met. Does that matter?",
@@ -724,7 +724,7 @@ export const seoOccasions: SeoOccasion[] = [
       {
         question: "Which format works best as a gift?",
         answer:
-          "Framed print + HD digital ($106) is the wall-ready route: ready to hang, with the HD file included, and print orders of $89 or more ship free. Unframed posters are $39–$49 and canvas is $79; a second copy of the same design is 10% off on posters, canvas and framed prints. The keepsake card is $19, and the HD file on its own is $9.",
+          "Framed print + HD digital is the wall-ready route: ready to hang, with the HD file included. Unframed posters and canvas carry the same sky at full print size; a second copy of the same design is 10% off on posters, canvas and framed prints. The keepsake card is the card-sized version of the same design, and the HD file is there on its own if the gift cannot wait for a print.",
       },
     ],
   },
