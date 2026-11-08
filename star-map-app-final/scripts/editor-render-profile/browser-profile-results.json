@@ -1,0 +1,58 @@
+{
+  "note": "Synthetic real-canvas rasterization cost using the Node profile's draw-call mix (not the astronomy path). Isolates GPU/skia cost of the measured call volume.",
+  "referenceSceneId": "editor-render-perf-dense-v1",
+  "drawCallMix": {
+    "stars": 4407,
+    "lines": 764,
+    "halos": 113,
+    "texts": 42
+  },
+  "timings": {
+    "preview_900": {
+      "size": 900,
+      "cold_ms": 9.3,
+      "warm": {
+        "n": 8,
+        "min_ms": 1.7,
+        "p50_ms": 2,
+        "p95_ms": 4.3,
+        "max_ms": 4.3,
+        "mean_ms": 2.375
+      }
+    },
+    "preview_export_1200": {
+      "size": 1200,
+      "cold_ms": 5.8,
+      "warm": {
+        "n": 8,
+        "min_ms": 1.6,
+        "p50_ms": 2,
+        "p95_ms": 6.2,
+        "max_ms": 6.2,
+        "mean_ms": 2.675
+      }
+    },
+    "hd_6000": {
+      "size": 6000,
+      "cold_ms": 152.9,
+      "warm": {
+        "n": 8,
+        "min_ms": 1.3,
+        "p50_ms": 1.4,
+        "p95_ms": 2.8,
+        "max_ms": 2.8,
+        "mean_ms": 1.6
+      }
+    },
+    "text_layer_only_900": {
+      "warm": {
+        "n": 20,
+        "min_ms": 0,
+        "p50_ms": 0,
+        "p95_ms": 0.1,
+        "max_ms": 9,
+        "mean_ms": 0.455
+      }
+    }
+  }
+}

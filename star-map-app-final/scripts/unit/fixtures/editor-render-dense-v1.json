@@ -1,0 +1,14 @@
+{
+  "full_single_canvas": {
+    "hash": "4290c683781b950b430e7e78b6e5cde4bf14c25e20eb086c80a372b126acb249",
+    "commandCount": 26646
+  },
+  "base_sky_only": {
+    "hash": "09e920e65748ba9388472bcbd895266e59b169837d3ac37ece572575d0dc16d0",
+    "commandCount": 26614
+  },
+  "text_layer_only": {
+    "hash": "083a43f6cb115498b5c6d6ff114dbc51dc6e6a25ed8cde3b86a2cbb02e64d613",
+    "commandCount": 35
+  }
+}

@@ -1,0 +1,441 @@
+{
+  "generatedAt": "2026-11-08T23:46:46.893Z",
+  "baseHeadNote": "Run against current checkout; record git SHA in the attribution memo.",
+  "referenceScene": {
+    "id": "editor-render-perf-dense-v1",
+    "dateTime": "2024-12-14T02:00:00.000Z",
+    "location": {
+      "name": "Santorini, Greece",
+      "latitude": 36.3932,
+      "longitude": 25.4615,
+      "timezone": "Europe/Athens"
+    },
+    "selectedStyle": "navyGold",
+    "aspectRatio": "square",
+    "shape": "rectangle",
+    "seed": "editor-render-perf-dense-v1",
+    "previewSize": {
+      "width": 900,
+      "height": 900
+    },
+    "hdWidth": 6000,
+    "previewExportWidth": 1200,
+    "textBoxes": [
+      {
+        "id": "title",
+        "label": "Title",
+        "text": "The Night We Became One",
+        "fontFamily": "cinzel",
+        "color": "#d7b56c",
+        "size": 48,
+        "align": "center",
+        "position": {
+          "x": 0.5,
+          "y": 0.12
+        }
+      },
+      {
+        "id": "subtitle",
+        "label": "Subtitle",
+        "text": "Santorini, Greece — under winter stars",
+        "fontFamily": "raleway",
+        "color": "#c8a662",
+        "size": 28,
+        "align": "center",
+        "position": {
+          "x": 0.5,
+          "y": 0.18
+        }
+      },
+      {
+        "id": "dedication",
+        "label": "Dedication",
+        "text": "December 14, 2024 · forever ours",
+        "fontFamily": "script",
+        "color": "#b98a3d",
+        "size": 26,
+        "align": "center",
+        "position": {
+          "x": 0.5,
+          "y": 0.9
+        }
+      },
+      {
+        "id": "quote",
+        "label": "Custom",
+        "text": "Look up — the sky remembers",
+        "fontFamily": "cinzel",
+        "color": "#e8d5a3",
+        "size": 18,
+        "align": "center",
+        "position": {
+          "x": 0.5,
+          "y": 0.84
+        }
+      }
+    ],
+    "renderOptions": {
+      "mapLookTier": "polished",
+      "visualMode": "illustrated",
+      "starIntensity": "normal",
+      "starGlow": true,
+      "constellationLines": "thin",
+      "constellationLabels": true,
+      "constellationLineScale": 1,
+      "planetLabels": true,
+      "showPlanets": true,
+      "showGrid": false,
+      "showTechnicalRing": true,
+      "frameEnabled": true,
+      "premiumStars": "off",
+      "premiumPlanets": "off",
+      "transparentBackground": false
+    },
+    "measuredSkyAtPreview": {
+      "stars": 4407,
+      "planets": [
+        "Mars",
+        "Jupiter"
+      ],
+      "moon": true,
+      "constellations": 41,
+      "lines": 376
+    }
+  },
+  "pipelineFiles": [
+    "src/lib/renderSky.ts — renderStarMap, renderStarMapTextLayer, computeSky, drawSky, drawStarLayer, drawConstellations, drawText",
+    "src/components/PreviewCanvas.tsx — dual-canvas editor preview (base sky + text overlay)",
+    "src/components/EditorExperience.tsx — handleExport / renderExportFile HD entry (6000px)",
+    "src/components/SimplifiedEditor/SimplifiedEditor.tsx — exportImage parallel HD entry",
+    "src/lib/astronomy.ts — computeVisibleStars",
+    "src/hooks/useAstronomyWorker.ts + src/workers/astronomy.worker.ts — off-main-thread sky"
+  ],
+  "scenarios": {
+    "preview_full_single_canvas": {
+      "desc": "Full preview-sized render including text (export quality) — single canvas like SimplifiedEditor first paint",
+      "size": {
+        "width": 900,
+        "height": 900
+      },
+      "cold_ms": 15.381,
+      "warm": {
+        "n": 12,
+        "min_ms": 4.877,
+        "p50_ms": 5.392,
+        "p95_ms": 9.169,
+        "max_ms": 9.169,
+        "mean_ms": 5.87
+      },
+      "draw_categories": {
+        "drawCalls_total": 5345,
+        "stars_and_discs_fill_arc": 4526,
+        "constellation_line_strokes": 764,
+        "fillText_labels_and_captions": 42,
+        "fillRect_background_overlays": 6,
+        "clearRect": 1,
+        "radial_gradients": 113,
+        "linear_gradients": 1,
+        "measureText": 38,
+        "beginPath": 5297,
+        "arc": 4529,
+        "drawImage_offscreen_composites": 0,
+        "save_restore_pairs": 124
+      },
+      "offscreen_categories": {
+        "drawCalls_total": 1,
+        "stars_and_discs_fill_arc": 0,
+        "constellation_line_strokes": 0,
+        "fillText_labels_and_captions": 0,
+        "fillRect_background_overlays": 0,
+        "clearRect": 0,
+        "radial_gradients": 0,
+        "linear_gradients": 0,
+        "measureText": 0,
+        "beginPath": 0,
+        "arc": 0,
+        "drawImage_offscreen_composites": 0,
+        "save_restore_pairs": 0
+      }
+    },
+    "preview_base_sky_only": {
+      "desc": "Editor base canvas: sky only (includeText:false) — PreviewCanvas base path",
+      "size": {
+        "width": 900,
+        "height": 900
+      },
+      "cold_ms": 5.093,
+      "warm": {
+        "n": 12,
+        "min_ms": 4.702,
+        "p50_ms": 5.008,
+        "p95_ms": 5.442,
+        "max_ms": 5.442,
+        "mean_ms": 5.018
+      },
+      "draw_categories": {
+        "drawCalls_total": 5341,
+        "stars_and_discs_fill_arc": 4526,
+        "constellation_line_strokes": 764,
+        "fillText_labels_and_captions": 38,
+        "fillRect_background_overlays": 6,
+        "clearRect": 1,
+        "radial_gradients": 113,
+        "linear_gradients": 1,
+        "measureText": 38,
+        "beginPath": 5297,
+        "arc": 4529,
+        "drawImage_offscreen_composites": 0,
+        "save_restore_pairs": 123
+      },
+      "offscreen_categories": {
+        "drawCalls_total": 0,
+        "stars_and_discs_fill_arc": 0,
+        "constellation_line_strokes": 0,
+        "fillText_labels_and_captions": 0,
+        "fillRect_background_overlays": 0,
+        "clearRect": 0,
+        "radial_gradients": 0,
+        "linear_gradients": 0,
+        "measureText": 0,
+        "beginPath": 0,
+        "arc": 0,
+        "drawImage_offscreen_composites": 0,
+        "save_restore_pairs": 0
+      }
+    },
+    "preview_text_layer_only": {
+      "desc": "Editor overlay canvas: text + watermark — PreviewCanvas text path",
+      "size": {
+        "width": 900,
+        "height": 900
+      },
+      "cold_ms": 0.401,
+      "warm": {
+        "n": 12,
+        "min_ms": 0.053,
+        "p50_ms": 0.057,
+        "p95_ms": 0.11,
+        "max_ms": 0.11,
+        "mean_ms": 0.064
+      },
+      "draw_categories": {
+        "drawCalls_total": 5,
+        "stars_and_discs_fill_arc": 0,
+        "constellation_line_strokes": 0,
+        "fillText_labels_and_captions": 4,
+        "fillRect_background_overlays": 0,
+        "clearRect": 1,
+        "radial_gradients": 0,
+        "linear_gradients": 0,
+        "measureText": 0,
+        "beginPath": 0,
+        "arc": 0,
+        "drawImage_offscreen_composites": 0,
+        "save_restore_pairs": 1
+      },
+      "offscreen_categories": {
+        "drawCalls_total": 1,
+        "stars_and_discs_fill_arc": 0,
+        "constellation_line_strokes": 0,
+        "fillText_labels_and_captions": 0,
+        "fillRect_background_overlays": 0,
+        "clearRect": 0,
+        "radial_gradients": 0,
+        "linear_gradients": 0,
+        "measureText": 0,
+        "beginPath": 0,
+        "arc": 0,
+        "drawImage_offscreen_composites": 0,
+        "save_restore_pairs": 0
+      }
+    },
+    "preview_export_1200": {
+      "desc": "Paid-preview PNG export at 1200px",
+      "size": {
+        "width": 1200,
+        "height": 1200
+      },
+      "cold_ms": 14.119,
+      "warm": {
+        "n": 12,
+        "min_ms": 4.699,
+        "p50_ms": 4.999,
+        "p95_ms": 7.478,
+        "max_ms": 7.478,
+        "mean_ms": 5.194
+      },
+      "draw_categories": {
+        "drawCalls_total": 5345,
+        "stars_and_discs_fill_arc": 4526,
+        "constellation_line_strokes": 764,
+        "fillText_labels_and_captions": 42,
+        "fillRect_background_overlays": 6,
+        "clearRect": 1,
+        "radial_gradients": 113,
+        "linear_gradients": 1,
+        "measureText": 38,
+        "beginPath": 5297,
+        "arc": 4529,
+        "drawImage_offscreen_composites": 0,
+        "save_restore_pairs": 124
+      },
+      "offscreen_categories": {
+        "drawCalls_total": 1,
+        "stars_and_discs_fill_arc": 0,
+        "constellation_line_strokes": 0,
+        "fillText_labels_and_captions": 0,
+        "fillRect_background_overlays": 0,
+        "clearRect": 0,
+        "radial_gradients": 0,
+        "linear_gradients": 0,
+        "measureText": 0,
+        "beginPath": 0,
+        "arc": 0,
+        "drawImage_offscreen_composites": 0,
+        "save_restore_pairs": 0
+      }
+    },
+    "hd_export_6000": {
+      "desc": "HD export at 6000px (paid path)",
+      "size": {
+        "width": 6000,
+        "height": 6000
+      },
+      "cold_ms": 9.904,
+      "warm": {
+        "n": 12,
+        "min_ms": 4.481,
+        "p50_ms": 4.692,
+        "p95_ms": 5.764,
+        "max_ms": 5.764,
+        "mean_ms": 4.788
+      },
+      "draw_categories": {
+        "drawCalls_total": 5345,
+        "stars_and_discs_fill_arc": 4526,
+        "constellation_line_strokes": 764,
+        "fillText_labels_and_captions": 42,
+        "fillRect_background_overlays": 6,
+        "clearRect": 1,
+        "radial_gradients": 113,
+        "linear_gradients": 1,
+        "measureText": 38,
+        "beginPath": 5297,
+        "arc": 4529,
+        "drawImage_offscreen_composites": 0,
+        "save_restore_pairs": 124
+      },
+      "offscreen_categories": {
+        "drawCalls_total": 0,
+        "stars_and_discs_fill_arc": 0,
+        "constellation_line_strokes": 0,
+        "fillText_labels_and_captions": 0,
+        "fillRect_background_overlays": 0,
+        "clearRect": 0,
+        "radial_gradients": 0,
+        "linear_gradients": 0,
+        "measureText": 0,
+        "beginPath": 0,
+        "arc": 0,
+        "drawImage_offscreen_composites": 0,
+        "save_restore_pairs": 0
+      }
+    }
+  },
+  "triggerClasses": {
+    "style_or_colour_change_full_base": {
+      "effect": "full base-sky redraw; astronomy reused via skyOverride",
+      "n": 12,
+      "min_ms": 4.505,
+      "p50_ms": 4.741,
+      "p95_ms": 5.036,
+      "max_ms": 5.036,
+      "mean_ms": 4.748
+    },
+    "text_keystroke_text_layer_only": {
+      "effect": "text-layer only (PreviewCanvas intentional split)",
+      "n": 12,
+      "min_ms": 0.051,
+      "p50_ms": 0.063,
+      "p95_ms": 0.143,
+      "max_ms": 0.143,
+      "mean_ms": 0.071
+    },
+    "text_drag_text_layer_only": {
+      "effect": "text-layer only",
+      "n": 12,
+      "min_ms": 0.049,
+      "p50_ms": 0.051,
+      "p95_ms": 0.059,
+      "max_ms": 0.059,
+      "mean_ms": 0.051
+    },
+    "date_change_astronomy_plus_base": {
+      "effect": "full astronomy recompute + base-sky redraw",
+      "astronomy_ms": {
+        "n": 8,
+        "min_ms": 0.002,
+        "p50_ms": 0.003,
+        "p95_ms": 0.054,
+        "max_ms": 0.054,
+        "mean_ms": 0.01
+      },
+      "paint_ms": {
+        "n": 8,
+        "min_ms": 0.05,
+        "p50_ms": 0.051,
+        "p95_ms": 0.183,
+        "max_ms": 0.183,
+        "mean_ms": 0.072
+      },
+      "total_ms": {
+        "n": 8,
+        "min_ms": 0.053,
+        "p50_ms": 0.054,
+        "p95_ms": 0.237,
+        "max_ms": 0.237,
+        "mean_ms": 0.082
+      }
+    }
+  },
+  "recompute": {
+    "computeVisibleStars_cold_ms": 19.977,
+    "computeVisibleStars_warm_cached": {
+      "n": 20,
+      "min_ms": 0.001,
+      "p50_ms": 0.002,
+      "p95_ms": 0.029,
+      "max_ms": 0.045,
+      "mean_ms": 0.006
+    },
+    "computeSky_cold_ms": 0.057,
+    "computeSky_warm_cached": {
+      "n": 20,
+      "min_ms": 0.001,
+      "p50_ms": 0.001,
+      "p95_ms": 0.004,
+      "max_ms": 0.008,
+      "mean_ms": 0.001
+    },
+    "note": "Warm identical renders hit astronomyCache (LRU 50) and skyCache (LRU 10). Text metrics LRU 100. Preview path already skips astronomy when worker sky is ready."
+  },
+  "previewVsHd": {
+    "sharedOrchestrator": "renderStarMap",
+    "previewEditor": "dual canvas: base includeText:false + text layer",
+    "hdExport": "single canvas 6000px quality:export",
+    "astronomyProjectionDependsOnCanvasSize": true,
+    "hd_astronomy_cold_ms": 0.028,
+    "hd_stars": 4407,
+    "note": "Sky positions are projected into canvas pixel space, so preview and HD cannot share the same VisibleSky object; astronomy is recomputed at export size."
+  },
+  "commandStreamEquivalencePin": {
+    "algorithm": "sha256 of mocked Canvas command stream (same approach as milkyWay.test.mjs)",
+    "scene": "editor-render-perf-dense-v1",
+    "size": {
+      "width": 900,
+      "height": 900
+    },
+    "hash": "ee8146ce24db016694e8020ea90c2de2cb0989a74d168c3df071d0c1c8d310bf",
+    "repeatIdentical": true
+  }
+}
