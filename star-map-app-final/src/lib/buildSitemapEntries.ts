@@ -130,6 +130,11 @@ export function buildSitemapEntries(options: BuildSitemapOptions): MetadataRoute
       priority: 0.8,
     },
     {
+      url: `${baseUrl}/valentines-day`,
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
+    {
       url: `${baseUrl}/birthday`,
       changeFrequency: "monthly",
       priority: 0.8,
