@@ -17,6 +17,8 @@
  *   before config;
  * - (e) Deny persists "false" and the settled-state sync sends the
  *   update for the recorded choice, never a grant on deny;
+ * - (f) the gtag stub pushes the `arguments` object with Google's
+ *   reference-snippet semantics, never a rest-arg array (#604);
  * - GTM and Pinterest stay granted-only (the fix brief's direction).
  */
 import assert from "node:assert/strict";
@@ -171,6 +173,21 @@ test("(e) Deny persists 'false' and never routes to a grant", () => {
   const sync = component.slice(syncStart, bootstrapEnd);
   assert.match(sync, /if \(state === "unset"\) return;/);
   assert.match(sync, /applyGaConsentUpdate\(state === "granted"\)/);
+});
+
+test("(f) gtag stub pushes the arguments object, not a rest-arg array (#604)", () => {
+  // Google's reference snippet defines gtag as
+  // `function gtag(){ dataLayer.push(arguments); }`: the queued entries
+  // gtag.js consumes are array-like `arguments` objects (entry[0] is the
+  // command, entry.length the argument count), NOT plain Arrays. The
+  // earlier stub collected `...args` and pushed that Array — the suspect
+  // in GA4 property 517653481 receiving no data at all (issue #604).
+  assert.match(
+    bootstrap,
+    /window\.gtag = function gtag\(\) \{[\s\S]*?window\.dataLayer\?\.push\(arguments as unknown as Record<string, unknown>\);/,
+  );
+  assert.ok(!bootstrap.includes("...args"), "stub must not collect a rest-arg array");
+  assert.ok(!bootstrap.includes("push(args"), "stub must not push a rest-arg array");
 });
 
 test("GTM and Pinterest remain granted-only (fix brief direction)", () => {
