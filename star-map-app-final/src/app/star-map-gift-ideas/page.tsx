@@ -27,7 +27,7 @@ const seasonalIdeas = [
   {
     title: "Valentine's Day",
     description: <>A romantic map of the <Link href="/blog/valentines-day-star-map" className="text-amber-700 underline hover:text-amber-800">night you met</Link>, first kissed, or said yes.</>,
-    href: "/star-map-for/valentines-day",
+    href: "/valentines-day",
   },
   {
     title: "Mother's Day",

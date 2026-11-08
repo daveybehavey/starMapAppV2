@@ -64,8 +64,13 @@ test("every indexable occasion slug appears exactly once in the sitemap", async 
   }
 
   assert.equal(
-    urls.filter((url) => url === "https://starmapco.com/star-map-for/valentines-day").length,
+    urls.filter((url) => url === "https://starmapco.com/valentines-day").length,
     1,
-    "the Valentine's occasion URL must appear exactly once"
+    "the Valentine's canonical money page must appear exactly once"
+  );
+  assert.equal(
+    urls.includes("https://starmapco.com/star-map-for/valentines-day"),
+    false,
+    "the redirected Valentine's template URL must not appear in the sitemap"
   );
 });

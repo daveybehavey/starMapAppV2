@@ -714,7 +714,7 @@ export const seoOccasions: SeoOccasion[] = [
       {
         question: "Is this the same as a first date star map?",
         answer:
-          "No — they are two different nights. This page is the night you first met, planned or not. If the night you want to keep was your first actual date, the First Date page (/star-map-for/first-date) is the better fit. For the milestone you celebrate each year, the Anniversary page (/anniversary) covers wedding and relationship anniversaries.",
+          "No — they are two different nights. This page is the night you first met, planned or not. If the night you want to keep was your first actual date, the First Date page (/first-date) is the better fit. For the milestone you celebrate each year, the Anniversary page (/anniversary) covers wedding and relationship anniversaries.",
       },
       {
         question: "What can I write on the map?",

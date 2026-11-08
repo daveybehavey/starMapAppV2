@@ -75,7 +75,8 @@ test("no pruned city links in the night-we-met entry", async () => {
 test("night-we-met holds the intent split: meeting night, not first date or anniversary", async () => {
   const entry = await loadNightWeMetEntry();
   const serialized = JSON.stringify(entry);
-  assert.match(serialized, /\/star-map-for\/first-date/, "differentiation must reference the First Date page");
+  assert.match(serialized, /\/first-date/, "differentiation must reference the First Date page");
+  assert.doesNotMatch(serialized, /\/star-map-for\/first-date/, "stale template path must be gone");
   assert.match(serialized, /\/anniversary/, "differentiation must reference the Anniversary page");
 });
 
