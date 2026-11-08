@@ -150,7 +150,8 @@ No render-path behaviour changes in this PR.
 | --- | --- |
 | Ranked table | Above |
 | Equivalence harness | This PR |
-| Fix PR: onRendered / base redraw | Planned next draft |
+| Fix PR: onRendered / base redraw | Draft **#614** — `onRenderedRef`; removes callback identity from base paint deps. Before: text keystroke → ~5341 base draws; after: text-layer only (~5 draws / ~0.06 ms) |
+| Further safe opts | Stopped — remaining ranked items are findings-only under the fences; interaction-class text edits are at the dual-canvas minimum |
 | Deliberately untouched | Render semantics, position/alignment, pricing, Stripe/Printful |
 | Suite at start head | 2683/0 |
 | Suite after equivalence harness | **2686/0** (+3 dense-scene tests) |
