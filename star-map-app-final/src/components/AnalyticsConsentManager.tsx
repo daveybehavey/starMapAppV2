@@ -47,8 +47,15 @@ function ensureGaBootstrap(gaId: string) {
 
   window.dataLayer = window.dataLayer || [];
   if (typeof window.gtag !== "function") {
-    window.gtag = function gtag(...args: unknown[]) {
-      window.dataLayer?.push(args as unknown as Record<string, unknown>);
+    // Reference-snippet semantics: Google's install snippet defines
+    // `function gtag(){ dataLayer.push(arguments); }` — gtag.js consumes
+    // the array-like `arguments` object from the queue. The previous stub
+    // pushed a rest-arg Array instead, which left every queued command
+    // (consent/js/config/page_view) unprocessed and GA4 received no data
+    // at all (issue #604).
+    window.gtag = function gtag() {
+      // eslint-disable-next-line prefer-rest-params -- `arguments` IS the fix (#604); rest params recreate the bug.
+      window.dataLayer?.push(arguments as unknown as Record<string, unknown>);
     };
   }
 
