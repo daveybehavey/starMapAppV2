@@ -59,7 +59,9 @@ export default function OccasionStorySection({
                   src={item.src}
                   alt={item.alt}
                   fill
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                  sizes="(max-width: 640px) 92vw, (max-width: 1024px) 45vw, 360px"
+                  loading="lazy"
+                  decoding="async"
                   className="object-cover"
                 />
               </div>

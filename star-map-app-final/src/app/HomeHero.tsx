@@ -92,8 +92,9 @@ export default function HomeHero() {
             <img
               src="/textures/star-map-hero/phone.webp"
               alt=""
+              loading="eager"
               fetchPriority="high"
-              decoding="async"
+              decoding="sync"
               width={1080}
               height={1920}
               className="hero-plan__bg-img"
