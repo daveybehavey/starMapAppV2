@@ -107,6 +107,32 @@ export class EntitlementAuthorityDO extends DurableObject {
     return this.readState(sessionId);
   }
 
+  /**
+   * Read-only backup export of the single stored authority row.
+   * Returns null when no row exists. Performs no storage writes, alarms,
+   * or other mutations — unlike getState, it never synthesizes an empty ledger.
+   */
+  async exportState(): Promise<EntitlementAuthorityState | null> {
+    const rows = this.ctx.storage.sql
+      .exec<AuthorityRow>(
+        "SELECT session_id, state_json, updated_at FROM entitlement_authority_state LIMIT 1",
+      )
+      .toArray();
+    if (rows.length === 0) return null;
+    const parsed = JSON.parse(rows[0].state_json) as EntitlementAuthorityState;
+    const sessionId =
+      parsed && typeof parsed.sessionId === "string" ? parsed.sessionId.trim() : "";
+    if (!sessionId) {
+      throw new Error("entitlement authority export state missing sessionId");
+    }
+    // Same fail-closed validation as readState; use the captured id in the
+    // error message so the negative type-predicate branch stays well-typed.
+    if (!isValidEntitlementAuthorityState(parsed)) {
+      throw new Error(`entitlement authority state malformed for ${sessionId}`);
+    }
+    return parsed;
+  }
+
   async apply(
     sessionId: string,
     op: EntitlementAuthorityOp,
