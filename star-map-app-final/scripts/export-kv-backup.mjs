@@ -8,7 +8,11 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // Broad stripe prefix preserves settlement/revocation/index records as well as grants.
-export const KEYSPACES = Object.freeze(['stripe:', 'claim:', 'entitlement:', 'print:order:']);
+// map: keeps render recipes (TTL preserved). gift-cert: keeps redemption records.
+// Deliberately excluded: account: (ephemeral credentials) and checkout_timing: (analytics).
+export const KEYSPACES = Object.freeze([
+  'stripe:', 'claim:', 'entitlement:', 'print:order:', 'map:', 'gift-cert:',
+]);
 const ACCOUNT = 'c5699cbcedce27a6ad755bdeb815f6de';
 const NAMESPACE = 'cdef6c5fa5cc4e52bfe105aa1ba37713';
 export const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
@@ -89,7 +93,7 @@ export async function exportSnapshot({ read, directory, now = () => new Date() }
     file = undefined;
     const manifest = {
       schemaVersion: 1, startedAt, completedAt: now().toISOString(),
-      scope: 'KV only; excludes Durable Object authority state, R2 assets and map recipes',
+      scope: 'KV only; excludes Durable Object authority state and R2 assets',
       consistency: 'Non-atomic enumeration; KV is eventually consistent; concurrent changes may be absent',
       counts, recordCount: Object.values(counts).reduce((a, b) => a + b, 0),
       snapshot: { file: 'records.jsonl', encoding: 'base64 values', bytes, sha256: digest.digest('hex') },
