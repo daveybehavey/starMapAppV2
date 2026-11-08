@@ -1,11 +1,19 @@
-/** Read-only KV export. Run from app root: node scripts/export-kv-backup.mjs
+/** Read-only KV + Durable Object authority export.
+ * Run from app root: node scripts/export-kv-backup.mjs
  * Requires existing CLOUDFLARE_API_KEY / CLOUDFLARE_EMAIL secret pattern.
+ * DO dump additionally needs STARMAP_DO_BACKUP_BASE_URL + PRINT_ADMIN_TOKEN.
  * Contains sensitive records: never print, commit, or publish snapshot contents.
  */
 import { createHash } from 'node:crypto';
 import { mkdir, open, rename, rm } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  censusDurableObjectClasses,
+  createDurableObjectsReader,
+  createOpsExportClient,
+  dumpBackupDurableObjects,
+} from './lib/durableObjectBackup.mjs';
 
 // Broad stripe prefix preserves settlement/revocation/index records as well as grants.
 export const KEYSPACES = Object.freeze(['stripe:', 'claim:', 'entitlement:', 'print:order:']);
@@ -43,7 +51,12 @@ export function createReader({ apiKey, email, fetchImpl = fetch }) {
   };
 }
 
-export async function exportSnapshot({ read, directory, now = () => new Date() }) {
+export async function exportSnapshot({
+  read,
+  directory,
+  now = () => new Date(),
+  doBackup = null,
+}) {
   const startedAt = now().toISOString();
   const stamp = startedAt.replace(/[:.]/g, '-');
   const destination = resolve(directory, `kv-${stamp}`);
@@ -87,12 +100,33 @@ export async function exportSnapshot({ read, directory, now = () => new Date() }
     await file.sync();
     await file.close();
     file = undefined;
+
+    let durableObjects = null;
+    if (doBackup) {
+      const census = await censusDurableObjectClasses({
+        read: doBackup.censusRead,
+      });
+      durableObjects = await dumpBackupDurableObjects({
+        stagingDirectory: staging,
+        census,
+        exportState: doBackup.exportState,
+        kvPrintOrderCount: counts['print:order:'],
+        now,
+      });
+    }
+
+    const scope = durableObjects
+      ? 'KV plus GiftCertificateGrantDO and PrintOrderAuthorityDO authority state; excludes other Durable Object classes, R2 assets and map recipes'
+      : 'KV only; Durable Object authority dump skipped (missing ops credentials); excludes R2 assets and map recipes';
+
     const manifest = {
-      schemaVersion: 1, startedAt, completedAt: now().toISOString(),
-      scope: 'KV only; excludes Durable Object authority state, R2 assets and map recipes',
-      consistency: 'Non-atomic enumeration; KV is eventually consistent; concurrent changes may be absent',
+      schemaVersion: durableObjects ? 2 : 1,
+      startedAt, completedAt: now().toISOString(),
+      scope,
+      consistency: 'Non-atomic enumeration; KV is eventually consistent; concurrent changes may be absent; DO census and exportState reads are point-in-time per instance',
       counts, recordCount: Object.values(counts).reduce((a, b) => a + b, 0),
       snapshot: { file: 'records.jsonl', encoding: 'base64 values', bytes, sha256: digest.digest('hex') },
+      ...(durableObjects ? { durableObjects } : {}),
     };
     const manifestFile = await open(resolve(staging, 'manifest.json'), 'wx', 0o600);
     try { await manifestFile.writeFile(JSON.stringify(manifest, null, 2) + '\n'); }
@@ -109,9 +143,46 @@ export async function exportSnapshot({ read, directory, now = () => new Date() }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     if (process.argv.length !== 2) throw new Error();
-    const read = createReader({ apiKey: process.env.CLOUDFLARE_API_KEY, email: process.env.CLOUDFLARE_EMAIL });
-    const manifest = await exportSnapshot({ read, directory: resolve(dirname(fileURLToPath(import.meta.url)), '../kv-backups') });
-    console.log(JSON.stringify({ recordCount: manifest.recordCount, sha256: manifest.snapshot.sha256 }));
+    const apiKey = process.env.CLOUDFLARE_API_KEY;
+    const email = process.env.CLOUDFLARE_EMAIL;
+    const read = createReader({ apiKey, email });
+    const baseUrl = process.env.STARMAP_DO_BACKUP_BASE_URL?.trim() || '';
+    const adminToken = process.env.PRINT_ADMIN_TOKEN?.trim() || '';
+    let doBackup = null;
+    if (baseUrl && adminToken) {
+      const censusRead = createDurableObjectsReader({ accountId: ACCOUNT, apiKey, email });
+      const exportState = createOpsExportClient({ baseUrl, adminToken });
+      doBackup = { censusRead, exportState };
+    }
+    const manifest = await exportSnapshot({
+      read,
+      directory: resolve(dirname(fileURLToPath(import.meta.url)), '../kv-backups'),
+      doBackup,
+    });
+    const summary = {
+      recordCount: manifest.recordCount,
+      sha256: manifest.snapshot.sha256,
+    };
+    if (manifest.durableObjects?.classes) {
+      summary.durableObjects = Object.fromEntries(
+        Object.entries(manifest.durableObjects.classes).map(([name, section]) => [
+          name,
+          { instanceCount: section.instanceCount, sha256: section.sha256 },
+        ]),
+      );
+      const recon = manifest.durableObjects.reconciliation?.PrintOrderAuthorityDO;
+      if (recon) {
+        summary.printOrderAuthorityReconciliation = {
+          censusInstanceCount: recon.censusInstanceCount,
+          kvPrintOrderCount: recon.kvPrintOrderCount,
+          matched: recon.matched,
+          finding: recon.finding,
+        };
+      }
+    } else {
+      summary.durableObjects = 'skipped';
+    }
+    console.log(JSON.stringify(summary));
   } catch {
     console.error('KV export failed. Check credentials, read access and connectivity; no artifact should be uploaded.');
     process.exitCode = 1;

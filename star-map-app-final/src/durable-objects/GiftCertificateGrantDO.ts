@@ -89,6 +89,30 @@ export class GiftCertificateGrantDO extends DurableObject {
     return this.readRow(entitlementSessionId);
   }
 
+  /**
+   * Read-only backup export: return the single stored grant row for this
+   * instance verbatim, or null when no row has been persisted yet.
+   * Does not synthesize an empty row, write storage, schedule alarms, or
+   * alter any existing publish/initialize/confirm behaviour.
+   */
+  async exportState(): Promise<{ state: GiftCertificateGrantRow | null }> {
+    const rows = this.ctx.storage.sql
+      .exec<GrantRow>(
+        "SELECT session_id, state_json, updated_at FROM gift_certificate_grant_state LIMIT 1",
+      )
+      .toArray();
+    if (rows.length === 0) {
+      return { state: null };
+    }
+    const parsed = JSON.parse(rows[0].state_json) as GiftCertificateGrantRow;
+    if (!isValidGiftCertificateGrantRow(parsed)) {
+      throw new Error(
+        `gift certificate grant state malformed for export (${rows[0].session_id})`,
+      );
+    }
+    return { state: parsed };
+  }
+
   async initialize(
     entitlementSessionId: string,
     input: { terms: GiftCertificateGrantTerms; now: number },
