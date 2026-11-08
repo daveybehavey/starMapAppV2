@@ -22,12 +22,18 @@ Files are created with owner-only local permissions; the directory is gitignored
 
 The covered prefixes are `stripe:` (including grants, settlement/revocation and
 indexes), `claim:`, `entitlement:` (including KV projections), and `print:order:`.
-This is not a whole-application disaster recovery backup: Durable Object authority
-journals/state, R2 archives/assets, map recipes and unrelated KV keyspaces are
-excluded. Current source uses Durable Objects as accounting/fulfillment authorities;
-KV projections alone cannot restore those authorities. KV enumeration is eventually
-consistent and non-atomic. Changes made during a run may be absent or inconsistent.
-A listed key disappearing before its read fails the export rather than being skipped.
+When `DO_BACKUP_BASE_URL` and `PRINT_ADMIN_TOKEN` are set, the same runner also
+performs a read-only slice-3 Durable Object dump for `ReferralDiscoveryDO`,
+`ConsistencyCoordinatorDO`, `ReviewRequestLedgerDO` (PII-bearing), and
+`ReviewRequestSuppressionDO` (census-only HMAC names). Instance lists come from
+the Cloudflare Workers durable-objects census API; state rows are fetched via the
+authenticated `/api/ops/do-backup/export` endpoint (`exportState()` RPC, no
+mutation). Per-class JSONL files and manifest counts/SHA-256 are written under the
+same `.partial` → rename staging rules (0700/0600). Manifests never include dump
+contents. Slices 1–2 DO classes, R2 archives/assets, map recipes and unrelated KV
+keyspaces remain excluded. KV enumeration is eventually consistent and non-atomic.
+Changes made during a run may be absent or inconsistent. A listed key disappearing
+before its read fails the export rather than being skipped.
 
 Artifacts contain customer data and credentials even though manifests/logs do not.
 Restrict access under the repository's artifact access controls. They expire after

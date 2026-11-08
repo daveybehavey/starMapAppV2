@@ -1,0 +1,37 @@
+{
+  "namespaces": {
+    "success": true,
+    "result": [
+      { "id": "ns-referral", "class": "ReferralDiscoveryDO", "name": "REFERRAL_DISCOVERY", "script": "star-map", "use_sqlite": true },
+      { "id": "ns-consistency", "class": "ConsistencyCoordinatorDO", "name": "CONSISTENCY_COORDINATOR", "script": "star-map", "use_sqlite": true },
+      { "id": "ns-ledger", "class": "ReviewRequestLedgerDO", "name": "REVIEW_REQUEST_LEDGER", "script": "star-map", "use_sqlite": true },
+      { "id": "ns-suppression", "class": "ReviewRequestSuppressionDO", "name": "REVIEW_REQUEST_SUPPRESSION", "script": "star-map", "use_sqlite": true }
+    ],
+    "result_info": { "page": 1, "per_page": 100, "total_pages": 1, "total_count": 4 }
+  },
+  "referralObjects": {
+    "success": true,
+    "result": [
+      { "id": "do-referral-a", "hasStoredData": true },
+      { "id": "do-referral-census-only", "hasStoredData": true }
+    ],
+    "result_info": { "cursor": "" }
+  },
+  "consistencyObjects": {
+    "success": true,
+    "result": [
+      { "id": "do-magic-a", "hasStoredData": true }
+    ],
+    "result_info": { "cursor": "" }
+  },
+  "ledgerEmpty": {
+    "success": true,
+    "result": [],
+    "result_info": { "cursor": "" }
+  },
+  "suppressionEmpty": {
+    "success": true,
+    "result": [],
+    "result_info": { "cursor": "" }
+  }
+}
