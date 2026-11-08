@@ -2,7 +2,6 @@ import Link from "next/link";
 import AccuracyAuthorityCard from "@/components/AccuracyAuthorityCard";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import { LandingViewTracker } from "@/components/analytics/LandingViewTracker";
-import ChristmasOrderByTable from "@/components/ChristmasOrderByTable";
 import DeliveryFormatModule from "@/components/DeliveryFormatModule";
 import FaqSchema from "@/components/FaqSchema";
 import FramedProofSection from "@/components/FramedProofSection";
@@ -297,7 +296,6 @@ export default function ValentinesDayPage() {
         <h2 className="text-midnight text-lg font-semibold">Delivery timing</h2>
         <p className="text-sm text-neutral-800 sm:text-base">{getPrintDeliveryEstimateExampleLine()}</p>
         <p className="text-sm text-neutral-800 sm:text-base">{getPrintUrgentHdUpsellLine()}</p>
-        <ChristmasOrderByTable />
       </section>
 
       <DeliveryFormatModule
