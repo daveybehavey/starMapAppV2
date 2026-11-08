@@ -101,7 +101,12 @@ class FakeSqlStorage {
 function fakeCtx(sql, name) {
   let alarmAt = null;
   return {
-    id: { name },
+    id: {
+      name,
+      toString() {
+        return `hex:${name || 'unnamed'}`;
+      },
+    },
     storage: {
       sql,
       async getAlarm() {

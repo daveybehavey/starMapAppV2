@@ -303,6 +303,34 @@ export class ReviewRequestLedgerDO extends DurableObject {
     return state;
   }
 
+  /**
+   * Read-only backup export (PII-bearing): return the stored ledger row
+   * verbatim without legacy migration writes or alarm sync. A missing
+   * row returns null rather than a synthesized empty state. This path
+   * must never count as a "touch" that re-arms alarms.
+   */
+  async exportState(): Promise<{
+    instanceId: string;
+    instanceName: string | null;
+    state: ReviewLedgerState | null;
+  }> {
+    const instanceId = this.ctx.id.toString();
+    const instanceName = this.ctx.id.name ?? null;
+    const key = (instanceName ?? "").trim();
+    if (!key) {
+      return { instanceId, instanceName, state: null };
+    }
+    const rows = this.ctx.storage.sql
+      .exec<LedgerRow>("SELECT * FROM review_request_ledger WHERE session_id = ? LIMIT 1", key)
+      .toArray();
+    if (rows.length === 0) {
+      return { instanceId, instanceName, state: null };
+    }
+    // Verbatim stored row (raw SELECT + rowToState). Do not migrate or
+    // touch alarms on this path.
+    return { instanceId, instanceName, state: rowToState(rows[0]) };
+  }
+
   async apply(sessionId: string, op: ReviewLedgerOp): Promise<ReviewLedgerApplyResult> {
     const current = this.loadState(sessionId);
     const result = applyReviewLedgerOp(current, op);

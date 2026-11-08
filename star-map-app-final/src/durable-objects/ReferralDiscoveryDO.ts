@@ -83,6 +83,41 @@ export class ReferralDiscoveryDO extends DurableObject {
     return this.readRow(referredSessionId);
   }
 
+  /**
+   * Read-only backup export: return the stored state row verbatim, or null
+   * when this instance has no persisted row. Does not write storage, does
+   * not arm/clear alarms, and does not synthesize a typed-absence empty row.
+   */
+  async exportState(): Promise<{
+    instanceId: string;
+    instanceName: string | null;
+    state: ReferralDiscoveryRow | null;
+  }> {
+    const instanceId = this.ctx.id.toString();
+    const instanceName = this.ctx.id.name ?? null;
+    const key = (instanceName ?? "").trim();
+    if (!key) {
+      return { instanceId, instanceName, state: null };
+    }
+    const rows = this.ctx.storage.sql
+      .exec<DiscoveryRowRecord>(
+        "SELECT referred_session_id, state_json, updated_at FROM referral_discovery_state WHERE referred_session_id = ? LIMIT 1",
+        key,
+      )
+      .toArray();
+    if (rows.length === 0) {
+      return { instanceId, instanceName, state: null };
+    }
+    const parsed = JSON.parse(rows[0].state_json) as ReferralDiscoveryRow;
+    if (!parsed || parsed.referredSessionId !== key) {
+      throw new Error(`referral discovery state mismatch for ${key}`);
+    }
+    if (!isValidReferralDiscoveryRow(parsed)) {
+      throw new Error(`referral discovery state malformed for ${key}`);
+    }
+    return { instanceId, instanceName, state: parsed };
+  }
+
   async register(
     referredSessionId: string,
     input: { referrerSessionId: string; grantId: string; now: number },

@@ -170,6 +170,23 @@ export class ConsistencyCoordinatorDO extends DurableObject {
     );
   }
 
+  /**
+   * Read-only backup export: return the stored coordinator document
+   * verbatim, or null when absent. No storage writes, no alarm
+   * arm/clear, no provider calls, no behaviour change on any other RPC.
+   */
+  async exportState(): Promise<{
+    instanceId: string;
+    instanceName: string | null;
+    state: AnyCoordinatorState | null;
+  }> {
+    return {
+      instanceId: this.ctx.id.toString(),
+      instanceName: this.ctx.id.name ?? null,
+      state: this.readDocument(),
+    };
+  }
+
   private readKind<K extends AnyCoordinatorState["kind"]>(
     kind: K,
   ): Extract<AnyCoordinatorState, { kind: K }> | null {

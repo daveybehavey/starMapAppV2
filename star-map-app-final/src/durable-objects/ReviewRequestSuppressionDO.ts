@@ -133,6 +133,25 @@ export class ReviewRequestSuppressionDO extends DurableObject {
     return { suppressed: (row?.suppressed ?? 0) === 1 };
   }
 
+  /**
+   * Read-only backup export: return the stored suppression row verbatim
+   * (or null when absent). Must NOT invoke check()/minimize()/dispatch(),
+   * must not arm or clear alarms, and must never call the email provider.
+   * Instance names are secret-keyed HMACs (deriveReviewSuppressionName);
+   * the platform-API census is the sole complete enumeration for this class.
+   */
+  async exportState(): Promise<{
+    instanceId: string;
+    instanceName: string | null;
+    state: SuppressionRow | null;
+  }> {
+    return {
+      instanceId: this.ctx.id.toString(),
+      instanceName: this.ctx.id.name ?? null,
+      state: this.readRow(),
+    };
+  }
+
   async record(input: { source: string; now: number }): Promise<{ suppressed: boolean }> {
     const existing = this.readRow();
     if (existing && existing.suppressed === 1) {
