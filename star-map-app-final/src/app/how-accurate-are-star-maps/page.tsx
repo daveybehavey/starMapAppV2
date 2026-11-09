@@ -86,13 +86,13 @@ export default function HowAccurateAreStarMapsPage() {
       name: "StarMapCo",
       logo: {
         "@type": "ImageObject",
-        url: `${siteUrl}/favicon.ico`,
+        url: `${siteUrl}/icon-512.png`,
       },
     },
     mainEntityOfPage: pageUrl,
     datePublished: "2026-03-13",
     dateModified: "2026-03-13",
-    image: `${siteUrl}/og-default.png`,
+    image: `${siteUrl}/custom-star-map-anniversary.webp`,
   };
 
   return (

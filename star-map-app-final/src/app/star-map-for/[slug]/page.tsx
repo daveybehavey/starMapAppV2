@@ -328,7 +328,7 @@ export default async function StarMapForOccasionPage({ params }: PageProps) {
       </section>
 
       <FaqSchema items={occasion.faqs} />
-      <StorefrontProductSchema name={getOccasionPageH1(occasion)} siteUrl={siteUrl} />
+      <StorefrontProductSchema name={getOccasionPageH1(occasion)} siteUrl={siteUrl} pagePath={`/star-map-for/${occasion.slug}`} />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>
   );

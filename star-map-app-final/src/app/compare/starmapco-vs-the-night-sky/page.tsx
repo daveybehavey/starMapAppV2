@@ -173,13 +173,13 @@ export default function StarMapCoVsTheNightSkyPage() {
       name: "StarMapCo",
       logo: {
         "@type": "ImageObject",
-        url: `${siteUrl}/favicon.ico`,
+        url: `${siteUrl}/icon-512.png`,
       },
     },
     mainEntityOfPage: pageUrl,
     datePublished: "2026-10-26",
     dateModified: "2026-10-26",
-    image: `${siteUrl}/og-default.png`,
+    image: `${siteUrl}/custom-star-map-anniversary.webp`,
   };
 
   return (

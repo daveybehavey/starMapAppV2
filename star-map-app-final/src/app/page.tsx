@@ -153,7 +153,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             price: schemaPrice,
             priceValidUntil,
             availability: "https://schema.org/InStock",
-            url: `${siteUrl}/editor?mode=quick&source=home-schema-digital`,
+            url: `${siteUrl}/`,
           },
           ...(printCheckoutEnabled
             ? [
@@ -164,7 +164,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                   price: (printTiers.poster_unframed.amountCents / 100).toFixed(2),
                   priceValidUntil,
                   availability: "https://schema.org/InStock",
-                  url: `${siteUrl}/editor?mode=quick&source=home-schema-print-unframed`,
+                  url: `${siteUrl}/`,
                 },
                 {
                   "@type": "Offer" as const,
@@ -173,7 +173,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                   price: (printTiers.poster_unframed_16x16.amountCents / 100).toFixed(2),
                   priceValidUntil,
                   availability: "https://schema.org/InStock",
-                  url: `${siteUrl}/editor?mode=quick&source=home-schema-print-unframed-16x16&checkout=print&print_variant=poster_unframed_16x16`,
+                  url: `${siteUrl}/`,
                 },
                 {
                   "@type": "Offer" as const,
@@ -182,7 +182,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                   price: (printTiers.poster_framed.amountCents / 100).toFixed(2),
                   priceValidUntil,
                   availability: "https://schema.org/InStock",
-                  url: `${siteUrl}/editor?mode=quick&source=home-schema-print-framed`,
+                  url: `${siteUrl}/`,
                 },
               ]
             : []),

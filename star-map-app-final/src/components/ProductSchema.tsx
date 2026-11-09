@@ -10,9 +10,33 @@ type ProductSchemaProps = {
   description: string;
   imageUrl: string;
   offers: ProductOffer[];
+  /**
+   * Indexable landing URL for Offer.url when an offer still points at /editor
+   * (robots-disallowed). Prefer passing the page's self-canonical URL.
+   */
+  offerLandingUrl?: string;
 };
 
-export default function ProductSchema({ name, description, imageUrl, offers }: ProductSchemaProps) {
+function resolveOfferUrl(offerUrl: string, offerLandingUrl?: string) {
+  if (!offerLandingUrl) return offerUrl;
+  try {
+    const parsed = new URL(offerUrl, offerLandingUrl);
+    if (parsed.pathname === "/editor" || parsed.pathname.startsWith("/editor/")) {
+      return offerLandingUrl;
+    }
+  } catch {
+    if (offerUrl.includes("/editor")) return offerLandingUrl;
+  }
+  return offerUrl;
+}
+
+export default function ProductSchema({
+  name,
+  description,
+  imageUrl,
+  offers,
+  offerLandingUrl,
+}: ProductSchemaProps) {
   if (!offers.length) return null;
 
   const priceValidUntil = (() => {
@@ -36,7 +60,7 @@ export default function ProductSchema({ name, description, imageUrl, offers }: P
       price: offer.price,
       priceValidUntil,
       availability: "https://schema.org/InStock",
-      url: offer.url,
+      url: resolveOfferUrl(offer.url, offerLandingUrl),
     })),
   };
 

@@ -404,6 +404,7 @@ export default function StarMapGeneratorPage() {
         description="Free star map generator for any date and location. Preview the exact night sky for free, then choose framed print, unframed poster, or HD digital download."
         imageUrl={`${siteUrl}/custom-star-map-anniversary.webp`}
         offers={productOffers}
+        offerLandingUrl={`${siteUrl}/star-map-generator`}
       />
       <FaqSchema
         items={[
@@ -420,7 +421,7 @@ export default function StarMapGeneratorPage() {
           {
             question: "Is this star map generator free?",
             answer:
-              "Yes — the preview is free and requires no account. HD downloads and physical prints are paid upgrades after you approve the design.",
+              "Yes — the preview is free and requires no account. HD downloads and physical prints are paid upgrades after you approve the design. We do not offer free PDF or wallpaper downloads.",
           },
           {
             question: "Can I generate a birthday star map?",
@@ -430,7 +431,7 @@ export default function StarMapGeneratorPage() {
           {
             question: "How do I generate a star map for an anniversary?",
             answer:
-              "Enter the anniversary date and the location where the moment happened. The generator shows the actual sky from that night. You can add names and a message, then order a framed print or HD digital.",
+              "Enter the anniversary date and the location where the moment happened — a wedding venue, the city where you met, or anywhere meaningful. The generator shows the actual sky from that night. You can add names and a message, then order a framed print or HD digital.",
           },
           {
             question: "Can I customize the star map after generating it?",

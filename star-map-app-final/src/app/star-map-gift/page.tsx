@@ -280,7 +280,7 @@ export default function StarMapGiftPage() {
         </div>
       </section>
       <FaqSchema items={faqItems} />
-      <StorefrontProductSchema name="Personalized star map gift" siteUrl={siteUrl} />
+      <StorefrontProductSchema name="Personalized star map gift" siteUrl={siteUrl} pagePath="/star-map-gift" />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>
   );

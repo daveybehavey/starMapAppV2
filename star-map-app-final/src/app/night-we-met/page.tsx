@@ -378,6 +378,7 @@ export default function NightWeMetPage() {
         description="Personalized star map of the night you met — the exact sky from the date and place where you met. Order a framed print, unframed poster, or HD digital download."
         imageUrl={`${siteUrl}/examples/example-night-we-met-vancouver-2025.webp`}
         offers={productOffers}
+        offerLandingUrl={`${siteUrl}/night-we-met`}
       />
       <FaqSchema items={[...nightWeMetFaqItems]} />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />

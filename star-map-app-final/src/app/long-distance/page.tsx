@@ -418,6 +418,7 @@ export default function LongDistancePage() {
         description="Personalized long-distance star map showing the exact night sky from a shared date and place. Order a framed print, unframed poster, or HD digital download."
         imageUrl={`${siteUrl}/custom-star-map-anniversary.webp`}
         offers={productOffers}
+        offerLandingUrl={`${siteUrl}/long-distance`}
       />
       <FaqSchema items={[...longDistanceFaqItems]} />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
