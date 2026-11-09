@@ -56,7 +56,7 @@ export default function RedeemClient() {
             autoComplete="off"
             autoCapitalize="characters"
             spellCheck={false}
-            className="mt-2 w-full rounded-lg border border-white/20 bg-white/10 px-3 py-3 font-mono text-base tracking-[0.15em] text-white uppercase placeholder:text-neutral-500"
+            className="mt-2 w-full rounded-lg border border-white/20 bg-white/10 px-3 py-3 font-mono text-base tracking-[0.15em] text-white uppercase placeholder:text-neutral-500 focus:border-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-300/50"
           />
         </label>
         {error ? (
@@ -65,14 +65,14 @@ export default function RedeemClient() {
           </p>
         ) : null}
         {redeemedLabel ? (
-          <p className="text-sm text-emerald-300">
+          <p role="status" aria-live="polite" className="text-sm text-emerald-300">
             {redeemedLabel} added — taking you to your download…
           </p>
         ) : null}
         <button
           type="submit"
           disabled={busy || !code.trim()}
-          className="text-midnight inline-flex min-h-11 w-full items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent focus:outline-none disabled:cursor-wait disabled:opacity-70"
+          className="btn-focus text-midnight inline-flex min-h-11 w-full items-center justify-center rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 px-5 py-3 text-sm font-semibold shadow-lg shadow-amber-200 transition hover:-translate-y-[1px] hover:shadow-xl focus:ring-2 focus:ring-amber-200 focus:ring-offset-2 focus:ring-offset-transparent focus:outline-none disabled:cursor-wait disabled:opacity-70"
         >
           {busy ? "Redeeming…" : "Redeem and create my star map"}
         </button>

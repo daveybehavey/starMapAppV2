@@ -243,10 +243,14 @@ export default function MyDownloadsClient() {
               HD download links directly.
             </p>
             {view === "claiming" && (
-              <p className="mt-3 text-xs text-amber-100/80">Verifying your secure sign-in link…</p>
+              <p role="status" aria-live="polite" className="mt-3 text-xs text-amber-100/80">
+                Verifying your secure sign-in link…
+              </p>
             )}
             {errorMessage && (
-              <p className="mt-3 text-xs text-rose-200">{errorMessage}</p>
+              <p role="alert" className="mt-3 text-xs text-rose-200">
+                {errorMessage}
+              </p>
             )}
           </section>
 
@@ -275,18 +279,23 @@ export default function MyDownloadsClient() {
                   }}
                   placeholder="you@email.com"
                   autoComplete="email"
+                  aria-label="Email address"
                   className="min-w-0 flex-1 rounded-full border border-white/20 bg-white px-3 py-2 text-sm text-midnight placeholder:text-neutral-500 focus:border-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-300/50"
                 />
                 <button
                   type="submit"
                   disabled={magicStatus === "sending"}
-                  className="rounded-full border border-amber-200 bg-amber-400/20 px-4 py-2 text-sm font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-400/30 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="btn-focus rounded-full border border-amber-200 bg-amber-400/20 px-4 py-2 text-sm font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-400/30 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {magicStatus === "sending" ? "Sending..." : "Send sign-in link"}
                 </button>
               </form>
               {magicMessage && (
-                <p className={`mt-3 text-xs ${magicStatus === "sent" ? "text-emerald-200" : "text-rose-200"}`}>
+                <p
+                  role={magicStatus === "error" ? "alert" : "status"}
+                  aria-live="polite"
+                  className={`mt-3 text-xs ${magicStatus === "sent" ? "text-emerald-200" : "text-rose-200"}`}
+                >
                   {magicMessage}
                 </p>
               )}
@@ -304,7 +313,7 @@ export default function MyDownloadsClient() {
                   type="button"
                   onClick={() => void handleLogout()}
                   disabled={logoutLoading}
-                  className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-amber-100 transition hover:border-white/40 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="btn-focus rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-amber-100 transition hover:border-white/40 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {logoutLoading ? "Signing out..." : "Sign out"}
                 </button>
@@ -330,7 +339,7 @@ export default function MyDownloadsClient() {
                     <article key={item.sessionId} className="rounded-xl border border-white/12 bg-white/8 p-4">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div>
-                          <p className="text-sm font-semibold text-white">{item.label}</p>
+                          <h3 className="text-sm font-semibold text-white">{item.label}</h3>
                           <p className="mt-0.5 text-xs text-amber-100/80">
                             {planLabel(item)} • {formatDate(item.createdAt)}
                           </p>
@@ -346,14 +355,14 @@ export default function MyDownloadsClient() {
                                   print_variant: item.printVariant ?? undefined,
                                 });
                               }}
-                              className="rounded-full border border-amber-200 bg-amber-400/20 px-3 py-2 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-400/30"
+                              className="btn-focus rounded-full border border-amber-200 bg-amber-400/20 px-3 py-2 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-400/30"
                             >
                               Open download
                             </a>
                             <button
                               type="button"
                               onClick={() => void handleCopySessionLink(item)}
-                              className="rounded-full border border-white/25 bg-white/10 px-3 py-2 text-[11px] font-semibold text-amber-100/90 transition hover:border-white/45 hover:bg-white/15"
+                              className="btn-focus rounded-full border border-white/25 bg-white/10 px-3 py-2 text-[11px] font-semibold text-amber-100/90 transition hover:border-white/45 hover:bg-white/15"
                             >
                               {copiedSessionId === item.sessionId ? "Link copied" : "Copy secure link"}
                             </button>
@@ -384,7 +393,7 @@ export default function MyDownloadsClient() {
                                   plan: item.plan ?? undefined,
                                 });
                               }}
-                              className="inline-flex rounded-full border border-amber-200/60 bg-amber-300/15 px-3 py-1.5 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/25"
+                              className="btn-focus inline-flex rounded-full border border-amber-200/60 bg-amber-300/15 px-3 py-1.5 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/25"
                             >
                               Create map first
                             </Link>
@@ -400,7 +409,7 @@ export default function MyDownloadsClient() {
                                 credits_remaining: item.creditsRemaining ?? undefined,
                               });
                             }}
-                            className="inline-flex rounded-full border border-amber-200/60 bg-amber-300/15 px-3 py-1.5 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/25"
+                            className="btn-focus inline-flex rounded-full border border-amber-200/60 bg-amber-300/15 px-3 py-1.5 text-[11px] font-semibold text-amber-100 transition hover:-translate-y-[1px] hover:bg-amber-300/25"
                           >
                             Create next map
                           </Link>
@@ -408,13 +417,17 @@ export default function MyDownloadsClient() {
                       )}
                     </article>
                   ))}
-                  {copyLinkError && <p className="text-xs text-rose-200">{copyLinkError}</p>}
+                  {copyLinkError && (
+                    <p role="alert" className="text-xs text-rose-200">
+                      {copyLinkError}
+                    </p>
+                  )}
                 </div>
               )}
               <div className="mt-4 flex flex-wrap gap-2">
                 <Link
                   href="/download"
-                  className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-white transition hover:border-white/40 hover:bg-white/15"
+                  className="btn-focus rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-white transition hover:border-white/40 hover:bg-white/15"
                 >
                   Go to download page
                 </Link>

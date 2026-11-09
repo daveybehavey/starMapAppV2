@@ -253,7 +253,8 @@ test("U15: LocationSearch colours meet 4.5:1 on the editor navy stops", () => {
   assert.ok(contrastRatio([82, 82, 82], NAVY_LIGHT) < 4.5);
   assert.ok(contrastRatio([64, 64, 64], NAVY_LIGHT) < 4.5);
   const source = read("src/components/LocationSearch.tsx");
-  assert.match(source, /<label className="text-sm font-medium text-white">Location<\/label>/);
+  // Label may carry htmlFor for a11y association; contrast pin is text-white.
+  assert.match(source, /<label(?:\s[^>]*)?\sclassName="text-sm font-medium text-white"[^>]*>\s*Location\s*<\/label>/);
   assert.match(source, /Timezone: <span className="font-semibold text-white">/);
 });
 
