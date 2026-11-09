@@ -386,7 +386,9 @@ export default function HomeStaticSections({ priceLabels, promoStatus, promoCode
                     alt={`${item.occasion} · ${item.renderMode}`}
                     width={900}
                     height={675}
-                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    sizes="(max-width: 640px) 92vw, (max-width: 1024px) 45vw, 360px"
+                    loading="lazy"
+                    decoding="async"
                     className="h-full w-full object-cover transition-all duration-500 group-hover:scale-105 group-hover:brightness-105"
                   />
                 </div>

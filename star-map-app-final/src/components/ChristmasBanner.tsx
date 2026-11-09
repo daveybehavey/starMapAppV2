@@ -46,7 +46,7 @@ export default function ChristmasBanner({ nowMs }: Props = {}) {
         <Link
           href={content.ctaHref}
           prefetch={false}
-          className="inline-flex shrink-0 items-center rounded-full border border-amber-300/50 bg-amber-400/20 px-3 py-1 text-[11px] font-semibold text-amber-100 transition hover:bg-amber-400/30"
+          className="btn-focus inline-flex shrink-0 items-center rounded-full border border-amber-300/50 bg-amber-400/20 px-3 py-1 text-[11px] font-semibold text-amber-100 transition hover:bg-amber-400/30"
         >
           {content.ctaLabel}
         </Link>

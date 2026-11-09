@@ -34,7 +34,7 @@ export default function SiteTopNav() {
         <Link
           href="/"
           prefetch={false}
-          className="inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold tracking-wide text-[#f8e8bf] sm:text-base"
+          className="focus-ring inline-flex shrink-0 items-center gap-1.5 rounded-sm text-sm font-semibold tracking-wide text-[#f8e8bf] sm:text-base"
         >
           {isHome ? (
             <svg className="h-3.5 w-3.5 text-[#f7c24a]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -51,7 +51,7 @@ export default function SiteTopNav() {
             <Link
               href="/shop"
               prefetch={false}
-              className="whitespace-nowrap rounded-full px-2.5 py-1 text-amber-100 transition hover:bg-white/10 sm:px-3 sm:py-1.5"
+              className="focus-ring whitespace-nowrap rounded-full px-2.5 py-1 text-amber-100 transition hover:bg-white/10 sm:px-3 sm:py-1.5"
             >
               Shop
             </Link>
@@ -59,14 +59,14 @@ export default function SiteTopNav() {
           <Link
             href="/star-map-gallery"
             prefetch={false}
-            className="hidden whitespace-nowrap rounded-full px-2.5 py-1 text-white/85 transition hover:bg-white/10 sm:inline-flex sm:px-3 sm:py-1.5"
+            className="focus-ring hidden whitespace-nowrap rounded-full px-2.5 py-1 text-white/85 transition hover:bg-white/10 sm:inline-flex sm:px-3 sm:py-1.5"
           >
             Gallery
           </Link>
           <Link
             href="/how-to-print-star-map"
             prefetch={false}
-            className="hidden whitespace-nowrap rounded-full px-3 py-1 text-white/85 transition hover:bg-white/10 sm:py-1.5 md:inline-flex"
+            className="focus-ring hidden whitespace-nowrap rounded-full px-3 py-1 text-white/85 transition hover:bg-white/10 sm:py-1.5 md:inline-flex"
           >
             Print guide
           </Link>
@@ -75,8 +75,8 @@ export default function SiteTopNav() {
             prefetch={false}
             className={
               isHome
-                ? "whitespace-nowrap rounded-md border border-[#f7c24a]/80 bg-transparent px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-[#f7c24a] transition hover:bg-[#f7c24a]/10 sm:px-3 sm:py-1.5 sm:text-xs"
-                : "whitespace-nowrap rounded-full border border-amber-400/50 bg-amber-400/15 px-2.5 py-1 text-amber-100 transition hover:bg-amber-400/25 sm:px-3 sm:py-1.5"
+                ? "btn-focus whitespace-nowrap rounded-md border border-[#f7c24a]/80 bg-transparent px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-[#f7c24a] transition hover:bg-[#f7c24a]/10 sm:px-3 sm:py-1.5 sm:text-xs"
+                : "btn-focus whitespace-nowrap rounded-full border border-amber-400/50 bg-amber-400/15 px-2.5 py-1 text-amber-100 transition hover:bg-amber-400/25 sm:px-3 sm:py-1.5"
             }
           >
             Create map
