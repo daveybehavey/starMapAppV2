@@ -1,6 +1,7 @@
 // @ts-expect-error `.open-next/worker.js` is generated at OpenNext build time
 import { default as handler } from "./.open-next/worker.js";
 import * as Sentry from "@sentry/cloudflare";
+import { withWorkerSecurityHeaders } from "./src/lib/workerSecurityHeaders";
 import { runScheduledReviewRequestTick } from "./src/lib/reviewRequestRuntime";
 import { runScheduledPrintOrderHoldSweep } from "./src/lib/printOrderHoldSweepRuntime";
 import { runScheduledPrintOrderReviewSweep } from "./src/lib/printOrderReviewSweepRuntime";
@@ -81,7 +82,9 @@ export const GiftCertificateGrantDO = Sentry.instrumentDurableObjectWithSentry(
 );
 
 const workerHandler = {
-  fetch: handler.fetch,
+  async fetch(request, env, ctx) {
+    return withWorkerSecurityHeaders(await handler.fetch(request, env, ctx));
+  },
   // Review-request engine tick (T1). INERT unless REVIEW_REQUESTS_ENABLED is
   // set to "true" in the Worker environment at activation time — the flag is
   // deliberately not in wrangler.toml [vars]. The tick is total (per-record
