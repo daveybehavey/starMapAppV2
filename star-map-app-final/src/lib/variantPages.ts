@@ -173,13 +173,6 @@ export function buildVariantPageMetadata(offer: ResolvedVariantOffer): Metadata 
  * (identifier_exists=no in the feed).
  */
 export function buildVariantProductSchema(offer: ResolvedVariantOffer) {
-  const now = new Date();
-  const priceValidUntil = new Date(
-    Date.UTC(now.getUTCFullYear() + 1, now.getUTCMonth(), now.getUTCDate())
-  )
-    .toISOString()
-    .slice(0, 10);
-
   return {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -195,7 +188,6 @@ export function buildVariantProductSchema(offer: ResolvedVariantOffer) {
       url: offer.canonicalUrl,
       price: (offer.amountCents / 100).toFixed(2),
       priceCurrency: offer.currency,
-      priceValidUntil,
       availability: "https://schema.org/InStock",
       itemCondition: "https://schema.org/NewCondition",
     },
