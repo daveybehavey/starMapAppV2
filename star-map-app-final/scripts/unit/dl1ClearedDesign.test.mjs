@@ -58,9 +58,11 @@ const {
   applyEntitlementAuthorityOp,
   buildEntitlementAuthorityProjection,
   createEmptyEntitlementAuthorityState,
+  derivePurchasedFold,
   deriveRemainingAllowance,
   deriveSignedPurchasedPosition,
   evaluateDeliveryEligibility,
+  isOwnedUnderValidEntitlement,
   isValidEntitlementAuthorityState,
   journalHeadOf,
   pendingGrantsOf,
@@ -2036,4 +2038,94 @@ test("RG3-F6: included settlement preserves the terminal-obligation citation —
     settledInclusionsOf(immediate.state)["cs_rg3f6b"].terminalObligation,
     { referredSessionId: "cs_rg3f6b", lineageRef: "lin-rg3f6b", recordedAt: NOW - 2_000 },
   );
+});
+
+/* ---------------- A2 gate fix (2026-11-09): compensation voids delivery ---------------- */
+
+test("A2-1: compensate_debit restores the allowance AND voids delivery of the compensated artifact (double benefit closed)", () => {
+  let s = seeded(); // opening 2 (allowance 3 − legacy spent 1), bucket 0
+  assert.equal(deriveRemainingAllowance(s), 2);
+  s = applyEntitlementAuthorityOp(s, commitOp("art-keep", { consumeToken: "ct-keep" })).state;
+  s = applyEntitlementAuthorityOp(s, commitOp("art-x", { consumeToken: "ct-x" })).state;
+  assert.equal(deriveRemainingAllowance(s), 0);
+  assert.deepEqual(evaluateDeliveryEligibility(s, "art-x"), { ok: true });
+
+  const comp = applyEntitlementAuthorityOp(s, {
+    type: "compensate_debit",
+    consumeToken: "ct-x",
+    now: NOW + 1,
+  });
+  assert.equal(comp.outcome, "compensated");
+  s = comp.state;
+  // (a) The customer is still made whole: the restored credit is
+  // spendable again (compensation behaviour unchanged).
+  assert.equal(deriveRemainingAllowance(s), 1);
+  // (b) The compensated artifact itself is no longer deliverable: the
+  // credit came back, so the file does not also stay — no double
+  // benefit. Pre-fix this assertion fails (eligibility stays ok).
+  assert.deepEqual(evaluateDeliveryEligibility(s, "art-x"), {
+    ok: false,
+    reason: "not_owned",
+  });
+  assert.equal(isOwnedUnderValidEntitlement(s, "art-x"), false);
+  // The void is per-entry: the uncompensated artifact stays
+  // deliverable, and the compensated entry itself is retained in the
+  // journal (its portions still fold), flagged.
+  assert.deepEqual(evaluateDeliveryEligibility(s, "art-keep"), { ok: true });
+  assert.equal(s.ownedFiles["art-x"].deliveryVoidedByCompensation, true);
+  reload(s);
+});
+
+test("A2-2: never-expire pin — owned, non-compensated artifacts at zero balance stay deliverable", () => {
+  let s = seeded();
+  s = applyEntitlementAuthorityOp(s, commitOp("art-1", { consumeToken: "ct-1" })).state;
+  s = applyEntitlementAuthorityOp(s, commitOp("art-2", { consumeToken: "ct-2" })).state;
+  assert.equal(deriveRemainingAllowance(s), 0);
+  // DL-1 invariant: paid downloads never expire — eligibility must
+  // NOT consult the (zero) balance for ordinary owned artifacts.
+  assert.deepEqual(evaluateDeliveryEligibility(s, "art-1"), { ok: true });
+  assert.deepEqual(evaluateDeliveryEligibility(s, "art-2"), { ok: true });
+});
+
+test("A2-3: replay pin — a second compensate_debit for the same token changes nothing", () => {
+  let s = seeded();
+  s = applyEntitlementAuthorityOp(s, commitOp("art-x", { consumeToken: "ct-x" })).state;
+  const comp = applyEntitlementAuthorityOp(s, {
+    type: "compensate_debit",
+    consumeToken: "ct-x",
+    now: NOW + 1,
+  });
+  assert.equal(comp.outcome, "compensated");
+  const again = applyEntitlementAuthorityOp(comp.state, {
+    type: "compensate_debit",
+    consumeToken: "ct-x",
+    now: NOW + 2,
+  });
+  assert.equal(again.outcome, "already_compensated");
+  assert.equal(journalHeadOf(again.state), journalHeadOf(comp.state));
+  assert.equal(
+    deriveRemainingAllowance(again.state),
+    deriveRemainingAllowance(comp.state),
+  );
+  assert.deepEqual(evaluateDeliveryEligibility(again.state, "art-x"), {
+    ok: false,
+    reason: "not_owned",
+  });
+});
+
+test("A2-4: fold pin — purchased fold figures are the pre-fix machine's for the same op sequence", () => {
+  let s = seeded();
+  assert.equal(derivePurchasedFold(s), 0);
+  s = applyEntitlementAuthorityOp(s, commitOp("art-x", { consumeToken: "ct-x" })).state;
+  assert.equal(derivePurchasedFold(s), -1); // gross purchased portion 1, nothing restored
+  assert.equal(deriveSignedPurchasedPosition(s), 1);
+  s = applyEntitlementAuthorityOp(s, {
+    type: "compensate_debit",
+    consumeToken: "ct-x",
+    now: NOW + 1,
+  }).state;
+  // The delivery-void flag must not perturb the accounting: the
+  // restored portion folds back exactly as the pre-fix machine's did.
+  assert.equal(derivePurchasedFold(s), 0);
+  assert.equal(deriveSignedPurchasedPosition(s), 2);
 });
