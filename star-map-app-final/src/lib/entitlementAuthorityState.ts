@@ -2202,8 +2202,10 @@ function commit(
 
   // The ledger is the idempotency mechanism: re-committing an owned
   // artifact (double-click, refresh, second device, A→B→retry-A) never
-  // re-debits, whatever token or order the retry arrives in.
-  if (state.ownedFiles[op.artifactId]) {
+  // re-debits, whatever token or order the retry arrives in. Compensation
+  // voids delivery, so a voided entry must pass the normal purchase checks.
+  const existing = state.ownedFiles[op.artifactId];
+  if (existing && existing.deliveryVoidedByCompensation !== true) {
     return result(state, false, "already_owned");
   }
 

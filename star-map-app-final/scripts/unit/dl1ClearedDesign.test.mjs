@@ -2129,3 +2129,84 @@ test("A2-4: fold pin — purchased fold figures are the pre-fix machine's for th
   assert.equal(derivePurchasedFold(s), 0);
   assert.equal(deriveSignedPurchasedPosition(s), 2);
 });
+
+function repurchaseCompensated(s) {
+  const bought = applyEntitlementAuthorityOp(s, commitOp("art-rp", { consumeToken: "ct-rp" }));
+  assert.equal(bought.outcome, "committed");
+  const compensated = applyEntitlementAuthorityOp(bought.state, {
+    type: "compensate_debit", consumeToken: "ct-rp", now: NOW + 1,
+  });
+  assert.equal(compensated.outcome, "compensated");
+  assert.equal(deriveRemainingAllowance(compensated.state), deriveRemainingAllowance(s));
+  assert.equal(compensated.state.ownedFiles["art-rp"].deliveryVoidedByCompensation, true);
+  return compensated.state;
+}
+
+test("RP-1: compensated artifact can be purchased again with exactly one debit", () => {
+  const s = repurchaseCompensated(seeded());
+  const r = applyEntitlementAuthorityOp(s, commitOp("art-rp", {
+    consumeToken: "ct-rp-new", now: NOW + 2,
+  }));
+  assert.equal(r.outcome, "committed");
+  assert.equal(r.changed, true);
+  assert.equal(deriveRemainingAllowance(r.state), deriveRemainingAllowance(s) - 1);
+  assert.equal(r.state.ownedFiles["art-rp"].deliveryVoidedByCompensation, undefined);
+  assert.equal(r.state.ownedFiles["art-rp"].consumeToken, "ct-rp-new");
+  assert.deepEqual(evaluateDeliveryEligibility(r.state, "art-rp"), { ok: true });
+  const retry = applyEntitlementAuthorityOp(r.state, commitOp("art-rp"));
+  assert.equal(retry.outcome, "already_owned");
+  assert.deepEqual(retry.state, r.state);
+});
+
+test("RP-2: uncompensated artifact remains idempotent with no second debit", () => {
+  const s = applyEntitlementAuthorityOp(seeded(), commitOp("art-rp")).state;
+  const retry = applyEntitlementAuthorityOp(s, commitOp("art-rp", { consumeToken: "other" }));
+  assert.equal(retry.outcome, "already_owned");
+  assert.equal(retry.changed, false);
+  assert.deepEqual(retry.state, s);
+  assert.equal(deriveRemainingAllowance(retry.state), 1);
+});
+
+test("RP-3: compensated artifact stays undeliverable before re-purchase", () => {
+  const s = repurchaseCompensated(seeded());
+  assert.deepEqual(evaluateDeliveryEligibility(s, "art-rp"), { ok: false, reason: "not_owned" });
+  const r = applyEntitlementAuthorityOp(s, commitOp("art-rp", { finalized: false }));
+  assert.equal(r.refusal, "not_finalized");
+  assert.deepEqual(r.state, s);
+});
+
+test("RP-4: re-purchase requires available credit and leaves refused entry voided", () => {
+  let s = repurchaseCompensated(seeded());
+  for (const id of ["art-other-1", "art-other-2"]) {
+    const r = applyEntitlementAuthorityOp(s, commitOp(id));
+    assert.equal(r.outcome, "committed");
+    s = r.state;
+  }
+  assert.equal(deriveRemainingAllowance(s), 0);
+  const r = applyEntitlementAuthorityOp(s, commitOp("art-rp"));
+  assert.equal(r.outcome, "refused");
+  assert.equal(r.refusal, "no_credits");
+  assert.deepEqual(r.state, s);
+  assert.equal(r.state.ownedFiles["art-rp"].deliveryVoidedByCompensation, true);
+});
+
+test("RP-5: purchase, compensation and re-purchase survive serialization and fold", () => {
+  let s = reload(seeded());
+  s = reload(applyEntitlementAuthorityOp(s, commitOp("art-rp", { consumeToken: "ct-rp" })).state);
+  assert.equal(derivePurchasedFold(s), -1);
+  assert.deepEqual(evaluateDeliveryEligibility(s, "art-rp"), { ok: true });
+  s = reload(applyEntitlementAuthorityOp(s, {
+    type: "compensate_debit", consumeToken: "ct-rp", now: NOW + 1,
+  }).state);
+  assert.equal(derivePurchasedFold(s), 0);
+  assert.equal(deriveRemainingAllowance(s), 2);
+  assert.equal(s.ownedFiles["art-rp"].deliveryVoidedByCompensation, true);
+  assert.deepEqual(evaluateDeliveryEligibility(s, "art-rp"), { ok: false, reason: "not_owned" });
+  const r = applyEntitlementAuthorityOp(s, commitOp("art-rp", { consumeToken: "ct-rp-new", now: NOW + 2 }));
+  assert.equal(r.outcome, "committed");
+  s = reload(r.state);
+  assert.equal(derivePurchasedFold(s), -1);
+  assert.equal(deriveRemainingAllowance(s), 1);
+  assert.equal(s.ownedFiles["art-rp"].deliveryVoidedByCompensation, undefined);
+  assert.deepEqual(evaluateDeliveryEligibility(s, "art-rp"), { ok: true });
+});
