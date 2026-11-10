@@ -133,6 +133,15 @@ export type OwnedFileEntry = {
   restoredPurchasedPortion?: number;
   committedSeq?: number;
   restorationSeq?: number | null;
+  /**
+   * Set by compensate_debit in the same transition that restores the
+   * debit's credit (A2 gate fix, 2026-11-09): the compensated artifact
+   * stops satisfying delivery eligibility — the customer keeps the
+   * restored credit OR the file, never both. The entry itself is
+   * retained: the journal fold reads its portions. Optional for
+   * entries written before the fix; readers treat absent as false.
+   */
+  deliveryVoidedByCompensation?: boolean;
 };
 
 /** Portions of a commit entry, with pre-journal defaults applied. */
@@ -869,13 +878,24 @@ export function deriveRemainingAllowance(state: EntitlementAuthorityState): numb
  * remaining balance: a zero-balance customer who owns the file gets their
  * file. Finalization is verified by the delivery path against the artifact
  * registry (Slice 4/5); this slice's ledger owns the ownership half.
+ *
+ * Compensation exception (A2 gate fix, 2026-11-09): an entry whose
+ * debit was compensated carries deliveryVoidedByCompensation, set in
+ * the same transition that restored its credit, and is refused here
+ * as not_owned — the restored credit and the file are alternatives,
+ * never a double benefit. The balance is still never consulted: an
+ * ordinary (non-compensated) owned artifact at zero balance stays
+ * deliverable (DL-1: paid downloads never expire).
  */
 export function evaluateDeliveryEligibility(
   state: EntitlementAuthorityState,
   artifactId: string,
 ): { ok: true } | { ok: false; reason: "invalid" | "not_owned" } {
   if (!evaluateEntitlementValidity(state).valid) return { ok: false, reason: "invalid" };
-  if (!state.ownedFiles[artifactId]) return { ok: false, reason: "not_owned" };
+  const entry = state.ownedFiles[artifactId];
+  if (!entry || entry.deliveryVoidedByCompensation) {
+    return { ok: false, reason: "not_owned" };
+  }
   return { ok: true };
 }
 
@@ -1507,6 +1527,12 @@ export function isValidEntitlementAuthorityState(
     if (
       e.restoredPurchasedPortion !== undefined &&
       !isNonNegativeInt(e.restoredPurchasedPortion)
+    ) {
+      return false;
+    }
+    if (
+      e.deliveryVoidedByCompensation !== undefined &&
+      typeof e.deliveryVoidedByCompensation !== "boolean"
     ) {
       return false;
     }
@@ -2398,8 +2424,12 @@ function compensate(
  * restores. The bucket's current value neither budgets nor bounds a
  * restoration: a fully spent, unreversed grant compensates from
  * bucket 0, and the restoration raises the bucket (v3.10 §2.2).
- * Delivery of the file itself never depends on any of this
- * (ownership + validity, never balance).
+ * Delivery of the file itself never depends on the BALANCE
+ * (ownership + validity, never balance) — but a compensated debit's
+ * entry is voided for delivery in this same transition (A2 gate fix,
+ * 2026-11-09): the restoration and the void land atomically, so the
+ * restored credit can never be spent while the compensated file
+ * also stays deliverable.
  */
 function compensateDebit(
   state: EntitlementAuthorityState,
@@ -2449,6 +2479,7 @@ function compensateDebit(
     restoredPurchasedPortion: portions.restoredPurchasedPortion + purchasedOutstanding,
     restoredRewardPortion: portions.restoredRewardPortion + restoreReward,
     restorationSeq: seq,
+    deliveryVoidedByCompensation: true,
   };
   // The restoration un-spends the recorded funding grant's
   // attribution by the restored amount (Codex re-gate F-A): the
