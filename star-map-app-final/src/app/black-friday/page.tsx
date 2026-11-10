@@ -18,7 +18,7 @@ const breadcrumbs = [
 ];
 const title = "Black Friday Star Map Gifts | StarMapCo";
 const description =
-  "Plan your Black Friday star map gift. Explore our physical catalogue, prices, and Christmas order-by dates. Up to 25% off prints with BLACKFRIDAY25, Nov 27–Dec 2.";
+  "Plan your Black Friday star map gift. Explore our physical catalogue, prices, and Christmas order-by dates. Up to 25% off prints with BLACKFRIDAY25, Nov 27–Dec 1.";
 
 export const metadata: Metadata = {
   title,
@@ -54,13 +54,16 @@ export default function BlackFridayPage() {
   }).format(new Date());
   const earlyChristmasOffer = today >= "2026-11-01" && today < "2026-11-27";
   // Real-clock phases only: before Nov 27 the code is upcoming (never live
-  // today), Nov 27–Dec 2 it is live, after Dec 2 the campaign is over.
+  // today), Nov 27–Dec 1 it is live (Stripe expires it Dec 1, 2026 at
+  // 11:59 p.m. PT — it does not redeem on Dec 2), on Dec 2 the campaign
+  // closes with the XMAS15 15% last call, after Dec 2 the campaign is over.
   const blackFridayOffer =
-    today >= "2026-11-27" && today <= "2026-12-02"
-      ? "BLACKFRIDAY25 is live now: up to 25% off prints through Dec 2, 2026."
+    today >= "2026-11-27" && today <= "2026-12-01"
+      ? "BLACKFRIDAY25 is live now: up to 25% off prints through Dec 1, 2026 (ends 11:59 p.m. PT)."
       : today < "2026-11-27"
-        ? "BLACKFRIDAY25 (up to 25% off prints) activates Nov 27, 2026 and runs through Dec 2."
+        ? "BLACKFRIDAY25 (up to 25% off prints) activates Nov 27, 2026 and runs through Dec 1 (ends 11:59 p.m. PT)."
         : null;
+  const lastCallOffer = today === "2026-12-02" ? "Last call: 15% off prints with code XMAS15." : null;
   // Canonical offer line: the $89 threshold is a USD merchandise subtotal in
   // both markets (checkout judges the USD mirror subtotal), so the page must
   // not present it as a native-currency figure next to the CAD prices.
@@ -101,6 +104,11 @@ export default function BlackFridayPage() {
         {earlyChristmasOffer ? (
           <p className="mt-3 text-lg font-semibold" data-testid="current-offer">
             Available now: 15% off prints with code XMAS15.
+          </p>
+        ) : null}
+        {lastCallOffer ? (
+          <p className="mt-3 text-lg font-semibold" data-testid="current-offer">
+            {lastCallOffer}
           </p>
         ) : null}
         {blackFridayOffer ? (
