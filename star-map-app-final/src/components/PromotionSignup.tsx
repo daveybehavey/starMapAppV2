@@ -1,3 +1,4 @@
+import { RD_K_DISCLOSURE } from "@/lib/promotionDisclosure";
 import { getPromotionOfferName, getPromotionTargetLabel } from "@/lib/promotionOffer";
 
 type PromotionSignupProps = {
@@ -31,7 +32,7 @@ export default function PromotionSignup({ promoStatus, promoCode }: PromotionSig
         <form
           className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end"
           method="POST"
-          action="/api/promotions/subscribe?redirect=editor"
+          action="/api/promotions/consent-request"
         >
           <label className="sr-only" htmlFor="promo-email">
             Email address
@@ -45,7 +46,14 @@ export default function PromotionSignup({ promoStatus, promoCode }: PromotionSig
             autoComplete="email"
             className="w-full rounded-lg border border-amber-300/70 bg-white/95 px-3 py-2 text-sm text-midnight placeholder:text-slate-500 shadow-inner shadow-black/5 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-700"
           />
-          <input type="hidden" name="source" value="promotion_signup_static" />
+          <input type="hidden" name="disclosureVersion" value={RD_K_DISCLOSURE.version} />
+          <input type="hidden" name="disclosureHash" value={RD_K_DISCLOSURE.hash} />
+          <label className="sm:col-span-2 text-sm text-slate-800">
+            <input type="checkbox" name="consent" value="yes" required aria-describedby="rd-k-disclosure" />
+            {" "}{RD_K_DISCLOSURE.controlText}
+          </label>
+          <p id="rd-k-disclosure" className="sm:col-span-2 text-sm text-slate-800"
+            data-disclosure-version={RD_K_DISCLOSURE.version}>{RD_K_DISCLOSURE.text}</p>
           <input
             type="text"
             name="website"

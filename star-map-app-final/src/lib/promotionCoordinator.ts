@@ -1,3 +1,5 @@
+import type { PromotionCapture } from "@/lib/promotionDisclosure";
+import { assertPromotionCapture } from "@/lib/promotionReceipt";
 /**
  * Promotion flows over the Consistency Coordinator (T-SM-KVRACE, A2-3).
  *
@@ -785,14 +787,10 @@ export async function rekeyPromotionTombstoneSweepStep(input: {
 
 /* ------------------------------------------------------------------ */
 /* RD-D flows: the re-consent ceremony (G-3/G-6, T-1).                 */
-/* Authority-side only: nothing here sends mail (the confirmation     */
-/* send is a later slice's act through the fenced transport, charged  */
-/* under the AM-09 classification), and nothing here is wired to a    */
-/* route — the public subscribe surface still completes immediately  */
-/* until RD-K/L-1 flips it to this ceremony. The raw confirmation    */
-/* token exists only in these flows' return values, so the caller    */
-/* that one day mails it is the only place it ever appears besides   */
-/* the recipient's inbox; the coordinator stores its hash alone.     */
+/* Authority-side only: nothing here sends mail. Stage A RD-K captures */
+/* pending requests here, but does not deliver confirmation mail or   */
+/* expose a public confirmation route. Tokens exist only in the flow  */
+/* result; the public request route discards them.                     */
 /* ------------------------------------------------------------------ */
 
 function mintPromotionConfirmationToken(): { token: string; tokenHash: string } {
@@ -821,17 +819,23 @@ export type RequestPromotionConsentFlowResult = {
  * signup's double opt-in, or a suppressed address's explicit
  * re-consent request (the ceremony's entry step; the request alone
  * changes no consent fact). Creates the coordinator document with
- * the standard legacy import when the identity is new to it.
+ * legacy import for older callers. The new RD-K capture path supplies
+ * no legacy facts and never consults the legacy cohort.
  */
 export async function requestPromotionConsentFlow(input: {
   email: string;
+  capture?: PromotionCapture;
 }): Promise<RequestPromotionConsentFlowResult> {
   const email = normalizePromotionEmail(input.email);
   const emailHash = coordinatorEmailHash(email);
   const name = promotionCoordinatorName(emailHash);
   const client = createConsistencyCoordinatorClient();
 
-  const facts = await gatherPromotionLegacyFacts(email);
+  // RD-K fresh enrollment never consults or imports the legacy cohort.
+  if (input.capture) assertPromotionCapture(input.capture, emailHash);
+  const facts = input.capture ? {
+    state: null, inLegacySubscriptionList: null, inLegacySentList: null, inLegacyFollowupList: null,
+  } : await gatherPromotionLegacyFacts(email);
   const minted = mintPromotionConfirmationToken();
   const result = await client.requestPromotionConsent(name, {
     emailHash,
@@ -839,6 +843,7 @@ export async function requestPromotionConsentFlow(input: {
     facts,
     requestId: randomUUID(),
     tokenHash: minted.tokenHash,
+    capture: input.capture,
   });
   return {
     outcome: result.outcome,
