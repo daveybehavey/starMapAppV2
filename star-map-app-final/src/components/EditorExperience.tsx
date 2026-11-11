@@ -33,6 +33,11 @@ import {
   trackFunnelStep,
 } from "@/lib/analytics";
 import {
+  createCheckoutClientTimingCollector,
+  logCheckoutClientTiming,
+  markCheckoutClientTiming,
+} from "@/lib/checkoutClientTiming";
+import {
   DIGITAL_SINGLE_FALLBACK_LABEL,
   parseCheckoutApiErrorPayload,
   shouldOfferDigitalSingleFallback,
@@ -1763,6 +1768,24 @@ export function EditorExperience({
       }
     ) => {
       if (checkoutInFlightRef.current) return;
+      // Instrumentation only: client stage marks from pay click → Stripe handoff.
+      const clientTiming = createCheckoutClientTimingCollector();
+      markCheckoutClientTiming(clientTiming, "submit");
+      let clientTimingCorrelationId: string | null = null;
+      let clientTimingEmitted = false;
+      const emitClientTiming = (outcome: "created" | "error") => {
+        if (clientTimingEmitted) return;
+        clientTimingEmitted = true;
+        logCheckoutClientTiming(
+          {
+            collector: clientTiming,
+            correlationId: clientTimingCorrelationId,
+            outcome,
+            method: "POST",
+          },
+          { track }
+        );
+      };
       const previewSource = getPreviewSource() ?? "editor";
       const referralCode = getCheckoutReferralCode();
       const orderType = options?.orderType === "print" ? "print" : "digital";
@@ -2196,20 +2219,26 @@ export function EditorExperience({
         for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
           // Fresh handoff token per attempt (presence-only; never reused across failures).
           checkoutPayload.checkoutHandoff = createCheckoutHandoffToken();
+          const attemptCorrelationId =
+            lastCheckoutDiagnostics?.diagnosticId &&
+            /^[a-zA-Z0-9_-]{8,64}$/.test(lastCheckoutDiagnostics.diagnosticId)
+              ? lastCheckoutDiagnostics.diagnosticId
+              : crypto.randomUUID();
+          clientTimingCorrelationId = attemptCorrelationId;
           const attemptInit: RequestInit = {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "x-correlation-id":
-                lastCheckoutDiagnostics?.diagnosticId &&
-                /^[a-zA-Z0-9_-]{8,64}$/.test(lastCheckoutDiagnostics.diagnosticId)
-                  ? lastCheckoutDiagnostics.diagnosticId
-                  : crypto.randomUUID(),
+              "x-correlation-id": attemptCorrelationId,
             },
             body: JSON.stringify(checkoutPayload),
           };
+          // Instrumentation only: mark when the checkout API request leaves the browser.
+          markCheckoutClientTiming(clientTiming, "request_sent");
           const res = await fetch("/api/checkout", attemptInit);
           checkoutApiResponseReceived = true;
+          // Overwrite on each attempt so the final response clock is the one that matters.
+          markCheckoutClientTiming(clientTiming, "response_received", { overwrite: true });
           data = (await res.json().catch(() => null)) as CheckoutResponse | null;
           if (res.ok && data?.url) break;
 
@@ -2254,6 +2283,8 @@ export function EditorExperience({
             failureCode === "checkout_handoff_required" &&
             lastCheckoutDiagnostics.editorRecoveryUrl
           ) {
+            markCheckoutClientTiming(clientTiming, "redirect");
+            emitClientTiming("error");
             window.location.href = lastCheckoutDiagnostics.editorRecoveryUrl;
             return;
           }
@@ -2292,11 +2323,15 @@ export function EditorExperience({
             );
             await new Promise((resolve) => setTimeout(resolve, 2200));
           }
+          // Instrumentation only: mark redirect handoff, then emit before navigation.
+          markCheckoutClientTiming(clientTiming, "redirect");
+          emitClientTiming("created");
           window.location.href = data.url;
           return;
         }
         throw new Error("no url");
       } catch (err) {
+        emitClientTiming("error");
         console.error(err);
         const reason = (err as Error)?.message ?? "unknown";
         if (!checkoutApiResponseReceived) {
