@@ -267,12 +267,14 @@ type PaywallIntent = "digital" | "print";
 export type EditorExperienceVariant = "quick" | "full";
 
 interface EditorExperienceProps {
+  metaCarry?: { promoCode?: string; plan?: "single" | "pack3" };
   variant?: EditorExperienceVariant;
   editorRef?: RefObject<HTMLDivElement | null>;
   allowAdvancedInQuick?: boolean;
 }
 
 export function EditorExperience({
+  metaCarry,
   variant = "quick",
   editorRef,
   allowAdvancedInQuick = false,
@@ -606,9 +608,9 @@ export function EditorExperience({
   const [promoCodeEdited, setPromoCodeEdited] = useState(false);
   useEffect(() => {
     if (promoCodeEdited) return;
-    const initial = queryPromoCode ?? readStoredPromoCode() ?? "";
+    const initial = queryPromoCode ?? metaCarry?.promoCode ?? readStoredPromoCode() ?? "";
     setEditorPromoCode(initial);
-  }, [queryPromoCode, readStoredPromoCode, promoCodeEdited]);
+  }, [queryPromoCode, metaCarry?.promoCode, readStoredPromoCode, promoCodeEdited]);
   const persistPromoCode = useCallback((raw: string) => {
     setPromoCodeEdited(true);
     const display = raw.toUpperCase().slice(0, 64);
@@ -629,10 +631,10 @@ export function EditorExperience({
     return resolveEditorCheckoutPromoCode({
       fieldValue: editorPromoCode,
       fieldEdited: promoCodeEdited,
-      queryPromoCode,
+      queryPromoCode: queryPromoCode ?? metaCarry?.promoCode ?? null,
       storedPromoCode: readStoredPromoCode(),
     });
-  }, [editorPromoCode, promoCodeEdited, queryPromoCode, readStoredPromoCode]);
+  }, [editorPromoCode, promoCodeEdited, queryPromoCode, metaCarry?.promoCode, readStoredPromoCode]);
   const getCheckoutReferralCode = useCallback(
     () => queryReferralCode ?? readStoredReferralCode(),
     [queryReferralCode]
@@ -4351,6 +4353,7 @@ export function EditorExperience({
               }}
               variant={paywallVariant}
               purchaseIntent={paywallIntent}
+              preferredDigitalPlan={metaCarry?.plan}
               preferredPrintVariant={preferredPrintVariant}
               preferredIncludeDigitalAddOn={preferredIncludeDigitalAddOn}
               includeSecondCopy={includeSecondCopy}
