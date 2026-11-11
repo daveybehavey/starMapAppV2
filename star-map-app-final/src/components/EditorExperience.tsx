@@ -1,6 +1,8 @@
 "use client";
 
 import { isAndroidAppModeClient } from "@/lib/androidAppMode";
+import { clearEditorMetaCheckoutCarry } from "@/app/editor/actions";
+import { resolveEditorSubmitPromotion } from "@/lib/editorCheckoutPromotion";
 import { useAndroidAppMode } from "@/hooks/useAndroidAppMode";
 import dynamic from "next/dynamic";
 import { TextBox, runAsSystemWrite, useStore } from "@/lib/store";
@@ -1762,9 +1764,14 @@ export function EditorExperience({
     ) => {
       if (checkoutInFlightRef.current) return;
       const previewSource = getPreviewSource() ?? "editor";
-      const promoCode = getCheckoutPromoCode();
       const referralCode = getCheckoutReferralCode();
       const orderType = options?.orderType === "print" ? "print" : "digital";
+      const { promoCode, clearCarry } = resolveEditorSubmitPromotion({
+        promoCode: getCheckoutPromoCode(),
+        fieldEdited: promoCodeEdited,
+        orderType,
+        plan,
+      });
       const merchFamily = typeof options?.merchFamily === "string" ? options.merchFamily : undefined;
       const merchOptions =
         options?.merchOptions && typeof options.merchOptions === "object"
@@ -1801,6 +1808,17 @@ export function EditorExperience({
         setCheckoutInFlight(true);
         setCheckoutError(null);
         setCheckoutFallbackOffer(null);
+        if (clearCarry) {
+          // Suppress the still-loaded carry/URL as well as storage on retries.
+          setPromoCodeEdited(true);
+          setEditorPromoCode("");
+          try {
+            window.localStorage.removeItem(PROMO_CODE_KEY);
+          } catch {
+            // Storage can be unavailable in private browsing.
+          }
+          await clearEditorMetaCheckoutCarry();
+        }
         track("checkout_started", {
           visualMode: renderOptions.visualMode,
           plan,
@@ -2364,6 +2382,7 @@ export function EditorExperience({
       location,
       getPreviewSource,
       getCheckoutPromoCode,
+      promoCodeEdited,
       getCheckoutReferralCode,
       printShippingCountry,
       renderOptions,

@@ -16,9 +16,51 @@ const { NextRequest } = await import("next/server.js");
 const { resolveMetaCheckout, filterMetaCoupon, getMetaCheckoutTarget, META_CHECKOUT_COOKIE_NAME: COOKIE } = await import("../../src/lib/metaCheckout.ts");
 const { readMetaCheckoutCarry, createMetaCheckoutCarry } = await import("../../src/lib/metaCheckoutCookie.ts");
 const { resolveEditorCheckoutPromoCode } = await import("../../src/lib/checkoutPromotions.ts");
+const { resolveEditorSubmitPromotion } = await import("../../src/lib/editorCheckoutPromotion.ts");
+const { clearEditorMetaCheckoutCarry } = await import("../../src/app/editor/actions.ts");
 const { parseReferralSourceCookieValue } = await import("../../src/lib/referralCookie.ts");
 const read = (name) => readFileSync(new URL(`../../${name}`, import.meta.url), "utf8").replace(/\r\n/g, "\n");
 const NOW = Date.parse("2026-11-28T20:00:00Z");
+
+for (const [name, code, orderType, fieldEdited, expected, cleared] of [
+  ["C1 XMAS15 carry to One HD", "XMAS15", "digital", false, null, true],
+  ["C2 XMAS15 carry to framed print", "XMAS15", "print", false, "XMAS15", false],
+  ["C3 BLACKFRIDAY25 carry to poster", "BLACKFRIDAY25", "print", false, "BLACKFRIDAY25", false],
+  ["C3 BLACKFRIDAY25 carry to HD", "BLACKFRIDAY25", "digital", false, null, true],
+  ["C4 typed XMAS15 to HD", "XMAS15", "digital", true, "XMAS15", false],
+  ["C5 no code", null, "digital", false, null, false],
+]) test(name, () => {
+  const carry = readMetaCheckoutCarry(createMetaCheckoutCarry("poster_framed", code, NOW), NOW);
+  const selected = resolveEditorCheckoutPromoCode({ fieldValue: fieldEdited ? code : "", fieldEdited, queryPromoCode: carry.promoCode ?? null, storedPromoCode: null });
+  const result = resolveEditorSubmitPromotion({ promoCode: selected, fieldEdited, orderType, plan: "single" });
+  const payload = { plan: "single", ...(result.promoCode ? { promoCode: result.promoCode } : {}) };
+  assert.equal(payload.promoCode ?? null, expected);
+  assert.equal(Object.hasOwn(payload, "promoCode"), Boolean(expected));
+  assert.equal(result.clearCarry, cleared);
+});
+
+test("stored auto codes are checked for every digital plan; edited values remain authoritative", () => {
+  for (const plan of ["single", "pack3", "subscription"]) {
+    const promoCode = resolveEditorCheckoutPromoCode({ fieldValue: "", fieldEdited: false, queryPromoCode: null, storedPromoCode: "XMAS15" });
+    assert.deepEqual(resolveEditorSubmitPromotion({ promoCode, fieldEdited: false, orderType: "digital", plan }), { promoCode: null, clearCarry: true });
+    assert.deepEqual(resolveEditorSubmitPromotion({ promoCode, fieldEdited: true, orderType: "digital", plan }), { promoCode: "XMAS15", clearCarry: false });
+  }
+});
+
+test("editor drops before checkout, clears stored/loaded carry, and server action deletes HttpOnly cookie", async () => {
+  const deleted = [];
+  globalThis.metaCheckoutTestCookies = { delete: (name) => deleted.push(name) };
+  try {
+    await clearEditorMetaCheckoutCarry();
+    assert.deepEqual(deleted, [COOKIE]);
+  } finally {
+    delete globalThis.metaCheckoutTestCookies;
+  }
+  const editor = read("src/components/EditorExperience.tsx");
+  assert.match(editor, /resolveEditorSubmitPromotion\(\{\s*promoCode: getCheckoutPromoCode\(\),\s*fieldEdited: promoCodeEdited,\s*orderType,\s*plan,/);
+  assert.match(editor, /if \(clearCarry\) \{[\s\S]*?setPromoCodeEdited\(true\);[\s\S]*?setEditorPromoCode\(""\);[\s\S]*?localStorage.removeItem\(PROMO_CODE_KEY\);[\s\S]*?await clearEditorMetaCheckoutCarry\(\);/);
+  assert.ok(editor.indexOf("await clearEditorMetaCheckoutCarry()") < editor.indexOf("if (promoCode) checkoutPayload.promoCode = promoCode"));
+});
 function request(id, extras = {}) {
   return new NextRequest(`https://starmapco.com/api/meta/checkout?${new URLSearchParams({ product_id: id, ...extras })}`);
 }
