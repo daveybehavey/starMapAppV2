@@ -333,7 +333,7 @@ export async function POST(req: NextRequest) {
     isPrintfulOrderFailureWebhookType(eventType) ||
     isPrintfulOrderHoldWebhookType(eventType)
   ) {
-    const verification = await verifyPrintfulWebhookEvent(eventType, payload?.data?.order);
+    const verification = await verifyPrintfulWebhookEvent(eventType, payload?.data?.order, payload?.data?.shipment?.tracking_number);
     if (!verification.ok) {
       console.error("Printful webhook API confirmation failed", {
         path: "/api/printful/webhook",

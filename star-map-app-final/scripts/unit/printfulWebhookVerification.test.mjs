@@ -16,6 +16,7 @@ let reads;
 beforeEach(() => {
   process.env.PRINTFUL_WEBHOOK_SECRET = "throwaway-new";
   process.env.PRINTFUL_API_TOKEN = "throwaway-api";
+  delete process.env.PRINTFUL_STORE_ID;
   calls.length = 0;
   logs.length = 0;
   reads = [];
@@ -32,6 +33,59 @@ function request(type, { token = "throwaway-new", order = { id: 123 }, shipment,
     json: async () => ({ type, data: { order, shipment, reason } }),
   };
 }
+
+for (const order of [{ id: 123 }, { external_id: "cs_test_truth" }]) {
+  test(`S1: account-level read requires store scope for ${JSON.stringify(order)}`, async () => {
+    apiOrder.shipments = [{ tracking_number: "confirmed" }];
+    globalThis.fetch = async (url, options) => {
+      reads.push([url, options]);
+      return new URL(url).searchParams.get("store_id") === "test store&value"
+        ? Response.json({ code: 200, result: apiOrder })
+        : new Response(null, { status: 404 });
+    };
+    assert.equal((await POST(request("package_shipped", { order }))).status, 503);
+    assert.deepEqual(calls, []);
+    process.env.PRINTFUL_STORE_ID = "test store&value";
+    assert.equal((await POST(request("package_shipped", { order }))).status, 200);
+    assert.equal(new URL(reads[1][0]).pathname, order.id ? "/orders/123" : "/orders/%40cs_test_truth");
+    assert.doesNotMatch(JSON.stringify(logs), /test store|store_id/);
+  });
+}
+
+const confirmedShipments = [
+  { tracking_number: "first", tracking_url: "https://carrier.invalid/first", carrier: "First", service: "Ground" },
+  { tracking_number: "second", tracking_url: "https://carrier.invalid/second", carrier: "Second", service: "Express" },
+];
+for (const [scenario, index] of [["S3", 1], ["S4", 0]]) {
+  test(`${scenario}: hint selects the matching API shipment`, async () => {
+    apiOrder.shipments = confirmedShipments;
+    const selected = confirmedShipments[index];
+    assert.equal((await POST(request("package_shipped", { shipment: {
+      tracking_number: selected.tracking_number, tracking_url: "https://attacker.invalid", carrier: "forged", service: "forged",
+    } }))).status, 200);
+    assert.deepEqual(calls[1], ["ship", "cs_test_truth", {
+      trackingNumber: selected.tracking_number, trackingUrl: selected.tracking_url,
+      carrier: `${selected.carrier} ${selected.service}`,
+    }]);
+  });
+}
+for (const tracking of [undefined, "", "   ", "unmatched", " second "]) {
+  test(`S5: ambiguous shipments with hint ${JSON.stringify(tracking)} fail without mutation`, async () => {
+    apiOrder.shipments = confirmedShipments;
+    const response = await POST(request("package_shipped", { shipment: { tracking_number: tracking } }));
+    assert.equal(response.status, 503);
+    assert.equal((await response.json()).reason, "shipment_ambiguous");
+    assert.deepEqual(calls, []);
+  });
+}
+test("S2/S6: unset store and single API shipment need no tracking hint", async () => {
+  apiOrder.shipments = [confirmedShipments[0]];
+  assert.equal((await POST(request("package_shipped"))).status, 200);
+  assert.equal(new URL(reads[0][0]).search, "");
+  assert.deepEqual(calls[1], ["ship", "cs_test_truth", {
+    trackingNumber: "first", trackingUrl: "https://carrier.invalid/first", carrier: "First Ground",
+  }]);
+});
 test("valid-token forged shipment with no API shipment cannot resolve, mutate or notify", async () => {
   const response = await POST(request("package_shipped", { shipment: { tracking_number: "forged" } }));
   assert.equal(response.status, 503);

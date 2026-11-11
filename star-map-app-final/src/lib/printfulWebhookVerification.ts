@@ -31,6 +31,7 @@ function orderId(value: unknown): string {
 export async function verifyPrintfulWebhookEvent(
   eventType: string,
   hint: { id?: unknown; external_id?: unknown } | null | undefined,
+  hintTrackingNumber?: unknown,
 ): Promise<Verification> {
   const id = orderId(hint?.id);
   const externalId = text(hint?.external_id);
@@ -41,7 +42,11 @@ export async function verifyPrintfulWebhookEvent(
   if (!token) return { ok: false, reason: "api_not_configured" };
   const base = (process.env.PRINTFUL_API_BASE_URL?.trim() || "https://api.printful.com").replace(/\/$/, "");
   try {
-    const response = await fetch(`${base}/orders/${encodeURIComponent(id || `@${externalId}`)}`, {
+    const storeId = process.env.PRINTFUL_STORE_ID?.trim();
+    const query = new URLSearchParams();
+    if (storeId) query.set("store_id", storeId);
+    const orderUrl = `${base}/orders/${encodeURIComponent(id || `@${externalId}`)}${storeId ? `?${query.toString()}` : ""}`;
+    const response = await fetch(orderUrl, {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
       redirect: "error",
@@ -68,9 +73,15 @@ export async function verifyPrintfulWebhookEvent(
     const status = text(order.status);
     let shipment: VerifiedPrintfulShipment | null = null;
     if (eventType === "package_shipped") {
-      // Select deterministically from API records; webhook tracking fields never select or populate it.
+      // The hint only selects an API shipment; all payload fields come from that record.
       const shipments = Array.isArray(order.shipments) ? order.shipments : [];
-      const shipped = shipments.find((row: { tracking_number?: unknown } | null) => text(row?.tracking_number));
+      const tracked = shipments.filter((row: { tracking_number?: unknown } | null) => text(row?.tracking_number));
+      const hintTracking = typeof hintTrackingNumber === "string" ? hintTrackingNumber : "";
+      const matched = hintTracking.trim()
+        ? tracked.find((row: { tracking_number?: unknown }) => row.tracking_number === hintTracking)
+        : undefined;
+      if (!matched && tracked.length > 1) return { ok: false, reason: "shipment_ambiguous" };
+      const shipped = matched || tracked[0];
       if (!shipped) return { ok: false, reason: "shipment_not_confirmed" };
       shipment = {
         tracking_number: text(shipped.tracking_number) || null,
