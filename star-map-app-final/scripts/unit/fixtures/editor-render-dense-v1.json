@@ -1,14 +1,59 @@
 {
   "full_single_canvas": {
-    "hash": "4290c683781b950b430e7e78b6e5cde4bf14c25e20eb086c80a372b126acb249",
-    "commandCount": 26646
+    "hash": "551de2d858e47ef1acdcae21e1d6b90dc39894203d85e7d09dc003b59a1801a6",
+    "commandCount": 26648,
+    "drawCommandsHash": "4290c683781b950b430e7e78b6e5cde4bf14c25e20eb086c80a372b126acb249",
+    "dimensions": [
+      [
+        "main",
+        "dimension",
+        "width",
+        900
+      ],
+      [
+        "main",
+        "dimension",
+        "height",
+        900
+      ]
+    ]
   },
   "base_sky_only": {
-    "hash": "09e920e65748ba9388472bcbd895266e59b169837d3ac37ece572575d0dc16d0",
-    "commandCount": 26614
+    "hash": "6bec367624c73e3c02b638376ec6881d33661fbdca8f14bd2745e09c71710f6f",
+    "commandCount": 26616,
+    "drawCommandsHash": "09e920e65748ba9388472bcbd895266e59b169837d3ac37ece572575d0dc16d0",
+    "dimensions": [
+      [
+        "main",
+        "dimension",
+        "width",
+        900
+      ],
+      [
+        "main",
+        "dimension",
+        "height",
+        900
+      ]
+    ]
   },
   "text_layer_only": {
-    "hash": "083a43f6cb115498b5c6d6ff114dbc51dc6e6a25ed8cde3b86a2cbb02e64d613",
-    "commandCount": 35
+    "hash": "dd54dcbabec7e3fd0e746c9606d8a7899a773958410db83f927bdcbb1ee609c9",
+    "commandCount": 37,
+    "drawCommandsHash": "083a43f6cb115498b5c6d6ff114dbc51dc6e6a25ed8cde3b86a2cbb02e64d613",
+    "dimensions": [
+      [
+        "main",
+        "dimension",
+        "width",
+        900
+      ],
+      [
+        "main",
+        "dimension",
+        "height",
+        900
+      ]
+    ]
   }
 }

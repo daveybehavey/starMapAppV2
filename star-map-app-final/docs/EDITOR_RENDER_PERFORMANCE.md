@@ -69,7 +69,19 @@ Browser synthetic probe: `TZ=UTC node scripts/editor-render-profile/browserProfi
 
 ---
 
-## Ranked hot paths (reference scene)
+## Honesty correction — fix round 1 (#613)
+
+The historical tables below are retained as dated evidence, not current results.
+The synthetic browser workload has been replaced with the production renderer;
+current browser measurements include full-canvas readback and count actual Canvas
+calls. They measure combined render/readback wall time, not isolated GPU cost.
+The keystroke text-only number below is withdrawn as a full-update measurement:
+the corrected probe includes base sky and text overlay on parent/external-recipe
+updates. The late HD astronomy field is now explicitly post-export warm.
+See the scripts' README and HARNESS-613-HONESTY-REPORT.md in the repository root
+for current checks and limitations.
+
+## Ranked hot paths (historical reference scene)
 
 Current measurements are Node mocked-Canvas wall time for JS orchestration, not rasterization or end-to-end UI latency. Host: owner Windows PC, Node 22.23.4, TZ=UTC. Run: 2026-11-11T20:01:01.802Z; harness source SHA: `e2f040360772e9cfd65fca96a072a186a054f4ae`. All eight date-change samples are retained. These use runtime-clock dates rather than the fixed winter scene, so the sky content differs.
 

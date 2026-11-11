@@ -15,6 +15,7 @@ import { readFileSync } from "node:fs";
 import { register } from "node:module";
 import test from "node:test";
 import { REFERENCE_SCENE } from "../editor-render-profile/referenceScene.mjs";
+import { captureCanvasDimensions } from "../editor-render-profile/canvasDimensions.mjs";
 
 register("./tsAliasLoader.mjs", import.meta.url);
 
@@ -36,7 +37,7 @@ function captureCommands(run) {
   function canvas(label) {
     const state = { globalAlpha: 1 };
     const stack = [];
-    const result = { width: 0, height: 0, style: {} };
+    const result = captureCanvasDimensions({ width: 0, height: 0, style: {} }, label, commands);
     const ctx = new Proxy(state, {
       get(target, key) {
         if (key === "canvas") return result;
@@ -168,6 +169,9 @@ function warmThenCapture(fn) {
   return {
     hash: hashCommands(commands),
     commandCount: commands.length,
+    dimensions: commands.filter((command) => command[1] === "dimension"),
+    // Preserve the original pins too: only dimension capture changed.
+    drawCommandsHash: hashCommands(commands.filter((command) => command[1] !== "dimension")),
   };
 }
 
@@ -197,5 +201,22 @@ test("dense reference scene Canvas streams stay byte-identical across full/base/
 test("dense reference scene warm streams are stable across repeated captures", () => {
   for (const [key, fn] of Object.entries(cases)) {
     assert.equal(warmThenCapture(fn).hash, outputs[key].hash, key);
+  }
+});
+
+test("post-draw same-value dimension resets change the equivalence stream", () => {
+  const draw = (factory, reset) => {
+    const main = factory("main");
+    main.width = width;
+    main.height = height;
+    main.getContext("2d").fillRect(0, 0, width, height);
+    if (reset) main[reset] = main[reset];
+  };
+  const baseline = captureCommands((factory) => draw(factory));
+  for (const key of ["width", "height"]) {
+    const reset = captureCommands((factory) => draw(factory, key));
+    assert.notEqual(hashCommands(reset), hashCommands(baseline));
+    assert.deepEqual(reset.at(-1), ["main", "dimension", key, key === "width" ? width : height]);
+    assert.deepEqual(reset.slice(0, -1), baseline);
   }
 });
