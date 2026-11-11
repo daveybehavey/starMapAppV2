@@ -8,7 +8,7 @@ StarMapCo (https://starmapco.com) turns a date, time, and location into a person
 
 - **Free live preview:** Anyone can design and preview a star map free in the editor before paying. The preview is free; the final product is not — payment unlocks the HD file or places a print order.
 - **What the sky model shows:** The map shows the stars for the chosen date, time, and location, and can also show the Moon and the five planets Mercury, Venus, Mars, Jupiter, and Saturn. A body appears only when it is above the horizon at that moment, so not every sky contains all six.
-- **Formats (USD):** HD digital download from $9; unframed poster (16×16) $39 or (18×18) $49; framed print (14×14) $99; canvas gallery wrap (14×14) $79. An HD digital add-on with a print is +$7 (framed print + HD = $106), and a 4×6 keepsake card add-on with a framed print is +$19.
+- **Formats (USD):** HD digital download from $9; unframed poster (16×16) $39 or (18×18) $49; framed print (14×14) $99; canvas gallery wrap (14×14) $79; keepsake card (4×6) $19 as a standalone purchase (also available with a framed print). An HD digital add-on with a print is +$7 (framed print + HD = $106).
 - **Free standard shipping:** Print orders with a merchandise subtotal of $89 or more (pre-discount, before shipping and tax) ship free with standard shipping.
 - **Made to order:** Prints are produced after checkout by our print partner (Printful). By default, production begins after payment once the order is submitted to our print partner. Typical production is 2–5 business days before shipment; standard shipping is the only print shipping option, and tracking is provided when the order ships.
 
@@ -20,6 +20,7 @@ StarMapCo (https://starmapco.com) turns a date, time, and location into a person
 - HD digital download: https://starmapco.com/hd-star-map
 - Framed & poster prints: https://starmapco.com/star-map-poster
 - Framed print + HD bundle: https://starmapco.com/star-map-poster/framed-hd-bundle
+- Keepsake card (4×6): https://starmapco.com/star-map-keepsake-card
 - Gift format comparison: https://starmapco.com/star-map-gift-formats
 - Wedding gifts: https://starmapco.com/wedding
 - Wedding & proposal gifts: https://starmapco.com/proposal
@@ -57,7 +58,7 @@ Yes. You can enter a date and location, customize the design, and see the finish
 The stars visible from your location at that date and time, plus the Moon and the planets Mercury, Venus, Mars, Jupiter, and Saturn when they are above the horizon at that moment. Which of them appear depends on the date, time, and place you choose.
 
 **Which format should I choose?**
-HD digital (from $9) is delivered as a download after payment and suits last-minute gifts. The unframed poster (16×16, $39) is the lowest-cost print; the 18×18 poster is $49. The canvas gallery wrap (14×14, $79) and framed print (14×14, $99) arrive ready to hang. See the format comparison page for side-by-side detail.
+HD digital (from $9) is delivered as a download after payment and suits last-minute gifts. The unframed poster (16×16, $39) is the lowest-cost print; the 18×18 poster is $49. The canvas gallery wrap (14×14, $79) and framed print (14×14, $99) arrive ready to hang. The keepsake card (4×6, $19) is a folded greeting card you can order on its own, or with a framed print. See the format comparison page for side-by-side detail.
 
 **How does shipping work?**
 Digital downloads are delivered worldwide as a download after payment. Physical prints are made to order (typically 2–5 business days of production) and shipped to the countries listed on the shipping policy page, with the rate and delivery estimate shown before payment. Print orders with a merchandise subtotal of $89 or more (pre-discount) get free standard shipping.
