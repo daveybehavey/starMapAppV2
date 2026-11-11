@@ -80,7 +80,9 @@ same window, then repeat the health/delivery checks. Never restore URL logging.
   this branch cannot honestly claim a live rotation. No production access used.
 - The audit's `securityAuditInvariantPins.test.mjs` exists only in draft #621,
   not reconciled main. Dedicated real-route tests were added here instead of
-  importing unrelated audit work. Existing suites run unchanged.
+  importing unrelated audit work. The existing money-path hold integration
+  fixtures now supply independent API confirmation and expect stale holds to
+  retry; the other existing suites run unchanged.
 - API order reads do not provide the webhook's free-text failure/hold reason;
   reason is passed as null rather than trusting the body. Existing API-backed
   file review can still enrich failure details. No notification template changed.
