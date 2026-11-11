@@ -2210,3 +2210,45 @@ test("RP-5: purchase, compensation and re-purchase survive serialization and fol
   assert.equal(s.ownedFiles["art-rp"].deliveryVoidedByCompensation, undefined);
   assert.deepEqual(evaluateDeliveryEligibility(s, "art-rp"), { ok: true });
 });
+
+test("RP-6: partial compensation preserves outstanding reward debit across re-purchase and DO reload", async () => {
+  const { EntitlementAuthorityDO } = await import("../../src/durable-objects/EntitlementAuthorityDO.ts");
+  let stored;
+  const makeDO = () => new EntitlementAuthorityDO({
+    blockConcurrencyWhile: (fn) => fn(),
+    storage: { sql: { exec(query, ...args) {
+      if (query.includes("INSERT INTO")) stored = args[1];
+      return { toArray: () => query.includes("SELECT") && stored
+        ? [{ session_id: "cs_referrer", state_json: stored, updated_at: NOW }] : [] };
+    } } },
+  }, {});
+  let s = seeded();
+  s = applyEntitlementAuthorityOp(s, grantRewardOp("cs_rp_reward", 1)).state;
+  s = applyEntitlementAuthorityOp(s, commitOp("art-rp", { credits: 2, consumeToken: "ct-rp" })).state;
+  s = applyEntitlementAuthorityOp(s, { type: "reverse_reward", grantId: "cs_rp_reward", now: NOW + 1 }).state;
+  const comp = applyEntitlementAuthorityOp(s, { type: "compensate_debit", consumeToken: "ct-rp", now: NOW + 2 });
+  assert.equal(comp.restoration.purchasedRestored, 1);
+  assert.equal(comp.restoration.rewardRestored, 0);
+  stored = JSON.stringify(reload(comp.state));
+  const r = await makeDO().apply(s.sessionId, commitOp("art-rp", { consumeToken: "ct-rp-new", now: NOW + 3 }));
+  assert.equal(r.outcome, "committed");
+  assert.equal(isValidEntitlementAuthorityState(r.state), true);
+  const loaded = await makeDO().getState(s.sessionId);
+  assert.deepEqual(loaded, r.state);
+  assert.equal(loaded.rewardSpentTotal, 1);
+  assert.equal(loaded.retiredDebits.length, 1);
+  assert.equal(loaded.retiredDebits[0].rewardPortion, 1);
+  assert.equal(loaded.retiredDebits[0].restoredRewardPortion, 0);
+  assert.equal(loaded.ownedFiles["art-rp"].rewardPortion, 0);
+  assert.equal(derivePurchasedFold(loaded), -1);
+  const retry = await makeDO().apply(s.sessionId, commitOp("art-rp"));
+  assert.equal(retry.outcome, "already_owned");
+  assert.deepEqual(retry.state, loaded);
+  // Loaded accounting is validated, including the retained portion.
+  const dropped = structuredClone(loaded);
+  dropped.retiredDebits = [];
+  assert.equal(isValidEntitlementAuthorityState(dropped), false);
+  const doubled = structuredClone(loaded);
+  doubled.retiredDebits.push(doubled.retiredDebits[0]);
+  assert.equal(isValidEntitlementAuthorityState(doubled), false);
+});

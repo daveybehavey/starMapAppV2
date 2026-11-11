@@ -583,6 +583,8 @@ export type EntitlementAuthorityState = {
   /** Token whose baseline consume this authority compensated, if any. */
   compensatedConsumeToken: string | null;
   ownedFiles: Record<string, OwnedFileEntry>;
+  /** Replaced voided debits with unrestored portions; accounting only. */
+  retiredDebits?: OwnedFileEntry[];
   recoveryDecision: RecoveryDecision;
   /** Incremented atomically on every claim-token rotation (v3.6 §6.3). */
   capabilityGeneration: number;
@@ -779,7 +781,7 @@ export function countPaidCommits(state: EntitlementAuthorityState): number {
 export function derivePurchasedFold(state: EntitlementAuthorityState): number {
   let grossPurchased = 0;
   let restoredPurchased = 0;
-  for (const entry of Object.values(state.ownedFiles)) {
+  for (const entry of accountingEntries(state)) {
     if (entry.source !== "commit") continue;
     const portions = commitEntryPortions(entry);
     grossPurchased += portions.purchasedPortion;
@@ -791,6 +793,11 @@ export function derivePurchasedFold(state: EntitlementAuthorityState): number {
     grossPurchased +
     restoredPurchased
   );
+}
+
+/** Delivery ownership may be replaced; outstanding debit accounting survives. */
+function accountingEntries(state: EntitlementAuthorityState): OwnedFileEntry[] {
+  return [...Object.values(state.ownedFiles), ...(state.retiredDebits ?? [])];
 }
 
 /** The opening figure the position is computed from: the installed
@@ -1500,7 +1507,16 @@ export function isValidEntitlementAuthorityState(
   }
   if (!isNullableString(state.compensatedConsumeToken)) return false;
   if (!isRecord(state.ownedFiles)) return false;
-  for (const entry of Object.values(state.ownedFiles)) {
+  if (state.retiredDebits !== undefined) {
+    if (!Array.isArray(state.retiredDebits)) return false;
+    for (const entry of state.retiredDebits) {
+      if (
+        !isRecord(entry) || entry.source !== "commit" ||
+        entry.deliveryVoidedByCompensation !== true
+      ) return false;
+    }
+  }
+  for (const entry of accountingEntries(state as EntitlementAuthorityState)) {
     if (!isRecord(entry)) return false;
     if (typeof entry.mapId !== "string") return false;
     if (typeof entry.fingerprint !== "string") return false;
@@ -1599,7 +1615,7 @@ export function isValidEntitlementAuthorityState(
   // record, never a summand.
   let grossRewardPortions = 0;
   let restoredRewardPortions = 0;
-  for (const entry of Object.values(state.ownedFiles)) {
+  for (const entry of accountingEntries(state as EntitlementAuthorityState)) {
     if (!isRecord(entry) || entry.source !== "commit") continue;
     const portions = commitEntryPortions(entry as OwnedFileEntry);
     grossRewardPortions += portions.rewardPortion;
@@ -1616,7 +1632,7 @@ export function isValidEntitlementAuthorityState(
   // reward portion whose funding grant is already reversed); this
   // assertion is defence-in-depth over loaded state, checked only
   // where both sequences were recorded.
-  for (const entry of Object.values(state.ownedFiles)) {
+  for (const entry of accountingEntries(state as EntitlementAuthorityState)) {
     if (!isRecord(entry) || entry.source !== "commit") continue;
     const e = entry as OwnedFileEntry;
     const portions = commitEntryPortions(e);
@@ -2257,6 +2273,13 @@ function commit(
     committedSeq: seq,
     restorationSeq: null,
   };
+  // Fully restored debits fold to zero. Retain a partial restoration
+  // separately so replacing delivery ownership cannot erase its debt.
+  const priorPortions = existing ? commitEntryPortions(existing) : null;
+  const retainPriorDebit = priorPortions !== null && (
+    priorPortions.rewardPortion > priorPortions.restoredRewardPortion ||
+    priorPortions.purchasedPortion > priorPortions.restoredPurchasedPortion
+  );
   const rewardGrants = funding
     ? {
         ...state.rewardGrants,
@@ -2270,6 +2293,7 @@ function commit(
     {
       ...state,
       ownedFiles: { ...state.ownedFiles, [op.artifactId]: entry },
+      ...(retainPriorDebit ? { retiredDebits: [...(state.retiredDebits ?? []), existing] } : {}),
       rewardGrants,
       rewardBucketBalance: state.rewardBucketBalance - rewardPortion,
       rewardSpentTotal: state.rewardSpentTotal + rewardPortion,
