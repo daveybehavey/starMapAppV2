@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-11-11T20:01:01.802Z",
-  "gitSha": "e2f040360772e9cfd65fca96a072a186a054f4ae",
+  "generatedAt": "2026-11-11T22:48:05.149Z",
+  "gitSha": "cc6035c871bb9487a58669ff5380864aeb2fb510",
   "baseHeadNote": "Harness source committed before run; results committed separately.",
   "referenceScene": {
     "id": "editor-render-perf-dense-v1",
@@ -118,14 +118,14 @@
         "width": 900,
         "height": 900
       },
-      "cold_ms": 15.414,
+      "cold_ms": 40.272,
       "warm": {
         "n": 12,
-        "min_ms": 4.408,
-        "p50_ms": 5.34,
-        "p95_ms": 9.316,
-        "max_ms": 9.316,
-        "mean_ms": 6.161
+        "min_ms": 9.412,
+        "p50_ms": 13.76,
+        "p95_ms": 25.743,
+        "max_ms": 25.743,
+        "mean_ms": 15.458
       },
       "draw_categories": {
         "drawCalls_total": 5345,
@@ -164,14 +164,14 @@
         "width": 900,
         "height": 900
       },
-      "cold_ms": 5.109,
+      "cold_ms": 13.576,
       "warm": {
         "n": 12,
-        "min_ms": 4.374,
-        "p50_ms": 4.904,
-        "p95_ms": 6.199,
-        "max_ms": 6.199,
-        "mean_ms": 5.072
+        "min_ms": 8.041,
+        "p50_ms": 12.94,
+        "p95_ms": 19.68,
+        "max_ms": 19.68,
+        "mean_ms": 13.316
       },
       "draw_categories": {
         "drawCalls_total": 5341,
@@ -210,14 +210,14 @@
         "width": 900,
         "height": 900
       },
-      "cold_ms": 0.354,
+      "cold_ms": 0.871,
       "warm": {
         "n": 12,
-        "min_ms": 0.056,
-        "p50_ms": 0.063,
-        "p95_ms": 0.108,
-        "max_ms": 0.108,
-        "mean_ms": 0.068
+        "min_ms": 0.098,
+        "p50_ms": 0.103,
+        "p95_ms": 0.191,
+        "max_ms": 0.191,
+        "mean_ms": 0.115
       },
       "draw_categories": {
         "drawCalls_total": 5,
@@ -256,14 +256,14 @@
         "width": 1200,
         "height": 1200
       },
-      "cold_ms": 11.067,
+      "cold_ms": 24.689,
       "warm": {
         "n": 12,
-        "min_ms": 4.334,
-        "p50_ms": 4.804,
-        "p95_ms": 5.534,
-        "max_ms": 5.534,
-        "mean_ms": 4.876
+        "min_ms": 8.433,
+        "p50_ms": 10.569,
+        "p95_ms": 17.547,
+        "max_ms": 17.547,
+        "mean_ms": 11.266
       },
       "draw_categories": {
         "drawCalls_total": 5345,
@@ -302,14 +302,14 @@
         "width": 6000,
         "height": 6000
       },
-      "cold_ms": 10.553,
+      "cold_ms": 27.64,
       "warm": {
         "n": 12,
-        "min_ms": 4.168,
-        "p50_ms": 4.585,
-        "p95_ms": 8.036,
-        "max_ms": 8.036,
-        "mean_ms": 5.135
+        "min_ms": 8.307,
+        "p50_ms": 10.954,
+        "p95_ms": 19.145,
+        "max_ms": 19.145,
+        "mean_ms": 11.722
       },
       "draw_categories": {
         "drawCalls_total": 5345,
@@ -347,85 +347,131 @@
     "style_or_colour_change_full_base": {
       "effect": "full base-sky redraw; astronomy reused via skyOverride",
       "n": 12,
-      "min_ms": 4.227,
-      "p50_ms": 4.749,
-      "p95_ms": 6.275,
-      "max_ms": 6.275,
-      "mean_ms": 4.823
+      "min_ms": 8.367,
+      "p50_ms": 11.898,
+      "p95_ms": 19.456,
+      "max_ms": 19.456,
+      "mean_ms": 12.364
     },
-    "text_keystroke_text_layer_only": {
-      "effect": "text-layer only (PreviewCanvas intentional split)",
+    "text_keystroke_base_plus_text": {
+      "effect": "production base-sky redraw + text overlay on parent/external-recipe update; worker sky reused; excludes React scheduling",
       "n": 12,
-      "min_ms": 0.056,
-      "p50_ms": 0.068,
-      "p95_ms": 0.173,
-      "max_ms": 0.173,
-      "mean_ms": 0.079
+      "min_ms": 8.404,
+      "p50_ms": 10.627,
+      "p95_ms": 15.468,
+      "max_ms": 15.468,
+      "mean_ms": 12.041,
+      "base_ms": {
+        "n": 12,
+        "min_ms": 8.151,
+        "p50_ms": 10.189,
+        "p95_ms": 15.112,
+        "max_ms": 15.112,
+        "mean_ms": 11.693
+      },
+      "text_overlay_ms": {
+        "n": 12,
+        "min_ms": 0.244,
+        "p50_ms": 0.277,
+        "p95_ms": 0.57,
+        "max_ms": 0.57,
+        "mean_ms": 0.348
+      },
+      "base_draw_categories": {
+        "drawCalls_total": 5341,
+        "stars_and_discs_fill_arc": 4526,
+        "constellation_line_strokes": 764,
+        "fillText_labels_and_captions": 38,
+        "fillRect_background_overlays": 6,
+        "clearRect": 1,
+        "radial_gradients": 113,
+        "linear_gradients": 1,
+        "measureText": 38,
+        "beginPath": 5297,
+        "arc": 4529,
+        "drawImage_offscreen_composites": 0,
+        "save_restore_pairs": 123
+      },
+      "text_draw_categories": {
+        "drawCalls_total": 5,
+        "stars_and_discs_fill_arc": 0,
+        "constellation_line_strokes": 0,
+        "fillText_labels_and_captions": 4,
+        "fillRect_background_overlays": 0,
+        "clearRect": 1,
+        "radial_gradients": 0,
+        "linear_gradients": 0,
+        "measureText": 0,
+        "beginPath": 0,
+        "arc": 0,
+        "drawImage_offscreen_composites": 0,
+        "save_restore_pairs": 1
+      }
     },
     "text_drag_text_layer_only": {
       "effect": "text-layer only",
       "n": 12,
-      "min_ms": 0.054,
-      "p50_ms": 0.056,
-      "p95_ms": 0.071,
-      "max_ms": 0.071,
-      "mean_ms": 0.059
+      "min_ms": 0.096,
+      "p50_ms": 0.161,
+      "p95_ms": 0.37,
+      "max_ms": 0.37,
+      "mean_ms": 0.204
     },
     "date_change_astronomy_plus_base": {
       "effect": "cold astronomy per unique runtime-clock instant + base redraw with supplied sky; not location changes",
       "instants": [
-        "2026-11-11T20:01:01.300Z",
-        "2026-11-11T21:11:01.300Z",
-        "2026-11-11T22:21:01.300Z",
-        "2026-11-11T23:31:01.300Z",
-        "2026-11-12T00:41:01.300Z",
-        "2026-11-12T01:51:01.300Z",
-        "2026-11-12T03:01:01.300Z",
-        "2026-11-12T04:11:01.300Z"
+        "2026-11-11T22:48:03.813Z",
+        "2026-11-11T23:58:03.813Z",
+        "2026-11-12T01:08:03.813Z",
+        "2026-11-12T02:18:03.813Z",
+        "2026-11-12T03:28:03.813Z",
+        "2026-11-12T04:38:03.813Z",
+        "2026-11-12T05:48:03.813Z",
+        "2026-11-12T06:58:03.813Z"
       ],
       "astronomy_ms": {
         "n": 8,
-        "min_ms": 2.049,
-        "p50_ms": 2.72,
-        "p95_ms": 13.231,
-        "max_ms": 13.231,
-        "mean_ms": 4.302
+        "min_ms": 3.81,
+        "p50_ms": 6.351,
+        "p95_ms": 23.357,
+        "max_ms": 23.357,
+        "mean_ms": 9.048
       },
       "paint_ms": {
         "n": 8,
-        "min_ms": 5.012,
-        "p50_ms": 5.367,
-        "p95_ms": 8.745,
-        "max_ms": 8.745,
-        "mean_ms": 5.863
+        "min_ms": 9.079,
+        "p50_ms": 13.603,
+        "p95_ms": 16.779,
+        "max_ms": 16.779,
+        "mean_ms": 13.387
       },
       "total_ms": {
         "n": 8,
-        "min_ms": 7.737,
-        "p50_ms": 8.302,
-        "p95_ms": 21.976,
-        "max_ms": 21.976,
-        "mean_ms": 10.165
+        "min_ms": 12.888,
+        "p50_ms": 21.88,
+        "p95_ms": 40.136,
+        "max_ms": 40.136,
+        "mean_ms": 22.435
       }
     }
   },
   "recompute": {
-    "computeVisibleStars_cold_ms": 18.526,
+    "computeVisibleStars_cold_ms": 38.697,
     "computeVisibleStars_warm_cached": {
       "n": 20,
       "min_ms": 0.001,
-      "p50_ms": 0.003,
-      "p95_ms": 0.059,
-      "max_ms": 0.06,
-      "mean_ms": 0.009
+      "p50_ms": 0.004,
+      "p95_ms": 0.058,
+      "max_ms": 0.075,
+      "mean_ms": 0.01
     },
-    "computeSky_cold_ms": 0.095,
+    "computeSky_cold_ms": 0.104,
     "computeSky_warm_cached": {
       "n": 20,
       "min_ms": 0.001,
       "p50_ms": 0.001,
-      "p95_ms": 0.005,
-      "max_ms": 0.011,
+      "p95_ms": 0.004,
+      "max_ms": 0.01,
       "mean_ms": 0.002
     },
     "note": "Warm identical renders hit astronomyCache (LRU 50) and skyCache (LRU 10). Text metrics LRU 100. Preview path already skips astronomy when worker sky is ready."
@@ -435,9 +481,9 @@
     "previewEditor": "dual canvas: base includeText:false + text layer",
     "hdExport": "single canvas 6000px quality:export",
     "astronomyProjectionDependsOnCanvasSize": true,
-    "hd_astronomy_cold_ms": 0.031,
+    "hd_astronomy_post_export_warm_ms": 0.059,
     "hd_stars": 4407,
-    "note": "Sky positions are projected into canvas pixel space, so preview and HD cannot share the same VisibleSky object; astronomy is recomputed at export size."
+    "note": "Sky positions are projected into canvas pixel space, so preview and HD cannot share the same VisibleSky object. This late probe reuses the HD key warmed by export; it does not measure cold astronomy."
   },
   "commandStreamEquivalencePin": {
     "algorithm": "sha256 of mocked Canvas command stream (same approach as milkyWay.test.mjs)",
@@ -446,7 +492,7 @@
       "width": 900,
       "height": 900
     },
-    "hash": "ee8146ce24db016694e8020ea90c2de2cb0989a74d168c3df071d0c1c8d310bf",
+    "hash": "3c9d39898962831417696e93cdc6f097f1155e1b7b21acd8c7f32cbca97f806e",
     "repeatIdentical": true
   }
 }

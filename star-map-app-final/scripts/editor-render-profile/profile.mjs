@@ -9,6 +9,7 @@
  */
 import { execFileSync } from "node:child_process";
 import { buildProfileInstants } from "./profileInstants.mjs";
+import { captureCanvasDimensions } from "./canvasDimensions.mjs";
 import { register } from "node:module";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -379,7 +380,7 @@ function commandStreamHash(width, height, recipe, sky) {
   function canvas(label) {
     const state = { globalAlpha: 1 };
     const stack = [];
-    const result = { width, height };
+    const result = captureCanvasDimensions({ width, height }, label, commands);
     const ctx = new Proxy(state, {
       get(target, key) {
         if (key === "canvas") return result;
@@ -626,30 +627,35 @@ const triggerClasses = {};
   };
 }
 {
-  // Text keystroke → text layer only
+  // Parent/external-recipe update: PreviewCanvas base effect + text overlay.
+  // Measures production render work, excluding React scheduling/input latency.
   const samples = [];
+  const baseSamples = [];
+  const textSamples = [];
+  let base;
+  let text;
   for (let i = 0; i < 12; i++) {
     const boxes = REFERENCE_SCENE.textBoxes.map((b, idx) =>
       idx === 0 ? { ...b, text: `The Night We Became One${"!".repeat(i % 5)}` } : b,
     );
-    samples.push(
-      runRender({
-        width: previewW,
-        height: previewH,
-        recipe: buildRecipe({ textBoxes: boxes }),
-        includeText: true,
-        watermark: true,
-        quality: "export",
-        premium: false,
-        skyOverride: null,
-        skipSkyCompute: true,
-        textOnly: true,
-      }).ms,
-    );
+    const common = {
+      width: previewW, height: previewH,
+      recipe: buildRecipe({ textBoxes: boxes }),
+      quality: "export", premium: false, skyOverride: sky, skipSkyCompute: true,
+    };
+    base = runRender({ ...common, includeText: false, watermark: false, textOnly: false });
+    text = runRender({ ...common, includeText: true, watermark: true, textOnly: true });
+    baseSamples.push(base.ms);
+    textSamples.push(text.ms);
+    samples.push(base.ms + text.ms);
   }
-  triggerClasses.text_keystroke_text_layer_only = {
-    effect: "text-layer only (PreviewCanvas intentional split)",
+  triggerClasses.text_keystroke_base_plus_text = {
+    effect: "production base-sky redraw + text overlay on parent/external-recipe update; worker sky reused; excludes React scheduling",
     ...stats(samples),
+    base_ms: stats(baseSamples),
+    text_overlay_ms: stats(textSamples),
+    base_draw_categories: base.categories,
+    text_draw_categories: text.categories,
   };
 }
 {
@@ -739,8 +745,8 @@ const recompute = {
     "Warm identical renders hit astronomyCache (LRU 50) and skyCache (LRU 10). Text metrics LRU 100. Preview path already skips astronomy when worker sky is ready.",
 };
 
-// Preview vs HD path split
-const hdSkyCold = timed(() =>
+// Preview vs HD path split: this key was warmed by hd_export_6000 above.
+const hdSkyWarm = timed(() =>
   computeVisibleStars(
     {
       datetimeISO: recipeFull.datetimeISO,
@@ -787,9 +793,9 @@ const report = {
     previewEditor: "dual canvas: base includeText:false + text layer",
     hdExport: "single canvas 6000px quality:export",
     astronomyProjectionDependsOnCanvasSize: true,
-    hd_astronomy_cold_ms: +hdSkyCold.ms.toFixed(3),
-    hd_stars: hdSkyCold.value.stars.length,
-    note: "Sky positions are projected into canvas pixel space, so preview and HD cannot share the same VisibleSky object; astronomy is recomputed at export size.",
+    hd_astronomy_post_export_warm_ms: +hdSkyWarm.ms.toFixed(3),
+    hd_stars: hdSkyWarm.value.stars.length,
+    note: "Sky positions are projected into canvas pixel space, so preview and HD cannot share the same VisibleSky object. This late probe reuses the HD key warmed by export; it does not measure cold astronomy.",
   },
   commandStreamEquivalencePin: {
     algorithm: "sha256 of mocked Canvas command stream (same approach as milkyWay.test.mjs)",
@@ -800,7 +806,8 @@ const report = {
   },
 };
 
-const outDir = dirname(fileURLToPath(import.meta.url));
+const outDir = process.env.PROFILE_OUTPUT_DIR || dirname(fileURLToPath(import.meta.url));
+mkdirSync(outDir, { recursive: true });
 const outPath = join(outDir, "profile-results.json");
 writeFileSync(outPath, JSON.stringify(report, null, 2));
 const artifactDir = process.env.PROFILE_ARTIFACT_DIR;
