@@ -1138,19 +1138,28 @@ async function createCheckoutSession(input: {
   // (every createCheckoutSession exit below flushes before returning or
   // rethrowing), so a slow KV write can neither delay session creation
   // nor inflate the stage durations being measured. Each flush write
-  // still goes through bestEffortCheckoutSideEffect, so a counter
-  // failure can never fail or change a checkout.
+  // still goes through bestEffortCheckoutSideEffect. Like the stage
+  // aggregates, persistence is registered with waitUntil instead of
+  // blocking the redirect on telemetry KV latency.
   const queuedTimingCounters: Array<{ counter: CheckoutTimingCounter; stage: string }> = [];
   const queueTimingCounter = (counter: CheckoutTimingCounter, stage: string): void => {
     queuedTimingCounters.push({ counter, stage });
   };
   const flushQueuedTimingCounters = async (): Promise<void> => {
-    for (const queued of queuedTimingCounters.splice(0)) {
-      await bestEffortCheckoutSideEffect({
-        correlationId: input.correlationId ?? "unknown",
-        stage: queued.stage,
-        run: () => recordCheckoutTimingCounter(queued.counter),
-      });
+    if (!queuedTimingCounters.length) return;
+    const persistence = (async () => {
+      for (const queued of queuedTimingCounters.splice(0)) {
+        await bestEffortCheckoutSideEffect({
+          correlationId: input.correlationId ?? "unknown",
+          stage: queued.stage,
+          run: () => recordCheckoutTimingCounter(queued.counter),
+        });
+      }
+    })();
+    try {
+      getCloudflareContext().ctx.waitUntil(persistence);
+    } catch {
+      void persistence;
     }
   };
 

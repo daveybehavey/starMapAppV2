@@ -1,0 +1,10 @@
+Your StarMapCo consent receipt
+
+Address: stage-a@example.test
+Consent confirmed: 2026-11-10T10:00:01.000Z
+Scope: StarMapCo promotional email
+Disclosure (rdk-en-2026-11-10-v1): I agree to receive StarMapCo promotional email, including updates about new looks, sales, and restocks. I can unsubscribe at any time.
+Sender: StarMapCo, 123 Synthetic Street
+View your subscription record: https://example.test/synthetic-record?credential=synthetic
+Unsubscribe: https://example.test/synthetic-unsubscribe?token=synthetic
+You can also unsubscribe by emailing withdraw@example.test.

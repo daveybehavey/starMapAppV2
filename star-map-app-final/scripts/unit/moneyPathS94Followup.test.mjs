@@ -53,6 +53,7 @@ delete process.env.DL1_AUTHORITY_ROUTING_ENABLED;
  * pattern. It delegates to per-test responders reset by installFetchDouble. */
 const FULFILLMENT_URL = "https://fulfillment.example.test/hook";
 let fetchLog = [];
+let confirmedPrintfulOrder = null;
 let stripeResponder = async () => {
   throw new Error("moneyPathS94Followup harness: unstubbed Stripe API call");
 };
@@ -65,6 +66,9 @@ globalThis.fetch = async (input, init) => {
   const url = typeof input === "string" ? input : input.url;
   const method = init?.method ?? (typeof input === "object" ? input.method : undefined) ?? "GET";
   fetchLog.push({ url, method, headers: init?.headers ?? {}, body: init?.body });
+  if (url.startsWith("https://api.printful.com/orders/") && confirmedPrintfulOrder) {
+    return Response.json({ code: 200, result: confirmedPrintfulOrder });
+  }
   if (url.startsWith("https://api.resend.com/")) {
     return new Response(JSON.stringify({ id: "msg_unit" }), {
       status: 200,
@@ -1976,10 +1980,12 @@ test("S96-1 F1: order_put_hold is recorded + alerted once, and a terminal failur
   installFakeKv();
   installFetchDouble();
   process.env.PRINTFUL_WEBHOOK_SECRET = PRINTFUL_TEST_SECRET;
+  process.env.PRINTFUL_API_TOKEN = "throwaway-api";
   process.env.PRINT_ORDER_ALERT_FROM = "StarMapCo <ops@example.com>";
   try {
     const sessionId = "cs_test_s961_hold";
     seedSentPrintOrder(sessionId);
+    confirmedPrintfulOrder = { id: 9001, external_id: sessionId, status: "onhold" };
     const holdPayload = {
       type: "order_put_hold",
       data: {
@@ -1993,7 +1999,7 @@ test("S96-1 F1: order_put_hold is recorded + alerted once, and a terminal failur
     assert.equal((await first.json()).status, "updated");
     const held = data.get(printOrderKey(sessionId));
     assert.equal(typeof held.providerHoldAt, "number", "the hold is visible state on the record");
-    assert.equal(held.providerHoldReason, "address_issue");
+    assert.equal(held.providerHoldReason, undefined, "unconfirmed webhook free text is discarded");
     assert.equal(held.providerHoldOrderStatus, "onhold");
     assert.equal(held.status, "sent", "a hold is not a failure — the order stays sent");
     assert.equal(typeof held.operatorHoldAlertedAt, "number", "the operator was alerted");
@@ -2009,6 +2015,7 @@ test("S96-1 F1: order_put_hold is recorded + alerted once, and a terminal failur
     assert.equal(resendCalls().length, 1, "no duplicate hold alert on redelivery");
 
     // A terminal failure supersedes the hold and clears it from the record.
+    confirmedPrintfulOrder.status = "failed";
     const failure = await postPrintfulEvent({
       type: "order_failed",
       data: {
@@ -2021,15 +2028,17 @@ test("S96-1 F1: order_put_hold is recorded + alerted once, and a terminal failur
     assert.equal(failed.status, "failed");
     assert.equal(failed.providerHoldAt, undefined, "the terminal projection clears the hold");
 
-    // A late hold after the terminal event is acknowledged but ignored.
+    // A stale hold cannot pass the API gate after the provider has failed.
     const late = await postPrintfulEvent(holdPayload);
-    assert.equal(late.status, 200);
+    assert.equal(late.status, 503);
     const lateBody = await late.json();
-    assert.equal(lateBody.status, "ignored");
-    assert.equal(lateBody.reason, "superseded_by_terminal_failure");
+    assert.equal(lateBody.status, "verification_failed");
+    assert.equal(lateBody.reason, "order_state_mismatch");
     assert.equal(data.get(printOrderKey(sessionId)).providerHoldAt, undefined);
   } finally {
     delete process.env.PRINTFUL_WEBHOOK_SECRET;
+    delete process.env.PRINTFUL_API_TOKEN;
+    confirmedPrintfulOrder = null;
     delete process.env.PRINT_ORDER_ALERT_FROM;
     restoreKv();
   }
@@ -2039,6 +2048,8 @@ test("S96-1 F1: a hold whose session cannot be resolved stays retryable (503), n
   installFakeKv();
   installFetchDouble();
   process.env.PRINTFUL_WEBHOOK_SECRET = PRINTFUL_TEST_SECRET;
+  process.env.PRINTFUL_API_TOKEN = "throwaway-api";
+  confirmedPrintfulOrder = { id: 424242, external_id: "not-a-checkout-session", status: "onhold" };
   try {
     const res = await postPrintfulEvent({
       type: "order_put_hold",
@@ -2051,6 +2062,8 @@ test("S96-1 F1: a hold whose session cannot be resolved stays retryable (503), n
     assert.equal((await res.json()).status, "session_unresolved");
   } finally {
     delete process.env.PRINTFUL_WEBHOOK_SECRET;
+    delete process.env.PRINTFUL_API_TOKEN;
+    confirmedPrintfulOrder = null;
     restoreKv();
   }
 });

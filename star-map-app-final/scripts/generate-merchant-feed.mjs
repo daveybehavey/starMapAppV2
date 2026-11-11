@@ -3,6 +3,27 @@
 import { writeFileSync, readFileSync, mkdirSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { seedEnv } from "./merchant-shipping-common.mjs";
+import ts from "typescript";
+
+// Compile the two canonical pricing modules in memory so this build script
+// works on all supported Node versions, without Next's alias resolver or
+// duplicated price defaults. No generated source files are written.
+function sourceModuleUrl(relativePath, replacements = {}) {
+  let source = readFileSync(new URL(relativePath, import.meta.url), "utf8");
+  for (const [specifier, url] of Object.entries(replacements)) {
+    source = source.replaceAll(`"${specifier}"`, JSON.stringify(url));
+  }
+  const { outputText } = ts.transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
+  });
+  return `data:text/javascript;base64,${Buffer.from(outputText).toString("base64")}`;
+}
+
+const catalogUrl = sourceModuleUrl("../src/lib/printCatalog.ts");
+const { PRINT_CATALOG } = await import(catalogUrl);
+const { getPricingTiers, getPrintDigitalAddOnPrice } = await import(
+  sourceModuleUrl("../src/lib/pricing.ts", { "@/lib/printCatalog": catalogUrl })
+);
 
 await seedEnv();
 
@@ -51,18 +72,16 @@ function uniqueCountries(countries) {
   return Array.from(new Set(countries.filter((value) => /^[A-Z]{2}$/.test(value))));
 }
 
-const PRICE_SINGLE_CENTS = parseIntEnv(["NEXT_PUBLIC_PRICE_SINGLE_CENTS", "PRICE_SINGLE_CENTS"], 900);
-const PRINT_UNFRAMED_CENTS = parseIntEnv(
-  ["NEXT_PUBLIC_PRINT_UNFRAMED_PRICE_CENTS", "PRINT_UNFRAMED_PRICE_CENTS"],
-  4900,
-);
-const PRINT_FRAMED_CENTS = parseIntEnv(
-  ["NEXT_PUBLIC_PRINT_FRAMED_PRICE_CENTS", "PRINT_FRAMED_PRICE_CENTS"],
-  9900,
-);
+const digitalTiers = getPricingTiers();
+const PRICE_SINGLE_CENTS = parseIntEnv(["NEXT_PUBLIC_PRICE_SINGLE_CENTS", "PRICE_SINGLE_CENTS"], digitalTiers.single.amountCents);
+function printPrice(row) {
+  return parseIntEnv([row.publicPriceEnv, row.priceEnv], row.priceFallbackCents);
+}
+const PRINT_UNFRAMED_CENTS = printPrice(PRINT_CATALOG.find(row => row.id === "poster_unframed"));
+const PRINT_FRAMED_CENTS = printPrice(PRINT_CATALOG.find(row => row.id === "poster_framed"));
 const PRINT_DIGITAL_ADDON_CENTS = parseIntEnv(
   ["NEXT_PUBLIC_PRINT_DIGITAL_ADDON_PRICE_CENTS", "PRINT_DIGITAL_ADDON_PRICE_CENTS"],
-  700,
+  getPrintDigitalAddOnPrice().amountCents,
 );
 const PRINT_FRAMED_HD_BUNDLE_CENTS = PRINT_FRAMED_CENTS + PRINT_DIGITAL_ADDON_CENTS;
 const PRINT_FREE_SHIPPING_THRESHOLD_CENTS = parseIntEnv(
@@ -96,7 +115,7 @@ const configuredFeedCountries = parseCountryListEnv(
 );
 const includeRestrictedCountries = parseBooleanEnv("MERCHANT_FEED_INCLUDE_RESTRICTED", false);
 const usePrintProofImages = parseBooleanEnv("MERCHANT_FEED_USE_PRINT_PROOF_IMAGES", false);
-const includeDigitalInFeed = parseBooleanEnv("MERCHANT_FEED_INCLUDE_DIGITAL", false);
+const includeDigitalInFeed = parseBooleanEnv("MERCHANT_FEED_INCLUDE_DIGITAL", true);
 const restrictedCountries = includeRestrictedCountries
   ? []
   : parseCountryListEnv("MERCHANT_FEED_EXCLUDED_COUNTRIES", ["KR"]);
@@ -227,17 +246,19 @@ function withDeliveryDefaults(shippingEntry) {
 const items = [
   ...(includeDigitalInFeed
     ? [
-        {
-          id: "digital_single_hd",
-          title: "Custom Star Map HD Download",
+        ...[
+          { id: "digital_single_hd", title: "Custom Star Map HD Download", cents: PRICE_SINGLE_CENTS, description: "One high-resolution digital download" },
+        ].map(offer => ({
+          id: offer.id,
+          title: offer.title,
           description:
-            "Create a custom star map from any date and location, preview the design, and unlock a high-resolution digital download — yours right after checkout.",
+            `Create a custom star map from any date and location and preview the design. ${offer.description} — yours right after checkout.`,
           link: `${SITE_URL}/personalized-star-map`,
           imageLink: `${SITE_URL}/custom-star-map-anniversary.png`,
           additionalImageLinks: [`${SITE_URL}/examples/example-anniversary-heirloom.webp`],
           availability: "in_stock",
           condition: "new",
-          price: formatPrice(PRICE_SINGLE_CENTS),
+          price: formatPrice(offer.cents),
           productType: "Digital download",
           shippingLabel: "digital",
           googleProductCategory: "Software > Digital Goods & Currency > Digital Artwork",
@@ -249,7 +270,7 @@ const items = [
                 price: formatPrice(0),
               }))
             : [{ country: MERCHANT_FEED_COUNTRIES[0], price: formatPrice(0) }],
-        },
+        })),
       ]
     : []),
   {
@@ -335,6 +356,42 @@ const items = [
       ]
     : []),
 ];
+
+// Existing offers above retain their IDs, landing pages and shipping rules.
+// The remaining catalogue rows use the same per-profile rates and threshold.
+const productPresentation = {
+  poster_unframed_16x16: { path: "/star-map-poster", image: unframedImageLink, type: "Print poster" },
+  canvas_wrap: { path: "/shop", image: `${SITE_URL}/printproof/canvas-printful.jpg`, type: "Canvas print" },
+  mug_11oz: { path: "/shop", image: `${SITE_URL}/printproof/gift-raw/mug/mug-printful.jpg`, type: "Mug" },
+  card_4x6: { path: "/star-map-keepsake-card", image: `${SITE_URL}/printproof/gift-raw/card/card-mockup.jpg`, type: "Keepsake card" },
+};
+for (const row of PRINT_CATALOG) {
+  if (["poster_unframed", "poster_framed"].includes(row.id)) continue;
+  const presentation = productPresentation[row.id];
+  if (!presentation) throw new Error(`Missing Merchant presentation for ${row.id}`);
+  const cents = printPrice(row);
+  const freeShipping = cents >= PRINT_FREE_SHIPPING_THRESHOLD_CENTS;
+  items.push({
+    id: `print_${row.id}`,
+    title: `Custom Star Map ${row.labelFallback}`,
+    description: `Create a custom star map from any date and location. ${row.labelFallback}, personalized with your approved artwork and made to order.`,
+    link: `${SITE_URL}${presentation.path}`,
+    imageLink: presentation.image,
+    availability: "in_stock",
+    condition: "new",
+    price: formatPrice(cents),
+    productType: presentation.type,
+    shippingLabel: `print_${row.id}`,
+    identifierExists: false,
+    brand: "StarMapCo",
+    shipping: shippingMap
+      ? MERCHANT_FEED_COUNTRIES.map(country => withDeliveryDefaults({
+          country,
+          price: freeShipping ? formatPrice(0) : formatShippingPrice(shippingMap[row.shippingProfile]?.[country]),
+        }))
+      : [{ country: MERCHANT_FEED_COUNTRIES[0], price: formatPrice(freeShipping ? 0 : PRINT_SHIPPING_CENTS) }],
+  });
+}
 
 const body = [
   '<?xml version="1.0" encoding="UTF-8"?>',

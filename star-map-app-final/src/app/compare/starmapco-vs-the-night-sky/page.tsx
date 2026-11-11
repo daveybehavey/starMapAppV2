@@ -116,7 +116,7 @@ const featureRows: Array<{ label: string; starmapco: string; nightSky: string }>
   },
   {
     label: "Formats",
-    starmapco: "HD digital file, unframed posters, framed print, canvas wrap, mug, keepsake card add-on",
+    starmapco: "HD digital file, unframed posters, framed print, canvas wrap, mug, keepsake card (standalone or with framed print)",
     nightSky: "Classic print, framed, canvas, foil, foil framed, glow-in-the-dark, jewelry, Planets Aligned print",
   },
   {

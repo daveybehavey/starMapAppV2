@@ -15,6 +15,7 @@ export default function GiftFormatRoadmapModule({ sourcePrefix }: GiftFormatRoad
     printTiers.poster_unframed_16x16.amountCents,
     printTiers.poster_unframed_16x16.currency
   );
+  const cardPriceLabel = formatStandalonePrintPriceWithShipping("card_4x6");
 
   return (
     <section className="content-visibility-auto mt-6 space-y-4 rounded-3xl border border-black/5 bg-white/90 p-6 shadow-xl shadow-black/10">
@@ -64,9 +65,11 @@ export default function GiftFormatRoadmapModule({ sourcePrefix }: GiftFormatRoad
           <ul className="mt-2 space-y-1 text-sm text-neutral-800">
             <li>Canvas wrap (premium wall version)</li>
             <li>Mug (gift add-on)</li>
+            <li>Keepsake card ({cardPriceLabel})</li>
           </ul>
           <p className="mt-3 text-xs text-neutral-700">
-            Canvas wraps and mugs are ready to order now in the shop — printed on demand and shipped to your door.
+            Canvas wraps, mugs, and the keepsake card are ready to order now in the shop — printed on demand and
+            shipped to your door. The card is also available with a framed print.
           </p>
           <Link
             href="/shop"
@@ -82,7 +85,6 @@ export default function GiftFormatRoadmapModule({ sourcePrefix }: GiftFormatRoad
             Bundle-only add-ons
           </p>
           <ul className="mt-2 space-y-1 text-sm text-neutral-800">
-            <li>Keepsake card</li>
             <li>Small accessory items</li>
           </ul>
           <p className="mt-3 text-xs text-neutral-700">
