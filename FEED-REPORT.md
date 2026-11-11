@@ -313,3 +313,44 @@ upload validation: wrong-dimension PNG → 422 with NO staging write, intent, or
 valid trimmed token: exact durable key, success and existing cookie attributes
 wiring: renderSky stroke and fit share the helper; purpose stays with the mat resolvers
 ```
+
+## PR #631 fix cycle 1 - 2026-11-11
+
+Jack upheld the landing mismatch: `/personalized-star-map` sells the single
+ digital tier, not pack3. Removed `digital_pack3_hd` and its unused price binding
+from the generator. This supersedes the nine-item result above: the default feed
+now has eight items. Single digital, all seven physical offers, the three original
+IDs, canonical catalogue pricing, and digital inclusion default true are preserved.
+No pack3 landing page was added.
+
+Regression coverage now pins eight IDs and explicitly rejects pack3; threshold
+exclusion expects seven. Price parity assertions remain for every emitted offer;
+the public-first precedence check now exercises the retained single tier.
+
+Validation (app directory; Node 22.23.4 via npx):
+- `npm ci --ignore-scripts --no-audit --no-fund`: passed (751 packages; host
+  Node 26 engine warning; validation used supported Node 22).
+- `npx --yes --package=node@22 node --test scripts/unit/merchantFeed*.test.mjs`:
+  baseline 17 passed / 0 failed; fixed 17 passed / 0 failed. Zero new failures.
+- End-to-end harness via `npx --yes --package=node@22 node` (stdin): invoked
+  `node scripts/generate-merchant-feed.mjs` by absolute path with an isolated
+  temporary cwd, empty wrangler.toml, copied shipping map, and minimal environment.
+  Also ran the baseline generator from origin/feat/merchant-feed-full. Fixed XML
+  equals baseline XML byte-for-byte after removing only the pack3 item. Passed.
+  Temporary harness files and output were removed; public XML is not committed.
+
+Final generated IDs, verbatim and in order:
+```text
+digital_single_hd
+print_poster_unframed
+print_poster_framed
+print_poster_framed_hd_bundle
+print_poster_unframed_16x16
+print_canvas_wrap
+print_mug_11oz
+print_card_4x6
+```
+
+Local delivery branch: `fix/631-drop-pack3`; no push, merge, or deployment.
+Bundle command: `git bundle create ..\feedfix.bundle fix/631-drop-pack3 ^origin/feat/merchant-feed-full`.
+Delivery path: `C:\Users\ReuseTechBC\projects\feedfix.bundle`.

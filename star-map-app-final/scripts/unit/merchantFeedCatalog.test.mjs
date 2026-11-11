@@ -12,7 +12,7 @@ const { PRINT_CATALOG } = await import("../../src/lib/printCatalog.ts");
 const pricing = await import("../../src/lib/pricing.ts");
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const oldIds = ["print_poster_unframed", "print_poster_framed", "print_poster_framed_hd_bundle"];
-const newIds = ["print_poster_unframed_16x16", "print_canvas_wrap", "print_mug_11oz", "print_card_4x6", "digital_single_hd", "digital_pack3_hd"];
+const newIds = ["print_poster_unframed_16x16", "print_canvas_wrap", "print_mug_11oz", "print_card_4x6", "digital_single_hd"];
 
 function generate(overrides = {}, withMap = true) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "feed-catalog-"));
@@ -47,7 +47,6 @@ function assertParity(items, overrides = {}) {
     const amounts = new Map(PRINT_CATALOG.map(row => [`print_${row.id}`, physical[row.id].amountCents]));
     amounts.set("print_poster_framed_hd_bundle", physical.poster_framed.amountCents + pricing.getPrintDigitalAddOnPrice().amountCents);
     amounts.set("digital_single_hd", digital.single.amountCents);
-    amounts.set("digital_pack3_hd", digital.pack3.amountCents);
     for (const item of items) {
       assert.ok(amounts.has(item.id), item.id);
       assert.equal(item.price, `${(amounts.get(item.id) / 100).toFixed(2)} ${(overrides.NEXT_PUBLIC_CURRENCY || "usd").toUpperCase()}`, item.id);
@@ -58,10 +57,11 @@ function assertParity(items, overrides = {}) {
   }
 }
 
-test("feed pins nine unique offers, preserves live IDs, and matches real catalogue pricing", () => {
+test("feed pins eight unique offers, preserves live IDs, and matches real catalogue pricing", () => {
   const items = generate();
-  assert.equal(items.length, 9);
+  assert.equal(items.length, 8);
   assert.deepEqual(items.map(item => item.id).sort(), [...oldIds, ...newIds].sort());
+  assert.ok(!items.some(item => item.id === "digital_pack3_hd"));
   assertParity(items);
   for (const item of items) {
     assert.match(item.xml, /<g:availability>in_stock<\/g:availability>/);
@@ -87,10 +87,10 @@ test("feed server price overrides retain catalogue parity", () => {
 });
 
 test("feed preserves public-first override precedence and single-currency emission", () => {
-  const overrides = { NEXT_PUBLIC_CURRENCY: "eur", CURRENCY: "cad", NEXT_PUBLIC_PACK3_PRICE_CENTS: "2500", PACK3_PRICE_CENTS: "2600" };
+  const overrides = { NEXT_PUBLIC_CURRENCY: "eur", CURRENCY: "cad", NEXT_PUBLIC_PRICE_SINGLE_CENTS: "2500", PRICE_SINGLE_CENTS: "2600" };
   const items = generate(overrides);
-  assertParity(items, { NEXT_PUBLIC_CURRENCY: "eur", NEXT_PUBLIC_PACK3_PRICE_CENTS: "2500" });
-  assert.equal(items.length, 9);
+  assertParity(items, { NEXT_PUBLIC_CURRENCY: "eur", NEXT_PUBLIC_PRICE_SINGLE_CENTS: "2500" });
+  assert.equal(items.length, 8);
 });
 
 test("feed digital opt-out leaves seven physical offers", () => {
@@ -119,7 +119,7 @@ test("feed additional products use catalogue shipping profiles and digital deliv
 
 test("feed keeps threshold gating and no-map shipping fallbacks", () => {
   const items = generate({ PRINT_FREE_SHIPPING_THRESHOLD_CENTS: "99999", PRINT_STANDARD_SHIPPING_CENTS: "1234" }, false);
-  assert.equal(items.length, 8);
+  assert.equal(items.length, 7);
   assert.ok(!items.some(item => item.id === "print_poster_framed_hd_bundle"));
   for (const item of items.filter(item => item.id.startsWith("print_"))) {
     assert.ok(item.xml.includes("<g:shipping><g:country>US</g:country><g:price>12.34 USD</g:price>"));

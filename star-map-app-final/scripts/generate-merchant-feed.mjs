@@ -74,7 +74,6 @@ function uniqueCountries(countries) {
 
 const digitalTiers = getPricingTiers();
 const PRICE_SINGLE_CENTS = parseIntEnv(["NEXT_PUBLIC_PRICE_SINGLE_CENTS", "PRICE_SINGLE_CENTS"], digitalTiers.single.amountCents);
-const PRICE_PACK3_CENTS = parseIntEnv(["NEXT_PUBLIC_PACK3_PRICE_CENTS", "PACK3_PRICE_CENTS"], digitalTiers.pack3.amountCents);
 function printPrice(row) {
   return parseIntEnv([row.publicPriceEnv, row.priceEnv], row.priceFallbackCents);
 }
@@ -249,7 +248,6 @@ const items = [
     ? [
         ...[
           { id: "digital_single_hd", title: "Custom Star Map HD Download", cents: PRICE_SINGLE_CENTS, description: "One high-resolution digital download" },
-          { id: "digital_pack3_hd", title: "Custom Star Map HD Download 3-Pack", cents: PRICE_PACK3_CENTS, description: "Three high-resolution digital download credits" },
         ].map(offer => ({
           id: offer.id,
           title: offer.title,
