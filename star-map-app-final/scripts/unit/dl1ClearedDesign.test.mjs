@@ -2252,3 +2252,49 @@ test("RP-6: partial compensation preserves outstanding reward debit across re-pu
   doubled.retiredDebits.push(doubled.retiredDebits[0]);
   assert.equal(isValidEntitlementAuthorityState(doubled), false);
 });
+
+test("RP-7: original tokenless compensation retry cannot void a re-purchase", async () => {
+  const { EntitlementAuthorityDO } = await import("../../src/durable-objects/EntitlementAuthorityDO.ts");
+  let stored = JSON.stringify(seeded());
+  const makeDO = () => new EntitlementAuthorityDO({
+    blockConcurrencyWhile: (fn) => fn(),
+    storage: { sql: { exec(query, ...args) {
+      if (query.includes("INSERT INTO")) stored = args[1];
+      return { toArray: () => query.includes("SELECT") && stored
+        ? [{ session_id: "cs_referrer", state_json: stored, updated_at: NOW }] : [] };
+    } } },
+  }, {});
+  const sessionId = seeded().sessionId;
+  const bought = await makeDO().apply(sessionId, commitOp("art-rp"));
+  assert.equal(bought.outcome, "committed");
+  const original = { type: "compensate_debit", consumeToken: "art-rp", now: NOW + 1 };
+  const compensated = await makeDO().apply(sessionId, original);
+  assert.equal(compensated.outcome, "compensated");
+  const replacement = await makeDO().apply(sessionId, commitOp("art-rp", { now: NOW + 2 }));
+  assert.equal(replacement.outcome, "committed");
+  for (const op of [original, { ...original, committedSeq: bought.state.ownedFiles["art-rp"].committedSeq }]) {
+    const retry = await makeDO().apply(sessionId, op);
+    assert.equal(retry.changed, false); // authority's applied=false indicator
+    assert.equal(retry.outcome, "refused");
+    assert.equal(retry.refusal, "unknown_debit");
+    assert.deepEqual(retry.state, replacement.state);
+    assert.deepEqual(retry.state.ownedFiles["art-rp"], replacement.state.ownedFiles["art-rp"]);
+    assert.notEqual(retry.state.ownedFiles["art-rp"].deliveryVoidedByCompensation, true);
+    assert.deepEqual(evaluateDeliveryEligibility(retry.state, "art-rp"), { ok: true });
+    assert.equal(isValidEntitlementAuthorityState(retry.state), true);
+    assert.deepEqual(await makeDO().getState(sessionId), replacement.state);
+  }
+  const malformed = structuredClone(replacement.state);
+  malformed.ownedFiles["art-rp"].supersededConsumeTokens = [123];
+  assert.equal(isValidEntitlementAuthorityState(malformed), false);
+  const current = await makeDO().apply(sessionId, {
+    ...original, committedSeq: replacement.state.ownedFiles["art-rp"].committedSeq,
+  });
+  assert.equal(current.outcome, "compensated");
+  assert.equal(current.changed, true);
+  assert.equal(isValidEntitlementAuthorityState(current.state), true);
+  assert.deepEqual(await makeDO().getState(sessionId), current.state);
+  assert.equal((await makeDO().apply(sessionId, {
+    ...original, committedSeq: replacement.state.ownedFiles["art-rp"].committedSeq,
+  })).outcome, "already_compensated");
+});

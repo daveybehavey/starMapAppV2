@@ -132,6 +132,8 @@ export type OwnedFileEntry = {
   restoredRewardPortion?: number;
   restoredPurchasedPortion?: number;
   committedSeq?: number;
+  /** Prior debit identities displaced by re-purchase; require sequence disambiguation. */
+  supersededConsumeTokens?: string[];
   restorationSeq?: number | null;
   /**
    * Set by compensate_debit in the same transition that restores the
@@ -964,6 +966,8 @@ export type EntitlementAuthorityOp =
        */
       type: "compensate_debit";
       consumeToken: string;
+      /** Required when this identity was reused by a re-purchase. */
+      committedSeq?: number;
       now: number;
     }
   | {
@@ -1552,6 +1556,10 @@ export function isValidEntitlementAuthorityState(
     ) {
       return false;
     }
+    if (e.supersededConsumeTokens !== undefined && (
+      !Array.isArray(e.supersededConsumeTokens) ||
+      !e.supersededConsumeTokens.every((token) => typeof token === "string")
+    )) return false;
     if (e.source === "commit") {
       const portions = commitEntryPortions(e);
       if (portions.rewardPortion + portions.purchasedPortion !== portions.credits) {
@@ -2270,6 +2278,9 @@ function commit(
     fundingGrantId: funding?.grantId ?? null,
     restoredRewardPortion: 0,
     restoredPurchasedPortion: 0,
+    ...(existing ? { supersededConsumeTokens: [...new Set([
+      ...(existing.supersededConsumeTokens ?? []), existing.consumeToken ?? op.artifactId,
+    ])] } : {}),
     committedSeq: seq,
     restorationSeq: null,
   };
@@ -2464,9 +2475,15 @@ function compensateDebit(
   const invalid = validityRefusal(state);
   if (invalid) return invalid;
 
+  // A reused token (including the tokenless artifactId fallback) cannot
+  // distinguish a retry from a new compensation without the commit sequence.
+  // Fail closed for old or ambiguous identities; never restore the replacement.
   const artifactId = Object.keys(state.ownedFiles).find((id) => {
     const e = state.ownedFiles[id];
-    return e.source === "commit" && (e.consumeToken ?? id) === op.consumeToken;
+    return e.source === "commit" && (e.consumeToken ?? id) === op.consumeToken &&
+      (op.committedSeq !== undefined
+        ? Number.isSafeInteger(op.committedSeq) && e.committedSeq === op.committedSeq
+        : !e.supersededConsumeTokens?.includes(op.consumeToken));
   });
   if (!artifactId) return refused(state, "unknown_debit");
   const entry = state.ownedFiles[artifactId];
