@@ -7,6 +7,8 @@
  * Usage (from star-map-app-final/, Node ≥ 22.18):
  *   TZ=UTC node scripts/editor-render-profile/profile.mjs
  */
+import { execFileSync } from "node:child_process";
+import { buildProfileInstants } from "./profileInstants.mjs";
 import { register } from "node:module";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -434,6 +436,7 @@ function commandStreamHash(width, height, recipe, sky) {
 
 // ─── Run profile ───────────────────────────────────────────────────────────
 
+const dateChangeInstants = buildProfileInstants(); // Fail before any timings.
 const recipeFull = buildRecipe();
 const recipeBase = buildRecipe({ textBoxes: [] });
 const { width: previewW, height: previewH } = REFERENCE_SCENE.previewSize;
@@ -679,8 +682,7 @@ const triggerClasses = {};
 {
   // Date change → astronomy recompute + full base (cold astronomy each unique instant)
   const samples = [];
-  for (let i = 0; i < 8; i++) {
-    const iso = `2024-12-14T0${2 + (i % 5)}:0${i % 6}0:00.000Z`;
+  for (const iso of dateChangeInstants) {
     const r = buildRecipeFromState({
       dateTime: iso,
       location: REFERENCE_SCENE.location,
@@ -719,7 +721,8 @@ const triggerClasses = {};
     samples.push({ astronomy_ms: skyT.ms, paint_ms: paint.ms, total_ms: skyT.ms + paint.ms });
   }
   triggerClasses.date_change_astronomy_plus_base = {
-    effect: "full astronomy recompute + base-sky redraw",
+    effect: "cold astronomy per unique runtime-clock instant + base redraw with supplied sky; not location changes",
+    instants: dateChangeInstants,
     astronomy_ms: stats(samples.map((s) => s.astronomy_ms)),
     paint_ms: stats(samples.map((s) => s.paint_ms)),
     total_ms: stats(samples.map((s) => s.total_ms)),
@@ -756,7 +759,8 @@ const equivalenceHash2 = commandStreamHash(previewW, previewH, recipeFull, sky);
 
 const report = {
   generatedAt: new Date().toISOString(),
-  baseHeadNote: "Run against current checkout; record git SHA in the attribution memo.",
+  gitSha: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
+  baseHeadNote: "Harness source committed before run; results committed separately.",
   referenceScene: {
     ...REFERENCE_SCENE,
     measuredSkyAtPreview: {
@@ -799,10 +803,10 @@ const report = {
 const outDir = dirname(fileURLToPath(import.meta.url));
 const outPath = join(outDir, "profile-results.json");
 writeFileSync(outPath, JSON.stringify(report, null, 2));
-const artifactDir = "/opt/cursor/artifacts";
+const artifactDir = process.env.PROFILE_ARTIFACT_DIR;
 try {
-  mkdirSync(artifactDir, { recursive: true });
-  writeFileSync(join(artifactDir, "editor-render-profile-results.json"), JSON.stringify(report, null, 2));
+  if (artifactDir) mkdirSync(artifactDir, { recursive: true });
+  if (artifactDir) writeFileSync(join(artifactDir, "editor-render-profile-results.json"), JSON.stringify(report, null, 2));
 } catch {
   /* artifact dir may be unavailable outside the agent VM */
 }
