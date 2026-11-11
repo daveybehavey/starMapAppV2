@@ -250,5 +250,11 @@ new_sqlite_classes = ["GiftCertificateGrantDO"]
 enabled = true
 head_sampling_rate = 1
 
+# Invocation records include the full incoming URL, including the v1 webhook token.
+# Cloudflare cannot redact this query per route. Keep explicit, sanitized console logs.
+[observability.logs]
+enabled = true
+invocation_logs = false
+
 [images]
 binding = "IMAGES"

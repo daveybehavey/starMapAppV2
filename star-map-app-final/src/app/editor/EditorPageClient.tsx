@@ -22,11 +22,12 @@ const EditorExperience = dynamic(
 );
 
 type EditorPageClientProps = {
+  metaCarry?: { promoCode?: string; plan?: "single" | "pack3" };
   promoStatus?: string;
   promoCode?: string;
 };
 
-export default function EditorPageClient({ promoStatus, promoCode }: EditorPageClientProps) {
+export default function EditorPageClient({ promoStatus, promoCode, metaCarry }: EditorPageClientProps) {
   const promotionTargetLabel = getPromotionTargetLabel();
   const status = parsePromotionSignupStatus(promoStatus);
   const showPromo = status !== undefined;
@@ -46,7 +47,7 @@ export default function EditorPageClient({ promoStatus, promoCode }: EditorPageC
               {promoMessage}
             </div>
           ) : null}
-          <EditorExperience variant="quick" allowAdvancedInQuick />
+          <EditorExperience variant="quick" allowAdvancedInQuick metaCarry={metaCarry} />
         </main>
       </EditorFontShell>
     </SentryBoundary>
