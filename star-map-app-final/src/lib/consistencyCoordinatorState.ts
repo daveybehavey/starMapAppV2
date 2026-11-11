@@ -1,3 +1,6 @@
+import { recordPromotionReceiptOutcome, type PromotionReceiptOutcomeInput } from "./promotionReceipt";
+import type { PromotionCapture } from "./promotionDisclosure";
+import { assertPromotionCapture, createPromotionReceiptJob, type PromotionReceiptJob } from "./promotionReceipt";
 /**
  * Pure state machines for the Consistency Coordinator (T-SM-KVRACE).
  *
@@ -472,6 +475,10 @@ export type PromotionConsentEvent = {
   disclosureVersion: string;
   disclosureHash: string;
   affirmativeAction: string;
+  /** Present only for newly captured RD-K completions; never backfilled. */
+  rdK?: { eventRef: string; emailHash: string; sender: "StarMapCo";
+    channel: "email"; scope: "StarMapCo promotional email";
+    locale: "en"; variant: "homepage"; presentationVersion: "rdk-checkbox-v1" };
   orderRef?: string;
   checkoutRef?: string;
   designRef?: string;
@@ -534,6 +541,8 @@ export type PromotionPendingConsent = {
   status: "pending" | "confirmed";
   /** Server time the ceremony completed; null while pending. */
   confirmedAt: number | null;
+  /** Immutable evidence of the request presentation; no client clock. */
+  capture?: PromotionCapture;
 };
 
 /**
@@ -589,6 +598,8 @@ export type PromotionCoordinatorState = {
    *  transitions that move the underlying facts; readers use
    *  promotionWelcomeStateOf, which derives it either way. */
   welcomeState?: PromotionWelcomeState;
+  /** Paired completion artifacts, one per generation. No delivery driver in Stage A. */
+  receiptJobs?: Record<string, PromotionReceiptJob>;
   /** RD-C (B1A-MODEL §3.1/§3.3): the identity's GM-7A tombstones —
    *  the tombstone store's physical form under the single-document
    *  architecture, indexed logically by keyedDigest under each
@@ -799,6 +810,40 @@ export function isValidPromotionState(value: unknown): value is PromotionCoordin
   if (state.pendingConsent !== undefined && state.pendingConsent !== null) {
     if (!isValidPromotionPendingConsent(state.pendingConsent)) return false;
   }
+  if (state.receiptJobs !== undefined) {
+    if (!state.receiptJobs || typeof state.receiptJobs !== "object" || Array.isArray(state.receiptJobs)) return false;
+    for (const [key, value] of Object.entries(state.receiptJobs)) {
+      if (!value || typeof value !== "object") return false;
+      const job = value as PromotionReceiptJob;
+      if (String(job.generation) !== key || job.emailHash !== state.emailHash ||
+          job.jobId !== `promotion:receipt:${job.emailHash}:${job.generation}` ||
+          job.providerIdempotencyKey !== job.jobId ||
+          !Number.isInteger(job.generation) || job.generation < 1 || !Number.isFinite(job.serverAt) ||
+          !/^[a-f0-9]{64}$/.test(job.eventRef) || job.classification !== "transactional" ||
+          job.quota !== "transactional_provider" || job.promotionalBudget !== false ||
+          job.deliveryHold !== "stage_a_no_send" || !Number.isInteger(job.attempts) || job.attempts < 0 || job.attempts > 3 ||
+          (job.nextAttemptAt !== null && !Number.isFinite(job.nextAttemptAt)) ||
+          !["pending", "accepted", "failed", "blocked"].includes(job.status) ||
+          !Array.isArray(job.incidents) ||
+          (job.status === "pending" ? job.terminal !== null : !job.terminal ||
+            job.terminal.status !== job.status || !Number.isFinite(job.terminal.at))) return false;
+      try { if (job.capture) assertPromotionCapture(job.capture, job.emailHash); } catch { return false; }
+      if (!job.capture && job.status !== "blocked") return false;
+      const event = (state.consentEvents as PromotionConsentEvent[] | undefined)?.find(
+        (entry) => entry.kind === "reconsent" && entry.generation === job.generation);
+      if (!event || event.serverAt !== job.serverAt) return false;
+      if (job.capture && (event.rdK?.eventRef !== job.eventRef || event.rdK.emailHash !== state.emailHash || event.rdK.sender !== "StarMapCo" ||
+          event.rdK.channel !== "email" || event.rdK.scope !== "StarMapCo promotional email" ||
+          event.rdK.locale !== "en" || event.rdK.variant !== "homepage" ||
+          event.rdK.presentationVersion !== "rdk-checkbox-v1" ||
+          event.disclosureVersion !== job.capture.disclosureVersion ||
+          event.disclosureHash !== job.capture.disclosureHash || event.affirmativeAction !== "confirmation")) return false;
+    }
+  }
+  if (state.pendingConsent && (state.pendingConsent as PromotionPendingConsent).capture) {
+    try { assertPromotionCapture((state.pendingConsent as PromotionPendingConsent).capture!, state.emailHash as string); }
+    catch { return false; }
+  }
   if (state.welcomeState !== undefined && !isValidPromotionWelcomeState(state.welcomeState)) {
     return false;
   }
@@ -813,6 +858,9 @@ export function isValidPromotionState(value: unknown): value is PromotionCoordin
     for (const tombstone of state.tombstones) {
       if (!isValidPromotionTombstone(tombstone)) return false;
     }
+  }
+  for (const event of (state.consentEvents ?? []) as PromotionConsentEvent[]) {
+    if (event.rdK && !(state.receiptJobs as Record<string, PromotionReceiptJob> | undefined)?.[String(event.generation)]) return false;
   }
   const jobs = state.jobs as Record<string, unknown> | null;
   if (!jobs || typeof jobs !== "object") return false;
@@ -1681,6 +1729,7 @@ export function applyRequestPromotionConsent(
     /** Hash of the confirmation token minted by the caller; the raw
      *  token never enters the state machine (T-1). */
     tokenHash: string;
+    capture?: PromotionCapture;
   },
 ): {
   state: PromotionCoordinatorState;
@@ -1708,7 +1757,9 @@ export function applyRequestPromotionConsent(
   ) {
     return { state: current, changed: importChanged, outcome: "existing", pendingConsent: existing };
   }
+  if (input.capture) assertPromotionCapture(input.capture, input.emailHash);
   const pendingConsent: PromotionPendingConsent = {
+    ...(input.capture ? { capture: { ...input.capture } } : {}),
     requestId: input.requestId,
     generation,
     createdAt: input.now,
@@ -1844,6 +1895,16 @@ export function applyConfirmPromotionConsent(
     return { state, changed: false, result: "expired" };
   }
   const generation = pending.generation + 1;
+  // Capture validation and receipt construction precede EVERY completion mutation.
+  // A failure leaves the pending request, suppression and generation untouched.
+  const receipt = createPromotionReceiptJob({ emailHash: state.emailHash,
+    generation, serverAt: input.now, capture: pending.capture });
+  const evidence = pending.capture ? {
+    ...input.evidence, surface: "homepage", source: "rd_k",
+    disclosureVersion: pending.capture.disclosureVersion,
+    disclosureHash: pending.capture.disclosureHash,
+    affirmativeAction: "confirmation",
+  } : input.evidence;
   const suppressions = promotionSuppressionsOf(state);
   const completed: PromotionCoordinatorState = {
     ...state,
@@ -1867,21 +1928,37 @@ export function applyConfirmPromotionConsent(
         : suppressions.global,
     },
     pendingConsent: { ...pending, status: "confirmed", confirmedAt: input.now },
+    receiptJobs: { ...state.receiptJobs, [String(generation)]: receipt },
     consentEvents: appendConsentEvent(
       state,
-      buildConsentEvent({
+      { ...buildConsentEvent({
         kind: "reconsent",
         generation,
         now: input.now,
-        evidence: input.evidence,
+        evidence,
         fallbackSurface: "confirmation_link",
         fallbackSource: "confirmation",
         fallbackAction: "confirmation",
-      }),
+      }), ...(pending.capture ? { rdK: { eventRef: receipt.eventRef, emailHash: state.emailHash,
+        sender: "StarMapCo" as const, channel: "email" as const, scope: "StarMapCo promotional email" as const,
+        locale: "en" as const, variant: "homepage" as const, presentationVersion: "rdk-checkbox-v1" as const } } : {}) },
     ),
     updatedAt: input.now,
   };
   return { state: withMaterializedWelcomeState(completed), changed: true, result: "confirmed" };
+}
+
+/** Durable receipt outcome ledger. No consent, suppression, or welcome mutation.
+ * Outcome replay is idempotent by attempt ordinal; erasure leaves nothing to update. */
+export function applyRecordPromotionReceiptOutcome(state: PromotionCoordinatorState,
+  input: PromotionReceiptOutcomeInput & { generation: number },
+): { state: PromotionCoordinatorState; changed: boolean } {
+  const key = String(input.generation);
+  const job = state.receiptJobs?.[key];
+  if (!job) return { state, changed: false };
+  const next = recordPromotionReceiptOutcome(job, input);
+  if (next === job) return { state, changed: false };
+  return { state: { ...state, receiptJobs: { ...state.receiptJobs, [key]: next }, updatedAt: input.now }, changed: true };
 }
 
 /* ------------------------------------------------------------------ */
