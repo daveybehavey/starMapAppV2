@@ -68,6 +68,7 @@ function paywallPrintSkuButtonClasses(
 }
 
 type Props = {
+  preferredDigitalPlan?: "single" | "pack3";
   checkoutInFlight: boolean;
   checkoutError: string | null;
   /** Optional recovery CTA label (e.g. "Try HD digital instead") after a failed checkout. */
@@ -134,6 +135,7 @@ const PAYWALL_COPY: Record<
 };
 
 export function PaywallModal({
+  preferredDigitalPlan,
   checkoutInFlight,
   checkoutError,
   checkoutFallbackLabel = null,
@@ -769,7 +771,7 @@ export function PaywallModal({
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">
-                  <p className="text-midnight text-sm font-semibold">One HD export</p>
+                  <p className="text-midnight text-sm font-semibold">One HD export{preferredDigitalPlan === "single" ? " — selected from Meta shop" : ""}</p>
                   <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-amber-900 uppercase">
                     One-time
                   </span>
@@ -803,7 +805,7 @@ export function PaywallModal({
           <div className="rounded-xl border border-amber-200/70 bg-white/70 p-3">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-midnight text-sm font-semibold">3-credit pack</p>
+                <p className="text-midnight text-sm font-semibold">3-credit pack{preferredDigitalPlan === "pack3" ? " — selected from Meta shop" : ""}</p>
                 <p className="text-xs text-neutral-600">
                   Use when you plan to make more maps, revisions, or gifts
                 </p>
