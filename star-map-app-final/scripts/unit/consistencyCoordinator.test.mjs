@@ -30,6 +30,8 @@ import { fileURLToPath } from "node:url";
 import { register } from "node:module";
 
 register("./tsAliasLoader.mjs", import.meta.url);
+// Exercise the existing fences with GC-2 H set; null-H coverage is separate.
+register("./promotionSendCapSet.hooks.mjs", import.meta.url);
 register("./consistencyCoordinator.hooks.mjs", import.meta.url);
 
 process.env.STARMAP_CONSISTENCY_COORDINATOR_LOCAL = "1";
