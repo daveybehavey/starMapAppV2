@@ -289,7 +289,7 @@ test("U3: pre-RD-K unstamped ceremony is explicitly blocked without reconstructi
   assert.throws(() => receipt.renderPromotionReceipt(job, CONTROLS));
 });
 
-test("U1: fresh capture flow never reads legacy lists or invokes any provider", async () => {
+test("U1: fresh capture imports permission facts without completing consent or invoking a provider", async () => {
   process.env.STARMAP_CONSISTENCY_COORDINATOR_LOCAL = "1";
   process.env.STARMAP_KV_ALLOW_LOCAL = "1";
   const { kv } = await import("../../src/lib/kv.ts");
@@ -304,8 +304,10 @@ test("U1: fresh capture flow never reads legacy lists or invokes any provider", 
     calls++;
     throw new Error("network forbidden");
   };
+  let legacyReads = 0;
   kv.get = async () => {
-    throw new Error("legacy KV forbidden");
+    legacyReads++;
+    return null;
   };
   kv.getErrorPreserving = async () => {
     throw new Error("legacy KV forbidden");
@@ -316,6 +318,8 @@ test("U1: fresh capture flow never reads legacy lists or invokes any provider", 
     assert.equal(first.state.legacySubscribed, false);
     assert.equal(first.state.subscribedAt, null);
     assert.equal(first.state.receiptJobs, undefined);
+    assert.equal(legacyReads, 4);
+    kv.get = async () => { throw new Error("existing document must not read legacy facts"); };
     const repeated = await flows.requestPromotionConsentFlow({ email: EMAIL, capture: CAPTURE });
     assert.equal(repeated.outcome, "existing");
     assert.equal(repeated.token, null);
@@ -350,4 +354,62 @@ test("U3 regression: erasure removes the new receipt address and content; late r
     }).changed,
     false
   );
+});
+
+for (const scenario of [
+  { name: "legacy list member", state: null, member: true, decision: { permitted: true } },
+  { name: "legacy subscribed stamp", state: { subscribedAt: NOW - 2000 }, member: false, decision: { permitted: true } },
+  { name: "legacy unsubscribe", state: { subscribedAt: NOW - 2000, unsubscribedAt: NOW - 1000 }, member: true, decision: { permitted: false, reason: "unsubscribed" } },
+  { name: "fresh identity", state: null, member: false, decision: { permitted: false, reason: "no_permission_record" } },
+]) {
+  test(`FIX-1: capture preserves dispatch standing for ${scenario.name}`, async () => {
+    process.env.STARMAP_CONSISTENCY_COORDINATOR_LOCAL = "1";
+    process.env.STARMAP_KV_ALLOW_LOCAL = "1";
+    const { kv } = await import("../../src/lib/kv.ts");
+    const clients = await import("../../src/lib/consistencyCoordinator.ts");
+    const { requestPromotionConsentFlow } = await import("../../src/lib/promotionCoordinator.ts");
+    const { createPromotionDispatchPermissionChecker } = await import("../../src/lib/promotionDispatchGuard.ts");
+    const { emailStateKey, LEGACY_SUBSCRIPTION_KEY } = await import("../../src/lib/promotionSubscriptions.ts");
+    clients.__resetConsistencyCoordinatorMemoryForTests();
+    const savedGet = kv.get;
+    const savedFetch = globalThis.fetch;
+    globalThis.fetch = async () => { throw new Error("network forbidden"); };
+    kv.get = async (key) => key === emailStateKey(EMAIL) ? scenario.state
+      : key === LEGACY_SUBSCRIPTION_KEY ? (scenario.member ? [EMAIL] : []) : null;
+    try {
+      const result = await requestPromotionConsentFlow({ email: EMAIL, capture: CAPTURE });
+      assert.equal(result.state.subscribedAt, scenario.state?.subscribedAt ?? null);
+      assert.equal(result.state.legacySubscribed, !scenario.state && scenario.member);
+      assert.equal(result.state.unsubscribedAt, scenario.state?.unsubscribedAt ?? null);
+      assert.deepEqual(result.state.consentEvents ?? [], []);
+      assert.equal(result.state.receiptJobs, undefined);
+      assert.equal(result.state.pendingConsent.status, "pending");
+      assert.deepEqual(await createPromotionDispatchPermissionChecker()(EMAIL), scenario.decision);
+    } finally { kv.get = savedGet; globalThis.fetch = savedFetch; }
+  });
+}
+
+test("FIX-1: capture leaves existing authority facts and deliverability suppression unchanged", async () => {
+  const clients = await import("../../src/lib/consistencyCoordinator.ts");
+  const { kv } = await import("../../src/lib/kv.ts");
+  const { requestPromotionConsentFlow } = await import("../../src/lib/promotionCoordinator.ts");
+  const { createPromotionDispatchPermissionChecker } = await import("../../src/lib/promotionDispatchGuard.ts");
+  clients.__resetConsistencyCoordinatorMemoryForTests();
+  const client = clients.createConsistencyCoordinatorClient();
+  const name = clients.promotionCoordinatorName(HASH);
+  const before = (await client.recordDeliverabilitySuppression(name, {
+    emailHash: HASH, now: NOW, eventRef: "synthetic-bounce",
+    facts: { ...FACTS, state: { subscribedAt: NOW - 2000 }, inLegacySubscriptionList: true },
+  })).state;
+  const savedGet = kv.get;
+  kv.get = async () => { throw new Error("existing authority must not consult legacy"); };
+  try {
+    const result = await requestPromotionConsentFlow({ email: EMAIL, capture: CAPTURE });
+    assert.ok(result.state.updatedAt >= before.updatedAt);
+    assert.equal(result.state.pendingConsent.status, "pending");
+    assert.deepEqual({ ...result.state, pendingConsent: before.pendingConsent, updatedAt: before.updatedAt }, before);
+    assert.deepEqual(await createPromotionDispatchPermissionChecker()(EMAIL), {
+      permitted: false, reason: "deliverability_suppressed",
+    });
+  } finally { kv.get = savedGet; }
 });

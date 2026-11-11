@@ -819,8 +819,8 @@ export type RequestPromotionConsentFlowResult = {
  * signup's double opt-in, or a suppressed address's explicit
  * re-consent request (the ceremony's entry step; the request alone
  * changes no consent fact). Creates the coordinator document with
- * legacy import for older callers. The new RD-K capture path supplies
- * no legacy facts and never consults the legacy cohort.
+ * the existing dispatch-permission import. This is not an import of
+ * RD-K consent evidence; confirmation remains the completion act.
  */
 export async function requestPromotionConsentFlow(input: {
   email: string;
@@ -831,9 +831,11 @@ export async function requestPromotionConsentFlow(input: {
   const name = promotionCoordinatorName(emailHash);
   const client = createConsistencyCoordinatorClient();
 
-  // RD-K fresh enrollment never consults or imports the legacy cohort.
   if (input.capture) assertPromotionCapture(input.capture, emailHash);
-  const facts = input.capture ? {
+  // Existing documents remain authoritative. Only a new document needs
+  // legacy permission facts so a pending capture cannot shadow them.
+  const existing = input.capture ? await client.getPromotionState(name) : null;
+  const facts = existing ? {
     state: null, inLegacySubscriptionList: null, inLegacySentList: null, inLegacyFollowupList: null,
   } : await gatherPromotionLegacyFacts(email);
   const minted = mintPromotionConfirmationToken();
