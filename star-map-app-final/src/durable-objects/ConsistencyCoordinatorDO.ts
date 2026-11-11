@@ -1,3 +1,5 @@
+import type { PromotionReceiptOutcomeInput } from "@/lib/promotionReceipt";
+import type { PromotionCapture } from "@/lib/promotionDisclosure";
 /**
  * Consistency Coordinator (T-SM-KVRACE): one SQLite Durable Object per
  * token / email, holding the authoritative state for three flows whose
@@ -31,6 +33,7 @@ import {
   applyClearDeliverabilitySuppression,
   applyCompletePromotionJob,
   applyConfirmPromotionConsent,
+  applyRecordPromotionReceiptOutcome,
   applyConsumeMagicToken,
   applyErasePromotionIdentity,
   applyPromotionAlarm,
@@ -317,18 +320,16 @@ export class ConsistencyCoordinatorDO extends DurableObject {
     return { wasAlreadyUnsubscribed: result.wasAlreadyUnsubscribed, state: result.state };
   }
 
-  /** RD-D (A1 G-3/G-6, T-1): the pending-consent transitions. None
-   *  of them moves a delivery job — a pending request creates,
-   *  rotates, or completes consent only — so none touches the alarm
-   *  (the deliverability methods' precedent). Confirmation
-   *  completion changes the subscription stamps, but the alarm is
-   *  computed from job state alone, which completion never alters. */
+  /** Pending consent transitions never schedule delivery. Stage A completion
+   *  also writes a parked receipt ledger atomically with its consent event.
+   *  Receipt jobs are excluded from the promotional alarm and driver. */
   async requestPromotionConsent(input: {
     emailHash: string;
     now: number;
     facts: PromotionLegacyFacts;
     requestId: string;
     tokenHash: string;
+    capture?: PromotionCapture;
   }): Promise<{
     state: PromotionCoordinatorState;
     outcome: PromotionConsentRequestOutcome;
@@ -371,6 +372,15 @@ export class ConsistencyCoordinatorDO extends DurableObject {
     const result = applyConfirmPromotionConsent(current, input);
     if (result.changed) this.writeDocument(result.state);
     return { state: result.state, result: result.result };
+  }
+
+  /** Persist an injected/driver receipt result; never performs delivery. */
+  async recordPromotionReceiptOutcome(input: PromotionReceiptOutcomeInput & { generation: number }) {
+    const current = this.readKind("promotion");
+    if (!current) return { state: null };
+    const result = applyRecordPromotionReceiptOutcome(current, input);
+    if (result.changed) this.writeDocument(result.state);
+    return { state: result.state };
   }
 
   /** RD-B (A1 I-5): record/clear the deliverability suppression axis

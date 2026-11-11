@@ -256,9 +256,14 @@ test("A7 actual env gates reject disabled merch families", async () => {
   const result = spawnSync(process.execPath, [fileURLToPath(runner)], { encoding: "utf8", env: { ...process.env, NEXT_PUBLIC_MERCH_PINS_ENABLED: "false" } });
   assert.equal(result.status, 0, result.stderr);
 });
+// Re-pin record (2026-11-11, gate lane): the route.ts pin moved from base 905ac521 to the
+// PR #629 head blob. #629 is the chair-approved checkout-route change itself (timing-counter
+// persistence moved to waitUntil; the fence exists to catch UNREVIEWED route changes, and
+// this one is reviewed + chair-approved - see the PR gate comment). The checkoutPromotions.ts
+// pin below still matches base 905ac521 and is unchanged.
 test("Tier C fence: checkout route and promotion policy match base 905ac521 blobs", () => {
   for (const [file, expected] of [
-    ["src/app/api/checkout/route.ts", "4f8b28bed8d8d58e214e9bda2d50a2d5b264ed00"],
+    ["src/app/api/checkout/route.ts", "b82fe1a7d8f009c5f728d496844374b3779382c7"],
     ["src/lib/checkoutPromotions.ts", "927699d1920cc4905f7bbe20c75daaf728a2e467"],
   ]) {
     const content = Buffer.from(read(file));

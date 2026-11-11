@@ -1,0 +1,76 @@
+# Subtest: U1/U2: frozen historical UTF-8 artifact resolves exactly; unknown and changed bindings fail
+ok 943 - U1/U2: frozen historical UTF-8 artifact resolves exactly; unknown and changed bindings fail
+  ---
+  duration_ms: 2.9283
+  type: 'test'
+  ...
+# Subtest: U1: production form displays the stamped artifact with required unchecked affirmative control
+ok 944 - U1: production form displays the stamped artifact with required unchecked affirmative control
+  ---
+  duration_ms: 0.8654
+  type: 'test'
+  ...
+# Subtest: U1: request is not consent; confirmation binds historical presentation instead of caller override
+ok 945 - U1: request is not consent; confirmation binds historical presentation instead of caller override
+  ---
+  duration_ms: 3.2325
+  type: 'test'
+  ...
+# Subtest: U3/AT-5: real DO persists evidence, generation and exactly one receipt in one write; commit failure leaves all pending
+ok 946 - U3/AT-5: real DO persists evidence, generation and exactly one receipt in one write; commit failure leaves all pending
+  ---
+  duration_ms: 4.8852
+  type: 'test'
+  ...
+# Subtest: AT-5 content: production renderer has six factual fields and only record/unsubscribe controls
+ok 947 - AT-5 content: production renderer has six factual fields and only record/unsubscribe controls
+  ---
+  duration_ms: 5.3074
+  type: 'test'
+  ...
+# Subtest: AT-5 failure: fault-injected provider rejection retries and durably reaches exactly one terminal state; incident visible; consent stands
+ok 948 - AT-5 failure: fault-injected provider rejection retries and durably reaches exactly one terminal state; incident visible; consent stands
+  ---
+  duration_ms: 5.2018
+  type: 'test'
+  ...
+# Subtest: U3: ambiguity terminates visibly; retry backoff and stale outcomes do not mutate
+ok 949 - U3: ambiguity terminates visibly; retry backoff and stale outcomes do not mutate
+  ---
+  duration_ms: 0.5841
+  type: 'test'
+  ...
+# Subtest: U3: incomplete capture aborts before completion; paired read validation rejects missing receipt
+ok 950 - U3: incomplete capture aborts before completion; paired read validation rejects missing receipt
+  ---
+  duration_ms: 0.9704
+  type: 'test'
+  ...
+# Subtest: U3: expired/stale tokens create no artifact; reconsent creates its own receipt and preserves welcome history
+ok 951 - U3: expired/stale tokens create no artifact; reconsent creates its own receipt and preserves welcome history
+  ---
+  duration_ms: 2.2323
+  type: 'test'
+  ...
+# Subtest: U3: pre-RD-K unstamped ceremony is explicitly blocked without reconstruction
+ok 952 - U3: pre-RD-K unstamped ceremony is explicitly blocked without reconstruction
+  ---
+  duration_ms: 1.2194
+  type: 'test'
+  ...
+# Subtest: U1: fresh capture flow never reads legacy lists or invokes any provider
+ok 953 - U1: fresh capture flow never reads legacy lists or invokes any provider
+  ---
+  duration_ms: 40.4738
+  type: 'test'
+  ...
+# Subtest: U3 regression: erasure removes the new receipt address and content; late receipt outcome recreates nothing
+ok 954 - U3 regression: erasure removes the new receipt address and content; late receipt outcome recreates nothing
+  ---
+  duration_ms: 1.0988
+  type: 'test'
+  ...
+# (node:18272) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/agent/repos/starMapAppV2/star-map-app-final/src/lib/entitlementAuthorityState.ts is not specified and it doesn't parse as CommonJS.
+# Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+# To eliminate this warning, add "type": "module" to C:\\agent\\repos\\starMapAppV2\\star-map-app-final\\package.json.
+# (Use `node --trace-warnings ...` to show where the warning was created)
