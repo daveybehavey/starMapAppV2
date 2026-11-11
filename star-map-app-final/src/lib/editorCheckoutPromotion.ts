@@ -1,7 +1,8 @@
 import { canUseManualPromotionCode, isManualPromotionCompatibleWithOrder } from "@/lib/checkoutPromotions";
 import type { CheckoutOrderType, CheckoutPlan } from "@/lib/pricing";
+import { META_SEASONAL_CODES } from "@/lib/metaCheckout";
 
-/** Auto-supplied codes have no digital_comp metadata; the API resolves typed codes. */
+/** Only known seasonal print codes can be rejected here without Stripe metadata. */
 export function resolveEditorSubmitPromotion(input: {
   promoCode: string | null;
   fieldEdited: boolean;
@@ -9,7 +10,7 @@ export function resolveEditorSubmitPromotion(input: {
   plan: CheckoutPlan;
 }): { promoCode: string | null; clearCarry: boolean } {
   const clearCarry =
-    Boolean(input.promoCode) &&
+    META_SEASONAL_CODES.some((row) => row.code === input.promoCode?.trim().toUpperCase()) &&
     !input.fieldEdited &&
     (!canUseManualPromotionCode(input.orderType, input.plan) ||
       !isManualPromotionCompatibleWithOrder({

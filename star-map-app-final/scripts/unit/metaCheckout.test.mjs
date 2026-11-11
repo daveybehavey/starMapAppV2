@@ -39,6 +39,29 @@ for (const [name, code, orderType, fieldEdited, expected, cleared] of [
   assert.equal(result.clearCarry, cleared);
 });
 
+for (const [name, code, source, expected, cleared] of [
+  ["C6 digital_comp from query", "digital_comp", "query", "digital_comp", false],
+  ["C6 digital_comp from storage", "digital_comp", "storage", "digital_comp", false],
+  ["C7 other code from query", "OTHER_CODE", "query", "OTHER_CODE", false],
+  ["C7 other code from storage", "OTHER_CODE", "storage", "OTHER_CODE", false],
+  ["C8 XMAS15 from storage without carry", "XMAS15", "storage", null, true],
+]) test(name, () => {
+  const promoCode = resolveEditorCheckoutPromoCode({
+    fieldValue: "", fieldEdited: false,
+    queryPromoCode: source === "query" ? code : null,
+    storedPromoCode: source === "storage" ? code : null,
+  });
+  assert.deepEqual(resolveEditorSubmitPromotion({ promoCode, fieldEdited: false, orderType: "digital", plan: "single" }), { promoCode: expected, clearCarry: cleared });
+});
+
+test("seasonal membership is normalized without changing submitted codes", () => {
+  for (const promoCode of [" xmas15 ", " blackfriday25 "]) {
+    assert.deepEqual(resolveEditorSubmitPromotion({ promoCode, fieldEdited: false, orderType: "digital", plan: "single" }), { promoCode: null, clearCarry: true });
+    assert.deepEqual(resolveEditorSubmitPromotion({ promoCode, fieldEdited: false, orderType: "print", plan: "single" }), { promoCode, clearCarry: false });
+    assert.deepEqual(resolveEditorSubmitPromotion({ promoCode, fieldEdited: true, orderType: "digital", plan: "single" }), { promoCode, clearCarry: false });
+  }
+});
+
 test("stored auto codes are checked for every digital plan; edited values remain authoritative", () => {
   for (const plan of ["single", "pack3", "subscription"]) {
     const promoCode = resolveEditorCheckoutPromoCode({ fieldValue: "", fieldEdited: false, queryPromoCode: null, storedPromoCode: "XMAS15" });
