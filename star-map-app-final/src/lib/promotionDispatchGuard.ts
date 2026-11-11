@@ -39,6 +39,7 @@ import {
   promotionSuppressionsOf,
 } from "@/lib/consistencyCoordinatorState";
 import { kv } from "@/lib/kv";
+import { PROMOTION_SEND_CAP_H } from "@/lib/promotionSendCap";
 import {
   LEGACY_SUBSCRIPTION_KEY,
   emailStateKey,
@@ -47,6 +48,7 @@ import {
 } from "@/lib/promotionSubscriptions";
 
 export type PromotionDispatchRefusalReason =
+  | "send_cap_unset"
   | "unsubscribed"
   | "deliverability_suppressed"
   | "no_permission_record"
@@ -57,6 +59,13 @@ export type PromotionDispatchDecision =
   | { permitted: false; reason: PromotionDispatchRefusalReason };
 
 export type PromotionDispatchPermissionChecker = (email: string) => Promise<PromotionDispatchDecision>;
+
+/** Global prerequisite, independent of recipient authority or injected checkers. */
+export function evaluatePromotionSendCap(): PromotionDispatchDecision {
+  return PROMOTION_SEND_CAP_H === null
+    ? { permitted: false, reason: "send_cap_unset" }
+    : { permitted: true };
+}
 
 /**
  * The pure decision over already-read authority facts. Split from the
@@ -71,6 +80,8 @@ export function evaluatePromotionDispatchPermission(input: {
   legacyState: PromotionEmailState | null;
   legacyListMember: boolean;
 }): PromotionDispatchDecision {
+  const cap = evaluatePromotionSendCap();
+  if (!cap.permitted) return cap;
   const { coordinatorState, legacyState, legacyListMember } = input;
   if (coordinatorState) {
     // RD-B: the authority's scoped suppression records gate first
@@ -142,6 +153,8 @@ export function createPromotionDispatchPermissionChecker(
   client: ConsistencyCoordinatorClient = createConsistencyCoordinatorClient()
 ): PromotionDispatchPermissionChecker {
   return async (rawEmail: string): Promise<PromotionDispatchDecision> => {
+    const cap = evaluatePromotionSendCap();
+    if (!cap.permitted) return cap;
     const email = normalizePromotionEmail(rawEmail);
     if (!email) return { permitted: false, reason: "no_permission_record" };
     try {
