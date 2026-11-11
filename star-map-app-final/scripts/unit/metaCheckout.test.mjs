@@ -91,6 +91,46 @@ function landing(response) { return new URL(response.headers.get("location")); }
 const prints = ["poster_unframed", "poster_unframed_16x16", "poster_framed", "canvas_wrap", "mug_11oz", "card_4x6"];
 const families = ["sticker_kisscut", "magnet_diecut", "pins_set", "tee_unisex_bc3001", "hoodie_unisex_g18500"];
 
+for (const [alias, canonical, expected] of [
+  ["print_poster_unframed", "poster_unframed", { kind: "print", variant: "poster_unframed" }],
+  ["print_poster_unframed_16x16", "poster_unframed_16x16", { kind: "print", variant: "poster_unframed_16x16" }],
+  ["print_poster_framed", "poster_framed", { kind: "print", variant: "poster_framed" }],
+  ["print_canvas_wrap", "canvas_wrap", { kind: "print", variant: "canvas_wrap" }],
+  ["print_mug_11oz", "mug_11oz", { kind: "print", variant: "mug_11oz" }],
+  ["print_card_4x6", "card_4x6", { kind: "print", variant: "card_4x6" }],
+  ["digital_single_hd", "hd_single", { kind: "digital", plan: "single" }],
+  ["digital_pack3_hd", "hd_pack3", { kind: "digital", plan: "pack3" }],
+]) test(`retailer ID ${alias} preserves the ${canonical} target and carry`, () => {
+  assert.deepEqual(getMetaCheckoutTarget(canonical), expected);
+  assert.strictEqual(getMetaCheckoutTarget(alias), getMetaCheckoutTarget(canonical));
+  for (const quantity of ["1", "2", "3"]) {
+    const resolve = (product_id) => resolveMetaCheckout(new URLSearchParams({ product_id, quantity, coupon_code: "XMAS15" }), NOW);
+    assert.deepEqual(resolve(alias), { ...resolve(canonical), productId: alias });
+  }
+  const response = GET(request(alias));
+  assert.equal(landing(response).href, landing(GET(request(canonical))).href);
+  if (expected.kind === "digital") {
+    assert.deepEqual(readMetaCheckoutCarry(response.cookies.get(COOKIE).value), { plan: expected.plan });
+  }
+});
+
+for (const id of [
+  "print_poster_framed_hd_bundle", "print_unknown", "print_hd_single",
+  "print_print_poster_framed", "print_poster_framed_extra", "digital_unknown_hd",
+  "PRINT_POSTER_FRAMED", " print_poster_framed", "print_poster_framed ",
+  "__proto__", "constructor", "toString", "merch:unknown",
+]) test(`retailer ID rejects unresolved or non-exact key ${JSON.stringify(id)}`, () => {
+  assert.equal(getMetaCheckoutTarget(id), null);
+  const response = GET(request(id));
+  assert.equal(landing(response).pathname, "/shop");
+  assert.equal(response.headers.get("set-cookie"), null);
+});
+
+for (const family of families) test(`retailer aliases preserve canonical merch target ${family}`, () => {
+  assert.deepEqual(getMetaCheckoutTarget(`merch:${family}`), { kind: "merch", family });
+  assert.equal(getMetaCheckoutTarget(`print_${family}`), null);
+});
+
 for (const id of prints) test(`A1 print ${id} maps exactly`, () => {
   const response = GET(request(id));
   assert.equal(response.status, 302);
@@ -216,9 +256,14 @@ test("A7 actual env gates reject disabled merch families", async () => {
   const result = spawnSync(process.execPath, [fileURLToPath(runner)], { encoding: "utf8", env: { ...process.env, NEXT_PUBLIC_MERCH_PINS_ENABLED: "false" } });
   assert.equal(result.status, 0, result.stderr);
 });
+// Re-pin record (2026-11-11, gate lane): the route.ts pin moved from base 905ac521 to the
+// PR #629 head blob. #629 is the chair-approved checkout-route change itself (timing-counter
+// persistence moved to waitUntil; the fence exists to catch UNREVIEWED route changes, and
+// this one is reviewed + chair-approved - see the PR gate comment). The checkoutPromotions.ts
+// pin below still matches base 905ac521 and is unchanged.
 test("Tier C fence: checkout route and promotion policy match base 905ac521 blobs", () => {
   for (const [file, expected] of [
-    ["src/app/api/checkout/route.ts", "4f8b28bed8d8d58e214e9bda2d50a2d5b264ed00"],
+    ["src/app/api/checkout/route.ts", "b82fe1a7d8f009c5f728d496844374b3779382c7"],
     ["src/lib/checkoutPromotions.ts", "927699d1920cc4905f7bbe20c75daaf728a2e467"],
   ]) {
     const content = Buffer.from(read(file));

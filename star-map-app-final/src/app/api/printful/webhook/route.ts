@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
+import { verifyPrintfulWebhookEvent } from "@/lib/printfulWebhookVerification";
 import { normalizePrintfulOrderId } from "@/lib/printFulfillmentIndex";
 import { sendShippingNotification } from "@/lib/shippingNotifications";
 import {
@@ -17,7 +18,7 @@ export const runtime = "nodejs";
  * Printful webhook receiver.
  *
  * Configure in Printful Dashboard → Stores → Your store → API → Webhooks:
- *   URL:    https://starmapco.com/api/printful/webhook?token=<PRINTFUL_WEBHOOK_SECRET>
+ *   Path: /api/printful/webhook (configure the v1 token privately; never log the URL).
  *   Events: package_shipped, order_failed, order_canceled, order_put_hold
  *
  * Verification: a shared secret passed as `?token=` on the configured URL,
@@ -73,13 +74,9 @@ async function handlePackageShipped(payload: PrintfulShipmentEvent) {
     // this condition so Printful retries until the provider-ID index
     // exists or external_id becomes resolvable; a 200 dropped the
     // shipment notification permanently when the event raced the
-    // submit-time index write. The missing-tracking case below stays a
-    // 200: the session IS resolved there (correlation exists), and a
-    // redelivery of the same payload cannot supply the missing number.
-    console.warn("Printful package_shipped session unresolved (retryable)", {
-      printfulOrderId,
-      externalId: externalId.slice(0, 64),
-    });
+    // submit-time index write. API verification now also keeps missing
+    // shipment tracking retryable before this handler is reached.
+    console.warn("Printful package_shipped session unresolved (retryable)", { path: "/api/printful/webhook", outcome: "handler_warning" });
     return NextResponse.json(
       {
         ok: false,
@@ -105,12 +102,7 @@ async function handlePackageShipped(payload: PrintfulShipmentEvent) {
   });
 
   if (!result.ok) {
-    console.warn("Shipping notification failed", {
-      sessionId,
-      printfulOrderId,
-      reason: result.reason,
-      provider: result.provider,
-    });
+    console.warn("Shipping notification failed", { path: "/api/printful/webhook", outcome: "handler_warning" });
     const httpStatus = result.status === "skipped" ? 200 : 502;
     return NextResponse.json(
       {
@@ -144,12 +136,7 @@ async function handleOrderFailure(payload: PrintfulOrderWebhookPayload, eventTyp
   });
 
   if (result.status === "ignored") {
-    console.warn("Printful order failure webhook ignored", {
-      eventType,
-      printfulOrderId: normalizePrintfulOrderId(printfulOrderId),
-      externalId: externalId.slice(0, 64),
-      reason: result.reason,
-    });
+    console.warn("Printful order failure webhook ignored", { path: "/api/printful/webhook", outcome: "handler_warning" });
     return NextResponse.json({
       ok: true,
       status: "ignored",
@@ -161,12 +148,7 @@ async function handleOrderFailure(payload: PrintfulOrderWebhookPayload, eventTyp
   // AG-081: missing provider-ID index / unresolvable session — do not ACK 200.
   // Printful must retry until the index exists or external_id becomes resolvable.
   if (result.status === "session_unresolved") {
-    console.warn("Printful order failure session unresolved (retryable)", {
-      eventType,
-      printfulOrderId: normalizePrintfulOrderId(printfulOrderId),
-      externalId: externalId.slice(0, 64),
-      reason: result.reason,
-    });
+    console.warn("Printful order failure session unresolved (retryable)", { path: "/api/printful/webhook", outcome: "handler_warning" });
     return NextResponse.json(
       {
         ok: false,
@@ -179,11 +161,7 @@ async function handleOrderFailure(payload: PrintfulOrderWebhookPayload, eventTyp
   }
 
   if (result.status === "alert_failed") {
-    console.warn("Printful order failure alert failed", {
-      eventType,
-      sessionId: result.sessionId,
-      error: result.error,
-    });
+    console.warn("Printful order failure alert failed", { path: "/api/printful/webhook", outcome: "handler_warning" });
     return NextResponse.json(
       {
         ok: false,
@@ -198,11 +176,7 @@ async function handleOrderFailure(payload: PrintfulOrderWebhookPayload, eventTyp
 
   // Authority unread: do not ACK 200 — Printful must retry until DO terminal sticks.
   if (result.status === "authority_unread") {
-    console.warn("Printful order failure authority unread", {
-      eventType,
-      sessionId: result.sessionId,
-      reason: result.reason,
-    });
+    console.warn("Printful order failure authority unread", { path: "/api/printful/webhook", outcome: "handler_warning" });
     return NextResponse.json(
       {
         ok: false,
@@ -217,11 +191,7 @@ async function handleOrderFailure(payload: PrintfulOrderWebhookPayload, eventTyp
 
   // Provider-id conflict: fail closed so we never ACK a mismatched terminal identity.
   if (result.status === "provider_id_conflict") {
-    console.warn("Printful order failure provider id conflict", {
-      eventType,
-      sessionId: result.sessionId,
-      reason: result.reason,
-    });
+    console.warn("Printful order failure provider id conflict", { path: "/api/printful/webhook", outcome: "handler_warning" });
     return NextResponse.json(
       {
         ok: false,
@@ -237,12 +207,7 @@ async function handleOrderFailure(payload: PrintfulOrderWebhookPayload, eventTyp
 
   // Authority terminalized but KV projection missing — ACK with explicit reconciliation signal.
   if (result.status === "projection_missing") {
-    console.warn("Printful order failure projection missing after authority terminal", {
-      eventType,
-      sessionId: result.sessionId,
-      reason: result.reason,
-      terminalRevision: result.terminalRevision,
-    });
+    console.warn("Printful order failure projection missing after authority terminal", { path: "/api/printful/webhook", outcome: "handler_warning" });
     return NextResponse.json({
       ok: true,
       status: "projection_missing",
@@ -275,12 +240,7 @@ async function handleOrderHold(payload: PrintfulOrderWebhookPayload, eventType: 
   });
 
   if (result.status === "ignored") {
-    console.warn("Printful order hold webhook ignored", {
-      eventType,
-      printfulOrderId: normalizePrintfulOrderId(printfulOrderId),
-      externalId: externalId.slice(0, 64),
-      reason: result.reason,
-    });
+    console.warn("Printful order hold webhook ignored", { path: "/api/printful/webhook", outcome: "handler_warning" });
     return NextResponse.json({
       ok: true,
       status: "ignored",
@@ -292,12 +252,7 @@ async function handleOrderHold(payload: PrintfulOrderWebhookPayload, eventType: 
   // S96-1 F1: an unresolvable session must not ACK the hold away — the
   // same AG-081 retryable posture as terminal failure events.
   if (result.status === "unresolved_session") {
-    console.warn("Printful order hold session unresolved (retryable)", {
-      eventType,
-      printfulOrderId: normalizePrintfulOrderId(printfulOrderId),
-      externalId: externalId.slice(0, 64),
-      reason: result.reason,
-    });
+    console.warn("Printful order hold session unresolved (retryable)", { path: "/api/printful/webhook", outcome: "handler_warning" });
     return NextResponse.json(
       {
         ok: false,
@@ -310,11 +265,7 @@ async function handleOrderHold(payload: PrintfulOrderWebhookPayload, eventType: 
   }
 
   if (result.status === "authority_unread") {
-    console.warn("Printful order hold authority unread", {
-      eventType,
-      sessionId: result.sessionId,
-      reason: result.reason,
-    });
+    console.warn("Printful order hold authority unread", { path: "/api/printful/webhook", outcome: "handler_warning" });
     return NextResponse.json(
       {
         ok: false,
@@ -328,11 +279,7 @@ async function handleOrderHold(payload: PrintfulOrderWebhookPayload, eventType: 
   }
 
   if (result.status === "alert_failed") {
-    console.warn("Printful order hold alert failed", {
-      eventType,
-      sessionId: result.sessionId,
-      error: result.error,
-    });
+    console.warn("Printful order hold alert failed", { path: "/api/printful/webhook", outcome: "handler_warning" });
     return NextResponse.json(
       {
         ok: false,
@@ -348,11 +295,7 @@ async function handleOrderHold(payload: PrintfulOrderWebhookPayload, eventType: 
   // Hold recorded nowhere durable (KV projection missing) — ACK with an
   // explicit reconciliation signal, mirroring the failure path.
   if (result.status === "projection_missing") {
-    console.warn("Printful order hold projection missing", {
-      eventType,
-      sessionId: result.sessionId,
-      reason: result.reason,
-    });
+    console.warn("Printful order hold projection missing", { path: "/api/printful/webhook", outcome: "handler_warning" });
     return NextResponse.json({
       ok: true,
       status: "projection_missing",
@@ -385,6 +328,29 @@ export async function POST(req: NextRequest) {
   }
 
   const eventType = payload?.type?.trim() || "";
+  if (
+    eventType === "package_shipped" ||
+    isPrintfulOrderFailureWebhookType(eventType) ||
+    isPrintfulOrderHoldWebhookType(eventType)
+  ) {
+    const verification = await verifyPrintfulWebhookEvent(eventType, payload?.data?.order, payload?.data?.shipment?.tracking_number);
+    if (!verification.ok) {
+      console.error("Printful webhook API confirmation failed", {
+        path: "/api/printful/webhook",
+        outcome: "retryable",
+        printfulOrderId: /^\d+$/.test(String(payload?.data?.order?.id ?? ""))
+          ? String(payload?.data?.order?.id)
+          : null,
+        eventType,
+        reason: verification.reason,
+      });
+      return NextResponse.json(
+        { ok: false, status: "verification_failed", event: eventType, reason: verification.reason },
+        { status: 503 },
+      );
+    }
+    payload = verification.payload;
+  }
   if (eventType === "package_shipped") {
     return handlePackageShipped(payload);
   }
