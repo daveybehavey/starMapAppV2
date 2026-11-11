@@ -149,11 +149,12 @@ test("A3 signed httpOnly carry reaches the existing editor promoCode selection",
   assert.match(editor, /if \(promoCode\) checkoutPayload\.promoCode = promoCode/);
   assert.match(editor, /JSON\.stringify\(checkoutPayload\)/);
 });
-test("A4 invalid, expired, wrong-product coupons clear carry without changing landing", (t) => {
+test("A4 invalid, expired, wrong-product coupons disclose rejection without changing landing", (t) => {
   t.mock.method(Date, "now", () => NOW);
   for (const coupon_code of ["UNKNOWN", "FRIEND-ABCD", "BLACKFRIDAY25<script>", ""]) {
     const response = GET(request("poster_framed", { coupon_code }));
-    assert.equal(response.cookies.get(COOKIE).maxAge, 0);
+    assert.equal(response.cookies.get(COOKIE).maxAge, coupon_code ? 86400 : 0);
+    assert.equal(readMetaCheckoutCarry(response.cookies.get(COOKIE).value, NOW).couponDropped, coupon_code ? true : undefined);
     assert.equal(landing(response).searchParams.get("print_variant"), "poster_framed");
   }
   const target = getMetaCheckoutTarget("poster_framed");
@@ -170,7 +171,7 @@ test("A4 invalid, expired, wrong-product coupons clear carry without changing la
   ]) assert.equal(filterMetaCoupon(code, target, Date.parse(time)), expected);
   for (const id of ["hd_single", "hd_pack3"]) assert.equal(resolveMetaCheckout(new URLSearchParams({ product_id: id, coupon_code: "XMAS15" }), NOW).promoCode, null);
   t.mock.method(Date, "now", () => Date.parse("2026-12-27T08:00:00Z"));
-  assert.equal(GET(request("poster_framed", { coupon_code: "XMAS15" })).cookies.get(COOKIE).maxAge, 0);
+  assert.equal(readMetaCheckoutCarry(GET(request("poster_framed", { coupon_code: "XMAS15" })).cookies.get(COOKIE).value).couponDropped, true);
 });
 test("carry expires within 24h and fails closed on tampering, malformed input and missing signing key", () => {
   const value = createMetaCheckoutCarry("poster_framed", "XMAS15", NOW);
