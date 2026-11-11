@@ -1,8 +1,9 @@
 import { RD_K_DISCLOSURE } from "@/lib/promotionDisclosure";
 import { getPromotionOfferName, getPromotionTargetLabel } from "@/lib/promotionOffer";
+import { PROMOTION_SIGNUP_MESSAGES, type PromotionSignupStatus } from "@/lib/promotionSignupStatus";
 
 type PromotionSignupProps = {
-  promoStatus?: "success" | "error";
+  promoStatus?: PromotionSignupStatus;
   promoCode?: string;
 };
 
@@ -10,7 +11,7 @@ export default function PromotionSignup({ promoStatus, promoCode }: PromotionSig
   const promotionOfferName = getPromotionOfferName();
   const promotionTargetLabel = getPromotionTargetLabel();
   const showSuccess = promoStatus === "success";
-  const showError = promoStatus === "error";
+  const statusMessage = promoStatus && promoStatus !== "success" ? PROMOTION_SIGNUP_MESSAGES[promoStatus] : undefined;
   const successMessage = promoCode
     ? `You're on the list. Use code ${promoCode} on ${promotionTargetLabel}.`
     : `You're on the list. Watch your inbox for your 50% off ${promotionOfferName}.`;
@@ -73,9 +74,9 @@ export default function PromotionSignup({ promoStatus, promoCode }: PromotionSig
         {showSuccess && (
           <p className="mt-3 text-sm font-medium text-emerald-700">{successMessage}</p>
         )}
-        {showError && (
-          <p className="mt-3 text-sm font-medium text-rose-600">
-            That email didn’t look right. Please try again.
+        {statusMessage && (
+          <p role="status" className={`mt-3 text-sm font-medium ${promoStatus === "pending" ? "text-slate-800" : "text-rose-600"}`}>
+            {statusMessage}
           </p>
         )}
 

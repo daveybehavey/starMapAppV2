@@ -1,5 +1,6 @@
 "use client";
 
+import { PROMOTION_SIGNUP_MESSAGES, parsePromotionSignupStatus } from "@/lib/promotionSignupStatus";
 import dynamic from "next/dynamic";
 import EditorFontShell from "@/components/EditorFontShell";
 import SentryBoundary from "@/components/SentryBoundary";
@@ -27,13 +28,14 @@ type EditorPageClientProps = {
 
 export default function EditorPageClient({ promoStatus, promoCode }: EditorPageClientProps) {
   const promotionTargetLabel = getPromotionTargetLabel();
-  const showPromo = promoStatus === "success" || promoStatus === "error";
+  const status = parsePromotionSignupStatus(promoStatus);
+  const showPromo = status !== undefined;
   const promoMessage =
     promoStatus === "success"
       ? promoCode
         ? `Your HD starter offer is ready. Code ${promoCode} is saved for ${promotionTargetLabel}.`
         : "You're on the list. Watch your inbox for your 50% off HD starter code."
-      : "We couldn't save that email. Please try again.";
+      : status && status !== "success" ? PROMOTION_SIGNUP_MESSAGES[status] : "";
 
   return (
     <SentryBoundary>
