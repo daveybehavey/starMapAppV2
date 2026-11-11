@@ -1,6 +1,8 @@
 "use client";
 
 import { isAndroidAppModeClient } from "@/lib/androidAppMode";
+import { clearEditorMetaCheckoutCarry } from "@/app/editor/actions";
+import { resolveEditorSubmitPromotion } from "@/lib/editorCheckoutPromotion";
 import { useAndroidAppMode } from "@/hooks/useAndroidAppMode";
 import dynamic from "next/dynamic";
 import { TextBox, runAsSystemWrite, useStore } from "@/lib/store";
@@ -267,12 +269,14 @@ type PaywallIntent = "digital" | "print";
 export type EditorExperienceVariant = "quick" | "full";
 
 interface EditorExperienceProps {
+  metaCarry?: { promoCode?: string; plan?: "single" | "pack3" };
   variant?: EditorExperienceVariant;
   editorRef?: RefObject<HTMLDivElement | null>;
   allowAdvancedInQuick?: boolean;
 }
 
 export function EditorExperience({
+  metaCarry,
   variant = "quick",
   editorRef,
   allowAdvancedInQuick = false,
@@ -606,9 +610,9 @@ export function EditorExperience({
   const [promoCodeEdited, setPromoCodeEdited] = useState(false);
   useEffect(() => {
     if (promoCodeEdited) return;
-    const initial = queryPromoCode ?? readStoredPromoCode() ?? "";
+    const initial = queryPromoCode ?? metaCarry?.promoCode ?? readStoredPromoCode() ?? "";
     setEditorPromoCode(initial);
-  }, [queryPromoCode, readStoredPromoCode, promoCodeEdited]);
+  }, [queryPromoCode, metaCarry?.promoCode, readStoredPromoCode, promoCodeEdited]);
   const persistPromoCode = useCallback((raw: string) => {
     setPromoCodeEdited(true);
     const display = raw.toUpperCase().slice(0, 64);
@@ -629,10 +633,10 @@ export function EditorExperience({
     return resolveEditorCheckoutPromoCode({
       fieldValue: editorPromoCode,
       fieldEdited: promoCodeEdited,
-      queryPromoCode,
+      queryPromoCode: queryPromoCode ?? metaCarry?.promoCode ?? null,
       storedPromoCode: readStoredPromoCode(),
     });
-  }, [editorPromoCode, promoCodeEdited, queryPromoCode, readStoredPromoCode]);
+  }, [editorPromoCode, promoCodeEdited, queryPromoCode, metaCarry?.promoCode, readStoredPromoCode]);
   const getCheckoutReferralCode = useCallback(
     () => queryReferralCode ?? readStoredReferralCode(),
     [queryReferralCode]
@@ -1760,9 +1764,14 @@ export function EditorExperience({
     ) => {
       if (checkoutInFlightRef.current) return;
       const previewSource = getPreviewSource() ?? "editor";
-      const promoCode = getCheckoutPromoCode();
       const referralCode = getCheckoutReferralCode();
       const orderType = options?.orderType === "print" ? "print" : "digital";
+      const { promoCode, clearCarry } = resolveEditorSubmitPromotion({
+        promoCode: getCheckoutPromoCode(),
+        fieldEdited: promoCodeEdited,
+        orderType,
+        plan,
+      });
       const merchFamily = typeof options?.merchFamily === "string" ? options.merchFamily : undefined;
       const merchOptions =
         options?.merchOptions && typeof options.merchOptions === "object"
@@ -1799,6 +1808,17 @@ export function EditorExperience({
         setCheckoutInFlight(true);
         setCheckoutError(null);
         setCheckoutFallbackOffer(null);
+        if (clearCarry) {
+          // Suppress the still-loaded carry/URL as well as storage on retries.
+          setPromoCodeEdited(true);
+          setEditorPromoCode("");
+          try {
+            window.localStorage.removeItem(PROMO_CODE_KEY);
+          } catch {
+            // Storage can be unavailable in private browsing.
+          }
+          await clearEditorMetaCheckoutCarry();
+        }
         track("checkout_started", {
           visualMode: renderOptions.visualMode,
           plan,
@@ -2362,6 +2382,7 @@ export function EditorExperience({
       location,
       getPreviewSource,
       getCheckoutPromoCode,
+      promoCodeEdited,
       getCheckoutReferralCode,
       printShippingCountry,
       renderOptions,
@@ -4351,6 +4372,7 @@ export function EditorExperience({
               }}
               variant={paywallVariant}
               purchaseIntent={paywallIntent}
+              preferredDigitalPlan={metaCarry?.plan}
               preferredPrintVariant={preferredPrintVariant}
               preferredIncludeDigitalAddOn={preferredIncludeDigitalAddOn}
               includeSecondCopy={includeSecondCopy}
