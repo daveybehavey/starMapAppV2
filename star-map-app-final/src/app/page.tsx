@@ -1,3 +1,4 @@
+import { parsePromotionSignupStatus } from "@/lib/promotionSignupStatus";
 import type { Metadata } from "next";
 import HomeHero from "./HomeHero";
 import HomeStaticSections, { buildHomeFaqItems } from "./HomeStaticSections";
@@ -201,8 +202,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
   const promoRaw = resolvedSearchParams.promo;
   const promoParam = Array.isArray(promoRaw) ? promoRaw[0] : promoRaw;
-  const promoStatus =
-    promoParam === "success" || promoParam === "error" ? promoParam : undefined;
+  const promoStatus = parsePromotionSignupStatus(promoParam);
   const codeRaw = resolvedSearchParams.code;
   const promoCode =
     typeof codeRaw === "string" ? codeRaw : Array.isArray(codeRaw) ? codeRaw[0] : undefined;

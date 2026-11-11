@@ -1,3 +1,4 @@
+import type { PromotionSignupStatus } from "@/lib/promotionSignupStatus";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import FramedProofSection from "@/components/FramedProofSection";
@@ -36,7 +37,7 @@ type PriceLabels = {
 
 type HomeStaticSectionsProps = {
   priceLabels: PriceLabels;
-  promoStatus?: "success" | "error";
+  promoStatus?: PromotionSignupStatus;
   promoCode?: string;
 };
 

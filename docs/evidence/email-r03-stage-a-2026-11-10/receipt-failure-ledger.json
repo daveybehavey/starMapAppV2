@@ -1,0 +1,39 @@
+{
+  "jobId": "promotion:receipt:ZktSC_o6N6MdvBdn_8Hs9rJSe-2dFetrC5tHAZSs:2",
+  "providerIdempotencyKey": "promotion:receipt:ZktSC_o6N6MdvBdn_8Hs9rJSe-2dFetrC5tHAZSs:2",
+  "eventRef": "eb8677679b51d0551f4192ac7c0421a5d7d8d30d5c747a852b9cda7ca7f72fbe",
+  "generation": 2,
+  "serverAt": 1794304801000,
+  "emailHash": "ZktSC_o6N6MdvBdn_8Hs9rJSe-2dFetrC5tHAZSs",
+  "capture": {
+    "email": "stage-a@example.test",
+    "disclosureVersion": "rdk-en-2026-11-10-v1",
+    "disclosureHash": "09a783f3adb5084faf3b07a77779038967a9c84136bf70376fa91c53591f0a18",
+    "affirmativeAction": "checkbox_and_submit"
+  },
+  "classification": "transactional",
+  "quota": "transactional_provider",
+  "promotionalBudget": false,
+  "deliveryHold": "stage_a_no_send",
+  "status": "failed",
+  "attempts": 3,
+  "nextAttemptAt": null,
+  "terminal": {
+    "status": "failed",
+    "at": 1794305701000
+  },
+  "incidents": [
+    {
+      "at": 1794305101000,
+      "reason": "receipt_delivery_definitive_failure"
+    },
+    {
+      "at": 1794305401000,
+      "reason": "receipt_delivery_definitive_failure"
+    },
+    {
+      "at": 1794305701000,
+      "reason": "receipt_delivery_definitive_failure"
+    }
+  ]
+}

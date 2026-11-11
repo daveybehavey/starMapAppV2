@@ -1,3 +1,5 @@
+import type { PromotionReceiptOutcomeInput } from "@/lib/promotionReceipt";
+import type { PromotionCapture } from "@/lib/promotionDisclosure";
 /**
  * Client for the Consistency Coordinator (T-SM-KVRACE; design S3-A).
  *
@@ -22,6 +24,7 @@ import {
   applyClearDeliverabilitySuppression,
   applyCompletePromotionJob,
   applyConfirmPromotionConsent,
+  applyRecordPromotionReceiptOutcome,
   applyConsumeMagicToken,
   applyErasePromotionIdentity,
   applyReadAccountSessions,
@@ -155,6 +158,7 @@ type CoordinatorStub = {
     facts: PromotionLegacyFacts;
     requestId: string;
     tokenHash: string;
+    capture?: PromotionCapture;
   }): Promise<{
     state: PromotionCoordinatorState;
     outcome: PromotionConsentRequestOutcome;
@@ -175,6 +179,8 @@ type CoordinatorStub = {
     state: PromotionCoordinatorState | null;
     result: PromotionConfirmationResult;
   }>;
+  recordPromotionReceiptOutcome(input: PromotionReceiptOutcomeInput & { generation: number }):
+    Promise<{ state: PromotionCoordinatorState | null }>;
   recordDeliverabilitySuppression(input: {
     emailHash: string;
     now: number;
@@ -285,6 +291,7 @@ export type ConsistencyCoordinatorClient = {
       facts: PromotionLegacyFacts;
       requestId: string;
       tokenHash: string;
+      capture?: PromotionCapture;
     },
   ): Promise<{
     state: PromotionCoordinatorState;
@@ -309,6 +316,8 @@ export type ConsistencyCoordinatorClient = {
     state: PromotionCoordinatorState | null;
     result: PromotionConfirmationResult;
   }>;
+  recordPromotionReceiptOutcome(name: string, input: PromotionReceiptOutcomeInput & { generation: number }):
+    Promise<{ state: PromotionCoordinatorState | null }>;
   recordDeliverabilitySuppression(
     name: string,
     input: { emailHash: string; now: number; eventRef: string; facts: PromotionLegacyFacts },
@@ -491,6 +500,15 @@ function createMemoryClient(): ConsistencyCoordinatorClient {
         return { state: result.state, result: result.result };
       });
     },
+    recordPromotionReceiptOutcome(name, input) {
+      return withMemoryLock(name, () => {
+        const current = memoryKind(name, "promotion");
+        if (!current) return { state: null };
+        const result = applyRecordPromotionReceiptOutcome(current, input);
+        if (result.changed) memoryStores.set(name, result.state);
+        return { state: result.state };
+      });
+    },
     recordDeliverabilitySuppression(name, input) {
       return withMemoryLock(name, () => {
         const result = applyRecordDeliverabilitySuppression(
@@ -616,6 +634,8 @@ export function createConsistencyCoordinatorClient(
       call(name, "confirmPromotionConsent", input, () =>
         memory.confirmPromotionConsent(name, input),
       ),
+    recordPromotionReceiptOutcome: (name, input) =>
+      call(name, "recordPromotionReceiptOutcome", input, () => memory.recordPromotionReceiptOutcome(name, input)),
     recordDeliverabilitySuppression: (name, input) =>
       call(name, "recordDeliverabilitySuppression", input, () =>
         memory.recordDeliverabilitySuppression(name, input),
