@@ -86,7 +86,9 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
                 fallbackSrc={OFFER_MOCKUPS.digital}
                 alt="StarMapCo HD download on laptop and phone"
                 fill
-                sizes="(max-width: 768px) 100vw, 33vw"
+                sizes="(max-width: 768px) 92vw, (max-width: 1280px) 45vw, 320px"
+                loading="lazy"
+                decoding="async"
                 className="object-cover object-center"
               />
             </div>
@@ -126,7 +128,9 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
                 fallbackSrc={OFFER_MOCKUPS.framed}
                 alt="Framed StarMapCo print in a bedroom setting"
                 fill
-                sizes="(max-width: 768px) 100vw, 33vw"
+                sizes="(max-width: 768px) 92vw, (max-width: 1280px) 45vw, 320px"
+                loading="lazy"
+                decoding="async"
                 className="object-cover object-center"
               />
             </div>
@@ -172,7 +176,9 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
                 fallbackSrc={OFFER_MOCKUPS.unframed}
                 alt="Unframed StarMapCo square poster print on a white background"
                 fill
-                sizes="(max-width: 768px) 100vw, 33vw"
+                sizes="(max-width: 768px) 92vw, (max-width: 1280px) 45vw, 320px"
+                loading="lazy"
+                decoding="async"
                 className="object-cover object-center"
               />
             </div>
@@ -209,7 +215,9 @@ export default function HomeOfferStack({ priceLabels, printLabels }: HomeOfferSt
                 fallbackSrc={OFFER_MOCKUPS.unframed}
                 alt="Unframed StarMapCo 16×16 poster print on a white background"
                 fill
-                sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 25vw"
+                sizes="(max-width: 768px) 92vw, (max-width: 1280px) 45vw, 320px"
+                loading="lazy"
+                decoding="async"
                 className="object-cover object-center"
               />
             </div>

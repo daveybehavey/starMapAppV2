@@ -58,9 +58,11 @@ const {
   applyEntitlementAuthorityOp,
   buildEntitlementAuthorityProjection,
   createEmptyEntitlementAuthorityState,
+  derivePurchasedFold,
   deriveRemainingAllowance,
   deriveSignedPurchasedPosition,
   evaluateDeliveryEligibility,
+  isOwnedUnderValidEntitlement,
   isValidEntitlementAuthorityState,
   journalHeadOf,
   pendingGrantsOf,
@@ -2036,4 +2038,263 @@ test("RG3-F6: included settlement preserves the terminal-obligation citation —
     settledInclusionsOf(immediate.state)["cs_rg3f6b"].terminalObligation,
     { referredSessionId: "cs_rg3f6b", lineageRef: "lin-rg3f6b", recordedAt: NOW - 2_000 },
   );
+});
+
+/* ---------------- A2 gate fix (2026-11-09): compensation voids delivery ---------------- */
+
+test("A2-1: compensate_debit restores the allowance AND voids delivery of the compensated artifact (double benefit closed)", () => {
+  let s = seeded(); // opening 2 (allowance 3 − legacy spent 1), bucket 0
+  assert.equal(deriveRemainingAllowance(s), 2);
+  s = applyEntitlementAuthorityOp(s, commitOp("art-keep", { consumeToken: "ct-keep" })).state;
+  s = applyEntitlementAuthorityOp(s, commitOp("art-x", { consumeToken: "ct-x" })).state;
+  assert.equal(deriveRemainingAllowance(s), 0);
+  assert.deepEqual(evaluateDeliveryEligibility(s, "art-x"), { ok: true });
+
+  const comp = applyEntitlementAuthorityOp(s, {
+    type: "compensate_debit",
+    consumeToken: "ct-x",
+    now: NOW + 1,
+  });
+  assert.equal(comp.outcome, "compensated");
+  s = comp.state;
+  // (a) The customer is still made whole: the restored credit is
+  // spendable again (compensation behaviour unchanged).
+  assert.equal(deriveRemainingAllowance(s), 1);
+  // (b) The compensated artifact itself is no longer deliverable: the
+  // credit came back, so the file does not also stay — no double
+  // benefit. Pre-fix this assertion fails (eligibility stays ok).
+  assert.deepEqual(evaluateDeliveryEligibility(s, "art-x"), {
+    ok: false,
+    reason: "not_owned",
+  });
+  assert.equal(isOwnedUnderValidEntitlement(s, "art-x"), false);
+  // The void is per-entry: the uncompensated artifact stays
+  // deliverable, and the compensated entry itself is retained in the
+  // journal (its portions still fold), flagged.
+  assert.deepEqual(evaluateDeliveryEligibility(s, "art-keep"), { ok: true });
+  assert.equal(s.ownedFiles["art-x"].deliveryVoidedByCompensation, true);
+  reload(s);
+});
+
+test("A2-2: never-expire pin — owned, non-compensated artifacts at zero balance stay deliverable", () => {
+  let s = seeded();
+  s = applyEntitlementAuthorityOp(s, commitOp("art-1", { consumeToken: "ct-1" })).state;
+  s = applyEntitlementAuthorityOp(s, commitOp("art-2", { consumeToken: "ct-2" })).state;
+  assert.equal(deriveRemainingAllowance(s), 0);
+  // DL-1 invariant: paid downloads never expire — eligibility must
+  // NOT consult the (zero) balance for ordinary owned artifacts.
+  assert.deepEqual(evaluateDeliveryEligibility(s, "art-1"), { ok: true });
+  assert.deepEqual(evaluateDeliveryEligibility(s, "art-2"), { ok: true });
+});
+
+test("A2-3: replay pin — a second compensate_debit for the same token changes nothing", () => {
+  let s = seeded();
+  s = applyEntitlementAuthorityOp(s, commitOp("art-x", { consumeToken: "ct-x" })).state;
+  const comp = applyEntitlementAuthorityOp(s, {
+    type: "compensate_debit",
+    consumeToken: "ct-x",
+    now: NOW + 1,
+  });
+  assert.equal(comp.outcome, "compensated");
+  const again = applyEntitlementAuthorityOp(comp.state, {
+    type: "compensate_debit",
+    consumeToken: "ct-x",
+    now: NOW + 2,
+  });
+  assert.equal(again.outcome, "already_compensated");
+  assert.equal(journalHeadOf(again.state), journalHeadOf(comp.state));
+  assert.equal(
+    deriveRemainingAllowance(again.state),
+    deriveRemainingAllowance(comp.state),
+  );
+  assert.deepEqual(evaluateDeliveryEligibility(again.state, "art-x"), {
+    ok: false,
+    reason: "not_owned",
+  });
+});
+
+test("A2-4: fold pin — purchased fold figures are the pre-fix machine's for the same op sequence", () => {
+  let s = seeded();
+  assert.equal(derivePurchasedFold(s), 0);
+  s = applyEntitlementAuthorityOp(s, commitOp("art-x", { consumeToken: "ct-x" })).state;
+  assert.equal(derivePurchasedFold(s), -1); // gross purchased portion 1, nothing restored
+  assert.equal(deriveSignedPurchasedPosition(s), 1);
+  s = applyEntitlementAuthorityOp(s, {
+    type: "compensate_debit",
+    consumeToken: "ct-x",
+    now: NOW + 1,
+  }).state;
+  // The delivery-void flag must not perturb the accounting: the
+  // restored portion folds back exactly as the pre-fix machine's did.
+  assert.equal(derivePurchasedFold(s), 0);
+  assert.equal(deriveSignedPurchasedPosition(s), 2);
+});
+
+function repurchaseCompensated(s) {
+  const bought = applyEntitlementAuthorityOp(s, commitOp("art-rp", { consumeToken: "ct-rp" }));
+  assert.equal(bought.outcome, "committed");
+  const compensated = applyEntitlementAuthorityOp(bought.state, {
+    type: "compensate_debit", consumeToken: "ct-rp", now: NOW + 1,
+  });
+  assert.equal(compensated.outcome, "compensated");
+  assert.equal(deriveRemainingAllowance(compensated.state), deriveRemainingAllowance(s));
+  assert.equal(compensated.state.ownedFiles["art-rp"].deliveryVoidedByCompensation, true);
+  return compensated.state;
+}
+
+test("RP-1: compensated artifact can be purchased again with exactly one debit", () => {
+  const s = repurchaseCompensated(seeded());
+  const r = applyEntitlementAuthorityOp(s, commitOp("art-rp", {
+    consumeToken: "ct-rp-new", now: NOW + 2,
+  }));
+  assert.equal(r.outcome, "committed");
+  assert.equal(r.changed, true);
+  assert.equal(deriveRemainingAllowance(r.state), deriveRemainingAllowance(s) - 1);
+  assert.equal(r.state.ownedFiles["art-rp"].deliveryVoidedByCompensation, undefined);
+  assert.equal(r.state.ownedFiles["art-rp"].consumeToken, "ct-rp-new");
+  assert.deepEqual(evaluateDeliveryEligibility(r.state, "art-rp"), { ok: true });
+  const retry = applyEntitlementAuthorityOp(r.state, commitOp("art-rp"));
+  assert.equal(retry.outcome, "already_owned");
+  assert.deepEqual(retry.state, r.state);
+});
+
+test("RP-2: uncompensated artifact remains idempotent with no second debit", () => {
+  const s = applyEntitlementAuthorityOp(seeded(), commitOp("art-rp")).state;
+  const retry = applyEntitlementAuthorityOp(s, commitOp("art-rp", { consumeToken: "other" }));
+  assert.equal(retry.outcome, "already_owned");
+  assert.equal(retry.changed, false);
+  assert.deepEqual(retry.state, s);
+  assert.equal(deriveRemainingAllowance(retry.state), 1);
+});
+
+test("RP-3: compensated artifact stays undeliverable before re-purchase", () => {
+  const s = repurchaseCompensated(seeded());
+  assert.deepEqual(evaluateDeliveryEligibility(s, "art-rp"), { ok: false, reason: "not_owned" });
+  const r = applyEntitlementAuthorityOp(s, commitOp("art-rp", { finalized: false }));
+  assert.equal(r.refusal, "not_finalized");
+  assert.deepEqual(r.state, s);
+});
+
+test("RP-4: re-purchase requires available credit and leaves refused entry voided", () => {
+  let s = repurchaseCompensated(seeded());
+  for (const id of ["art-other-1", "art-other-2"]) {
+    const r = applyEntitlementAuthorityOp(s, commitOp(id));
+    assert.equal(r.outcome, "committed");
+    s = r.state;
+  }
+  assert.equal(deriveRemainingAllowance(s), 0);
+  const r = applyEntitlementAuthorityOp(s, commitOp("art-rp"));
+  assert.equal(r.outcome, "refused");
+  assert.equal(r.refusal, "no_credits");
+  assert.deepEqual(r.state, s);
+  assert.equal(r.state.ownedFiles["art-rp"].deliveryVoidedByCompensation, true);
+});
+
+test("RP-5: purchase, compensation and re-purchase survive serialization and fold", () => {
+  let s = reload(seeded());
+  s = reload(applyEntitlementAuthorityOp(s, commitOp("art-rp", { consumeToken: "ct-rp" })).state);
+  assert.equal(derivePurchasedFold(s), -1);
+  assert.deepEqual(evaluateDeliveryEligibility(s, "art-rp"), { ok: true });
+  s = reload(applyEntitlementAuthorityOp(s, {
+    type: "compensate_debit", consumeToken: "ct-rp", now: NOW + 1,
+  }).state);
+  assert.equal(derivePurchasedFold(s), 0);
+  assert.equal(deriveRemainingAllowance(s), 2);
+  assert.equal(s.ownedFiles["art-rp"].deliveryVoidedByCompensation, true);
+  assert.deepEqual(evaluateDeliveryEligibility(s, "art-rp"), { ok: false, reason: "not_owned" });
+  const r = applyEntitlementAuthorityOp(s, commitOp("art-rp", { consumeToken: "ct-rp-new", now: NOW + 2 }));
+  assert.equal(r.outcome, "committed");
+  s = reload(r.state);
+  assert.equal(derivePurchasedFold(s), -1);
+  assert.equal(deriveRemainingAllowance(s), 1);
+  assert.equal(s.ownedFiles["art-rp"].deliveryVoidedByCompensation, undefined);
+  assert.deepEqual(evaluateDeliveryEligibility(s, "art-rp"), { ok: true });
+});
+
+test("RP-6: partial compensation preserves outstanding reward debit across re-purchase and DO reload", async () => {
+  const { EntitlementAuthorityDO } = await import("../../src/durable-objects/EntitlementAuthorityDO.ts");
+  let stored;
+  const makeDO = () => new EntitlementAuthorityDO({
+    blockConcurrencyWhile: (fn) => fn(),
+    storage: { sql: { exec(query, ...args) {
+      if (query.includes("INSERT INTO")) stored = args[1];
+      return { toArray: () => query.includes("SELECT") && stored
+        ? [{ session_id: "cs_referrer", state_json: stored, updated_at: NOW }] : [] };
+    } } },
+  }, {});
+  let s = seeded();
+  s = applyEntitlementAuthorityOp(s, grantRewardOp("cs_rp_reward", 1)).state;
+  s = applyEntitlementAuthorityOp(s, commitOp("art-rp", { credits: 2, consumeToken: "ct-rp" })).state;
+  s = applyEntitlementAuthorityOp(s, { type: "reverse_reward", grantId: "cs_rp_reward", now: NOW + 1 }).state;
+  const comp = applyEntitlementAuthorityOp(s, { type: "compensate_debit", consumeToken: "ct-rp", now: NOW + 2 });
+  assert.equal(comp.restoration.purchasedRestored, 1);
+  assert.equal(comp.restoration.rewardRestored, 0);
+  stored = JSON.stringify(reload(comp.state));
+  const r = await makeDO().apply(s.sessionId, commitOp("art-rp", { consumeToken: "ct-rp-new", now: NOW + 3 }));
+  assert.equal(r.outcome, "committed");
+  assert.equal(isValidEntitlementAuthorityState(r.state), true);
+  const loaded = await makeDO().getState(s.sessionId);
+  assert.deepEqual(loaded, r.state);
+  assert.equal(loaded.rewardSpentTotal, 1);
+  assert.equal(loaded.retiredDebits.length, 1);
+  assert.equal(loaded.retiredDebits[0].rewardPortion, 1);
+  assert.equal(loaded.retiredDebits[0].restoredRewardPortion, 0);
+  assert.equal(loaded.ownedFiles["art-rp"].rewardPortion, 0);
+  assert.equal(derivePurchasedFold(loaded), -1);
+  const retry = await makeDO().apply(s.sessionId, commitOp("art-rp"));
+  assert.equal(retry.outcome, "already_owned");
+  assert.deepEqual(retry.state, loaded);
+  // Loaded accounting is validated, including the retained portion.
+  const dropped = structuredClone(loaded);
+  dropped.retiredDebits = [];
+  assert.equal(isValidEntitlementAuthorityState(dropped), false);
+  const doubled = structuredClone(loaded);
+  doubled.retiredDebits.push(doubled.retiredDebits[0]);
+  assert.equal(isValidEntitlementAuthorityState(doubled), false);
+});
+
+test("RP-7: original tokenless compensation retry cannot void a re-purchase", async () => {
+  const { EntitlementAuthorityDO } = await import("../../src/durable-objects/EntitlementAuthorityDO.ts");
+  let stored = JSON.stringify(seeded());
+  const makeDO = () => new EntitlementAuthorityDO({
+    blockConcurrencyWhile: (fn) => fn(),
+    storage: { sql: { exec(query, ...args) {
+      if (query.includes("INSERT INTO")) stored = args[1];
+      return { toArray: () => query.includes("SELECT") && stored
+        ? [{ session_id: "cs_referrer", state_json: stored, updated_at: NOW }] : [] };
+    } } },
+  }, {});
+  const sessionId = seeded().sessionId;
+  const bought = await makeDO().apply(sessionId, commitOp("art-rp"));
+  assert.equal(bought.outcome, "committed");
+  const original = { type: "compensate_debit", consumeToken: "art-rp", now: NOW + 1 };
+  const compensated = await makeDO().apply(sessionId, original);
+  assert.equal(compensated.outcome, "compensated");
+  const replacement = await makeDO().apply(sessionId, commitOp("art-rp", { now: NOW + 2 }));
+  assert.equal(replacement.outcome, "committed");
+  for (const op of [original, { ...original, committedSeq: bought.state.ownedFiles["art-rp"].committedSeq }]) {
+    const retry = await makeDO().apply(sessionId, op);
+    assert.equal(retry.changed, false); // authority's applied=false indicator
+    assert.equal(retry.outcome, "refused");
+    assert.equal(retry.refusal, "unknown_debit");
+    assert.deepEqual(retry.state, replacement.state);
+    assert.deepEqual(retry.state.ownedFiles["art-rp"], replacement.state.ownedFiles["art-rp"]);
+    assert.notEqual(retry.state.ownedFiles["art-rp"].deliveryVoidedByCompensation, true);
+    assert.deepEqual(evaluateDeliveryEligibility(retry.state, "art-rp"), { ok: true });
+    assert.equal(isValidEntitlementAuthorityState(retry.state), true);
+    assert.deepEqual(await makeDO().getState(sessionId), replacement.state);
+  }
+  const malformed = structuredClone(replacement.state);
+  malformed.ownedFiles["art-rp"].supersededConsumeTokens = [123];
+  assert.equal(isValidEntitlementAuthorityState(malformed), false);
+  const current = await makeDO().apply(sessionId, {
+    ...original, committedSeq: replacement.state.ownedFiles["art-rp"].committedSeq,
+  });
+  assert.equal(current.outcome, "compensated");
+  assert.equal(current.changed, true);
+  assert.equal(isValidEntitlementAuthorityState(current.state), true);
+  assert.deepEqual(await makeDO().getState(sessionId), current.state);
+  assert.equal((await makeDO().apply(sessionId, {
+    ...original, committedSeq: replacement.state.ownedFiles["art-rp"].committedSeq,
+  })).outcome, "already_compensated");
 });

@@ -4,7 +4,7 @@
  * Governance (before promoting a SKU or price change):
  * 1. Add Stripe Price ID + public price envs in **`wrangler.toml`** / dashboard; keep each `PRINT_COGS_*` server var and its `NEXT_PUBLIC_` mirror aligned to the same value (the checkout route reads the server var; the paywall preflight reads the mirror — see `readCogsEnv` in printMargin.ts).
  * 2. Run **`npm run qa:print-margin`** (and shipping scripts if rates change).
- * 3. Refresh proof images / merchant feed if storefront copy or SKUs changed (**`npm run assets:commerce-refresh`**).
+ * 3. Refresh proof images / merchant feed, including the Meta catalog feed, if storefront copy, SKUs, or prices in printCatalog.ts / pricing.ts change (**`npm run assets:commerce-refresh`**).
  * 4. Smoke: **`npm run qa:smoke:commerce`** + production **`npm run qa:live-canary`** after deploy.
  */
 

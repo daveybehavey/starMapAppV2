@@ -1,6 +1,9 @@
 "use client";
 
+import MetaPromoDisclosure from "@/components/MetaPromoDisclosure";
 import { isAndroidAppModeClient } from "@/lib/androidAppMode";
+import { clearEditorMetaCheckoutCarry } from "@/app/editor/actions";
+import { resolveEditorSubmitPromotion } from "@/lib/editorCheckoutPromotion";
 import { useAndroidAppMode } from "@/hooks/useAndroidAppMode";
 import dynamic from "next/dynamic";
 import { TextBox, runAsSystemWrite, useStore } from "@/lib/store";
@@ -30,6 +33,11 @@ import {
   trackExperimentExposure,
   trackFunnelStep,
 } from "@/lib/analytics";
+import {
+  createCheckoutClientTimingCollector,
+  logCheckoutClientTiming,
+  markCheckoutClientTiming,
+} from "@/lib/checkoutClientTiming";
 import {
   DIGITAL_SINGLE_FALLBACK_LABEL,
   parseCheckoutApiErrorPayload,
@@ -267,12 +275,14 @@ type PaywallIntent = "digital" | "print";
 export type EditorExperienceVariant = "quick" | "full";
 
 interface EditorExperienceProps {
+  metaCarry?: { promoCode?: string; plan?: "single" | "pack3"; couponDropped?: boolean };
   variant?: EditorExperienceVariant;
   editorRef?: RefObject<HTMLDivElement | null>;
   allowAdvancedInQuick?: boolean;
 }
 
 export function EditorExperience({
+  metaCarry,
   variant = "quick",
   editorRef,
   allowAdvancedInQuick = false,
@@ -606,9 +616,9 @@ export function EditorExperience({
   const [promoCodeEdited, setPromoCodeEdited] = useState(false);
   useEffect(() => {
     if (promoCodeEdited) return;
-    const initial = queryPromoCode ?? readStoredPromoCode() ?? "";
+    const initial = queryPromoCode ?? metaCarry?.promoCode ?? readStoredPromoCode() ?? "";
     setEditorPromoCode(initial);
-  }, [queryPromoCode, readStoredPromoCode, promoCodeEdited]);
+  }, [queryPromoCode, metaCarry?.promoCode, readStoredPromoCode, promoCodeEdited]);
   const persistPromoCode = useCallback((raw: string) => {
     setPromoCodeEdited(true);
     const display = raw.toUpperCase().slice(0, 64);
@@ -629,10 +639,10 @@ export function EditorExperience({
     return resolveEditorCheckoutPromoCode({
       fieldValue: editorPromoCode,
       fieldEdited: promoCodeEdited,
-      queryPromoCode,
+      queryPromoCode: queryPromoCode ?? metaCarry?.promoCode ?? null,
       storedPromoCode: readStoredPromoCode(),
     });
-  }, [editorPromoCode, promoCodeEdited, queryPromoCode, readStoredPromoCode]);
+  }, [editorPromoCode, promoCodeEdited, queryPromoCode, metaCarry?.promoCode, readStoredPromoCode]);
   const getCheckoutReferralCode = useCallback(
     () => queryReferralCode ?? readStoredReferralCode(),
     [queryReferralCode]
@@ -1759,10 +1769,33 @@ export function EditorExperience({
       }
     ) => {
       if (checkoutInFlightRef.current) return;
+      // Instrumentation only: client stage marks from pay click → Stripe handoff.
+      const clientTiming = createCheckoutClientTimingCollector();
+      markCheckoutClientTiming(clientTiming, "submit");
+      let clientTimingCorrelationId: string | null = null;
+      let clientTimingEmitted = false;
+      const emitClientTiming = (outcome: "created" | "error") => {
+        if (clientTimingEmitted) return;
+        clientTimingEmitted = true;
+        logCheckoutClientTiming(
+          {
+            collector: clientTiming,
+            correlationId: clientTimingCorrelationId,
+            outcome,
+            method: "POST",
+          },
+          { track }
+        );
+      };
       const previewSource = getPreviewSource() ?? "editor";
-      const promoCode = getCheckoutPromoCode();
       const referralCode = getCheckoutReferralCode();
       const orderType = options?.orderType === "print" ? "print" : "digital";
+      const { promoCode, clearCarry } = resolveEditorSubmitPromotion({
+        promoCode: getCheckoutPromoCode(),
+        fieldEdited: promoCodeEdited,
+        orderType,
+        plan,
+      });
       const merchFamily = typeof options?.merchFamily === "string" ? options.merchFamily : undefined;
       const merchOptions =
         options?.merchOptions && typeof options.merchOptions === "object"
@@ -1799,6 +1832,17 @@ export function EditorExperience({
         setCheckoutInFlight(true);
         setCheckoutError(null);
         setCheckoutFallbackOffer(null);
+        if (clearCarry) {
+          // Suppress the still-loaded carry/URL as well as storage on retries.
+          setPromoCodeEdited(true);
+          setEditorPromoCode("");
+          try {
+            window.localStorage.removeItem(PROMO_CODE_KEY);
+          } catch {
+            // Storage can be unavailable in private browsing.
+          }
+          await clearEditorMetaCheckoutCarry();
+        }
         track("checkout_started", {
           visualMode: renderOptions.visualMode,
           plan,
@@ -2176,20 +2220,26 @@ export function EditorExperience({
         for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
           // Fresh handoff token per attempt (presence-only; never reused across failures).
           checkoutPayload.checkoutHandoff = createCheckoutHandoffToken();
+          const attemptCorrelationId =
+            lastCheckoutDiagnostics?.diagnosticId &&
+            /^[a-zA-Z0-9_-]{8,64}$/.test(lastCheckoutDiagnostics.diagnosticId)
+              ? lastCheckoutDiagnostics.diagnosticId
+              : crypto.randomUUID();
+          clientTimingCorrelationId = attemptCorrelationId;
           const attemptInit: RequestInit = {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "x-correlation-id":
-                lastCheckoutDiagnostics?.diagnosticId &&
-                /^[a-zA-Z0-9_-]{8,64}$/.test(lastCheckoutDiagnostics.diagnosticId)
-                  ? lastCheckoutDiagnostics.diagnosticId
-                  : crypto.randomUUID(),
+              "x-correlation-id": attemptCorrelationId,
             },
             body: JSON.stringify(checkoutPayload),
           };
+          // Instrumentation only: mark when the checkout API request leaves the browser.
+          markCheckoutClientTiming(clientTiming, "request_sent");
           const res = await fetch("/api/checkout", attemptInit);
           checkoutApiResponseReceived = true;
+          // Overwrite on each attempt so the final response clock is the one that matters.
+          markCheckoutClientTiming(clientTiming, "response_received", { overwrite: true });
           data = (await res.json().catch(() => null)) as CheckoutResponse | null;
           if (res.ok && data?.url) break;
 
@@ -2234,6 +2284,8 @@ export function EditorExperience({
             failureCode === "checkout_handoff_required" &&
             lastCheckoutDiagnostics.editorRecoveryUrl
           ) {
+            markCheckoutClientTiming(clientTiming, "redirect");
+            emitClientTiming("error");
             window.location.href = lastCheckoutDiagnostics.editorRecoveryUrl;
             return;
           }
@@ -2272,11 +2324,15 @@ export function EditorExperience({
             );
             await new Promise((resolve) => setTimeout(resolve, 2200));
           }
+          // Instrumentation only: mark redirect handoff, then emit before navigation.
+          markCheckoutClientTiming(clientTiming, "redirect");
+          emitClientTiming("created");
           window.location.href = data.url;
           return;
         }
         throw new Error("no url");
       } catch (err) {
+        emitClientTiming("error");
         console.error(err);
         const reason = (err as Error)?.message ?? "unknown";
         if (!checkoutApiResponseReceived) {
@@ -2362,6 +2418,7 @@ export function EditorExperience({
       location,
       getPreviewSource,
       getCheckoutPromoCode,
+      promoCodeEdited,
       getCheckoutReferralCode,
       printShippingCountry,
       renderOptions,
@@ -2531,6 +2588,11 @@ export function EditorExperience({
 
   return (
     <>
+      <MetaPromoDisclosure
+        source={searchParams.get("source")}
+        couponDropped={metaCarry?.couponDropped}
+        effectivePromoCode={typeof window === "undefined" ? undefined : getCheckoutPromoCode()}
+      />
       <section
         ref={editorSectionRef}
         id="editor"
@@ -4351,6 +4413,7 @@ export function EditorExperience({
               }}
               variant={paywallVariant}
               purchaseIntent={paywallIntent}
+              preferredDigitalPlan={metaCarry?.plan}
               preferredPrintVariant={preferredPrintVariant}
               preferredIncludeDigitalAddOn={preferredIncludeDigitalAddOn}
               includeSecondCopy={includeSecondCopy}

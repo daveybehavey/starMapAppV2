@@ -1,3 +1,4 @@
+import { parsePromotionSignupStatus } from "@/lib/promotionSignupStatus";
 import type { Metadata } from "next";
 import HomeHero from "./HomeHero";
 import HomeStaticSections, { buildHomeFaqItems } from "./HomeStaticSections";
@@ -104,11 +105,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   };
   const schemaPrice = (tiers.single.amountCents / 100).toFixed(2);
   const schemaCurrency = (tiers.single.currency || "USD").toUpperCase();
-  const priceValidUntil = (() => {
-    const now = new Date();
-    const nextYear = new Date(Date.UTC(now.getUTCFullYear() + 1, now.getUTCMonth(), now.getUTCDate()));
-    return nextYear.toISOString().slice(0, 10);
-  })();
 
   const schema = {
     "@context": "https://schema.org",
@@ -151,7 +147,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             name: "Single HD download",
             priceCurrency: schemaCurrency,
             price: schemaPrice,
-            priceValidUntil,
             availability: "https://schema.org/InStock",
             url: `${siteUrl}/editor?mode=quick&source=home-schema-digital`,
           },
@@ -162,7 +157,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                   name: "Unframed print",
                   priceCurrency: (printTiers.poster_unframed.currency || "USD").toUpperCase(),
                   price: (printTiers.poster_unframed.amountCents / 100).toFixed(2),
-                  priceValidUntil,
                   availability: "https://schema.org/InStock",
                   url: `${siteUrl}/editor?mode=quick&source=home-schema-print-unframed`,
                 },
@@ -171,7 +165,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                   name: "Unframed poster (16×16)",
                   priceCurrency: (printTiers.poster_unframed_16x16.currency || "USD").toUpperCase(),
                   price: (printTiers.poster_unframed_16x16.amountCents / 100).toFixed(2),
-                  priceValidUntil,
                   availability: "https://schema.org/InStock",
                   url: `${siteUrl}/editor?mode=quick&source=home-schema-print-unframed-16x16&checkout=print&print_variant=poster_unframed_16x16`,
                 },
@@ -180,7 +173,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                   name: "Framed print",
                   priceCurrency: (printTiers.poster_framed.currency || "USD").toUpperCase(),
                   price: (printTiers.poster_framed.amountCents / 100).toFixed(2),
-                  priceValidUntil,
                   availability: "https://schema.org/InStock",
                   url: `${siteUrl}/editor?mode=quick&source=home-schema-print-framed`,
                 },
@@ -210,8 +202,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
   const promoRaw = resolvedSearchParams.promo;
   const promoParam = Array.isArray(promoRaw) ? promoRaw[0] : promoRaw;
-  const promoStatus =
-    promoParam === "success" || promoParam === "error" ? promoParam : undefined;
+  const promoStatus = parsePromotionSignupStatus(promoParam);
   const codeRaw = resolvedSearchParams.code;
   const promoCode =
     typeof codeRaw === "string" ? codeRaw : Array.isArray(codeRaw) ? codeRaw[0] : undefined;

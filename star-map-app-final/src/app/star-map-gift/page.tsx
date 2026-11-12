@@ -23,10 +23,9 @@ export const revalidate = 86400;
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 const ogImage = `${siteUrl}/custom-star-map-anniversary.webp`;
-const pageTitle =
-  "Personalized Star Map Gift — The Exact Night Sky From Your Special Date | StarMapCo";
+const pageTitle = "Star Map Gift — Personalized Night Sky From Your Date | Free Preview";
 const pageDescription =
-  "Create a personalized star map of the exact night sky from a wedding, anniversary, or the night you met. Free preview, HD digital from $9 USD, framed prints from $99 USD.";
+  "The exact stars from the night you met, your wedding, or any date that matters — personalized, previewed free, from $9. Framed prints from $99.";
 const breadcrumbs = [
   { href: "/", label: "Home" },
   { href: "/star-map-gift", label: "Star map gift" },
@@ -63,7 +62,9 @@ export default function StarMapGiftPage() {
       <header className="space-y-3 text-center">
         <Breadcrumbs items={breadcrumbs} className="flex justify-center" />
         <p className="text-xs tracking-[0.3em] text-amber-300 uppercase">StarMapCo</p>
-        <h1 className="text-3xl font-bold text-white sm:text-4xl">Star Map Gift</h1>
+        <h1 className="text-3xl font-bold text-white sm:text-4xl">
+          A Personalized Star Map Gift — the Exact Sky From Your Date
+        </h1>
         <p className="text-sm text-white/90 sm:text-base">
           A personalized star map gift captures the exact sky from a meaningful moment. Start with a free
           preview, then choose the ready-to-display framed route, the lower-total unframed route, or HD

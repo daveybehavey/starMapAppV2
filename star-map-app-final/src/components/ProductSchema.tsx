@@ -15,12 +15,6 @@ type ProductSchemaProps = {
 export default function ProductSchema({ name, description, imageUrl, offers }: ProductSchemaProps) {
   if (!offers.length) return null;
 
-  const priceValidUntil = (() => {
-    const now = new Date();
-    const nextYear = new Date(Date.UTC(now.getUTCFullYear() + 1, now.getUTCMonth(), now.getUTCDate()));
-    return nextYear.toISOString().slice(0, 10);
-  })();
-
   const schema = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -34,7 +28,6 @@ export default function ProductSchema({ name, description, imageUrl, offers }: P
       name: offer.name,
       priceCurrency: offer.priceCurrency,
       price: offer.price,
-      priceValidUntil,
       availability: "https://schema.org/InStock",
       url: offer.url,
     })),
