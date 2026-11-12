@@ -109,6 +109,20 @@ function createInstrumentingCanvas(label, counters) {
       if (key === "getTransform") {
         return () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 });
       }
+      if (key === "getImageData") {
+        return (x, y, w, h) => {
+          bump("getImageData");
+          const width = Math.max(1, Math.floor(w) || 1);
+          const height = Math.max(1, Math.floor(h) || 1);
+          const data = new Uint8ClampedArray(width * height * 4);
+          // Deterministic fully-opaque stand-in mask: every pixel reads
+          // as inside the clip, so resolveWatermarkMaskSampler returns a
+          // sampler and paintWatermark actually runs in watermark:true
+          // scenarios instead of exiting early on a null sampler.
+          for (let i = 3; i < data.length; i += 4) data[i] = 255;
+          return { data, width, height };
+        };
+      }
       if (key === "beginPath") {
         return () => {
           bump("beginPath");
@@ -387,6 +401,7 @@ function commandStreamHash(width, height, recipe, sky) {
         if (key in target) return target[key];
         if (key === "measureText") return (t) => ({ width: String(t).length * 10 });
         if (key === "getTransform") return () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 });
+        if (key === "getImageData") return (x, y, w, h) => { commands.push([label, "getImageData", w, h]); const width = Math.max(1, Math.floor(w) || 1); const height = Math.max(1, Math.floor(h) || 1); const data = new Uint8ClampedArray(width * height * 4); for (let i = 3; i < data.length; i += 4) data[i] = 255; return { data, width, height }; };
         return (...args) => {
           commands.push([label, key, ...args]);
           if (key === "save") stack.push({ ...target });
