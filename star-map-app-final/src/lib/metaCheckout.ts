@@ -26,7 +26,22 @@ const PRODUCTS: Readonly<Record<string, Target>> = {
   "merch:hoodie_unisex_g18500": { kind: "merch", family: "hoodie_unisex_g18500" },
 };
 
+// Exact retailer IDs from the merchant feed; unknown IDs must fail closed.
+// print_poster_framed_hd_bundle is deliberately excluded: Target cannot carry
+// its HD add-on, and resolving it as a framed print would drop that component.
+const RETAILER_ID_ALIASES: Readonly<Record<string, string>> = {
+  print_poster_unframed: "poster_unframed",
+  print_poster_unframed_16x16: "poster_unframed_16x16",
+  print_poster_framed: "poster_framed",
+  print_canvas_wrap: "canvas_wrap",
+  print_mug_11oz: "mug_11oz",
+  print_card_4x6: "card_4x6",
+  digital_single_hd: "hd_single",
+  digital_pack3_hd: "hd_pack3",
+};
+
 export function getMetaCheckoutTarget(id: string): Target | null {
+  if (Object.hasOwn(RETAILER_ID_ALIASES, id)) id = RETAILER_ID_ALIASES[id];
   if (!Object.hasOwn(PRODUCTS, id)) return null;
   const target = PRODUCTS[id];
   if (
