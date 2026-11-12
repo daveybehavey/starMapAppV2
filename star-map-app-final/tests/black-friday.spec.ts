@@ -18,10 +18,10 @@ for (const width of [390, 1280]) {
       day: "2-digit",
     }).format(new Date());
     const blackFridayText =
-      today >= "2026-11-27" && today <= "2026-12-02"
-        ? "BLACKFRIDAY25 is live now: up to 25% off prints through Dec 2, 2026."
+      today >= "2026-11-27" && today <= "2026-12-01"
+        ? "BLACKFRIDAY25 is live now: up to 25% off prints through Dec 1, 2026 (ends 11:59 p.m. PT)."
         : today < "2026-11-27"
-          ? "BLACKFRIDAY25 (up to 25% off prints) activates Nov 27, 2026 and runs through Dec 2."
+          ? "BLACKFRIDAY25 (up to 25% off prints) activates Nov 27, 2026 and runs through Dec 1 (ends 11:59 p.m. PT)."
           : null;
     if (blackFridayText) {
       await expect(main.getByTestId("blackfriday-offer")).toHaveText(blackFridayText);
@@ -37,6 +37,12 @@ for (const width of [390, 1280]) {
     if (today >= "2026-11-01" && today < "2026-11-27") {
       await expect(main.getByTestId("current-offer")).toHaveText(
         "Available now: 15% off prints with code XMAS15."
+      );
+    } else if (today === "2026-12-02") {
+      // Dec 2: BLACKFRIDAY25 no longer redeems (Stripe expired it Dec 1 at
+      // 11:59 p.m. PT); the campaign closes with the XMAS15 last call.
+      await expect(main.getByTestId("current-offer")).toHaveText(
+        "Last call: 15% off prints with code XMAS15."
       );
     } else {
       await expect(main.getByTestId("current-offer")).toHaveCount(0);

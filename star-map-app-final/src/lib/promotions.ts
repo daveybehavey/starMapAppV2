@@ -2,6 +2,7 @@ import { getPromotionUnsubscribeUrl } from "@/lib/promotionSubscriptions";
 import { getPromotionOfferName, getPromotionTargetLabel } from "@/lib/promotionOffer";
 import {
   checkPromotionDispatchPermission,
+  evaluatePromotionSendCap,
   type PromotionDispatchPermissionChecker,
   type PromotionDispatchRefusalReason,
 } from "@/lib/promotionDispatchGuard";
@@ -613,6 +614,11 @@ export async function deliverPromotionSend(
   idempotencyKey?: string,
   options?: { checkDispatchPermission?: PromotionDispatchPermissionChecker },
 ): Promise<PromotionDeliveryOutcome> {
+  // GC-2 applies even when a coordinator injects its own authority checker.
+  const cap = evaluatePromotionSendCap();
+  if (!cap.permitted) {
+    return { outcome: "refused", provider: "none", reason: cap.reason };
+  }
   const checkDispatchPermission =
     options?.checkDispatchPermission ?? checkPromotionDispatchPermission;
   let decision: Awaited<ReturnType<PromotionDispatchPermissionChecker>>;

@@ -649,8 +649,56 @@ async function postRetryPrintOrder(req: NextRequest) {
     );
   }
 
+  // Audit A3: the F-1 stand-down above is change-only against the
+  // admission snapshot — a claim/marker that was already standing when
+  // this pass started compares equal and is treated as "not moved".
+  // That is correct for mid-pass movement detection, but wrong for the
+  // destination-flip case: an earlier alternate dispatch left
+  // alternateDispatchClaim + an "attempted"/"accepted" marker, config
+  // later flipped to native Printful, and a clean-looking retry would
+  // submit a SECOND physical order. Refuse native submission whenever
+  // the fresh authority still carries ANY standing claim, or the fresh
+  // KV record still carries a blocking alternateDispatch marker
+  // (alternateDispatchBlocksRedispatch — any present marker, including
+  // attempted/accepted). Native paths never create those markers, so a
+  // standing one was not created by this pass. Fail closed on unread
+  // authority or missing record. The alternate branch below keeps its
+  // own claim/marker protocol unchanged.
+  const refuseNativeIfAlternateDispatchStanding = async (): Promise<NextResponse | null> => {
+    const freshAuthority = await getPrintOrderAuthorityState(sessionId);
+    if (!freshAuthority) {
+      return NextResponse.json(
+        { ok: false, error: "print_order_authority_unread" },
+        { status: 503 },
+      );
+    }
+    const freshRecord = await kv.get<PrintOrderRecord>(printOrderKey(sessionId));
+    if (!freshRecord) {
+      return NextResponse.json(
+        { ok: false, error: "print_order_authority_unread" },
+        { status: 503 },
+      );
+    }
+    const standingClaim = Boolean(freshAuthority.alternateDispatchClaim);
+    const standingMarker = alternateDispatchBlocksRedispatch(freshRecord.alternateDispatch);
+    if (!standingClaim && !standingMarker) return null;
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "alternate_dispatch_reconciliation_required",
+        dispatchId: alternateFulfillmentDispatchId(sessionId),
+      },
+      { status: 409 },
+    );
+  };
+
   const attempts = (hydrated.attempts ?? 0) + 1;
   const now = Date.now();
+
+  if (hasNativeDestination) {
+    const blockedByAlternateStanding = await refuseNativeIfAlternateDispatchStanding();
+    if (blockedByAlternateStanding) return blockedByAlternateStanding;
+  }
 
   if (isMerchRetry && isPrintfulV2Configured()) {
     // S96-1 F4: merch dispatch parity with the Stripe webhook (#478 was

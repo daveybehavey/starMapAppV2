@@ -132,7 +132,18 @@ export type OwnedFileEntry = {
   restoredRewardPortion?: number;
   restoredPurchasedPortion?: number;
   committedSeq?: number;
+  /** Prior debit identities displaced by re-purchase; require sequence disambiguation. */
+  supersededConsumeTokens?: string[];
   restorationSeq?: number | null;
+  /**
+   * Set by compensate_debit in the same transition that restores the
+   * debit's credit (A2 gate fix, 2026-11-09): the compensated artifact
+   * stops satisfying delivery eligibility — the customer keeps the
+   * restored credit OR the file, never both. The entry itself is
+   * retained: the journal fold reads its portions. Optional for
+   * entries written before the fix; readers treat absent as false.
+   */
+  deliveryVoidedByCompensation?: boolean;
 };
 
 /** Portions of a commit entry, with pre-journal defaults applied. */
@@ -574,6 +585,8 @@ export type EntitlementAuthorityState = {
   /** Token whose baseline consume this authority compensated, if any. */
   compensatedConsumeToken: string | null;
   ownedFiles: Record<string, OwnedFileEntry>;
+  /** Replaced voided debits with unrestored portions; accounting only. */
+  retiredDebits?: OwnedFileEntry[];
   recoveryDecision: RecoveryDecision;
   /** Incremented atomically on every claim-token rotation (v3.6 §6.3). */
   capabilityGeneration: number;
@@ -770,7 +783,7 @@ export function countPaidCommits(state: EntitlementAuthorityState): number {
 export function derivePurchasedFold(state: EntitlementAuthorityState): number {
   let grossPurchased = 0;
   let restoredPurchased = 0;
-  for (const entry of Object.values(state.ownedFiles)) {
+  for (const entry of accountingEntries(state)) {
     if (entry.source !== "commit") continue;
     const portions = commitEntryPortions(entry);
     grossPurchased += portions.purchasedPortion;
@@ -782,6 +795,11 @@ export function derivePurchasedFold(state: EntitlementAuthorityState): number {
     grossPurchased +
     restoredPurchased
   );
+}
+
+/** Delivery ownership may be replaced; outstanding debit accounting survives. */
+function accountingEntries(state: EntitlementAuthorityState): OwnedFileEntry[] {
+  return [...Object.values(state.ownedFiles), ...(state.retiredDebits ?? [])];
 }
 
 /** The opening figure the position is computed from: the installed
@@ -869,13 +887,24 @@ export function deriveRemainingAllowance(state: EntitlementAuthorityState): numb
  * remaining balance: a zero-balance customer who owns the file gets their
  * file. Finalization is verified by the delivery path against the artifact
  * registry (Slice 4/5); this slice's ledger owns the ownership half.
+ *
+ * Compensation exception (A2 gate fix, 2026-11-09): an entry whose
+ * debit was compensated carries deliveryVoidedByCompensation, set in
+ * the same transition that restored its credit, and is refused here
+ * as not_owned — the restored credit and the file are alternatives,
+ * never a double benefit. The balance is still never consulted: an
+ * ordinary (non-compensated) owned artifact at zero balance stays
+ * deliverable (DL-1: paid downloads never expire).
  */
 export function evaluateDeliveryEligibility(
   state: EntitlementAuthorityState,
   artifactId: string,
 ): { ok: true } | { ok: false; reason: "invalid" | "not_owned" } {
   if (!evaluateEntitlementValidity(state).valid) return { ok: false, reason: "invalid" };
-  if (!state.ownedFiles[artifactId]) return { ok: false, reason: "not_owned" };
+  const entry = state.ownedFiles[artifactId];
+  if (!entry || entry.deliveryVoidedByCompensation) {
+    return { ok: false, reason: "not_owned" };
+  }
   return { ok: true };
 }
 
@@ -937,6 +966,8 @@ export type EntitlementAuthorityOp =
        */
       type: "compensate_debit";
       consumeToken: string;
+      /** Required when this identity was reused by a re-purchase. */
+      committedSeq?: number;
       now: number;
     }
   | {
@@ -1480,7 +1511,16 @@ export function isValidEntitlementAuthorityState(
   }
   if (!isNullableString(state.compensatedConsumeToken)) return false;
   if (!isRecord(state.ownedFiles)) return false;
-  for (const entry of Object.values(state.ownedFiles)) {
+  if (state.retiredDebits !== undefined) {
+    if (!Array.isArray(state.retiredDebits)) return false;
+    for (const entry of state.retiredDebits) {
+      if (
+        !isRecord(entry) || entry.source !== "commit" ||
+        entry.deliveryVoidedByCompensation !== true
+      ) return false;
+    }
+  }
+  for (const entry of accountingEntries(state as EntitlementAuthorityState)) {
     if (!isRecord(entry)) return false;
     if (typeof entry.mapId !== "string") return false;
     if (typeof entry.fingerprint !== "string") return false;
@@ -1510,6 +1550,16 @@ export function isValidEntitlementAuthorityState(
     ) {
       return false;
     }
+    if (
+      e.deliveryVoidedByCompensation !== undefined &&
+      typeof e.deliveryVoidedByCompensation !== "boolean"
+    ) {
+      return false;
+    }
+    if (e.supersededConsumeTokens !== undefined && (
+      !Array.isArray(e.supersededConsumeTokens) ||
+      !e.supersededConsumeTokens.every((token) => typeof token === "string")
+    )) return false;
     if (e.source === "commit") {
       const portions = commitEntryPortions(e);
       if (portions.rewardPortion + portions.purchasedPortion !== portions.credits) {
@@ -1573,7 +1623,7 @@ export function isValidEntitlementAuthorityState(
   // record, never a summand.
   let grossRewardPortions = 0;
   let restoredRewardPortions = 0;
-  for (const entry of Object.values(state.ownedFiles)) {
+  for (const entry of accountingEntries(state as EntitlementAuthorityState)) {
     if (!isRecord(entry) || entry.source !== "commit") continue;
     const portions = commitEntryPortions(entry as OwnedFileEntry);
     grossRewardPortions += portions.rewardPortion;
@@ -1590,7 +1640,7 @@ export function isValidEntitlementAuthorityState(
   // reward portion whose funding grant is already reversed); this
   // assertion is defence-in-depth over loaded state, checked only
   // where both sequences were recorded.
-  for (const entry of Object.values(state.ownedFiles)) {
+  for (const entry of accountingEntries(state as EntitlementAuthorityState)) {
     if (!isRecord(entry) || entry.source !== "commit") continue;
     const e = entry as OwnedFileEntry;
     const portions = commitEntryPortions(e);
@@ -2176,8 +2226,10 @@ function commit(
 
   // The ledger is the idempotency mechanism: re-committing an owned
   // artifact (double-click, refresh, second device, A→B→retry-A) never
-  // re-debits, whatever token or order the retry arrives in.
-  if (state.ownedFiles[op.artifactId]) {
+  // re-debits, whatever token or order the retry arrives in. Compensation
+  // voids delivery, so a voided entry must pass the normal purchase checks.
+  const existing = state.ownedFiles[op.artifactId];
+  if (existing && existing.deliveryVoidedByCompensation !== true) {
     return result(state, false, "already_owned");
   }
 
@@ -2226,9 +2278,19 @@ function commit(
     fundingGrantId: funding?.grantId ?? null,
     restoredRewardPortion: 0,
     restoredPurchasedPortion: 0,
+    ...(existing ? { supersededConsumeTokens: [...new Set([
+      ...(existing.supersededConsumeTokens ?? []), existing.consumeToken ?? op.artifactId,
+    ])] } : {}),
     committedSeq: seq,
     restorationSeq: null,
   };
+  // Fully restored debits fold to zero. Retain a partial restoration
+  // separately so replacing delivery ownership cannot erase its debt.
+  const priorPortions = existing ? commitEntryPortions(existing) : null;
+  const retainPriorDebit = priorPortions !== null && (
+    priorPortions.rewardPortion > priorPortions.restoredRewardPortion ||
+    priorPortions.purchasedPortion > priorPortions.restoredPurchasedPortion
+  );
   const rewardGrants = funding
     ? {
         ...state.rewardGrants,
@@ -2242,6 +2304,7 @@ function commit(
     {
       ...state,
       ownedFiles: { ...state.ownedFiles, [op.artifactId]: entry },
+      ...(retainPriorDebit ? { retiredDebits: [...(state.retiredDebits ?? []), existing] } : {}),
       rewardGrants,
       rewardBucketBalance: state.rewardBucketBalance - rewardPortion,
       rewardSpentTotal: state.rewardSpentTotal + rewardPortion,
@@ -2398,8 +2461,12 @@ function compensate(
  * restores. The bucket's current value neither budgets nor bounds a
  * restoration: a fully spent, unreversed grant compensates from
  * bucket 0, and the restoration raises the bucket (v3.10 §2.2).
- * Delivery of the file itself never depends on any of this
- * (ownership + validity, never balance).
+ * Delivery of the file itself never depends on the BALANCE
+ * (ownership + validity, never balance) — but a compensated debit's
+ * entry is voided for delivery in this same transition (A2 gate fix,
+ * 2026-11-09): the restoration and the void land atomically, so the
+ * restored credit can never be spent while the compensated file
+ * also stays deliverable.
  */
 function compensateDebit(
   state: EntitlementAuthorityState,
@@ -2408,9 +2475,15 @@ function compensateDebit(
   const invalid = validityRefusal(state);
   if (invalid) return invalid;
 
+  // A reused token (including the tokenless artifactId fallback) cannot
+  // distinguish a retry from a new compensation without the commit sequence.
+  // Fail closed for old or ambiguous identities; never restore the replacement.
   const artifactId = Object.keys(state.ownedFiles).find((id) => {
     const e = state.ownedFiles[id];
-    return e.source === "commit" && (e.consumeToken ?? id) === op.consumeToken;
+    return e.source === "commit" && (e.consumeToken ?? id) === op.consumeToken &&
+      (op.committedSeq !== undefined
+        ? Number.isSafeInteger(op.committedSeq) && e.committedSeq === op.committedSeq
+        : !e.supersededConsumeTokens?.includes(op.consumeToken));
   });
   if (!artifactId) return refused(state, "unknown_debit");
   const entry = state.ownedFiles[artifactId];
@@ -2449,6 +2522,7 @@ function compensateDebit(
     restoredPurchasedPortion: portions.restoredPurchasedPortion + purchasedOutstanding,
     restoredRewardPortion: portions.restoredRewardPortion + restoreReward,
     restorationSeq: seq,
+    deliveryVoidedByCompensation: true,
   };
   // The restoration un-spends the recorded funding grant's
   // attribution by the restored amount (Codex re-gate F-A): the

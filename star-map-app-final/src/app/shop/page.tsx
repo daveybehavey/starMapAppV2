@@ -440,7 +440,9 @@ export default function ShopPage() {
                     fallbackSrc={card.imageSrc}
                     alt={card.alt}
                     fill
-                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    sizes="(max-width: 640px) 92vw, (max-width: 1024px) 45vw, 360px"
+                    loading="lazy"
+                    decoding="async"
                     className={card.imageFit === "contain" ? "object-contain" : "object-cover"}
                   />
                 </div>
@@ -516,7 +518,9 @@ export default function ShopPage() {
                           fallbackSrc={image.src}
                           alt={image.alt}
                           fill
-                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                          sizes="(max-width: 640px) 92vw, (max-width: 1024px) 45vw, 360px"
+                          loading="lazy"
+                          decoding="async"
                           className={image.fit === "contain" ? "object-contain" : "object-cover"}
                         />
                       </div>
