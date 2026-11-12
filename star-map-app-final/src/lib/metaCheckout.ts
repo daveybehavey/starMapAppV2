@@ -5,6 +5,18 @@ import { canUseManualPromotionCode, isManualPromotionCompatibleWithOrder } from 
 export const META_CHECKOUT_COOKIE_NAME = "starmap_meta_checkout";
 export const META_CHECKOUT_MAX_AGE_SECONDS = 24 * 60 * 60;
 
+/**
+ * INERT BY DEFAULT: the Meta checkout adapter only runs when
+ * META_CHECKOUT_ENABLED is exactly "true" (same posture as
+ * REVIEW_REQUESTS_ENABLED — dashboard-owned activation, not a committed
+ * wrangler [vars] entry).
+ */
+export function isMetaCheckoutEnabled(
+  env: Record<string, string | undefined> = process.env,
+): boolean {
+  return (env.META_CHECKOUT_ENABLED ?? "").trim() === "true";
+}
+
 type Target =
   | { kind: "print"; variant: PrintVariant }
   | { kind: "digital"; plan: "single" | "pack3" }
