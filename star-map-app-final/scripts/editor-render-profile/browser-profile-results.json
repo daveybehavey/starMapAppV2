@@ -1,0 +1,392 @@
+{
+  "referenceSceneId": "editor-render-perf-dense-v1",
+  "renderer": "src/lib/renderSky.ts:renderStarMap",
+  "metric": "render_plus_full_readback_ms",
+  "note": "Production renderer and astronomy. Wall time includes JS, raster completion and full RGBA readback, plus draw-call instrumentation; not isolated GPU/Skia cost or UI latency. First means first per size in this process. Browser fallback fonts are used.",
+  "timings": {
+    "preview_900": {
+      "size": 900,
+      "first": {
+        "ms": 1442.2999999998137,
+        "readbackBytes": 3240000,
+        "drawCalls": {
+          "clearRect": 1,
+          "fillRect": 6,
+          "createRadialGradient": 113,
+          "stroke": 765,
+          "fillText": 43,
+          "arc": 4529,
+          "fill": 4532,
+          "drawImage": 1
+        }
+      },
+      "warm": [
+        {
+          "ms": 212.90000000037253,
+          "readbackBytes": 3240000,
+          "drawCalls": {
+            "clearRect": 1,
+            "fillRect": 6,
+            "createRadialGradient": 113,
+            "stroke": 765,
+            "fillText": 43,
+            "arc": 4529,
+            "fill": 4531,
+            "drawImage": 1
+          }
+        },
+        {
+          "ms": 84.6999999997206,
+          "readbackBytes": 3240000,
+          "drawCalls": {
+            "clearRect": 1,
+            "fillRect": 6,
+            "createRadialGradient": 113,
+            "stroke": 765,
+            "fillText": 43,
+            "arc": 4529,
+            "fill": 4531,
+            "drawImage": 1
+          }
+        },
+        {
+          "ms": 63.89999999990687,
+          "readbackBytes": 3240000,
+          "drawCalls": {
+            "clearRect": 1,
+            "fillRect": 6,
+            "createRadialGradient": 113,
+            "stroke": 765,
+            "fillText": 43,
+            "arc": 4529,
+            "fill": 4531,
+            "drawImage": 1
+          }
+        },
+        {
+          "ms": 67.3000000002794,
+          "readbackBytes": 3240000,
+          "drawCalls": {
+            "clearRect": 1,
+            "fillRect": 6,
+            "createRadialGradient": 113,
+            "stroke": 765,
+            "fillText": 43,
+            "arc": 4529,
+            "fill": 4531,
+            "drawImage": 1
+          }
+        },
+        {
+          "ms": 69.60000000009313,
+          "readbackBytes": 3240000,
+          "drawCalls": {
+            "clearRect": 1,
+            "fillRect": 6,
+            "createRadialGradient": 113,
+            "stroke": 765,
+            "fillText": 43,
+            "arc": 4529,
+            "fill": 4531,
+            "drawImage": 1
+          }
+        },
+        {
+          "ms": 69.39999999990687,
+          "readbackBytes": 3240000,
+          "drawCalls": {
+            "clearRect": 1,
+            "fillRect": 6,
+            "createRadialGradient": 113,
+            "stroke": 765,
+            "fillText": 43,
+            "arc": 4529,
+            "fill": 4531,
+            "drawImage": 1
+          }
+        },
+        {
+          "ms": 82.29999999981374,
+          "readbackBytes": 3240000,
+          "drawCalls": {
+            "clearRect": 1,
+            "fillRect": 6,
+            "createRadialGradient": 113,
+            "stroke": 765,
+            "fillText": 43,
+            "arc": 4529,
+            "fill": 4531,
+            "drawImage": 1
+          }
+        },
+        {
+          "ms": 71.5,
+          "readbackBytes": 3240000,
+          "drawCalls": {
+            "clearRect": 1,
+            "fillRect": 6,
+            "createRadialGradient": 113,
+            "stroke": 765,
+            "fillText": 43,
+            "arc": 4529,
+            "fill": 4531,
+            "drawImage": 1
+          }
+        }
+      ]
+    },
+    "preview_export_1200": {
+      "size": 1200,
+      "first": {
+        "ms": 457.29999999981374,
+        "readbackBytes": 5760000,
+        "drawCalls": {
+          "clearRect": 1,
+          "fillRect": 6,
+          "createRadialGradient": 113,
+          "stroke": 765,
+          "fillText": 43,
+          "arc": 4529,
+          "fill": 4532,
+          "drawImage": 1
+        }
+      },
+      "warm": [
+        {
+          "ms": 289.39999999990687,
+          "readbackBytes": 5760000,
+          "drawCalls": {
+            "clearRect": 1,
+            "fillRect": 6,
+            "createRadialGradient": 113,
+            "stroke": 765,
+            "fillText": 43,
+            "arc": 4529,
+            "fill": 4531,
+            "drawImage": 1
+          }
+        },
+        {
+          "ms": 182.39999999990687,
+          "readbackBytes": 5760000,
+          "drawCalls": {
+            "clearRect": 1,
+            "fillRect": 6,
+            "createRadialGradient": 113,
+            "stroke": 765,
+            "fillText": 43,
+            "arc": 4529,
+            "fill": 4531,
+            "drawImage": 1
+          }
+        },
+        {
+          "ms": 170.20000000018626,
+          "readbackBytes": 5760000,
+          "drawCalls": {
+            "clearRect": 1,
+            "fillRect": 6,
+            "createRadialGradient": 113,
+            "stroke": 765,
+            "fillText": 43,
+            "arc": 4529,
+            "fill": 4531,
+            "drawImage": 1
+          }
+        },
+        {
+          "ms": 174.60000000009313,
+          "readbackBytes": 5760000,
+          "drawCalls": {
+            "clearRect": 1,
+            "fillRect": 6,
+            "createRadialGradient": 113,
+            "stroke": 765,
+            "fillText": 43,
+            "arc": 4529,
+            "fill": 4531,
+            "drawImage": 1
+          }
+        },
+        {
+          "ms": 160.6999999997206,
+          "readbackBytes": 5760000,
+          "drawCalls": {
+            "clearRect": 1,
+            "fillRect": 6,
+            "createRadialGradient": 113,
+            "stroke": 765,
+            "fillText": 43,
+            "arc": 4529,
+            "fill": 4531,
+            "drawImage": 1
+          }
+        },
+        {
+          "ms": 166,
+          "readbackBytes": 5760000,
+          "drawCalls": {
+            "clearRect": 1,
+            "fillRect": 6,
+            "createRadialGradient": 113,
+            "stroke": 765,
+            "fillText": 43,
+            "arc": 4529,
+            "fill": 4531,
+            "drawImage": 1
+          }
+        },
+        {
+          "ms": 166.8000000002794,
+          "readbackBytes": 5760000,
+          "drawCalls": {
+            "clearRect": 1,
+            "fillRect": 6,
+            "createRadialGradient": 113,
+            "stroke": 765,
+            "fillText": 43,
+            "arc": 4529,
+            "fill": 4531,
+            "drawImage": 1
+          }
+        },
+        {
+          "ms": 183.6999999997206,
+          "readbackBytes": 5760000,
+          "drawCalls": {
+            "clearRect": 1,
+            "fillRect": 6,
+            "createRadialGradient": 113,
+            "stroke": 765,
+            "fillText": 43,
+            "arc": 4529,
+            "fill": 4531,
+            "drawImage": 1
+          }
+        }
+      ]
+    },
+    "hd_6000": {
+      "size": 6000,
+      "first": {
+        "ms": 981.3999999999069,
+        "readbackBytes": 144000000,
+        "drawCalls": {
+          "clearRect": 1,
+          "fillRect": 6,
+          "createRadialGradient": 113,
+          "stroke": 765,
+          "fillText": 42,
+          "arc": 4529,
+          "fill": 4531
+        }
+      },
+      "warm": [
+        {
+          "ms": 1016.7999999998137,
+          "readbackBytes": 144000000,
+          "drawCalls": {
+            "clearRect": 1,
+            "fillRect": 6,
+            "createRadialGradient": 113,
+            "stroke": 765,
+            "fillText": 42,
+            "arc": 4529,
+            "fill": 4531
+          }
+        },
+        {
+          "ms": 3603.600000000093,
+          "readbackBytes": 144000000,
+          "drawCalls": {
+            "clearRect": 1,
+            "fillRect": 6,
+            "createRadialGradient": 113,
+            "stroke": 765,
+            "fillText": 42,
+            "arc": 4529,
+            "fill": 4531
+          }
+        },
+        {
+          "ms": 3425.600000000093,
+          "readbackBytes": 144000000,
+          "drawCalls": {
+            "clearRect": 1,
+            "fillRect": 6,
+            "createRadialGradient": 113,
+            "stroke": 765,
+            "fillText": 42,
+            "arc": 4529,
+            "fill": 4531
+          }
+        },
+        {
+          "ms": 3483.100000000093,
+          "readbackBytes": 144000000,
+          "drawCalls": {
+            "clearRect": 1,
+            "fillRect": 6,
+            "createRadialGradient": 113,
+            "stroke": 765,
+            "fillText": 42,
+            "arc": 4529,
+            "fill": 4531
+          }
+        },
+        {
+          "ms": 3425.0999999996275,
+          "readbackBytes": 144000000,
+          "drawCalls": {
+            "clearRect": 1,
+            "fillRect": 6,
+            "createRadialGradient": 113,
+            "stroke": 765,
+            "fillText": 42,
+            "arc": 4529,
+            "fill": 4531
+          }
+        },
+        {
+          "ms": 3661.100000000093,
+          "readbackBytes": 144000000,
+          "drawCalls": {
+            "clearRect": 1,
+            "fillRect": 6,
+            "createRadialGradient": 113,
+            "stroke": 765,
+            "fillText": 42,
+            "arc": 4529,
+            "fill": 4531
+          }
+        },
+        {
+          "ms": 3567.100000000093,
+          "readbackBytes": 144000000,
+          "drawCalls": {
+            "clearRect": 1,
+            "fillRect": 6,
+            "createRadialGradient": 113,
+            "stroke": 765,
+            "fillText": 42,
+            "arc": 4529,
+            "fill": 4531
+          }
+        },
+        {
+          "ms": 3550.6999999997206,
+          "readbackBytes": 144000000,
+          "drawCalls": {
+            "clearRect": 1,
+            "fillRect": 6,
+            "createRadialGradient": 113,
+            "stroke": 765,
+            "fillText": 42,
+            "arc": 4529,
+            "fill": 4531
+          }
+        }
+      ]
+    }
+  }
+}
