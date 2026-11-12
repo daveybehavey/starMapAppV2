@@ -2,6 +2,9 @@ import { register } from "node:module";
 import assert from "node:assert/strict";
 register("./tsAliasLoader.mjs", import.meta.url);
 register("./metaCheckout.hooks.mjs", import.meta.url);
+// This child process isolates merch-family env gates; keep the Meta adapter
+// kill switch on so a disabled family still exercises the redirect path.
+process.env.META_CHECKOUT_ENABLED = "true";
 const { NextRequest } = await import("next/server.js");
 const { GET } = await import("../../src/app/api/meta/checkout/route.ts");
 const response = GET(new NextRequest("https://starmapco.com/api/meta/checkout?product_id=merch%3Apins_set&coupon_code=XMAS15"));

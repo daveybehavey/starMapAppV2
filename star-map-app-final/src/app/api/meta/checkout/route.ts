@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   META_CHECKOUT_COOKIE_NAME,
   META_CHECKOUT_MAX_AGE_SECONDS,
+  isMetaCheckoutEnabled,
   resolveMetaCheckout,
 } from "@/lib/metaCheckout";
 import { createMetaCheckoutCarry } from "@/lib/metaCheckoutCookie";
@@ -11,6 +12,11 @@ export const runtime = "nodejs";
 
 /** Arrival only: never creates a session, asset, hold, or order. */
 export function GET(req: NextRequest) {
+  // Kill switch: off unless META_CHECKOUT_ENABLED === "true". Must run before
+  // any redirect, cookie, or promotion handling.
+  if (!isMetaCheckoutEnabled()) {
+    return new NextResponse(null, { status: 404 });
+  }
   const now = Date.now();
   const result = resolveMetaCheckout(req.nextUrl.searchParams, now);
   const response = NextResponse.redirect(new URL(result.href, req.url), 302);
