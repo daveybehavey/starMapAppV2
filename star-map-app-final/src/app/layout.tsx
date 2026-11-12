@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { ANDROID_APP_MODE_BOOTSTRAP } from "@/lib/androidAppMode";
 import Link from "next/link";
-import { Suspense } from "react";
+import { Suspense, type CSSProperties } from "react";
 import "./globals.css";
 import localFont from "next/font/local";
 import ReferralAttributionClient from "@/components/ReferralAttributionClient";
@@ -14,7 +14,12 @@ import ChristmasBanner from "@/components/ChristmasBanner";
 import SiteChromeHeightSync from "@/components/SiteChromeHeightSync";
 import { getBusinessPhoneHref, getBusinessProfile } from "@/lib/businessProfile";
 import { isBulkOrdersEnabled } from "@/lib/bulkQuotes";
-import { isChristmasLandingInSeason } from "@/lib/christmasCampaign";
+import {
+  getChristmasBannerContent,
+  isChristmasLandingInSeason,
+  resolveChristmasBannerPhase,
+} from "@/lib/christmasCampaign";
+import { getInstantHdPriceLine } from "@/lib/digitalGiftCheckout";
 import { isShopTabEnabled } from "@/lib/shopTab";
 
 const playfair = localFont({
@@ -25,7 +30,11 @@ const playfair = localFont({
   ],
   variable: "--font-playfair",
   display: "swap",
+  // All three weights paint above the fold on the storefront (body 400, headings 600, nav CTA 700).
   preload: true,
+  // Metric-matched Times New Roman fallback reduces Playfair swap CLS on the hero H1.
+  adjustFontFallback: "Times New Roman",
+  fallback: ["Times New Roman", "Times", "Georgia", "serif"],
 });
 
 // Revalidate pages every hour to keep pricing data fresh
@@ -246,13 +255,34 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   const footerLinks = buildFooterLinks();
+  // Reserve site-chrome height on first paint when the campaign banner is in
+  // season. SiteChromeHeightSync still measures the live stacked height after
+  // mount; this only prevents the hero from sizing against header-only chrome
+  // while the banner streams/hydrates (CLS audit: hero-plan__copy shift).
+  const christmasBannerLikely =
+    resolveChristmasBannerPhase() !== "hidden" &&
+    Boolean(getChristmasBannerContent(Date.now(), getInstantHdPriceLine()));
+  const initialChromeHeight = christmasBannerLikely
+    ? "calc(var(--site-header-height) + var(--site-banner-height-estimate))"
+    : undefined;
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      style={
+        initialChromeHeight
+          ? ({ ["--site-chrome-height" as string]: initialChromeHeight } as CSSProperties)
+          : undefined
+      }
+    >
       <head>
         {/* Google Play app mode flag: must run before paint (see src/lib/androidAppMode.ts). */}
         <script dangerouslySetInnerHTML={{ __html: ANDROID_APP_MODE_BOOTSTRAP }} />
       </head>
       <body className={`text-midnight min-h-screen antialiased ${playfair.variable}`}>
+        <a href="#main-content" className="skip-link">
+          Skip to main content
+        </a>
         <Suspense fallback={null}>
           <ReferralAttributionClient />
           <UtmAttributionClient />
@@ -261,12 +291,13 @@ export default function RootLayout({
         <SentryProvider />
         <ServiceWorkerRegistration />
         <div className="cosmic-backdrop">
-          <Suspense fallback={null}>
-            <ChristmasBanner />
-          </Suspense>
+          {/* No Suspense: a null-fallback boundary put the banner in a hidden
+              streaming slot (SSR `hidden id="S:0"`), which deferred its layout
+              and shifted the homepage hero. Mirror SiteTopNav (also usePathname). */}
+          <ChristmasBanner />
           <SiteTopNav />
           <SiteChromeHeightSync />
-          {children}
+          <div id="main-content">{children}</div>
         </div>
         <footer className="relative overflow-hidden border-t border-[#b5934f]/45 bg-[linear-gradient(140deg,rgba(4,10,31,0.98),rgba(8,24,61,0.97),rgba(10,34,80,0.94))] text-[#f7f0e2] shadow-[0_-14px_36px_rgba(0,0,0,0.45)]">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_18%,rgba(248,212,117,0.12),transparent_42%),radial-gradient(circle_at_88%_22%,rgba(130,173,255,0.16),transparent_38%)]" />

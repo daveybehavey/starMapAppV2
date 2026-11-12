@@ -224,11 +224,17 @@ export default function MyDownloadsClient() {
     if (logoutLoading) return;
     setLogoutLoading(true);
     try {
-      await fetch("/api/account/magic/logout", { method: "POST" });
-    } finally {
-      setLogoutLoading(false);
+      setErrorMessage(null);
+      const response = await fetch("/api/account/magic/logout", { method: "POST" });
+      if (!response.ok) throw new Error("logout_failed");
+      const payload = (await response.json()) as { ok?: boolean } | null;
+      if (payload?.ok !== true) throw new Error("logout_failed");
       setSessions([]);
       setView("auth_required");
+    } catch {
+      setErrorMessage("Logout could not be completed. Your session may still be active. Please retry.");
+    } finally {
+      setLogoutLoading(false);
     }
   }, [logoutLoading]);
 

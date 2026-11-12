@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import EditorPageClient from "./EditorPageClient";
+import { cookies } from "next/headers";
+import { META_CHECKOUT_COOKIE_NAME } from "@/lib/metaCheckout";
+import { readMetaCheckoutCarry } from "@/lib/metaCheckoutCookie";
 
 export const metadata: Metadata = {
   title: "Star Map Editor | StarMapCo",
@@ -12,11 +15,14 @@ type EditorPageProps = {
 };
 
 export default async function EditorPage({ searchParams }: EditorPageProps) {
+  const metaCarry = readMetaCheckoutCarry((await cookies()).get(META_CHECKOUT_COOKIE_NAME)?.value);
   const resolvedSearchParams = (await searchParams) ?? {};
   const promoRaw = resolvedSearchParams.promo;
   const codeRaw = resolvedSearchParams.code;
   const promoStatus = Array.isArray(promoRaw) ? promoRaw[0] : promoRaw;
   const promoCode = Array.isArray(codeRaw) ? codeRaw[0] : codeRaw;
 
-  return <EditorPageClient promoStatus={promoStatus} promoCode={promoCode} />;
+  return (
+    <EditorPageClient promoStatus={promoStatus} promoCode={promoCode} metaCarry={metaCarry} />
+  );
 }

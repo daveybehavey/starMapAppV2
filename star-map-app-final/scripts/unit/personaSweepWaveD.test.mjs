@@ -274,7 +274,7 @@ test("U19: header CTA label is the canonical one everywhere; Gallery yields belo
 test("Rider: remaining display copy says Keepsake card; GA4 item name deliberately kept", () => {
   assert.match(read("src/lib/printCatalog.ts"), /labelFallback: "Keepsake card \(4×6\)"/);
   assert.match(read("src/components/EditorExperience.tsx"), /Keepsake card artwork is missing/);
-  assert.match(read("src/components/GiftFormatRoadmapModule.tsx"), /<li>Keepsake card<\/li>/);
+  assert.match(read("src/components/GiftFormatRoadmapModule.tsx"), /<li>Keepsake card \(\{cardPriceLabel\}\)<\/li>/);
   for (const rel of ["src/lib/printCatalog.ts", "src/components/GiftFormatRoadmapModule.tsx"]) {
     assert.ok(!read(rel).includes("Greeting card"), `${rel} still says Greeting card`);
   }

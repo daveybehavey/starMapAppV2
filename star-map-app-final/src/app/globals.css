@@ -2,7 +2,9 @@
 
 :root {
   color-scheme: light;
-  --font-playfair: "Playfair Display", "Times New Roman", Georgia, serif;
+  /* Do not assign --font-playfair here: next/font/local owns that variable on
+     <body> (with a size-adjusted metric fallback). A competing :root value
+     fought the swap fallback and contributed to hero headline CLS. */
   --cosmic-midnight: #050a19;
   --cosmic-deep-blue: #10264c;
   --cosmic-deep-blue-alt: #19345f;
@@ -33,7 +35,10 @@
   /* Total top chrome (Christmas banner when rendered + sticky header),
      measured at runtime by SiteChromeHeightSync. Defaults to the
      header-only height so the banner-hidden / pre-hydration state keeps
-     the hero at exactly 100dvh - header. */
+     the hero at exactly 100dvh - header. When the campaign is in season,
+     root layout may override --site-chrome-height to include the estimate
+     below so first paint matches the stacked chrome. */
+  --site-banner-height-estimate: 4.75rem;
   --site-chrome-height: var(--site-header-height);
   --ring-offset: 2px;
   --ring-width: 2px;

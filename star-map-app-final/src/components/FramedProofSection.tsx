@@ -52,7 +52,9 @@ export default function FramedProofSection({
               fallbackSrc={HOME_MOCKUPS.framedBedroom}
               alt="Framed StarMapCo star map in a styled bedroom"
               fill
-              sizes="(max-width: 1024px) 100vw, 50vw"
+              sizes="(max-width: 1024px) 92vw, 520px"
+              loading="lazy"
+              decoding="async"
               className="object-cover"
             />
             <div className="text-midnight absolute bottom-3 left-3 rounded-full border border-black/10 bg-white/90 px-3 py-1 text-[11px] font-semibold shadow-sm">
@@ -65,7 +67,9 @@ export default function FramedProofSection({
               fallbackSrc={HOME_MOCKUPS.unframedPoster}
               alt="Unframed StarMapCo square poster print on a white background"
               fill
-              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+              sizes="(max-width: 640px) 92vw, (max-width: 1024px) 45vw, 360px"
+              loading="lazy"
+              decoding="async"
               className="object-contain"
             />
             <div className="text-midnight absolute bottom-3 left-3 rounded-full border border-black/10 bg-white/90 px-3 py-1 text-[11px] font-semibold shadow-sm">
@@ -81,7 +85,9 @@ export default function FramedProofSection({
               fallbackSrc={HOME_MOCKUPS.digitalHd}
               alt="StarMapCo HD download on laptop and phone"
               fill
-              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+              sizes="(max-width: 640px) 92vw, (max-width: 1024px) 45vw, 360px"
+              loading="lazy"
+              decoding="async"
               className="object-contain"
             />
             <div className="text-midnight absolute bottom-3 left-3 rounded-full border border-black/10 bg-white/90 px-3 py-1 text-[11px] font-semibold shadow-sm">
