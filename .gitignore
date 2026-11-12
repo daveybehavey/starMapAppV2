@@ -38,3 +38,6 @@ star-map-app-final/.tmp-*
 
 # C18 sensitive KV snapshots, including incomplete exports
 star-map-app-final/kv-backups/
+
+.local-tools/
+claimfirst-evidence/
