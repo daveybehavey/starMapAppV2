@@ -106,11 +106,13 @@ export function resolveMetaCheckout(params: URLSearchParams, now = Date.now()) {
     query.set("merch_family", target.family);
   }
   if (secondCopy) query.set("include_second_copy", "1");
+  const promoCode = filterMetaCoupon(parsed.coupon, target, now);
   return {
     href: `/editor?${query}`,
     target,
     productId: parsed.productId,
-    promoCode: filterMetaCoupon(parsed.coupon, target, now),
+    promoCode,
+    couponDropped: Boolean(parsed.coupon) && promoCode === null,
     quantityClamped: parsed.quantity !== "1" && !secondCopy,
   };
 }

@@ -17,7 +17,7 @@ export function GET(req: NextRequest) {
   response.headers.set("Cache-Control", "private, no-store");
   if (!result.target) return response;
   if (result.quantityClamped) console.info("meta_checkout_quantity_clamped");
-  const carry = createMetaCheckoutCarry(result.productId!, result.promoCode, now);
+  const carry = createMetaCheckoutCarry(result.productId!, result.promoCode, now, result.couponDropped);
   const options = { httpOnly: true, secure: true, sameSite: "lax" as const, path: "/" };
   response.cookies.set({
     name: META_CHECKOUT_COOKIE_NAME,

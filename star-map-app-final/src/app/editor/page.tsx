@@ -22,5 +22,7 @@ export default async function EditorPage({ searchParams }: EditorPageProps) {
   const promoStatus = Array.isArray(promoRaw) ? promoRaw[0] : promoRaw;
   const promoCode = Array.isArray(codeRaw) ? codeRaw[0] : codeRaw;
 
-  return <EditorPageClient promoStatus={promoStatus} promoCode={promoCode} metaCarry={metaCarry} />;
+  return (
+    <EditorPageClient promoStatus={promoStatus} promoCode={promoCode} metaCarry={metaCarry} />
+  );
 }
