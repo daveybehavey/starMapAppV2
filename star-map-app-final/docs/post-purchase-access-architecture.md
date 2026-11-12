@@ -4,6 +4,14 @@
 **Stack:** Cloudflare Workers (OpenNext), `STAR_MAP_KV`, R2, Next.js App Router, Stripe  
 **Status:** Recommendation aligned with code on `chore/audit-hardening` (May 2026)
 
+> **Ledger authority update (docs Phase 4):** DL-1 shipped an
+> EntitlementAuthority Durable Object as the HD download **accounting**
+> authority (`docs/entitlement-authority.md`). Stripe session KV remains
+> grant evidence / legacy bridge; `entitlement:projection:*` is
+> display-only. Sections below that still call session KV “the entitlement
+> ledger” are historical architecture notes — follow the entitlement-authority
+> doc for current ledger behaviour.
+
 ---
 
 ## Executive summary
