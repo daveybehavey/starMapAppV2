@@ -9,11 +9,21 @@ register("./tsAliasLoader.mjs", import.meta.url);
 register("./metaCheckout.hooks.mjs", import.meta.url);
 process.env.REFERRAL_SIGNING_SECRET = "unit-test-meta-signing-secret";
 process.env.NEXT_PUBLIC_MERCH_BETA_ENABLED = "true";
+// Enabled-path suite reuses the existing adapter tests; the kill switch is
+// pinned separately below. Default on for this process so GET() stays the
+// current behaviour unless a test deliberately flips the flag.
+process.env.META_CHECKOUT_ENABLED = "true";
 for (const name of ["STICKERS", "MAGNETS", "PINS", "TEE", "HOODIE"]) process.env[`NEXT_PUBLIC_MERCH_${name}_ENABLED`] = "true";
 
 const { GET } = await import("../../src/app/api/meta/checkout/route.ts");
 const { NextRequest } = await import("next/server.js");
-const { resolveMetaCheckout, filterMetaCoupon, getMetaCheckoutTarget, META_CHECKOUT_COOKIE_NAME: COOKIE } = await import("../../src/lib/metaCheckout.ts");
+const {
+  resolveMetaCheckout,
+  filterMetaCoupon,
+  getMetaCheckoutTarget,
+  isMetaCheckoutEnabled,
+  META_CHECKOUT_COOKIE_NAME: COOKIE,
+} = await import("../../src/lib/metaCheckout.ts");
 const { readMetaCheckoutCarry, createMetaCheckoutCarry } = await import("../../src/lib/metaCheckoutCookie.ts");
 const { resolveEditorCheckoutPromoCode } = await import("../../src/lib/checkoutPromotions.ts");
 const { resolveEditorSubmitPromotion } = await import("../../src/lib/editorCheckoutPromotion.ts");
@@ -21,6 +31,60 @@ const { clearEditorMetaCheckoutCarry } = await import("../../src/app/editor/acti
 const { parseReferralSourceCookieValue } = await import("../../src/lib/referralCookie.ts");
 const read = (name) => readFileSync(new URL(`../../${name}`, import.meta.url), "utf8").replace(/\r\n/g, "\n");
 const NOW = Date.parse("2026-11-28T20:00:00Z");
+
+test("META_CHECKOUT_ENABLED is exact-true only (REVIEW_REQUESTS_ENABLED posture)", () => {
+  assert.equal(isMetaCheckoutEnabled({}), false);
+  assert.equal(isMetaCheckoutEnabled({ META_CHECKOUT_ENABLED: undefined }), false);
+  assert.equal(isMetaCheckoutEnabled({ META_CHECKOUT_ENABLED: "" }), false);
+  assert.equal(isMetaCheckoutEnabled({ META_CHECKOUT_ENABLED: "false" }), false);
+  assert.equal(isMetaCheckoutEnabled({ META_CHECKOUT_ENABLED: "yes" }), false);
+  assert.equal(isMetaCheckoutEnabled({ META_CHECKOUT_ENABLED: "1" }), false);
+  assert.equal(isMetaCheckoutEnabled({ META_CHECKOUT_ENABLED: "TRUE" }), false);
+  assert.equal(isMetaCheckoutEnabled({ META_CHECKOUT_ENABLED: "true" }), true);
+  assert.equal(isMetaCheckoutEnabled({ META_CHECKOUT_ENABLED: " true " }), true);
+});
+
+test("kill switch: unset or non-true META_CHECKOUT_ENABLED returns 404 with no redirect or cookies", () => {
+  const previous = process.env.META_CHECKOUT_ENABLED;
+  try {
+    for (const value of [undefined, "", "false", "TRUE", "yes", "1"]) {
+      if (value === undefined) delete process.env.META_CHECKOUT_ENABLED;
+      else process.env.META_CHECKOUT_ENABLED = value;
+      const response = GET(request("poster_framed", { coupon_code: "XMAS15", quantity: "2" }));
+      assert.equal(response.status, 404, `expected 404 for META_CHECKOUT_ENABLED=${JSON.stringify(value)}`);
+      assert.equal(response.headers.get("location"), null);
+      assert.equal(response.headers.get("set-cookie"), null);
+      assert.equal(response.cookies.get(COOKIE), undefined);
+      assert.equal(response.cookies.get("starmap_ref_src"), undefined);
+    }
+  } finally {
+    process.env.META_CHECKOUT_ENABLED = previous ?? "true";
+  }
+});
+
+test("kill switch: META_CHECKOUT_ENABLED=true preserves redirect + cookie behaviour", () => {
+  const previous = process.env.META_CHECKOUT_ENABLED;
+  process.env.META_CHECKOUT_ENABLED = "true";
+  try {
+    const response = GET(request("poster_framed"));
+    assert.equal(response.status, 302);
+    assert.equal(landing(response).pathname, "/editor");
+    assert.equal(landing(response).searchParams.get("print_variant"), "poster_framed");
+    assert.ok(response.cookies.get(COOKIE));
+    assert.equal(parseReferralSourceCookieValue(response.cookies.get("starmap_ref_src").value).source, "meta_shop");
+  } finally {
+    process.env.META_CHECKOUT_ENABLED = previous ?? "true";
+  }
+});
+
+test("kill switch: META_CHECKOUT_ENABLED is not a committed wrangler [vars] binding", () => {
+  const wrangler = read("wrangler.toml");
+  const varsStart = wrangler.indexOf("[vars]");
+  const varsEnd = wrangler.indexOf("[[services]]");
+  assert.ok(varsStart >= 0 && varsEnd > varsStart);
+  const varsBlock = wrangler.slice(varsStart, varsEnd);
+  assert.ok(!varsBlock.includes("META_CHECKOUT_ENABLED"), "flag must ship unset");
+});
 
 for (const [name, code, orderType, fieldEdited, expected, cleared] of [
   ["C1 XMAS15 carry to One HD", "XMAS15", "digital", false, null, true],

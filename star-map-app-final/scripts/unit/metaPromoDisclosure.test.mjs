@@ -9,6 +9,7 @@ register("./tsAliasLoader.mjs", import.meta.url);
 register("./metaCheckout.hooks.mjs", import.meta.url);
 register("./metaPromoDisclosure.loader.mjs", import.meta.url);
 process.env.REFERRAL_SIGNING_SECRET = "unit-test-meta-signing-secret";
+process.env.META_CHECKOUT_ENABLED = "true";
 
 const { GET } = await import("../../src/app/api/meta/checkout/route.ts");
 const { NextRequest } = await import("next/server.js");
