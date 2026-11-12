@@ -1,5 +1,6 @@
 "use client";
 
+import MetaPromoDisclosure from "@/components/MetaPromoDisclosure";
 import { isAndroidAppModeClient } from "@/lib/androidAppMode";
 import { clearEditorMetaCheckoutCarry } from "@/app/editor/actions";
 import { resolveEditorSubmitPromotion } from "@/lib/editorCheckoutPromotion";
@@ -269,7 +270,7 @@ type PaywallIntent = "digital" | "print";
 export type EditorExperienceVariant = "quick" | "full";
 
 interface EditorExperienceProps {
-  metaCarry?: { promoCode?: string; plan?: "single" | "pack3" };
+  metaCarry?: { promoCode?: string; plan?: "single" | "pack3"; couponDropped?: boolean };
   variant?: EditorExperienceVariant;
   editorRef?: RefObject<HTMLDivElement | null>;
   allowAdvancedInQuick?: boolean;
@@ -2552,6 +2553,11 @@ export function EditorExperience({
 
   return (
     <>
+      <MetaPromoDisclosure
+        source={searchParams.get("source")}
+        couponDropped={metaCarry?.couponDropped}
+        effectivePromoCode={typeof window === "undefined" ? undefined : getCheckoutPromoCode()}
+      />
       <section
         ref={editorSectionRef}
         id="editor"

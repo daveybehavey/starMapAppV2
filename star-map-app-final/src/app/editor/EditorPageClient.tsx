@@ -22,7 +22,7 @@ const EditorExperience = dynamic(
 );
 
 type EditorPageClientProps = {
-  metaCarry?: { promoCode?: string; plan?: "single" | "pack3" };
+  metaCarry?: { promoCode?: string; plan?: "single" | "pack3"; couponDropped?: boolean };
   promoStatus?: string;
   promoCode?: string;
 };

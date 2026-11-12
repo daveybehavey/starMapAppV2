@@ -23,13 +23,6 @@ export default async function EditorPage({ searchParams }: EditorPageProps) {
   const promoCode = Array.isArray(codeRaw) ? codeRaw[0] : codeRaw;
 
   return (
-    <>
-      {resolvedSearchParams.source === "meta_shop" && metaCarry.couponDropped ? (
-        <div role="status" className="mx-auto my-4 max-w-4xl rounded-2xl border border-amber-200/60 bg-amber-50/90 px-4 py-3 text-sm text-amber-900">
-          That discount code could not be applied to this item, so the price shown is the full price.
-        </div>
-      ) : null}
-      <EditorPageClient promoStatus={promoStatus} promoCode={promoCode} metaCarry={metaCarry} />
-    </>
+    <EditorPageClient promoStatus={promoStatus} promoCode={promoCode} metaCarry={metaCarry} />
   );
 }

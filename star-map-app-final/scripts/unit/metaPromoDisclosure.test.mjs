@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { register } from "node:module";
 import { renderToStaticMarkup } from "react-dom/server";
+import { createElement } from "react";
+import { readFileSync } from "node:fs";
 
 register("./tsAliasLoader.mjs", import.meta.url);
 register("./metaCheckout.hooks.mjs", import.meta.url);
@@ -11,6 +13,8 @@ process.env.REFERRAL_SIGNING_SECRET = "unit-test-meta-signing-secret";
 const { GET } = await import("../../src/app/api/meta/checkout/route.ts");
 const { NextRequest } = await import("next/server.js");
 const { default: EditorPage } = await import("../../src/app/editor/page.tsx");
+const { default: MetaPromoDisclosure } = await import("../../src/components/MetaPromoDisclosure.tsx");
+const { resolveEditorCheckoutPromoCode } = await import("../../src/lib/checkoutPromotions.ts");
 const { readMetaCheckoutCarry } = await import("../../src/lib/metaCheckoutCookie.ts");
 const { resolveMetaCheckout, META_CHECKOUT_COOKIE_NAME: COOKIE } = await import("../../src/lib/metaCheckout.ts");
 const NOW = Date.parse("2026-11-28T20:00:00Z");
@@ -25,12 +29,14 @@ function arrive(productId, coupon) {
   return { raw: response.cookies.get(COOKIE).value, result };
 }
 
-async function render(raw, source = "meta_shop") {
+async function render(raw, source = "meta_shop", storedPromoCode = null) {
   globalThis.metaCheckoutTestCookies = { get: () => ({ value: raw }) };
+  globalThis.metaPromoTestState = { source, storedPromoCode };
   try {
     return renderToStaticMarkup(await EditorPage({ searchParams: Promise.resolve({ source }) }));
   } finally {
     delete globalThis.metaCheckoutTestCookies;
+    delete globalThis.metaPromoTestState;
   }
 }
 
@@ -51,6 +57,10 @@ for (const [name, product, coupon, dropped] of [
   const html = await render(raw);
   assert.equal(html.includes(NOTICE), dropped);
   assert.ok(html.includes("Editor purchase controls"));
+  const withStoredPromo = await render(raw, "meta_shop", "RETURNING15");
+  assert.equal(withStoredPromo.includes(NOTICE), false);
+  assert.equal(withStoredPromo.includes("full price"), false);
+  assert.equal(withStoredPromo.includes("RETURNING15"), false);
   if (dropped) {
     assert.ok(html.indexOf(NOTICE) < html.indexOf("Editor purchase controls"));
     assert.equal(raw.includes(coupon), false);
@@ -58,6 +68,31 @@ for (const [name, product, coupon, dropped] of [
     assert.equal((await render(raw, "ordinary")).includes(NOTICE), false);
     assert.equal((await render(raw, "")).includes(NOTICE), false);
   }
+});
+
+test("Meta disclosure: unresolved storage, query promos and edited fields use effective checkout state", () => {
+  const renderNotice = (effectivePromoCode) => renderToStaticMarkup(createElement(MetaPromoDisclosure, {
+    source: "meta_shop", couponDropped: true, effectivePromoCode,
+  }));
+  assert.equal(renderNotice(undefined), "", "no claim before client storage is available");
+  for (const [fieldValue, fieldEdited, queryPromoCode, storedPromoCode, show] of [
+    ["", false, null, null, true],
+    ["", false, null, "RETURNING15", false],
+    ["", false, "URL15", null, false],
+    ["EDITED15", true, null, null, false],
+    ["", true, null, "RETURNING15", true],
+  ]) {
+    const effective = resolveEditorCheckoutPromoCode({ fieldValue, fieldEdited, queryPromoCode, storedPromoCode });
+    assert.equal(renderNotice(effective).includes(NOTICE), show);
+  }
+});
+
+test("Meta disclosure: editor wires the notice to the same client resolver as checkout", () => {
+  const editor = readFileSync(new URL("../../src/components/EditorExperience.tsx", import.meta.url), "utf8");
+  const page = readFileSync(new URL("../../src/app/editor/page.tsx", import.meta.url), "utf8");
+  assert.match(editor, /<MetaPromoDisclosure\s+source=\{searchParams\.get\("source"\)\}\s+couponDropped=\{metaCarry\?\.couponDropped\}\s+effectivePromoCode=\{typeof window === "undefined" \? undefined : getCheckoutPromoCode\(\)\}/);
+  assert.match(editor, /storedPromoCode: readStoredPromoCode\(\)/);
+  assert.equal(page.includes(NOTICE), false, "the server cannot decide the effective promo");
 });
 
 test("Meta disclosure: expired campaign is disclosed on arrival", async (t) => {
