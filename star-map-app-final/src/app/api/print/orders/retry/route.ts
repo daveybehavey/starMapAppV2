@@ -660,8 +660,8 @@ async function postRetryPrintOrder(req: NextRequest) {
   // the fresh authority still carries ANY standing claim, or the fresh
   // KV record still carries a blocking alternateDispatch marker
   // (alternateDispatchBlocksRedispatch — any present marker, including
-  // attempted/accepted). Native paths never create those markers, so a
-  // standing one was not created by this pass. Fail closed on unread
+  // attempted/accepted). This read precedes native claim acquisition, so a
+  // standing marker was not created by this pass. Fail closed on unread
   // authority or missing record. The alternate branch below keeps its
   // own claim/marker protocol unchanged.
   const refuseNativeIfAlternateDispatchStanding = async (): Promise<NextResponse | null> => {
@@ -695,9 +695,72 @@ async function postRetryPrintOrder(req: NextRequest) {
   const attempts = (hydrated.attempts ?? 0) + 1;
   const now = Date.now();
 
+  let nativeDispatchAttempted: PrintOrderRecord | undefined;
   if (hasNativeDestination) {
     const blockedByAlternateStanding = await refuseNativeIfAlternateDispatchStanding();
     if (blockedByAlternateStanding) return blockedByAlternateStanding;
+
+    // Claim-first across native and alternate destinations. The standing-state
+    // read is not a lock: an alternate contender can win after it returns.
+    // Exactly one pass may proceed, even with the same deterministic dispatch ID.
+    const nativeDispatchId = alternateFulfillmentDispatchId(sessionId);
+    const nativeClaim = await claimAlternateFulfillmentDispatch(sessionId, nativeDispatchId);
+    if (!nativeClaim.ok) {
+      if (nativeClaim.reason === "terminal_blocks_claim") {
+        return NextResponse.json(
+          { ok: false, error: "terminal_failed_requires_operator_recover", dispatchId: nativeDispatchId },
+          { status: 409 },
+        );
+      }
+      if (nativeClaim.reason === "already_fulfilled") {
+        return NextResponse.json(
+          { ok: false, error: "reconciliation_required", reason: "authority_already_fulfilled", dispatchId: nativeDispatchId },
+          { status: 409 },
+        );
+      }
+      return NextResponse.json(
+        { ok: false, error: "print_order_authority_unread", dispatchId: nativeDispatchId },
+        { status: 503 },
+      );
+    }
+    if (!nativeClaim.claimAcquired) {
+      return NextResponse.json(
+        { ok: false, error: "alternate_dispatch_reconciliation_required", dispatchId: nativeDispatchId },
+        { status: 409 },
+      );
+    }
+
+    // Mirror the alternate branch's post-claim stand-down and latest-record
+    // merge. Release only here, where no provider submission has begun.
+    const nativeFresh = await kv.get<PrintOrderRecord>(printOrderKey(sessionId));
+    const nativeAuthority = await getPrintOrderAuthorityState(sessionId);
+    if (
+      !nativeFresh ||
+      !nativeAuthority ||
+      nativeAuthority.lifecycle === "terminal_failed" ||
+      nativeAuthority.lifecycle === "bound" ||
+      nativeAuthority.lifecycle === "operator_recovered" ||
+      printOrderAdvancedPastSnapshot(hydrated, nativeFresh) ||
+      alternateDispatchBlocksRedispatch(nativeFresh.alternateDispatch)
+    ) {
+      await releaseAlternateFulfillmentDispatchClaim(sessionId, nativeDispatchId).catch(() => null);
+      return NextResponse.json(
+        { ok: false, error: "reconciliation_required", reason: "fulfillment_advanced_during_retry", dispatchId: nativeDispatchId },
+        { status: 409 },
+      );
+    }
+    nativeDispatchAttempted = {
+      ...nativeFresh,
+      attempts: Math.max(attempts, nativeFresh.attempts ?? 0),
+      printAssetUrl,
+      alternateDispatch: { dispatchId: nativeDispatchId, state: "attempted", attemptedAt: now },
+    };
+    // Persist before submission; after this point NEVER release automatically.
+    // A timeout, throw, non-success response, or failed acceptance persistence
+    // leaves the claim/attempted marker blocking BOTH destinations until
+    // reconciliation. Success binds identity below and retains the claim, just
+    // as alternate acceptance does; there is no acceptance-to-bind unlock gap.
+    assertPrintOrderRetained(await persistPrintOrderRecord(sessionId, nativeDispatchAttempted));
   }
 
   if (isMerchRetry && isPrintfulV2Configured()) {
@@ -719,7 +782,7 @@ async function postRetryPrintOrder(req: NextRequest) {
     });
     if (!printfulV2.ok) {
       const failed = await persistFailedPrintOrder({
-        ...hydrated,
+        ...(nativeDispatchAttempted ?? hydrated),
         attempts,
         printAssetUrl,
         webhookStatus: printfulV2.status,
@@ -728,12 +791,19 @@ async function postRetryPrintOrder(req: NextRequest) {
       return NextResponse.json({ ok: false, error: failed.error, order: sanitizePrintOrderForOperatorResponse(failed) }, { status: 502 });
     }
     let sentV2: PrintOrderRecord = {
-      ...hydrated,
+      ...(nativeDispatchAttempted ?? hydrated),
       status: "sent" as const,
       attempts,
       printAssetUrl,
       webhookStatus: printfulV2.status,
       printfulOrderId: printfulV2.orderId,
+      alternateDispatch: {
+        dispatchId: alternateFulfillmentDispatchId(sessionId),
+        state: "accepted",
+        attemptedAt: now,
+        respondedAt: Date.now(),
+        httpStatus: printfulV2.status,
+      },
       sentAt: now,
       error: undefined,
       terminalEventType: null,
@@ -804,7 +874,7 @@ async function postRetryPrintOrder(req: NextRequest) {
     });
     if (!printful.ok) {
       const failed = await persistFailedPrintOrder({
-        ...hydrated,
+        ...(nativeDispatchAttempted ?? hydrated),
         attempts,
         printAssetUrl,
         webhookStatus: printful.status,
@@ -813,13 +883,20 @@ async function postRetryPrintOrder(req: NextRequest) {
       return NextResponse.json({ ok: false, error: failed.error, order: sanitizePrintOrderForOperatorResponse(failed) }, { status: 502 });
     }
     let sent: PrintOrderRecord = {
-      ...hydrated,
+      ...(nativeDispatchAttempted ?? hydrated),
       status: "sent" as const,
       attempts,
       printAssetUrl,
       cardPrintAssetUrl,
       webhookStatus: printful.status,
       printfulOrderId: printful.orderId,
+      alternateDispatch: {
+        dispatchId: alternateFulfillmentDispatchId(sessionId),
+        state: "accepted",
+        attemptedAt: now,
+        respondedAt: Date.now(),
+        httpStatus: printful.status,
+      },
       sentAt: now,
       error: undefined,
       terminalEventType: null,
