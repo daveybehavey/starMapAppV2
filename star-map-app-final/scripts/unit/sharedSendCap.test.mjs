@@ -15,6 +15,7 @@ const { drivePromotionJobs } = await import("../../src/lib/promotionCoordinator.
 const { ConsistencyCoordinatorDO } = await import("../../src/durable-objects/ConsistencyCoordinatorDO.ts");
 const { createSendCapClient, dispatchPrerequisite } = await import("../../src/lib/sharedSendCap.ts");
 const { SEND_CAP_OBJECT_NAME, SEND_CAP_WINDOW_MS } = await import("../../src/lib/sharedSendCapState.ts");
+const { PROMOTION_JOB_RETRY_DELAY_MS } = await import("../../src/lib/consistencyCoordinatorState.ts");
 const { executeReviewDispatch } = await import("../../src/lib/reviewRequestSuppression.ts");
 
 function harness(t) {
@@ -569,4 +570,85 @@ test('shared service: promotion fence closing during reservation releases before
   const result = await promotions.deliverPromotionSend(payload('coupon'), 'fixture', { env: h.env, checkDispatchPermission: permitted });
   assert.equal(result.reason, 'promotion_dispatch_disabled');
   assert.equal(h.state().slots.length, 0);
+});
+
+/* Regression (Codex P2 on the ACT-B wiring): alarm() must not strand
+ * pending promotion jobs when the shared counter is transiently
+ * unavailable — the fired alarm is consumed, so a bounded retry is
+ * re-armed. Durable refusals (unset) keep the plain early return. */
+function alarmHarness(env) {
+  const rows = new Map();
+  let alarmAt = null;
+  const sql = {
+    exec(query, ...args) {
+      if (query.trim().startsWith("CREATE")) return { toArray: () => [] };
+      if (query.trim().startsWith("SELECT")) {
+        const row = rows.get(args[0]);
+        return { toArray: () => (row ? [row] : []) };
+      }
+      if (query.trim().startsWith("INSERT")) {
+        rows.set(args[0], { object_id: args[0], state_json: args[1], updated_at: args[2] });
+        return { toArray: () => [] };
+      }
+      throw Error("unexpected SQL");
+    },
+  };
+  const ctx = {
+    id: { name: "promotion:v1:hash-capalarm" },
+    storage: {
+      sql,
+      async getAlarm() { return alarmAt; },
+      async setAlarm(t) { alarmAt = t; },
+      async deleteAlarm() { alarmAt = null; },
+    },
+    blockConcurrencyWhile: (fn) => fn(),
+  };
+  return { object: new ConsistencyCoordinatorDO(ctx, env), alarmAt: () => alarmAt };
+}
+
+const capAlarmFacts = { state: null, inLegacySubscriptionList: null, inLegacySentList: null, inLegacyFollowupList: null };
+const capAlarmTombstones = { digestsByVersion: {}, nonRetiredVersions: [1], resolvableVersions: [], retiredVersions: [] };
+
+async function seedPendingCoupon(object) {
+  await object.subscribePromotion({
+    tombstoneLookup: capAlarmTombstones,
+    emailHash: "hash-capalarm",
+    source: "test",
+    now: Date.now(),
+    facts: capAlarmFacts,
+    couponPayload: promotions.preparePromotionCouponPayload("capalarm@example.com", "FIRST50"),
+  });
+}
+
+test("alarm: counter unavailable re-arms a bounded retry and dispatches nothing", async () => {
+  const env = {
+    PROMOTION_DISPATCH_ENABLED: "true",
+    SEND_CAP_SERVICE: { async fetch() { throw new Error("counter down"); } },
+  };
+  const h = alarmHarness(env);
+  await seedPendingCoupon(h.object);
+  const armedAtSubscribe = h.alarmAt();
+  assert.ok(armedAtSubscribe !== null, "subscribe armed an alarm");
+  const before = Date.now();
+  await h.object.alarm();
+  const state = await h.object.getPromotionState();
+  assert.equal(state?.jobs.coupon?.status, "pending", "no dispatch while the counter is unavailable");
+  const rearmed = h.alarmAt();
+  assert.ok(rearmed !== null && rearmed !== armedAtSubscribe, "alarm re-armed after the consumed firing");
+  assert.ok(rearmed >= before + PROMOTION_JOB_RETRY_DELAY_MS - 1000, "retry is at the bounded retry delay");
+  assert.ok(rearmed <= Date.now() + PROMOTION_JOB_RETRY_DELAY_MS + 1000, "retry is not armed beyond the bounded delay");
+});
+
+test("alarm: durable cap refusal (unset) keeps the plain early return", async () => {
+  const env = {
+    PROMOTION_DISPATCH_ENABLED: "true",
+    SEND_CAP_SERVICE: { async fetch() { return Response.json({ permitted: false, reason: "send_cap_unset" }); } },
+  };
+  const h = alarmHarness(env);
+  await seedPendingCoupon(h.object);
+  const armedAtSubscribe = h.alarmAt();
+  await h.object.alarm();
+  const state = await h.object.getPromotionState();
+  assert.equal(state?.jobs.coupon?.status, "pending");
+  assert.equal(h.alarmAt(), armedAtSubscribe, "no retry re-arm for a durable refusal");
 });

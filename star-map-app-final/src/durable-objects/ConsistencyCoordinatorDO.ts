@@ -57,6 +57,7 @@ import {
   isValidMagicTokenState,
   isValidPromotionState,
   nextPromotionAlarmAt,
+  PROMOTION_JOB_RETRY_DELAY_MS,
   type AccountIndexCoordinatorState,
   type AccountSessionsView,
   type ClaimPromotionJobResult,
@@ -522,7 +523,24 @@ export class ConsistencyCoordinatorDO extends DurableObject {
    * concurrent RPC may have superseded.
    */
   async alarm(): Promise<void> {
-    if (!(await createSendCapClient(this.env).check("promotion")).permitted) return;
+    const cap = await createSendCapClient(this.env).check("promotion");
+    if (!cap.permitted) {
+      if (cap.reason === "send_cap_unavailable") {
+        // Fail closed — no dispatch while the shared counter cannot be
+        // reached — but the fired alarm is consumed by this call, so
+        // without a re-arm every pending job would strand until an
+        // unrelated write happened to re-sync the schedule. Re-arm one
+        // bounded retry at the standard job retry delay. Durable
+        // refusals (cap unset, dispatch disabled) keep the plain early
+        // return: only a configuration change clears them, and writes
+        // re-sync the alarm through syncAlarm as before.
+        const state = this.readKind("promotion");
+        if (state && nextPromotionAlarmAt(state, Date.now()) !== null) {
+          await this.ctx.storage.setAlarm(Date.now() + PROMOTION_JOB_RETRY_DELAY_MS);
+        }
+      }
+      return;
+    }
     const initial = this.readKind("promotion");
     if (!initial) return;
     const now = Date.now();
