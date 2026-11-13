@@ -326,9 +326,14 @@ test("A7 actual env gates reject disabled merch families", async () => {
 // persistence moved to waitUntil; the fence exists to catch UNREVIEWED route changes, and
 // this one is reviewed + chair-approved - see the PR gate comment). The checkoutPromotions.ts
 // pin below still matches base 905ac521 and is unchanged.
+// Re-pin record (2026-11-12, bridge run-chkf1f2): the operator's Tier C F1+F2
+// brief authorizes deferring funnel persistence via waitUntil. Pin that exact
+// route blob for the draft review; this is not merge/deployment approval.
+// Promotion policy stays pinned to the same blob. Behavioural coverage lives
+// in checkoutFunnelDeferral.test.mjs (including awaited idempotency writes).
 test("Tier C fence: checkout route and promotion policy match base 905ac521 blobs", () => {
   for (const [file, expected] of [
-    ["src/app/api/checkout/route.ts", "b82fe1a7d8f009c5f728d496844374b3779382c7"],
+    ["src/app/api/checkout/route.ts", "75a060dd14c620c0fa6085a292ce95f27007faf7"],
     ["src/lib/checkoutPromotions.ts", "927699d1920cc4905f7bbe20c75daaf728a2e467"],
   ]) {
     const content = Buffer.from(read(file));
