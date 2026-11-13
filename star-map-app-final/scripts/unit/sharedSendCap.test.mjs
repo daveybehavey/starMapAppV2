@@ -489,3 +489,28 @@ test("H-cap: acknowledged attempts cannot be refunded and clock regression fails
   h.advance(-1);
   assert.equal((await h.client.reserve("promotion")).reason, "send_cap_unavailable");
 });
+
+test("H-cap promotion: permission flipping during reservation refuses after recheck, releases slot, zero provider calls", async (t) => {
+  const h = harness(t);
+  let fetches = 0;
+  t.mock.method(globalThis, "fetch", async () => {
+    fetches++;
+    return new Response('{"id":"fake"}', { status: 200 });
+  });
+  let checks = 0;
+  const flippingChecker = async () => {
+    checks++;
+    // First call is the pre-leg fence (permitted); the post-reservation
+    // recheck sees the unsubscribe that committed during the reserve.
+    return checks === 1 ? { permitted: true } : { permitted: false, reason: "unsubscribed" };
+  };
+  const outcome = await promotions.deliverPromotionSend(payload("coupon"), "fake", {
+    env: h.env,
+    checkDispatchPermission: flippingChecker,
+  });
+  assert.equal(outcome.outcome, "refused");
+  assert.equal(outcome.reason, "unsubscribed");
+  assert.equal(checks, 2); // pre-leg fence + post-reservation recheck
+  assert.equal(fetches, 0); // provider never invoked
+  assert.equal(h.state()?.slots.length ?? 0, 0); // reservation released, no slot held
+});

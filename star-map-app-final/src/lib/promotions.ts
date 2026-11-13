@@ -5,6 +5,7 @@ import {
   checkPromotionDispatchPermission,
   createPromotionDispatchPermissionChecker,
   evaluatePromotionSendCap,
+  type PromotionDispatchDecision,
   type PromotionDispatchPermissionChecker,
   type PromotionDispatchRefusalReason,
 } from "@/lib/promotionDispatchGuard";
@@ -387,10 +388,27 @@ function isAmbiguousHttpStatus(status: number): boolean {
   return status === 429 || status >= 500;
 }
 
+/**
+ * Post-reservation authority re-read shared by both provider legs. A
+ * checker that throws is an unreadable authority and refuses closed,
+ * exactly like the pre-leg fence in deliverPromotionSend.
+ */
+async function recheckDispatchPermission(
+  checkDispatchPermission: PromotionDispatchPermissionChecker,
+  email: string,
+): Promise<PromotionDispatchDecision> {
+  try {
+    return await checkDispatchPermission(email);
+  } catch {
+    return { permitted: false, reason: "authority_unavailable" };
+  }
+}
+
 async function sendLegResend(
   payload: PromotionSendPayload,
-  idempotencyKey?: string,
-  env?: unknown,
+  idempotencyKey: string | undefined,
+  env: unknown,
+  checkDispatchPermission: PromotionDispatchPermissionChecker,
 ): Promise<LegResult> {
   const resendApiKey = process.env.RESEND_API_KEY;
   if (!resendApiKey || !promotionFromEmail) {
@@ -440,6 +458,16 @@ async function sendLegResend(
   const counter = createSendCapClient(env);
   const slot = await counter.reserve("promotion");
   if (!slot.permitted) return { configured: true, outcome: "refused", reason: slot.reason };
+  // Permission was checked before this leg ran, but the reserve above is
+  // an external await: an unsubscribe, erasure, or deliverability
+  // suppression can commit while it is in flight. Re-read authority now
+  // that capacity is held; on refusal release the slot unused and never
+  // invoke the provider (Codex P2 on PR #644).
+  const recheck = await recheckDispatchPermission(checkDispatchPermission, payload.email);
+  if (!recheck.permitted) {
+    await counter.release(slot.reservation);
+    return { configured: true, outcome: "refused", reason: recheck.reason };
+  }
   const attemptedAt = Date.now();
   let response: Response;
   try {
@@ -477,7 +505,11 @@ async function sendLegResend(
   };
 }
 
-async function sendLegSendgrid(payload: PromotionSendPayload, env?: unknown): Promise<LegResult> {
+async function sendLegSendgrid(
+  payload: PromotionSendPayload,
+  env: unknown,
+  checkDispatchPermission: PromotionDispatchPermissionChecker,
+): Promise<LegResult> {
   const sendgridApiKey = process.env.SENDGRID_API_KEY;
   const fromAddress = parseEmailAddress(promotionFromEmail);
   if (!sendgridApiKey || !fromAddress) {
@@ -521,6 +553,14 @@ async function sendLegSendgrid(payload: PromotionSendPayload, env?: unknown): Pr
   const counter = createSendCapClient(env);
   const slot = await counter.reserve("promotion");
   if (!slot.permitted) return { configured: true, outcome: "refused", reason: slot.reason };
+  // Same post-reservation authority re-read as the Resend leg (Codex P2
+  // on PR #644): a suppression committed during the reserve await must
+  // refuse here, release the slot, and never reach the provider.
+  const recheck = await recheckDispatchPermission(checkDispatchPermission, payload.email);
+  if (!recheck.permitted) {
+    await counter.release(slot.reservation);
+    return { configured: true, outcome: "refused", reason: recheck.reason };
+  }
   const attemptedAt = Date.now();
   let response: Response;
   try {
@@ -671,8 +711,8 @@ export async function deliverPromotionSend(
     run: () => Promise<LegResult>;
     idempotencyGuaranteed: boolean;
   }> = [
-    { provider: "resend", run: () => sendLegResend(payload, idempotencyKey, options?.env), idempotencyGuaranteed: true },
-    { provider: "sendgrid", run: () => sendLegSendgrid(payload, options?.env), idempotencyGuaranteed: false },
+    { provider: "resend", run: () => sendLegResend(payload, idempotencyKey, options?.env, checkDispatchPermission), idempotencyGuaranteed: true },
+    { provider: "sendgrid", run: () => sendLegSendgrid(payload, options?.env, checkDispatchPermission), idempotencyGuaranteed: false },
   ];
 
   for (const leg of legs) {
