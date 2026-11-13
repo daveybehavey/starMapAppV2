@@ -4495,12 +4495,7 @@ export function EditorExperience({
         </div>
       )}
       {isFullscreen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Fullscreen preview"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-b from-[#0b1a30] via-[#050b18] to-[#0b1a30]"
-        >
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-b from-[#0b1a30] via-[#050b18] to-[#0b1a30]">
           <button
             type="button"
             onClick={() => {
