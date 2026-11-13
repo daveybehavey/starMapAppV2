@@ -294,7 +294,7 @@ test("applyPrintFreeShipping: waived CAD session stamps a zero option in the ses
 test("labels: threshold label is always USD; short tag and offer line name the $89 figure", () => {
   withEnv({}, () => {
     assert.equal(formatPrintFreeShippingThresholdLabel("cad"), "$89.00 USD");
-    assert.equal(getPrintFreeShippingShortTag("cad"), "Free standard shipping · $89.00 USD+ subtotal");
+    assert.equal(getPrintFreeShippingShortTag("cad"), "Free standard shipping · $89.00 USD or more");
     assert.match(getPrintFreeShippingOfferLine() ?? "", /\$89\.00 USD/);
     assert.equal(
       formatCheckoutShippingLine({ variant: "poster_framed", country: "US" }),
