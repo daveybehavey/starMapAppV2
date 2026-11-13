@@ -34,6 +34,11 @@ NEXT_PUBLIC_SITE_URL = "https://starmapco.com"
 
 # Feature flags
 BULK_EVENT_ORDERS_ENABLED = "true"
+# CHK-F3 (chair-approved 2026-11-12): the account always rejects
+# consent_collection.promotions "auto", so every checkout paid for a doomed
+# first create + retry (~0.3 s). "0" = never attempt it. Reversible: delete
+# this line to restore the default attempt behaviour.
+STRIPE_CONSENT_PROMOTIONS_AUTO = "0"
 
 # Analytics (NEXT_PUBLIC_POSTHOG_KEY: .env.local locally, GitHub secret in CI — not committed)
 NEXT_PUBLIC_POSTHOG_HOST = "https://app.posthog.com"
