@@ -52,8 +52,11 @@ export function MerchPurchasePanel({
       </p>
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
         <div>
-          <label className="text-[10px] font-semibold text-amber-100/80">Product</label>
+          <label htmlFor="merch-product-select" className="text-[10px] font-semibold text-amber-100/80">
+            Product
+          </label>
           <select
+            id="merch-product-select"
             value={familyId}
             onChange={(event) => {
               const next = event.target.value as MerchFamilyId;
@@ -80,8 +83,11 @@ export function MerchPurchasePanel({
           <>
             {family.options.color?.length ? (
               <div>
-                <label className="text-[10px] font-semibold text-amber-100/80">Color</label>
+                <label htmlFor="merch-color-select" className="text-[10px] font-semibold text-amber-100/80">
+                  Color
+                </label>
                 <select
+                  id="merch-color-select"
                   value={color || family.options.color[0] || ""}
                   onChange={(event) => onColorChange(event.target.value)}
                   className="print-country-select text-midnight mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-[11px]"
@@ -102,8 +108,11 @@ export function MerchPurchasePanel({
             ) : null}
             {family.options.size?.length ? (
               <div className={family.options.color?.length ? "sm:col-span-2" : undefined}>
-                <label className="text-[10px] font-semibold text-amber-100/80">Size</label>
+                <label htmlFor="merch-size-select" className="text-[10px] font-semibold text-amber-100/80">
+                  Size
+                </label>
                 <select
+                  id="merch-size-select"
                   value={size || family.options.size[0] || ""}
                   onChange={(event) => onSizeChange(event.target.value)}
                   className="print-country-select text-midnight mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-[11px]"
