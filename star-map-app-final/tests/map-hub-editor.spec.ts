@@ -61,7 +61,7 @@ test.describe("Editor keyboard accessibility", () => {
     });
     const exactLocationButton = editor.getByRole("button", { name: "Exact location", exact: true });
     const dateInput = editor.getByLabel("Date", { exact: true });
-    const titleInput = editor.getByRole("textbox", { name: "Enter title...", exact: true });
+    const titleInput = editor.getByRole("textbox", { name: "Title", exact: true });
 
     await expect(dateLocationToggle).toBeVisible({ timeout: 30_000 });
     await expect(locationInput).toBeVisible();
