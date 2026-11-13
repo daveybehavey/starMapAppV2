@@ -1895,7 +1895,11 @@ export default function DownloadClient() {
               </details>
             ) : null}
             <p className="mt-4 text-xs text-amber-100/75">Keep digital only — your HD file is already yours.</p>
-            {printCheckoutError && <p className="mt-2 text-xs text-rose-200">{printCheckoutError}</p>}
+            {printCheckoutError && (
+              <p role="alert" className="mt-2 text-xs text-rose-200">
+                {printCheckoutError}
+              </p>
+            )}
           </section>
         ) : null}
 
@@ -1985,18 +1989,23 @@ export default function DownloadClient() {
               }}
               placeholder="Email recovery links to you@email.com"
               autoComplete="email"
+              aria-label="Email address"
               className="min-w-0 flex-1 rounded-full border border-white/20 bg-white px-3 py-2 text-xs text-midnight placeholder:text-neutral-500 focus:border-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-300/50"
             />
             <button
               type="submit"
               disabled={recoveryStatus === "sending"}
-              className="rounded-full border border-amber-200 bg-amber-400/20 px-3 py-2 text-[11px] font-semibold text-amber-100 transition hover:bg-amber-400/30 disabled:cursor-not-allowed disabled:opacity-60"
+              className="btn-focus rounded-full border border-amber-200 bg-amber-400/20 px-3 py-2 text-[11px] font-semibold text-amber-100 transition hover:bg-amber-400/30 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {recoveryStatus === "sending" ? "Sending..." : "Send recovery links"}
             </button>
           </form>
           {recoveryMessage && (
-            <p className={`mt-2 text-[11px] ${recoveryStatus === "sent" ? "text-emerald-200" : "text-rose-200"}`}>
+            <p
+              role={recoveryStatus === "sent" ? "status" : "alert"}
+              aria-live="polite"
+              className={`mt-2 text-[11px] ${recoveryStatus === "sent" ? "text-emerald-200" : "text-rose-200"}`}
+            >
               {recoveryMessage}
             </p>
           )}
@@ -2063,10 +2072,16 @@ export default function DownloadClient() {
                   <p className="mt-1 break-all text-[11px] text-amber-100/85">{accessLink}</p>
                 )}
                 {accessLinkStatus === "error" && (
-                  <p className="mt-2 text-xs text-rose-200">We couldn&apos;t generate a link yet. Please refresh and try again.</p>
+                  <p role="alert" className="mt-2 text-xs text-rose-200">
+                    We couldn&apos;t generate a link yet. Please refresh and try again.
+                  </p>
                 )}
                 {accessEmailMessage && (
-                  <p className={`mt-2 text-xs ${accessEmailStatus === "sent" ? "text-emerald-200" : "text-rose-200"}`}>
+                  <p
+                    role={accessEmailStatus === "sent" ? "status" : "alert"}
+                    aria-live="polite"
+                    className={`mt-2 text-xs ${accessEmailStatus === "sent" ? "text-emerald-200" : "text-rose-200"}`}
+                  >
                     {accessEmailMessage}
                   </p>
                 )}
@@ -2123,7 +2138,11 @@ export default function DownloadClient() {
                 {referralStatus === "error" && (
                   <p className="mt-2 text-xs text-rose-200">Couldn&apos;t load referral stats. You can still create a link.</p>
                 )}
-                {referralError && <p className="mt-2 text-xs text-rose-200">{referralError}</p>}
+                {referralError && (
+                  <p role="alert" className="mt-2 text-xs text-rose-200">
+                    {referralError}
+                  </p>
+                )}
               </div>
 
               {merchDownloadEditorHref && status === "ready" ? (
@@ -2159,7 +2178,11 @@ export default function DownloadClient() {
                   >
                     {portalLoading ? "Opening billing..." : "Manage subscription"}
                   </button>
-                  {portalError && <p className="mt-2 text-xs text-rose-200">{portalError}</p>}
+                  {portalError && (
+                    <p role="alert" className="mt-2 text-xs text-rose-200">
+                      {portalError}
+                    </p>
+                  )}
                 </div>
               )}
 

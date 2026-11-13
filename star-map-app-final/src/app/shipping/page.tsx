@@ -128,16 +128,21 @@ export default function ShippingPage() {
         </section>
 
         <section className="mt-6">
-          <h2 className="text-xl font-semibold text-midnight">Physical print countries</h2>
+          <h2 id="physical-print-countries" className="text-xl font-semibold text-midnight">
+            Physical print countries
+          </h2>
           <div className="relative mt-3">
             <div className="overflow-x-auto rounded-2xl border border-amber-200/80 bg-white/85">
-              <table className="min-w-[540px] text-left text-xs text-neutral-900 sm:min-w-full sm:text-sm">
+              <table
+                className="min-w-[540px] text-left text-xs text-neutral-900 sm:min-w-full sm:text-sm"
+                aria-labelledby="physical-print-countries"
+              >
               <thead className="bg-amber-100/80 text-[11px] uppercase tracking-wide text-midnight sm:text-xs">
                 <tr>
-                  <th className="px-3 py-2 font-semibold">Country</th>
-                  <th className="px-3 py-2 font-semibold">Unframed shipping</th>
-                  <th className="px-3 py-2 font-semibold">Framed shipping</th>
-                  <th className="px-3 py-2 font-semibold">Transit after production</th>
+                  <th scope="col" className="px-3 py-2 font-semibold">Country</th>
+                  <th scope="col" className="px-3 py-2 font-semibold">Unframed shipping</th>
+                  <th scope="col" className="px-3 py-2 font-semibold">Framed shipping</th>
+                  <th scope="col" className="px-3 py-2 font-semibold">Transit after production</th>
                 </tr>
               </thead>
               <tbody>
