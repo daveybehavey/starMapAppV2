@@ -187,6 +187,7 @@ async function review(h, overrides = {}) {
     {
       ledger,
       sendCap: h.client,
+      env: h.env,
       now: h.now,
       isSuppressed: async () => {
         checks++;

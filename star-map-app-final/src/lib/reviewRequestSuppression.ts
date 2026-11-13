@@ -29,7 +29,7 @@
  */
 import { createHmac } from "node:crypto";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { createSendCapClient, type SendCapClient, type SendCapRefusal } from "@/lib/sharedSendCap";
+import { createSendCapClient, dispatchPrerequisite, type SendCapClient, type SendCapRefusal } from "@/lib/sharedSendCap";
 import type {
   FrozenReviewPayload,
   ReviewDispatchResult,
@@ -267,11 +267,11 @@ async function sendWithTimeout(
 
 /**
  * The single send path. Ordering is the safety property:
- *   null-H check → suppression check → reserve shared capacity →
+ *   cap + activation check → suppression check → reserve shared capacity →
  *   begin_dispatch (deadline check against the
  *   pre-commit clock sample, frozen payload read) → eligibility
  *   re-check against fresh source records (S54-5 (b) as revised) →
- *   FINAL suppression re-check → point-of-invocation deadline re-check
+ *   cap re-check → FINAL suppression re-check → activation + deadline re-check
  *   → ONE provider call → resolve_dispatch → settle reservation.
  * Every exit before provider invocation releases the reservation instead.
  * The provider is called only with the payload frozen in the ledger row —
@@ -303,11 +303,15 @@ export async function executeReviewDispatch(
     now?: () => number;
     sendTimeoutMs?: number;
     sendCap?: SendCapClient;
+    /** The DO's explicit env is authoritative, including an absent flag. */
+    env?: unknown;
   }
 ): Promise<ReviewDispatchOutcome> {
-  const counter = deps.sendCap ?? createSendCapClient();
+  const counter = deps.sendCap ?? createSendCapClient(deps.env);
   const gate = await counter.check("review");
   if (!gate.permitted) return { outcome: "refused", reason: gate.reason };
+  const activation = dispatchPrerequisite("promotion", deps.env);
+  if (!activation.permitted) return { outcome: "refused", reason: activation.reason };
   const now = deps.now ?? Date.now;
   const { sessionId, claimId } = input;
 
@@ -381,6 +385,14 @@ export async function executeReviewDispatch(
       return { outcome: "eligibility_unavailable" };
     }
 
+    // Re-read cap configuration after reservation/eligibility, before the
+    // final local suppression read so no new external await follows it.
+    const capRecheck = await counter.check("review");
+    if (!capRecheck.permitted) {
+      await resolve({ type: "rejected", permanent: true, error: capRecheck.reason });
+      return { outcome: "refused", reason: capRecheck.reason };
+    }
+
     // FINAL suppression fence: re-check after the dispatch commit, at the
     // last moment before the provider call (see the ordering note above).
     const suppressedFinal = await deps.isSuppressed().catch(() => null);
@@ -414,6 +426,15 @@ export async function executeReviewDispatch(
       return { outcome: "expired" };
     }
 
+    // Synchronous activation re-read AFTER every awaited gate. Reuse the
+    // promotion flag semantics without changing the reserved family. A
+    // refused committed dispatch terminalizes with the same refusal reason;
+    // finally releases its unused slot. No await separates permission/send.
+    const activationRecheck = dispatchPrerequisite("promotion", deps.env);
+    if (!activationRecheck.permitted) {
+      await resolve({ type: "rejected", permanent: true, error: activationRecheck.reason });
+      return { outcome: "refused", reason: activationRecheck.reason };
+    }
     attemptedAt = invocationAt;
     const timed = await sendWithTimeout(
       deps.send,
