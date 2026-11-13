@@ -56,7 +56,7 @@ test.describe("Editor keyboard accessibility", () => {
     const editor = page.locator("#editor");
     const dateLocationToggle = editor.getByRole("button", { name: /Date & Location\s*Hide/i });
     const locationInput = editor.getByRole("combobox", {
-      name: "Search city, landmark, or address",
+      name: "Location",
       exact: true,
     });
     const exactLocationButton = editor.getByRole("button", { name: "Exact location", exact: true });
