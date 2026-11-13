@@ -331,9 +331,12 @@ test("A7 actual env gates reject disabled merch families", async () => {
 // route blob for the draft review; this is not merge/deployment approval.
 // Promotion policy stays pinned to the same blob. Behavioural coverage lives
 // in checkoutFunnelDeferral.test.mjs (including awaited idempotency writes).
+// Re-pin record (2026-11-13, bridge run-chkf4): operator-authorized interior timing only.
+// checkoutInteriorTiming.test.mjs proves the route minus F4 additions matches the base bytes
+// and executes baseline/instrumented sessions for payload, idempotency and F3 consent parity.
 test("Tier C fence: checkout route and promotion policy match base 905ac521 blobs", () => {
   for (const [file, expected] of [
-    ["src/app/api/checkout/route.ts", "75a060dd14c620c0fa6085a292ce95f27007faf7"],
+    ["src/app/api/checkout/route.ts", "03e5c24db0d0a0f300c064175752a57591e2b71d"],
     ["src/lib/checkoutPromotions.ts", "927699d1920cc4905f7bbe20c75daaf728a2e467"],
   ]) {
     const content = Buffer.from(read(file));

@@ -89,6 +89,11 @@ test("timing: duration buckets split at 1s / 3s / 10s / 30s", () => {
 
 test("timing: stage aggregate increments carry attempts, count, sum and one bucket per stage", () => {
   const collector = createCheckoutTimingCollector(0);
+  collector.sessionSetupMs = 100;
+  collector.sessionShippingMs = 100;
+  collector.sessionLineItemsMs = 100;
+  collector.sessionValidationMs = 100;
+  collector.sessionParamsMs = 100;
   collector.preCreateMs = 500;
   collector.promoMs = 1_500;
   collector.merchPrintfulQuoteMs = 2_500;
@@ -99,6 +104,11 @@ test("timing: stage aggregate increments carry attempts, count, sum and one buck
   assert.equal(byCounter.get(CHECKOUT_ATTEMPTS_COUNTER), 1);
   assert.equal(CHECKOUT_ATTEMPTS_COUNTER, "checkout_attempts");
   const expected = {
+    session_setup: { sum: 100, bucket: "lt1s" },
+    session_shipping: { sum: 100, bucket: "lt1s" },
+    session_line_items: { sum: 100, bucket: "lt1s" },
+    session_validation: { sum: 100, bucket: "lt1s" },
+    session_params: { sum: 100, bucket: "lt1s" },
     pre_create: { sum: 500, bucket: "lt1s" },
     promo: { sum: 1_500, bucket: "1_3s" },
     printful_quote: { sum: 2_500, bucket: "1_3s" },
@@ -128,7 +138,7 @@ test("timing: stage aggregate increments carry attempts, count, sum and one buck
       `stage counter for ${stage} is allowlisted`,
     );
   }
-  // attempts + 6 stages x (count + sum + bucket)
+  // attempts + all stages x (count + sum + bucket)
   assert.equal(increments.length, 1 + CHECKOUT_TIMING_STAGES.length * 3);
 });
 
