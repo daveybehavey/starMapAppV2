@@ -62,6 +62,7 @@ register("./tsAliasLoader.mjs", import.meta.url);
 register("./reviewRequests.hooks.mjs", import.meta.url);
 // Preserve dispatch behavior tests with explicit finite-H and fake-counter fixtures.
 register("./promotionSendCapSet.hooks.mjs", import.meta.url);
+process.env.PROMOTION_DISPATCH_ENABLED = "true";
 
 import {
   applyReviewLedgerOp,

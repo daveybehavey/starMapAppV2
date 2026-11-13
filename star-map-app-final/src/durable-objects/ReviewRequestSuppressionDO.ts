@@ -243,6 +243,7 @@ export class ReviewRequestSuppressionDO extends DurableObject {
         envString(this.env, "REVIEW_REQUESTS_PHYSICAL_ENABLED")?.trim() === "true",
     });
     return executeReviewDispatch(input, {
+      env: this.env,
       sendCap: createSendCapClient(this.env),
       ledger,
       isSuppressed: async () => (await this.check()).suppressed,
