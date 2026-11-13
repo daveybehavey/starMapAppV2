@@ -304,7 +304,11 @@ export default function RootLayout({
           <div className="relative mx-auto max-w-6xl px-5 py-6 sm:px-6 sm:py-9">
             <div className="grid gap-5 sm:gap-8 md:grid-cols-[1.2fr_1fr_auto] md:items-start">
               <div>
-                <Link href="/" prefetch={false} className="inline-flex items-center text-base font-semibold tracking-wide text-[#f8e8bf] sm:text-lg">
+                <Link
+                  href="/"
+                  prefetch={false}
+                  className="focus-ring inline-flex items-center rounded-sm text-base font-semibold tracking-wide text-[#f8e8bf] sm:text-lg"
+                >
                   {businessProfile.name}
                 </Link>
                 <p className="mt-1.5 max-w-sm text-[13px] leading-relaxed text-[#d5ddf2] sm:mt-2 sm:text-sm">
@@ -312,7 +316,7 @@ export default function RootLayout({
                 </p>
                 <a
                   href={`mailto:${businessProfile.email}`}
-                  className="mt-3 inline-flex items-center rounded-full border border-[#b5934f]/60 bg-[rgba(8,18,51,0.78)] px-3.5 py-1.5 text-xs font-semibold text-[#f8d475] transition hover:border-[#f8d475] hover:text-[#ffe29a] sm:mt-4 sm:px-4 sm:text-sm"
+                  className="btn-focus mt-3 inline-flex items-center rounded-full border border-[#b5934f]/60 bg-[rgba(8,18,51,0.78)] px-3.5 py-1.5 text-xs font-semibold text-[#f8d475] transition hover:border-[#f8d475] hover:text-[#ffe29a] sm:mt-4 sm:px-4 sm:text-sm"
                 >
                   {businessProfile.email}
                 </a>
@@ -344,7 +348,7 @@ export default function RootLayout({
                       key={item.href}
                       href={item.href}
                       prefetch={false}
-                      className="w-fit text-[#e5ebfb] transition hover:text-white"
+                      className="focus-ring w-fit rounded-sm text-[#e5ebfb] transition hover:text-white"
                     >
                       {item.label}
                     </Link>
@@ -352,7 +356,7 @@ export default function RootLayout({
                 </div>
               </nav>
 
-              <div>
+              <nav aria-label="Social links">
                 <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#f8d475] md:text-right sm:mb-3 sm:text-xs sm:tracking-[0.24em]">Follow</p>
                 <div className="flex flex-nowrap gap-1.5 sm:flex-wrap sm:gap-2 md:justify-end">
                   {socialLinks.map((social) => (
@@ -363,13 +367,13 @@ export default function RootLayout({
                       rel="noopener noreferrer"
                       aria-label={`Follow StarMapCo on ${social.label}`}
                       title={social.label}
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-[#b5934f]/65 bg-[rgba(7,16,46,0.78)] text-[#f7f0e2] transition hover:-translate-y-0.5 hover:border-[#f8d475] hover:text-white sm:h-8 sm:w-8 md:h-9 md:w-9"
+                      className="btn-focus inline-flex h-7 w-7 items-center justify-center rounded-full border border-[#b5934f]/65 bg-[rgba(7,16,46,0.78)] text-[#f7f0e2] transition hover:-translate-y-0.5 hover:border-[#f8d475] hover:text-white sm:h-8 sm:w-8 md:h-9 md:w-9"
                     >
                       <SocialIcon label={social.label} />
                     </a>
                   ))}
                 </div>
-              </div>
+              </nav>
             </div>
 
             <div className="mt-5 flex flex-col gap-1.5 border-t border-white/14 pt-3 text-[11px] text-[#c9d1e6] sm:mt-7 sm:gap-2 sm:pt-4 sm:text-xs sm:flex-row sm:items-center sm:justify-between">
@@ -379,7 +383,7 @@ export default function RootLayout({
                   href="https://eurodigital.ca/projects/starmapco"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="transition hover:text-white"
+                  className="focus-ring rounded-sm transition hover:text-white"
                 >
                   Website by EuroDigital
                 </a>

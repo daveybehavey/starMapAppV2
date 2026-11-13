@@ -220,9 +220,12 @@ function LocationSearch({ onLocationChange }: LocationSearchProps) {
 
   return (
     <div className="space-y-2">
-      <label className="text-sm font-medium text-white">Location</label>
+      <label htmlFor="editor-location-search" className="text-sm font-medium text-white">
+        Location
+      </label>
       <div className="relative">
         <input
+          id="editor-location-search"
           type="text"
           value={query}
           placeholder="Search city, landmark, or address"
@@ -260,6 +263,7 @@ function LocationSearch({ onLocationChange }: LocationSearchProps) {
           <div
             id={listId}
             role="listbox"
+            aria-label="Location suggestions"
             className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-black/10 bg-white shadow-lg shadow-black/10"
           >
             {error && (
@@ -328,10 +332,14 @@ function LocationSearch({ onLocationChange }: LocationSearchProps) {
         {showExact && (
           <div className="grid grid-cols-2 gap-3 rounded-lg border border-dashed border-black/10 bg-neutral-50/70 p-3">
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wide text-neutral-600">
+              <label
+                htmlFor="editor-location-latitude"
+                className="text-xs font-semibold uppercase tracking-wide text-neutral-600"
+              >
                 Latitude
               </label>
               <input
+                id="editor-location-latitude"
                 type="number"
                 step="0.0001"
                 value={manualLat}
@@ -346,13 +354,21 @@ function LocationSearch({ onLocationChange }: LocationSearchProps) {
                     : "border-black/10 bg-white"
                 }`}
               />
-              {latError && <div className="mt-1 text-xs text-rose-600 font-medium">{latError}</div>}
+              {latError && (
+                <div role="alert" className="mt-1 text-xs text-rose-600 font-medium">
+                  {latError}
+                </div>
+              )}
             </div>
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wide text-neutral-600">
+              <label
+                htmlFor="editor-location-longitude"
+                className="text-xs font-semibold uppercase tracking-wide text-neutral-600"
+              >
                 Longitude
               </label>
               <input
+                id="editor-location-longitude"
                 type="number"
                 step="0.0001"
                 value={manualLon}
@@ -367,7 +383,11 @@ function LocationSearch({ onLocationChange }: LocationSearchProps) {
                     : "border-black/10 bg-white"
                 }`}
               />
-              {lonError && <div className="mt-1 text-xs text-rose-600 font-medium">{lonError}</div>}
+              {lonError && (
+                <div role="alert" className="mt-1 text-xs text-rose-600 font-medium">
+                  {lonError}
+                </div>
+              )}
             </div>
           </div>
         )}

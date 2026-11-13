@@ -3004,8 +3004,14 @@ export function EditorExperience({
                               <p className="text-[11px] text-neutral-400">Up to 240 characters per line.</p>
                               {visibleTextBoxes.map((box) => (
                                 <div key={box.id} className="space-y-2">
-                                  <label className="text-sm font-medium text-white">{box.label}</label>
+                                  <label
+                                    htmlFor={`message-text-${box.id}`}
+                                    className="text-sm font-medium text-white"
+                                  >
+                                    {box.label}
+                                  </label>
                                   <input
+                                    id={`message-text-${box.id}`}
                                     type="text"
                                     maxLength={TEXT_BOX_MAX_TEXT_LENGTH}
                                     value={box.text}
@@ -3151,6 +3157,7 @@ export function EditorExperience({
                                                 <button
                                                   type="button"
                                                   onClick={() => removeTextBox(box.id)}
+                                                  aria-label={`Remove ${box.label} text box`}
                                                   className="text-[10px] text-rose-300 hover:text-rose-200"
                                                 >
                                                   Remove
@@ -3162,12 +3169,14 @@ export function EditorExperience({
                                               <div id={`text-style-${box.id}`} className="space-y-2">
                                                 <ApplyTextRowStyle sourceId={box.id} />
                                                 <input
+                                                  id={`style-text-${box.id}`}
                                                   type="text"
                                                   maxLength={TEXT_BOX_MAX_TEXT_LENGTH}
                                                   value={box.text}
                                                   onChange={(e) =>
                                                     handleTextBoxTextChange(box.id, e.target.value)
                                                   }
+                                                  aria-label={box.label}
                                                   className="w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-xs text-white shadow-inner shadow-black/20 transition outline-none focus:border-amber-300 focus:ring-2 focus:ring-amber-200/40"
                                                   placeholder={`Enter ${box.label.toLowerCase()}...`}
                                                 />
@@ -3308,6 +3317,8 @@ export function EditorExperience({
                                                     onClick={() =>
                                                       updateTextBox(box.id, { textShadow: !box.textShadow })
                                                     }
+                                                    aria-pressed={Boolean(box.textShadow)}
+                                                    aria-label={`${box.label} shadow`}
                                                     className={`flex-1 rounded-md border px-3 py-1.5 text-[10px] font-semibold transition ${
                                                       box.textShadow
                                                         ? "!text-midnight border-amber-300 bg-amber-100"
@@ -3321,6 +3332,8 @@ export function EditorExperience({
                                                     onClick={() =>
                                                       updateTextBox(box.id, { textGlow: !box.textGlow })
                                                     }
+                                                    aria-pressed={Boolean(box.textGlow)}
+                                                    aria-label={`${box.label} glow`}
                                                     className={`flex-1 rounded-md border px-3 py-1.5 text-[10px] font-semibold transition ${
                                                       box.textGlow
                                                         ? "!text-midnight border-amber-300 bg-amber-100"
@@ -3601,10 +3614,14 @@ export function EditorExperience({
                                       </div>
                                       {shape !== "rectangle" && (
                                         <div className="mt-2 space-y-1">
-                                          <label className="text-[10px] text-neutral-300">
+                                          <label
+                                            htmlFor="shape-background-color"
+                                            className="text-[10px] text-neutral-300"
+                                          >
                                             Background Color
                                           </label>
                                           <input
+                                            id="shape-background-color"
                                             type="color"
                                             value={renderOptions.backgroundColor || "#0b1a30"}
                                             onChange={(e) =>
@@ -4469,7 +4486,11 @@ export function EditorExperience({
           )
         : null}
       {shareLink && (
-        <div className="fixed bottom-4 left-1/2 z-40 w-[90%] max-w-xl -translate-x-1/2 rounded-full bg-[rgba(247,241,227,0.95)] px-4 py-2 text-center text-xs font-semibold text-neutral-800 shadow-lg">
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-4 left-1/2 z-40 w-[90%] max-w-xl -translate-x-1/2 rounded-full bg-[rgba(247,241,227,0.95)] px-4 py-2 text-center text-xs font-semibold text-neutral-800 shadow-lg"
+        >
           Link copied: {shareLink}
         </div>
       )}
