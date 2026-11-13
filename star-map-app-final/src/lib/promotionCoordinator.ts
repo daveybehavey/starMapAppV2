@@ -58,7 +58,7 @@ import {
   normalizePromotionEmail,
   type PromotionEmailState,
 } from "@/lib/promotionSubscriptions";
-import { createPromotionDispatchPermissionChecker } from "@/lib/promotionDispatchGuard";
+import { createPromotionDispatchPermissionChecker, evaluatePromotionSendCap } from "@/lib/promotionDispatchGuard";
 import {
   deliverPromotionSend,
   getPromotionFollowupDelaySeconds,
@@ -181,6 +181,11 @@ export async function drivePromotionJobs(
   name: string,
   email: string,
 ): Promise<PromotionDriveResult> {
+  const gate = evaluatePromotionSendCap();
+  if (!gate.permitted) return {
+    couponDelivered: false, couponProvider: "none",
+    couponError: `promotion_dispatch_refused:${gate.reason}`,
+  };
   let couponDelivered = false;
   let couponProvider = "none";
   let couponError: string | undefined;

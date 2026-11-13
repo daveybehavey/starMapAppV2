@@ -60,6 +60,8 @@ import { register } from "node:module";
 // dynamically so the tests exercise the REAL code, not a harness mirror.
 register("./tsAliasLoader.mjs", import.meta.url);
 register("./reviewRequests.hooks.mjs", import.meta.url);
+// Preserve dispatch behavior tests with explicit finite-H and fake-counter fixtures.
+register("./promotionSendCapSet.hooks.mjs", import.meta.url);
 
 import {
   applyReviewLedgerOp,

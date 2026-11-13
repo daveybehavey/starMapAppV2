@@ -39,7 +39,7 @@ import {
   promotionSuppressionsOf,
 } from "@/lib/consistencyCoordinatorState";
 import { kv } from "@/lib/kv";
-import { PROMOTION_SEND_CAP_H } from "@/lib/promotionSendCap";
+import { dispatchPrerequisite, type SendCapRefusal } from "@/lib/sharedSendCap";
 import {
   LEGACY_SUBSCRIPTION_KEY,
   emailStateKey,
@@ -48,7 +48,8 @@ import {
 } from "@/lib/promotionSubscriptions";
 
 export type PromotionDispatchRefusalReason =
-  | "send_cap_unset"
+  | SendCapRefusal
+  | "promotion_dispatch_disabled"
   | "unsubscribed"
   | "deliverability_suppressed"
   | "no_permission_record"
@@ -61,10 +62,8 @@ export type PromotionDispatchDecision =
 export type PromotionDispatchPermissionChecker = (email: string) => Promise<PromotionDispatchDecision>;
 
 /** Global prerequisite, independent of recipient authority or injected checkers. */
-export function evaluatePromotionSendCap(): PromotionDispatchDecision {
-  return PROMOTION_SEND_CAP_H === null
-    ? { permitted: false, reason: "send_cap_unset" }
-    : { permitted: true };
+export function evaluatePromotionSendCap(env?: unknown): PromotionDispatchDecision {
+  return dispatchPrerequisite("promotion", env);
 }
 
 /**
@@ -79,8 +78,8 @@ export function evaluatePromotionDispatchPermission(input: {
   coordinatorState: PromotionCoordinatorState | null;
   legacyState: PromotionEmailState | null;
   legacyListMember: boolean;
-}): PromotionDispatchDecision {
-  const cap = evaluatePromotionSendCap();
+}, env?: unknown): PromotionDispatchDecision {
+  const cap = evaluatePromotionSendCap(env);
   if (!cap.permitted) return cap;
   const { coordinatorState, legacyState, legacyListMember } = input;
   if (coordinatorState) {
@@ -150,28 +149,29 @@ async function readLegacyPermissionFacts(email: string): Promise<{
  * seen the recipient, and refuse (fail closed) when either read fails.
  */
 export function createPromotionDispatchPermissionChecker(
-  client: ConsistencyCoordinatorClient = createConsistencyCoordinatorClient()
+  client?: ConsistencyCoordinatorClient,
+  env?: unknown,
 ): PromotionDispatchPermissionChecker {
   return async (rawEmail: string): Promise<PromotionDispatchDecision> => {
-    const cap = evaluatePromotionSendCap();
+    const cap = evaluatePromotionSendCap(env);
     if (!cap.permitted) return cap;
     const email = normalizePromotionEmail(rawEmail);
     if (!email) return { permitted: false, reason: "no_permission_record" };
     try {
       const name = promotionCoordinatorName(coordinatorEmailHash(email));
-      const coordinatorState = await client.getPromotionState(name);
+      const coordinatorState = await (client ?? createConsistencyCoordinatorClient(env)).getPromotionState(name);
       if (coordinatorState) {
         return evaluatePromotionDispatchPermission({
           coordinatorState,
           legacyState: null,
           legacyListMember: false,
-        });
+        }, env);
       }
       const legacy = await readLegacyPermissionFacts(email);
       return evaluatePromotionDispatchPermission({
         coordinatorState: null,
         ...legacy,
-      });
+      }, env);
     } catch {
       return { permitted: false, reason: "authority_unavailable" };
     }
