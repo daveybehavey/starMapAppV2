@@ -41,7 +41,7 @@ function withEnv(vars, fn) {
 
 const B2_DEFAULT =
   "Free standard shipping when your print order's USD merchandise subtotal is $89.00 USD or more. Eligibility uses USD item values in both markets and excludes shipping.";
-const B3_DEFAULT = "Free standard shipping · $89.00 USD+ subtotal";
+const B3_DEFAULT = "Free standard shipping · $89.00 USD or more";
 
 test("B1 default: $89.00 USD in both markets — CAD calls never relabel as CAD", () => {
   withEnv({}, () => {
@@ -70,7 +70,7 @@ test("configured threshold 12345 renders $123.45 USD in B1-B3, both markets", ()
     );
     assert.equal(
       freeShipping.getPrintFreeShippingShortTag("usd"),
-      "Free standard shipping · $123.45 USD+ subtotal",
+      "Free standard shipping · $123.45 USD or more",
     );
   });
 });
