@@ -999,8 +999,11 @@ export function MobileCreate({
               <p className="text-[11px] text-neutral-400">Up to 240 characters per line.</p>
               {visibleTextBoxes.map((box) => (
                 <div key={box.id} className="space-y-2">
-                  <label className="text-sm font-medium text-white">{box.label}</label>
+                  <label htmlFor={`mobile-message-text-${box.id}`} className="text-sm font-medium text-white">
+                    {box.label}
+                  </label>
                   <input
+                    id={`mobile-message-text-${box.id}`}
                     type="text"
                     maxLength={TEXT_BOX_MAX_TEXT_LENGTH}
                     value={box.text}
@@ -1097,8 +1100,14 @@ export function MobileCreate({
                 <p className="text-[11px] text-neutral-400">Up to 240 characters per line.</p>
                 {textBoxes.map((box) => (
                   <div key={box.id} className="space-y-2">
-                    <label className="text-sm font-medium text-white">{box.label}</label>
+                    <label
+                      htmlFor={`mobile-drawer-message-text-${box.id}`}
+                      className="text-sm font-medium text-white"
+                    >
+                      {box.label}
+                    </label>
                     <input
+                      id={`mobile-drawer-message-text-${box.id}`}
                       type="text"
                       maxLength={TEXT_BOX_MAX_TEXT_LENGTH}
                       value={box.text}

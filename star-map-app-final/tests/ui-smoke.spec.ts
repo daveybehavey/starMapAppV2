@@ -65,7 +65,7 @@ test("customer creates and customizes a visible preview from the homepage", asyn
     return responseUrl.pathname === "/api/geocode" && responseUrl.searchParams.get("q") === "Paris";
   });
   const locationSearch = page
-    .getByRole("combobox", { name: /Location search/i })
+    .getByRole("combobox", { name: "Location", exact: true })
     .or(page.getByRole("combobox", { name: /Search city, landmark, or address/i }))
     .first();
   await expect(locationSearch).toHaveValue("Paris, France");
