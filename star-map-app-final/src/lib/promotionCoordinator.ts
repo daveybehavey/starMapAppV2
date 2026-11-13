@@ -181,7 +181,7 @@ export async function drivePromotionJobs(
   name: string,
   email: string,
 ): Promise<PromotionDriveResult> {
-  const gate = evaluatePromotionSendCap();
+  const gate = await evaluatePromotionSendCap();
   if (!gate.permitted) return {
     couponDelivered: false, couponProvider: "none",
     couponError: `promotion_dispatch_refused:${gate.reason}`,

@@ -39,7 +39,7 @@ import {
   promotionSuppressionsOf,
 } from "@/lib/consistencyCoordinatorState";
 import { kv } from "@/lib/kv";
-import { dispatchPrerequisite, type SendCapRefusal } from "@/lib/sharedSendCap";
+import { createSendCapClient, dispatchPrerequisite, type SendCapRefusal } from "@/lib/sharedSendCap";
 import {
   LEGACY_SUBSCRIPTION_KEY,
   emailStateKey,
@@ -62,8 +62,8 @@ export type PromotionDispatchDecision =
 export type PromotionDispatchPermissionChecker = (email: string) => Promise<PromotionDispatchDecision>;
 
 /** Global prerequisite, independent of recipient authority or injected checkers. */
-export function evaluatePromotionSendCap(env?: unknown): PromotionDispatchDecision {
-  return dispatchPrerequisite("promotion", env);
+export function evaluatePromotionSendCap(env?: unknown): Promise<PromotionDispatchDecision> {
+  return createSendCapClient(env).check("promotion");
 }
 
 /**
@@ -79,7 +79,7 @@ export function evaluatePromotionDispatchPermission(input: {
   legacyState: PromotionEmailState | null;
   legacyListMember: boolean;
 }, env?: unknown): PromotionDispatchDecision {
-  const cap = evaluatePromotionSendCap(env);
+  const cap = dispatchPrerequisite("promotion", env);
   if (!cap.permitted) return cap;
   const { coordinatorState, legacyState, legacyListMember } = input;
   if (coordinatorState) {
@@ -153,7 +153,7 @@ export function createPromotionDispatchPermissionChecker(
   env?: unknown,
 ): PromotionDispatchPermissionChecker {
   return async (rawEmail: string): Promise<PromotionDispatchDecision> => {
-    const cap = evaluatePromotionSendCap(env);
+    const cap = await evaluatePromotionSendCap(env);
     if (!cap.permitted) return cap;
     const email = normalizePromotionEmail(rawEmail);
     if (!email) return { permitted: false, reason: "no_permission_record" };

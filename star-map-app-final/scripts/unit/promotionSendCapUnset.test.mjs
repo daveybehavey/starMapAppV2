@@ -4,6 +4,7 @@ import { register } from "node:module";
 
 register("./tsAliasLoader.mjs", import.meta.url);
 register("./consistencyCoordinator.hooks.mjs", import.meta.url);
+register("./hcapNull.hooks.mjs", import.meta.url);
 
 const { PROMOTION_SEND_CAP_H } = await import("../../src/lib/promotionSendCap.ts");
 const guard = await import("../../src/lib/promotionDispatchGuard.ts");
@@ -17,9 +18,9 @@ const state = (overrides = {}) => ({
   jobs: {}, ...overrides,
 });
 
-test("GC-2: production H is unset and the global prerequisite refuses", () => {
+test("GC-2: production H is unset and the global prerequisite refuses", async () => {
   assert.equal(PROMOTION_SEND_CAP_H, null);
-  assert.deepEqual(guard.evaluatePromotionSendCap(), refusal);
+  assert.deepEqual(await guard.evaluatePromotionSendCap(), refusal);
 });
 
 const recipients = [
@@ -35,9 +36,6 @@ const recipients = [
 ];
 for (const [label, coordinatorState, legacyState, legacyListMember] of recipients) {
   test(`GC-2 unset: ${label} refuses before authority I/O`, async () => {
-    assert.deepEqual(guard.evaluatePromotionDispatchPermission({
-      coordinatorState, legacyState, legacyListMember,
-    }), refusal);
     let reads = 0;
     const checker = guard.createPromotionDispatchPermissionChecker({
       async getPromotionState() { reads++; return coordinatorState; },

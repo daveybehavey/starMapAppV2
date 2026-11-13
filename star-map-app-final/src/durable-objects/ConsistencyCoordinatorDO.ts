@@ -29,7 +29,7 @@ import type { PromotionCapture } from "@/lib/promotionDisclosure";
  * would resurrect exactly the races this object exists to close.
  */
 import { DurableObject } from "cloudflare:workers";
-import { dispatchPrerequisite, type ReserveResult } from "../lib/sharedSendCap";
+import { createSendCapClient, dispatchPrerequisite, type ReserveResult } from "../lib/sharedSendCap";
 import { PROMOTION_SEND_CAP_H } from "../lib/promotionSendCap";
 import {
   SEND_CAP_OBJECT_NAME, isValidSendCapState, reserveSendSlot, settleSendSlot,
@@ -57,6 +57,7 @@ import {
   isValidMagicTokenState,
   isValidPromotionState,
   nextPromotionAlarmAt,
+  PROMOTION_JOB_RETRY_DELAY_MS,
   type AccountIndexCoordinatorState,
   type AccountSessionsView,
   type ClaimPromotionJobResult,
@@ -186,6 +187,7 @@ export class ConsistencyCoordinatorDO extends DurableObject {
    * Cloudflare's output gate holds the RPC response until persistence lands.
    */
   reserveCommercialSend(input: { family: SendFamily }): ReserveResult {
+    if (PROMOTION_SEND_CAP_H === null) return { permitted: false, reason: "send_cap_unset" };
     const gate = dispatchPrerequisite(input.family, this.env);
     if (!gate.permitted) return gate;
     if (this.objectId !== SEND_CAP_OBJECT_NAME) throw new Error("send_cap_wrong_object");
@@ -521,7 +523,24 @@ export class ConsistencyCoordinatorDO extends DurableObject {
    * concurrent RPC may have superseded.
    */
   async alarm(): Promise<void> {
-    if (!dispatchPrerequisite("promotion", this.env).permitted) return;
+    const cap = await createSendCapClient(this.env).check("promotion");
+    if (!cap.permitted) {
+      if (cap.reason === "send_cap_unavailable") {
+        // Fail closed — no dispatch while the shared counter cannot be
+        // reached — but the fired alarm is consumed by this call, so
+        // without a re-arm every pending job would strand until an
+        // unrelated write happened to re-sync the schedule. Re-arm one
+        // bounded retry at the standard job retry delay. Durable
+        // refusals (cap unset, dispatch disabled) keep the plain early
+        // return: only a configuration change clears them, and writes
+        // re-sync the alarm through syncAlarm as before.
+        const state = this.readKind("promotion");
+        if (state && nextPromotionAlarmAt(state, Date.now()) !== null) {
+          await this.ctx.storage.setAlarm(Date.now() + PROMOTION_JOB_RETRY_DELAY_MS);
+        }
+      }
+      return;
+    }
     const initial = this.readKind("promotion");
     if (!initial) return;
     const now = Date.now();
