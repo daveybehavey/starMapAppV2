@@ -675,7 +675,7 @@ export async function deliverPromotionSend(
   options?: { checkDispatchPermission?: PromotionDispatchPermissionChecker; env?: unknown },
 ): Promise<PromotionDeliveryOutcome> {
   // GC-2 applies even when a coordinator injects its own authority checker.
-  const cap = evaluatePromotionSendCap(options?.env);
+  const cap = await evaluatePromotionSendCap(options?.env);
   if (!cap.permitted) {
     return { outcome: "refused", provider: "none", reason: cap.reason };
   }

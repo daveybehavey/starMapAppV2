@@ -1,15 +1,13 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { PROMOTION_SEND_CAP_H } from "@/lib/promotionSendCap";
-import { SEND_CAP_OBJECT_NAME, type SendFamily } from "@/lib/sharedSendCapState";
+import { type SendFamily } from "@/lib/sharedSendCapState";
 
 export type SendCapRefusal = "send_cap_unset" | "send_cap_exhausted" | "send_cap_unavailable";
 export type DispatchPrerequisite =
   | { permitted: true }
   | { permitted: false; reason: SendCapRefusal | "promotion_dispatch_disabled" };
 
-/** Null H is always FIRST, including before env/binding access. No runtime H override. */
+/** Synchronous activation fence only. Capacity is exclusively owned by send-cap. */
 export function dispatchPrerequisite(family: SendFamily, env?: unknown): DispatchPrerequisite {
-  if (PROMOTION_SEND_CAP_H === null) return { permitted: false, reason: "send_cap_unset" };
   if (family === "promotion") {
     const value =
       env === undefined
@@ -26,12 +24,10 @@ export type SendReservation = { id: string; reservedAt: number };
 export type ReserveResult =
   | { permitted: true; reservation: SendReservation }
   | { permitted: false; reason: SendCapRefusal | "promotion_dispatch_disabled" };
-type CapStub = {
-  reserveCommercialSend(input: { family: SendFamily }): Promise<ReserveResult>;
-  settleCommercialSend(input: { id: string; attemptedAt: number | null }): Promise<{ persisted: true }>;
-};
-type CapNamespace = { idFromName(name: string): DurableObjectId; get(id: DurableObjectId): CapStub };
+type CounterResponse = { permitted?: unknown; reason?: unknown; reservation?: { id?: unknown; reservedAt?: unknown }; persisted?: unknown };
+type CapService = { fetch(request: Request): Promise<Response> };
 export type SendCapClient = {
+  check(family: SendFamily): Promise<DispatchPrerequisite>;
   reserve(family: SendFamily): Promise<ReserveResult>;
   release(reservation: SendReservation): Promise<boolean>;
   commit(reservation: SendReservation, attemptedAt: number): Promise<boolean>;
@@ -41,33 +37,54 @@ export type SendCapClient = {
  * An explicit env is authoritative, including when its binding is missing.
  */
 export function createSendCapClient(explicitEnv?: unknown): SendCapClient {
-  function stub(): CapStub {
+  async function call(operation: string, input: object): Promise<CounterResponse> {
     const env = explicitEnv === undefined ? getCloudflareContext().env : explicitEnv;
-    const ns = (env as { CONSISTENCY_COORDINATOR?: CapNamespace } | null)?.CONSISTENCY_COORDINATOR;
-    if (!ns) throw new Error("send_cap_binding_missing");
-    return ns.get(ns.idFromName(SEND_CAP_OBJECT_NAME));
+    const service = (env as { SEND_CAP_SERVICE?: CapService } | null)?.SEND_CAP_SERVICE;
+    if (!service) throw new Error("send_cap_binding_missing");
+    const response = await service.fetch(new Request("https://send-cap/" + operation, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input),
+    }));
+    if (!response.ok) throw new Error("send_cap_unavailable");
+    return response.json();
   }
   async function settle(reservation: SendReservation, attemptedAt: number | null): Promise<boolean> {
     try {
-      return (await stub().settleCommercialSend({ id: reservation.id, attemptedAt }))?.persisted === true;
+      return (await call(attemptedAt === null ? "release" : "commit", { id: reservation.id, attemptedAt }))?.persisted === true;
     } catch {
       return false;
     }
   }
+  async function check(family: SendFamily): Promise<DispatchPrerequisite> {
+    try {
+      const result = await call("peek", {});
+      if (result.permitted === false && result.reason === "send_cap_unset") return { permitted: false, reason: "send_cap_unset" };
+      if (result.permitted !== true) throw new Error("invalid_counter_response");
+      return dispatchPrerequisite(family, explicitEnv);
+    } catch { return { permitted: false, reason: "send_cap_unavailable" }; }
+  }
   return {
+    check,
     async reserve(family) {
-      const gate = dispatchPrerequisite(family, explicitEnv);
+      const gate = await check(family);
       if (!gate.permitted) return gate;
       try {
-        const result = await stub().reserveCommercialSend({ family });
+        const result = await call("reserve", { family, idempotencyKey: crypto.randomUUID() });
         if (
           result?.permitted === true &&
           typeof result.reservation?.id === "string" &&
           result.reservation.id &&
+          typeof result.reservation.reservedAt === "number" &&
           Number.isSafeInteger(result.reservation.reservedAt) &&
           result.reservation.reservedAt >= 0
-        )
-          return result;
+        ) {
+          const reservation = result.reservation as SendReservation;
+          const finalFence = dispatchPrerequisite(family, explicitEnv);
+          if (!finalFence.permitted) {
+            await settle(reservation, null);
+            return finalFence;
+          }
+          return { permitted: true, reservation };
+        }
         if (
           result?.permitted === false &&
           [
@@ -75,9 +92,9 @@ export function createSendCapClient(explicitEnv?: unknown): SendCapClient {
             "send_cap_exhausted",
             "send_cap_unavailable",
             "promotion_dispatch_disabled",
-          ].includes(result.reason)
+          ].includes(String(result.reason))
         )
-          return result;
+          return result as ReserveResult;
       } catch {
         /* No fallback, including in CI/local development. */
       }

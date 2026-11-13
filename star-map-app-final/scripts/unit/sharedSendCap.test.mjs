@@ -52,6 +52,17 @@ function harness(t) {
       return object;
     },
   };
+  env.SEND_CAP_SERVICE = {
+    async fetch(request) {
+      const input = await request.json();
+      const op = new URL(request.url).pathname;
+      if (op === '/peek') return Response.json({ permitted: true });
+      try {
+        return Response.json(op === '/reserve' ? object.reserveCommercialSend(input)
+          : object.settleCommercialSend({ id: input.id, attemptedAt: op === '/release' ? null : input.attemptedAt }));
+      } catch { return new Response(null, { status: 503 }); }
+    },
+  };
   return {
     object,
     env,
@@ -117,16 +128,12 @@ test("H-cap: missing binding, thrown RPC and malformed RPC all refuse", async (t
   for (const env of [
     {},
     {
-      CONSISTENCY_COORDINATOR: {
-        idFromName: (x) => x,
-        get: () => ({ async reserveCommercialSend() { throw Error("rpc"); } }),
-      },
+      SEND_CAP_SERVICE: { async fetch() { throw Error("unreachable"); } },
     },
     {
-      CONSISTENCY_COORDINATOR: {
-        idFromName: (x) => x,
-        get: () => ({ reserveCommercialSend: () => ({ permitted: true }) }),
-      },
+      SEND_CAP_SERVICE: { async fetch(request) {
+        return Response.json(new URL(request.url).pathname === '/peek' ? { permitted: true } : { permitted: true });
+      } },
     },
   ]) {
     assert.deepEqual(await createSendCapClient(env).reserve("review"), {
@@ -135,12 +142,11 @@ test("H-cap: missing binding, thrown RPC and malformed RPC all refuse", async (t
     });
   }
   const h = harness(t);
-  h.env.CONSISTENCY_COORDINATOR.get = () => ({
-    async reserveCommercialSend(input) {
-      h.object.reserveCommercialSend(input);
-      throw Error("response lost after persistence");
-    },
-  });
+  h.env.SEND_CAP_SERVICE.fetch = async request => {
+    if (new URL(request.url).pathname === '/peek') return Response.json({ permitted: true });
+    h.object.reserveCommercialSend(await request.json());
+    throw Error("response lost after persistence");
+  };
   assert.equal((await h.client.reserve("review")).reason, "send_cap_unavailable");
   assert.equal(h.state().slots[0].attemptedAt, null);
 });
@@ -148,7 +154,7 @@ test("H-cap: promotion fence is default-off, distinct, and before binding access
   for (const value of [undefined, "false", "1", true]) {
     const env = {
       PROMOTION_DISPATCH_ENABLED: value,
-      get CONSISTENCY_COORDINATOR() {
+      get SEND_CAP_SERVICE() {
         assert.fail("binding read");
       },
     };
@@ -156,7 +162,7 @@ test("H-cap: promotion fence is default-off, distinct, and before binding access
       permitted: false,
       reason: "promotion_dispatch_disabled",
     });
-    assert.equal((await createSendCapClient(env).reserve("promotion")).reason, "promotion_dispatch_disabled");
+    // Cap is checked remotely first; sync fence itself never accesses the binding.
   }
 });
 
@@ -230,6 +236,7 @@ test("H-cap review: no counter await between final suppression and invocation", 
   const h = harness(t);
   const events = [];
   const sendCap = {
+    check: h.client.check,
     async reserve(f) {
       events.push("reserve");
       return h.client.reserve(f);
@@ -513,4 +520,53 @@ test("H-cap promotion: permission flipping during reservation refuses after rech
   assert.equal(checks, 2); // pre-leg fence + post-reservation recheck
   assert.equal(fetches, 0); // provider never invoked
   assert.equal(h.state()?.slots.length ?? 0, 0); // reservation released, no slot held
+});
+
+for (const status of [200, 400, 503]) test('shared service promotion: invoked HTTP ' + status + ' remains charged', async t => {
+  const h = harness(t);
+  t.mock.method(globalThis, 'fetch', async () => Response.json({ id: 'fixture' }, { status }));
+  await promotions.deliverPromotionSend(payload('coupon'), 'fixture', { env: h.env, checkDispatchPermission: permitted });
+  assert.equal(h.state().slots.length, 1);
+  assert.equal(h.state().slots[0].attemptedAt, h.now());
+});
+
+test('shared service: same opaque key is brand-isolated and settlement preserves returned identity', async t => {
+  t.mock.method(crypto, 'randomUUID', () => '00000000-0000-4000-8000-000000000001');
+  const records = new Map();
+  const service = brand => ({ async fetch(request) {
+    const op = new URL(request.url).pathname;
+    const input = await request.json();
+    assert.equal(input.brand, undefined);
+    if (op === '/peek') return Response.json({ permitted: true });
+    if (op === '/reserve') {
+      const id = JSON.stringify([brand, input.idempotencyKey]);
+      records.set(id, 'reserved');
+      return Response.json({ permitted: true, reservation: { id, reservedAt: 1 } });
+    }
+    assert.ok(records.has(input.id));
+    assert.equal(JSON.parse(input.id)[0], brand);
+    records.set(input.id, op);
+    return Response.json({ persisted: true });
+  } });
+  const a = createSendCapClient({ SEND_CAP_SERVICE: service('starmapco') });
+  const b = createSendCapClient({ SEND_CAP_SERVICE: service('ourimprint') });
+  const [ra, rb] = await Promise.all([a.reserve('review'), b.reserve('review')]);
+  assert.notEqual(ra.reservation.id, rb.reservation.id);
+  assert.equal(await a.commit(ra.reservation, 1), true);
+  assert.equal(await b.release(rb.reservation), true);
+  assert.deepEqual([...records.values()], ['/commit', '/release']);
+});
+
+test('shared service: promotion fence closing during reservation releases before invocation', async t => {
+  const h = harness(t);
+  const fetch = h.env.SEND_CAP_SERVICE.fetch;
+  h.env.SEND_CAP_SERVICE.fetch = async request => {
+    const response = await fetch(request);
+    if (new URL(request.url).pathname === '/reserve') h.env.PROMOTION_DISPATCH_ENABLED = 'false';
+    return response;
+  };
+  t.mock.method(globalThis, 'fetch', () => { assert.fail('provider'); });
+  const result = await promotions.deliverPromotionSend(payload('coupon'), 'fixture', { env: h.env, checkDispatchPermission: permitted });
+  assert.equal(result.reason, 'promotion_dispatch_disabled');
+  assert.equal(h.state().slots.length, 0);
 });

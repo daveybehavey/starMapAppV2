@@ -14,6 +14,7 @@ export async function load(url, context, nextLoad) {
     return { format: "module-typescript", shortCircuit: true, source: source + `
 export function createSendCapClient(env?: unknown): SendCapClient {
   return {
+    async check(family) { return dispatchPrerequisite(family, env); },
     async reserve(family) {
       const gate = dispatchPrerequisite(family, env);
       return gate.permitted ? { permitted: true, reservation: { id: "guard-fixture", reservedAt: 0 } } : gate;

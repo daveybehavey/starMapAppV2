@@ -385,10 +385,10 @@ for (const scenario of [
       assert.equal(result.state.receiptJobs, undefined);
       assert.equal(result.state.pendingConsent.status, "pending");
       // Post-#632: the H-cap guard is evaluated FIRST in the dispatch checker, so while
-      // PROMOTION_SEND_CAP_H is unset every standing is masked as send_cap_unset.
+      // the shared counter reports H unset every standing is masked as send_cap_unset.
       // scenario.decision records the underlying standing the checker returns once a
       // cap is set; the state assertions above carry the FIX-1 preservation claim.
-      assert.deepEqual(await createPromotionDispatchPermissionChecker()(EMAIL), {
+      assert.deepEqual(await createPromotionDispatchPermissionChecker(undefined, { SEND_CAP_SERVICE: { fetch: async () => Response.json({ permitted: false, reason: "send_cap_unset" }) } })(EMAIL), {
         permitted: false, reason: "send_cap_unset",
       });
     } finally { kv.get = savedGet; globalThis.fetch = savedFetch; }
@@ -416,7 +416,7 @@ test("FIX-1: capture leaves existing authority facts and deliverability suppress
     assert.deepEqual({ ...result.state, pendingConsent: before.pendingConsent, updatedAt: before.updatedAt }, before);
     // Post-#632 cap-first order masks the suppression reason while H is unset
     // (deliverability_suppressed returns once a cap exists).
-    assert.deepEqual(await createPromotionDispatchPermissionChecker()(EMAIL), {
+    assert.deepEqual(await createPromotionDispatchPermissionChecker(undefined, { SEND_CAP_SERVICE: { fetch: async () => Response.json({ permitted: false, reason: "send_cap_unset" }) } })(EMAIL), {
       permitted: false, reason: "send_cap_unset",
     });
   } finally { kv.get = savedGet; }

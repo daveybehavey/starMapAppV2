@@ -29,7 +29,7 @@
  */
 import { createHmac } from "node:crypto";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { createSendCapClient, dispatchPrerequisite, type SendCapClient, type SendCapRefusal } from "@/lib/sharedSendCap";
+import { createSendCapClient, type SendCapClient, type SendCapRefusal } from "@/lib/sharedSendCap";
 import type {
   FrozenReviewPayload,
   ReviewDispatchResult,
@@ -305,7 +305,8 @@ export async function executeReviewDispatch(
     sendCap?: SendCapClient;
   }
 ): Promise<ReviewDispatchOutcome> {
-  const gate = dispatchPrerequisite("review");
+  const counter = deps.sendCap ?? createSendCapClient();
+  const gate = await counter.check("review");
   if (!gate.permitted) return { outcome: "refused", reason: gate.reason };
   const now = deps.now ?? Date.now;
   const { sessionId, claimId } = input;
@@ -323,7 +324,6 @@ export async function executeReviewDispatch(
   // Reserve BEFORE the irreversible ledger transition and final fences.
   // Reservations consume capacity provisionally; every proven non-attempt
   // releases in finally. Exhaustion leaves the ledger claim releasable.
-  const counter = deps.sendCap ?? createSendCapClient();
   const slot = await counter.reserve("review");
   if (!slot.permitted) return { outcome: "refused", reason: slot.reason };
   let attemptedAt: number | null = null;

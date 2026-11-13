@@ -29,7 +29,7 @@ import type { PromotionCapture } from "@/lib/promotionDisclosure";
  * would resurrect exactly the races this object exists to close.
  */
 import { DurableObject } from "cloudflare:workers";
-import { dispatchPrerequisite, type ReserveResult } from "../lib/sharedSendCap";
+import { createSendCapClient, dispatchPrerequisite, type ReserveResult } from "../lib/sharedSendCap";
 import { PROMOTION_SEND_CAP_H } from "../lib/promotionSendCap";
 import {
   SEND_CAP_OBJECT_NAME, isValidSendCapState, reserveSendSlot, settleSendSlot,
@@ -186,6 +186,7 @@ export class ConsistencyCoordinatorDO extends DurableObject {
    * Cloudflare's output gate holds the RPC response until persistence lands.
    */
   reserveCommercialSend(input: { family: SendFamily }): ReserveResult {
+    if (PROMOTION_SEND_CAP_H === null) return { permitted: false, reason: "send_cap_unset" };
     const gate = dispatchPrerequisite(input.family, this.env);
     if (!gate.permitted) return gate;
     if (this.objectId !== SEND_CAP_OBJECT_NAME) throw new Error("send_cap_wrong_object");
@@ -521,7 +522,7 @@ export class ConsistencyCoordinatorDO extends DurableObject {
    * concurrent RPC may have superseded.
    */
   async alarm(): Promise<void> {
-    if (!dispatchPrerequisite("promotion", this.env).permitted) return;
+    if (!(await createSendCapClient(this.env).check("promotion")).permitted) return;
     const initial = this.readKind("promotion");
     if (!initial) return;
     const now = Date.now();
