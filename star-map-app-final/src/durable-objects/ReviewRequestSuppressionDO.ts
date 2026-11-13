@@ -18,6 +18,7 @@
  * minimization never touches the flag itself.
  */
 import { DurableObject } from "cloudflare:workers";
+import { createSendCapClient, dispatchPrerequisite } from "../lib/sharedSendCap";
 import { createReviewLedgerClient } from "../lib/reviewRequestLedger";
 import {
   createMergedEntitlementReader,
@@ -217,6 +218,8 @@ export class ReviewRequestSuppressionDO extends DurableObject {
    * treats as an unavailable authority — no send.
    */
   async dispatch(input: { sessionId: string; claimId: string }): Promise<ReviewDispatchOutcome> {
+    const gate = dispatchPrerequisite("review");
+    if (!gate.permitted) return { outcome: "refused", reason: gate.reason };
     const ledger = createReviewLedgerClient(this.env);
     const kv = kvFromEnv(this.env);
     // The entitlement reader is the engine's shared MERGED view (raw
@@ -240,6 +243,7 @@ export class ReviewRequestSuppressionDO extends DurableObject {
         envString(this.env, "REVIEW_REQUESTS_PHYSICAL_ENABLED")?.trim() === "true",
     });
     return executeReviewDispatch(input, {
+      sendCap: createSendCapClient(this.env),
       ledger,
       isSuppressed: async () => (await this.check()).suppressed,
       checkEligibility,

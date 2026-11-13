@@ -3,6 +3,7 @@
  * (2026-11-02; docs/gdot-work-packet-2026-11-02.md, Part 1 item 4;
  * docs/CASL-RD-A-EVIDENCE-BASELINE.md, AM-15 / GC-2).
  * Setting H is a chair/David decision. This bridge enforces only the
- * unset predicate; cap arithmetic and activation are separate work.
+ * unset predicate first; rolling-window arithmetic and the separate
+ * default-off promotion activation fence are dormant until later gates.
  */
 export const PROMOTION_SEND_CAP_H: number | null = null;

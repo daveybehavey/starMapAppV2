@@ -1052,7 +1052,7 @@ export async function runReviewRequestTick(deps: ReviewEngineDeps): Promise<Revi
         claimId,
         name: suppressionName,
       });
-      if (dispatch === null || dispatch.outcome === "unavailable") {
+      if (dispatch === null || dispatch.outcome === "unavailable" || dispatch.outcome === "refused") {
         // A null/unavailable result does NOT prove the coordinator never
         // started: the dispatch may have committed (even sent) with only
         // its response lost. The release is safe anyway — release_claim

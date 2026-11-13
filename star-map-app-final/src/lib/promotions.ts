@@ -1,8 +1,11 @@
 import { getPromotionUnsubscribeUrl } from "@/lib/promotionSubscriptions";
+import { createSendCapClient } from "@/lib/sharedSendCap";
 import { getPromotionOfferName, getPromotionTargetLabel } from "@/lib/promotionOffer";
 import {
   checkPromotionDispatchPermission,
+  createPromotionDispatchPermissionChecker,
   evaluatePromotionSendCap,
+  type PromotionDispatchDecision,
   type PromotionDispatchPermissionChecker,
   type PromotionDispatchRefusalReason,
 } from "@/lib/promotionDispatchGuard";
@@ -314,6 +317,7 @@ export type PromotionDeliveryOutcome =
 
 type LegResult =
   | { configured: false }
+  | { configured: true; outcome: "refused"; reason: PromotionDispatchRefusalReason }
   | { configured: true; outcome: "accepted"; providerMessageId?: string | null }
   | { configured: true; outcome: "definitive_failure" | "ambiguous"; error: string };
 
@@ -384,9 +388,27 @@ function isAmbiguousHttpStatus(status: number): boolean {
   return status === 429 || status >= 500;
 }
 
+/**
+ * Post-reservation authority re-read shared by both provider legs. A
+ * checker that throws is an unreadable authority and refuses closed,
+ * exactly like the pre-leg fence in deliverPromotionSend.
+ */
+async function recheckDispatchPermission(
+  checkDispatchPermission: PromotionDispatchPermissionChecker,
+  email: string,
+): Promise<PromotionDispatchDecision> {
+  try {
+    return await checkDispatchPermission(email);
+  } catch {
+    return { permitted: false, reason: "authority_unavailable" };
+  }
+}
+
 async function sendLegResend(
   payload: PromotionSendPayload,
-  idempotencyKey?: string,
+  idempotencyKey: string | undefined,
+  env: unknown,
+  checkDispatchPermission: PromotionDispatchPermissionChecker,
 ): Promise<LegResult> {
   const resendApiKey = process.env.RESEND_API_KEY;
   if (!resendApiKey || !promotionFromEmail) {
@@ -432,12 +454,27 @@ async function sendLegResend(
     headers["Idempotency-Key"] = idempotencyKey;
   }
 
+  const requestBody = JSON.stringify(body);
+  const counter = createSendCapClient(env);
+  const slot = await counter.reserve("promotion");
+  if (!slot.permitted) return { configured: true, outcome: "refused", reason: slot.reason };
+  // Permission was checked before this leg ran, but the reserve above is
+  // an external await: an unsubscribe, erasure, or deliverability
+  // suppression can commit while it is in flight. Re-read authority now
+  // that capacity is held; on refusal release the slot unused and never
+  // invoke the provider (Codex P2 on PR #644).
+  const recheck = await recheckDispatchPermission(checkDispatchPermission, payload.email);
+  if (!recheck.permitted) {
+    await counter.release(slot.reservation);
+    return { configured: true, outcome: "refused", reason: recheck.reason };
+  }
+  const attemptedAt = Date.now();
   let response: Response;
   try {
     response = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers,
-      body: JSON.stringify(body),
+      body: requestBody,
     });
   } catch (error) {
     return {
@@ -445,6 +482,10 @@ async function sendLegResend(
       outcome: "ambiguous",
       error: error instanceof Error ? error.message.slice(0, 280) : "resend_fetch_failed",
     };
+  } finally {
+    // Never refund an attempted/ambiguous send. Failed settlement leaves a
+    // pending reservation consuming capacity (including after a crash).
+    await counter.commit(slot.reservation, attemptedAt);
   }
 
   if (!response.ok) {
@@ -464,7 +505,11 @@ async function sendLegResend(
   };
 }
 
-async function sendLegSendgrid(payload: PromotionSendPayload): Promise<LegResult> {
+async function sendLegSendgrid(
+  payload: PromotionSendPayload,
+  env: unknown,
+  checkDispatchPermission: PromotionDispatchPermissionChecker,
+): Promise<LegResult> {
   const sendgridApiKey = process.env.SENDGRID_API_KEY;
   const fromAddress = parseEmailAddress(promotionFromEmail);
   if (!sendgridApiKey || !fromAddress) {
@@ -504,6 +549,19 @@ async function sendLegSendgrid(payload: PromotionSendPayload): Promise<LegResult
     }
   }
 
+  const requestBody = JSON.stringify(body);
+  const counter = createSendCapClient(env);
+  const slot = await counter.reserve("promotion");
+  if (!slot.permitted) return { configured: true, outcome: "refused", reason: slot.reason };
+  // Same post-reservation authority re-read as the Resend leg (Codex P2
+  // on PR #644): a suppression committed during the reserve await must
+  // refuse here, release the slot, and never reach the provider.
+  const recheck = await recheckDispatchPermission(checkDispatchPermission, payload.email);
+  if (!recheck.permitted) {
+    await counter.release(slot.reservation);
+    return { configured: true, outcome: "refused", reason: recheck.reason };
+  }
+  const attemptedAt = Date.now();
   let response: Response;
   try {
     response = await fetch("https://api.sendgrid.com/v3/mail/send", {
@@ -512,7 +570,7 @@ async function sendLegSendgrid(payload: PromotionSendPayload): Promise<LegResult
         Authorization: `Bearer ${sendgridApiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(body),
+      body: requestBody,
     });
   } catch (error) {
     return {
@@ -520,6 +578,8 @@ async function sendLegSendgrid(payload: PromotionSendPayload): Promise<LegResult
       outcome: "ambiguous",
       error: error instanceof Error ? error.message.slice(0, 280) : "sendgrid_fetch_failed",
     };
+  } finally {
+    await counter.commit(slot.reservation, attemptedAt);
   }
 
   if (!response.ok) {
@@ -612,15 +672,17 @@ export function selectPromotionProvider(): {
 export async function deliverPromotionSend(
   payload: PromotionSendPayload,
   idempotencyKey?: string,
-  options?: { checkDispatchPermission?: PromotionDispatchPermissionChecker },
+  options?: { checkDispatchPermission?: PromotionDispatchPermissionChecker; env?: unknown },
 ): Promise<PromotionDeliveryOutcome> {
   // GC-2 applies even when a coordinator injects its own authority checker.
-  const cap = evaluatePromotionSendCap();
+  const cap = evaluatePromotionSendCap(options?.env);
   if (!cap.permitted) {
     return { outcome: "refused", provider: "none", reason: cap.reason };
   }
   const checkDispatchPermission =
-    options?.checkDispatchPermission ?? checkPromotionDispatchPermission;
+    options?.checkDispatchPermission ?? (options?.env === undefined
+      ? checkPromotionDispatchPermission
+      : createPromotionDispatchPermissionChecker(undefined, options.env));
   let decision: Awaited<ReturnType<PromotionDispatchPermissionChecker>>;
   try {
     decision = await checkDispatchPermission(payload.email);
@@ -649,8 +711,8 @@ export async function deliverPromotionSend(
     run: () => Promise<LegResult>;
     idempotencyGuaranteed: boolean;
   }> = [
-    { provider: "resend", run: () => sendLegResend(payload, idempotencyKey), idempotencyGuaranteed: true },
-    { provider: "sendgrid", run: () => sendLegSendgrid(payload), idempotencyGuaranteed: false },
+    { provider: "resend", run: () => sendLegResend(payload, idempotencyKey, options?.env, checkDispatchPermission), idempotencyGuaranteed: true },
+    { provider: "sendgrid", run: () => sendLegSendgrid(payload, options?.env, checkDispatchPermission), idempotencyGuaranteed: false },
   ];
 
   for (const leg of legs) {
@@ -666,6 +728,9 @@ export async function deliverPromotionSend(
       };
     }
     if (!result.configured) continue;
+    if (result.outcome === "refused") {
+      return { outcome: "refused", provider: "none", reason: result.reason };
+    }
     if (result.outcome === "accepted") {
       return {
         outcome: "accepted",

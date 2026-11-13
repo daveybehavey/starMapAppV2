@@ -29,6 +29,7 @@
  */
 import { createHmac } from "node:crypto";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { createSendCapClient, dispatchPrerequisite, type SendCapClient, type SendCapRefusal } from "@/lib/sharedSendCap";
 import type {
   FrozenReviewPayload,
   ReviewDispatchResult,
@@ -179,6 +180,7 @@ export function reviewSuppressionMinimizationDue(
 // ---------------------------------------------------------------------------
 
 export type ReviewDispatchOutcome =
+  | { outcome: "refused"; reason: SendCapRefusal | "promotion_dispatch_disabled" }
   | { outcome: "sent"; providerId: string }
   | { outcome: "suppressed" }
   | { outcome: "retry_scheduled" }
@@ -265,11 +267,13 @@ async function sendWithTimeout(
 
 /**
  * The single send path. Ordering is the safety property:
- *   suppression check → begin_dispatch (deadline check against the
+ *   null-H check → suppression check → reserve shared capacity →
+ *   begin_dispatch (deadline check against the
  *   pre-commit clock sample, frozen payload read) → eligibility
  *   re-check against fresh source records (S54-5 (b) as revised) →
  *   FINAL suppression re-check → point-of-invocation deadline re-check
- *   → ONE provider call → resolve_dispatch.
+ *   → ONE provider call → resolve_dispatch → settle reservation.
+ * Every exit before provider invocation releases the reservation instead.
  * The provider is called only with the payload frozen in the ledger row —
  * never with a caller-supplied re-render. The final re-check exists
  * because the first check cannot fence the send on its own: the
@@ -298,8 +302,11 @@ export async function executeReviewDispatch(
     send: ReviewSendFn;
     now?: () => number;
     sendTimeoutMs?: number;
+    sendCap?: SendCapClient;
   }
 ): Promise<ReviewDispatchOutcome> {
+  const gate = dispatchPrerequisite("review");
+  if (!gate.permitted) return { outcome: "refused", reason: gate.reason };
   const now = deps.now ?? Date.now;
   const { sessionId, claimId } = input;
 
@@ -313,129 +320,147 @@ export async function executeReviewDispatch(
     return { outcome: "suppressed" };
   }
 
-  const begun = await deps.ledger
-    .apply(sessionId, { type: "begin_dispatch", claimId, now: now() })
-    .catch(() => null);
-  if (!begun) return { outcome: "unavailable" };
-  switch (begun.outcome) {
-    case "dispatching":
-      break;
-    case "expired":
+  // Reserve BEFORE the irreversible ledger transition and final fences.
+  // Reservations consume capacity provisionally; every proven non-attempt
+  // releases in finally. Exhaustion leaves the ledger claim releasable.
+  const counter = deps.sendCap ?? createSendCapClient();
+  const slot = await counter.reserve("review");
+  if (!slot.permitted) return { outcome: "refused", reason: slot.reason };
+  let attemptedAt: number | null = null;
+  try {
+    const begun = await deps.ledger
+      .apply(sessionId, { type: "begin_dispatch", claimId, now: now() })
+      .catch(() => null);
+    if (!begun) return { outcome: "unavailable" };
+    switch (begun.outcome) {
+      case "dispatching":
+        break;
+      case "expired":
+        return { outcome: "expired" };
+      case "quarantined":
+        return { outcome: "failed" };
+      default:
+        return { outcome: "not_dispatchable" };
+    }
+    const payload: FrozenReviewPayload | null = begun.state.payload;
+    if (!payload) {
+      // begin_dispatch terminalizes a payload-less claim as failed, so this
+      // is unreachable unless the ledger implementation is not the machine's.
+      return { outcome: "failed" };
+    }
+
+    const resolve = async (result: ReviewDispatchResult) =>
+      deps.ledger.apply(sessionId, { type: "resolve_dispatch", claimId, result, now: now() }).catch(() => null);
+
+    // ELIGIBILITY RE-CHECK (S54-5 design (b) as revised by S54-5B): the
+    // tick classified this session BEFORE the claim; a refund/revocation
+    // landing between that read and this commit did not fence the send
+    // (S52-2 M2-01). Now that the dispatch has committed, obtain a FRESH
+    // affirmative eligibility decision — derived by the checker from the
+    // committed state and fresh source records — before the provider is
+    // invoked. This is deliberately placed BEFORE the final suppression
+    // check: the eligibility reads are external awaits, and no external
+    // await may follow the final LOCAL suppression check, so suppression
+    // remains the last gate before the deadline fence and the call.
+    const eligibility: ReviewDispatchEligibility =
+      (await deps
+        .checkEligibility({ sessionId, state: begun.state, now })
+        .catch((): ReviewDispatchEligibility => ({
+          status: "unavailable",
+          error: "eligibility_check_failed",
+        }))) ?? { status: "unavailable", error: "eligibility_check_failed" };
+    if (eligibility.status === "ineligible") {
+      // Definitive negative from fresh evidence; no provider call made.
+      await resolve({ type: "ineligible", reason: eligibility.reason });
+      return { outcome: "ineligible" };
+    }
+    if (eligibility.status === "unavailable") {
+      // The authority cannot answer: do NOT send. The committed dispatch
+      // settles terminally (never released into a blind retry).
+      await resolve({ type: "eligibility_unavailable", error: eligibility.error });
+      return { outcome: "eligibility_unavailable" };
+    }
+
+    // FINAL suppression fence: re-check after the dispatch commit, at the
+    // last moment before the provider call (see the ordering note above).
+    const suppressedFinal = await deps.isSuppressed().catch(() => null);
+    if (suppressedFinal === null) {
+      // The gate cannot be verified after the commit: do NOT send. The
+      // outcome is settled as uncertain (never resent) rather than guessed.
+      await resolve({ type: "ambiguous", error: "suppression_recheck_unavailable" });
+      return { outcome: "uncertain" };
+    }
+    if (suppressedFinal) {
+      // Suppression landed while the commit was in flight. No provider
+      // call has been made, so the committed row settles truthfully as
+      // terminal `suppressed` — not `uncertain`.
+      await resolve({ type: "suppressed" });
+      return { outcome: "suppressed" };
+    }
+
+    // POINT-OF-INVOCATION deadline fence: the deadline check inside
+    // begin_dispatch ran against a clock sampled before that RPC, and the
+    // final suppression re-check awaited again — either can carry the
+    // invocation past the absolute deadline (e.g. the commit lands at
+    // deadline−1ms and returns at deadline+1ms). Sample a fresh clock NOW,
+    // after the last await: between this sample and the provider-call
+    // invocation inside sendWithTimeout there is no await, so the check
+    // binds the actual send. No provider call is made on this path, so the
+    // committed row settles truthfully as terminal `expired`.
+    const retryDeadlineAt = begun.state.retryDeadlineAt;
+    const invocationAt = now();
+    if (retryDeadlineAt !== null && invocationAt >= retryDeadlineAt) {
+      await resolve({ type: "expired" });
       return { outcome: "expired" };
-    case "quarantined":
-      return { outcome: "failed" };
-    default:
-      return { outcome: "not_dispatchable" };
-  }
-  const payload: FrozenReviewPayload | null = begun.state.payload;
-  if (!payload) {
-    // begin_dispatch terminalizes a payload-less claim as failed, so this
-    // is unreachable unless the ledger implementation is not the machine's.
-    return { outcome: "failed" };
-  }
-
-  const resolve = async (result: ReviewDispatchResult) =>
-    deps.ledger.apply(sessionId, { type: "resolve_dispatch", claimId, result, now: now() }).catch(() => null);
-
-  // ELIGIBILITY RE-CHECK (S54-5 design (b) as revised by S54-5B): the
-  // tick classified this session BEFORE the claim; a refund/revocation
-  // landing between that read and this commit did not fence the send
-  // (S52-2 M2-01). Now that the dispatch has committed, obtain a FRESH
-  // affirmative eligibility decision — derived by the checker from the
-  // committed state and fresh source records — before the provider is
-  // invoked. This is deliberately placed BEFORE the final suppression
-  // check: the eligibility reads are external awaits, and no external
-  // await may follow the final LOCAL suppression check, so suppression
-  // remains the last gate before the deadline fence and the call.
-  const eligibility: ReviewDispatchEligibility =
-    (await deps
-      .checkEligibility({ sessionId, state: begun.state, now })
-      .catch((): ReviewDispatchEligibility => ({
-        status: "unavailable",
-        error: "eligibility_check_failed",
-      }))) ?? { status: "unavailable", error: "eligibility_check_failed" };
-  if (eligibility.status === "ineligible") {
-    // Definitive negative from fresh evidence; no provider call made.
-    await resolve({ type: "ineligible", reason: eligibility.reason });
-    return { outcome: "ineligible" };
-  }
-  if (eligibility.status === "unavailable") {
-    // The authority cannot answer: do NOT send. The committed dispatch
-    // settles terminally (never released into a blind retry).
-    await resolve({ type: "eligibility_unavailable", error: eligibility.error });
-    return { outcome: "eligibility_unavailable" };
-  }
-
-  // FINAL suppression fence: re-check after the dispatch commit, at the
-  // last moment before the provider call (see the ordering note above).
-  const suppressedFinal = await deps.isSuppressed().catch(() => null);
-  if (suppressedFinal === null) {
-    // The gate cannot be verified after the commit: do NOT send. The
-    // outcome is settled as uncertain (never resent) rather than guessed.
-    await resolve({ type: "ambiguous", error: "suppression_recheck_unavailable" });
-    return { outcome: "uncertain" };
-  }
-  if (suppressedFinal) {
-    // Suppression landed while the commit was in flight. No provider
-    // call has been made, so the committed row settles truthfully as
-    // terminal `suppressed` — not `uncertain`.
-    await resolve({ type: "suppressed" });
-    return { outcome: "suppressed" };
-  }
-
-  // POINT-OF-INVOCATION deadline fence: the deadline check inside
-  // begin_dispatch ran against a clock sampled before that RPC, and the
-  // final suppression re-check awaited again — either can carry the
-  // invocation past the absolute deadline (e.g. the commit lands at
-  // deadline−1ms and returns at deadline+1ms). Sample a fresh clock NOW,
-  // after the last await: between this sample and the provider-call
-  // invocation inside sendWithTimeout there is no await, so the check
-  // binds the actual send. No provider call is made on this path, so the
-  // committed row settles truthfully as terminal `expired`.
-  const retryDeadlineAt = begun.state.retryDeadlineAt;
-  if (retryDeadlineAt !== null && now() >= retryDeadlineAt) {
-    await resolve({ type: "expired" });
-    return { outcome: "expired" };
-  }
-
-  const timed = await sendWithTimeout(
-    deps.send,
-    payload,
-    deps.sendTimeoutMs ?? REVIEW_PROVIDER_SEND_TIMEOUT_MS
-  );
-
-  if (timed.kind === "ambiguous") {
-    await resolve({ type: "ambiguous", error: timed.error });
-    return { outcome: "uncertain" };
-  }
-
-  const result = timed.result;
-  if (!result.ok) {
-    const failureClass = classifyReviewSendError(result.error);
-    if (failureClass === "permanent") {
-      await resolve({ type: "rejected", error: result.error, permanent: true });
-      return { outcome: "failed" };
     }
-    if (failureClass === "transient") {
-      const resolved = await resolve({ type: "rejected", error: result.error, permanent: false });
-      if (resolved?.outcome === "quarantined") return { outcome: "failed" };
-      if (!resolved) return { outcome: "uncertain" };
-      return { outcome: "retry_scheduled" };
+
+    attemptedAt = invocationAt;
+    const timed = await sendWithTimeout(
+      deps.send,
+      payload,
+      deps.sendTimeoutMs ?? REVIEW_PROVIDER_SEND_TIMEOUT_MS
+    ).catch((): TimedSend => ({ kind: "ambiguous", error: "provider_threw" }));
+
+    if (timed.kind === "ambiguous") {
+      await resolve({ type: "ambiguous", error: timed.error });
+      return { outcome: "uncertain" };
     }
-    // ambiguous | config: no definitive provider answer — never retried.
-    await resolve({ type: "ambiguous", error: result.error });
+
+    const result = timed.result;
+    if (!result.ok) {
+      const failureClass = classifyReviewSendError(result.error);
+      if (failureClass === "permanent") {
+        await resolve({ type: "rejected", error: result.error, permanent: true });
+        return { outcome: "failed" };
+      }
+      if (failureClass === "transient") {
+        const resolved = await resolve({ type: "rejected", error: result.error, permanent: false });
+        if (resolved?.outcome === "quarantined") return { outcome: "failed" };
+        if (!resolved) return { outcome: "uncertain" };
+        return { outcome: "retry_scheduled" };
+      }
+      // ambiguous | config: no definitive provider answer — never retried.
+      await resolve({ type: "ambiguous", error: result.error });
+      return { outcome: "uncertain" };
+    }
+    if (result.id) {
+      await resolve({ type: "accepted", providerId: result.id });
+      // The provider accepted; even if the ledger write was lost the send
+      // happened (the row settles as uncertain via expire_dispatch, and the
+      // one-ask ledger can never send again from `dispatching`).
+      return { outcome: "sent", providerId: result.id };
+    }
+    // Accepted with no provider id: the outcome is unprovable — ambiguous.
+    await resolve({ type: "ambiguous", error: "provider_accepted_without_id" });
     return { outcome: "uncertain" };
+  } finally {
+    // No new await on the final-fence → provider-invocation path. The
+    // reservation itself durably charges ambiguous attempts before any
+    // settlement RPC. Failed settlement/crash leaks capacity conservatively;
+    // pending reservations NEVER expire or get automatically refunded.
+    if (attemptedAt === null) await counter.release(slot.reservation);
+    else await counter.commit(slot.reservation, attemptedAt);
   }
-  if (result.id) {
-    await resolve({ type: "accepted", providerId: result.id });
-    // The provider accepted; even if the ledger write was lost the send
-    // happened (the row settles as uncertain via expire_dispatch, and the
-    // one-ask ledger can never send again from `dispatching`).
-    return { outcome: "sent", providerId: result.id };
-  }
-  // Accepted with no provider id: the outcome is unprovable — ambiguous.
-  await resolve({ type: "ambiguous", error: "provider_accepted_without_id" });
-  return { outcome: "uncertain" };
 }
 
 // ---------------------------------------------------------------------------

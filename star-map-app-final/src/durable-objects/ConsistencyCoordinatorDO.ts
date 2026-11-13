@@ -12,6 +12,7 @@ import type { PromotionCapture } from "@/lib/promotionDisclosure";
  *   magic:v1:<sha256(token)>          one object per magic token
  *   account:v1:<existing email hash>  one object per account email
  *   promotion:v1:<email hash>         one object per promotion email
+ *   commercial-send-cap:v1:global    one budget shared by promotion/review
  *
  * Storage shape follows the entitlement/review precedents: ONE JSON
  * document row per object. Every mutation is computed by the pure state
@@ -28,6 +29,12 @@ import type { PromotionCapture } from "@/lib/promotionDisclosure";
  * would resurrect exactly the races this object exists to close.
  */
 import { DurableObject } from "cloudflare:workers";
+import { dispatchPrerequisite, type ReserveResult } from "../lib/sharedSendCap";
+import { PROMOTION_SEND_CAP_H } from "../lib/promotionSendCap";
+import {
+  SEND_CAP_OBJECT_NAME, isValidSendCapState, reserveSendSlot, settleSendSlot,
+  type SendCapState, type SendFamily,
+} from "../lib/sharedSendCapState";
 import {
   applyClaimPromotionJob,
   applyClearDeliverabilitySuppression,
@@ -88,7 +95,8 @@ type CoordinatorRow = {
 type AnyCoordinatorState =
   | MagicTokenCoordinatorState
   | AccountIndexCoordinatorState
-  | PromotionCoordinatorState;
+  | PromotionCoordinatorState
+  | SendCapState;
 
 function outcomeToCoordinator(outcome: PromotionDeliveryOutcome): PromotionSendOutcome {
   if (outcome.outcome === "accepted") {
@@ -148,7 +156,8 @@ export class ConsistencyCoordinatorDO extends DurableObject {
     if (
       !isValidMagicTokenState(parsed) &&
       !isValidAccountIndexState(parsed) &&
-      !isValidPromotionState(parsed)
+      !isValidPromotionState(parsed) &&
+      !isValidSendCapState(parsed)
     ) {
       throw new Error(`consistency coordinator state malformed for ${this.objectId}`);
     }
@@ -171,6 +180,31 @@ export class ConsistencyCoordinatorDO extends DurableObject {
       serialised,
       now,
     );
+  }
+
+  /** Synchronous read/transition/upsert: the last slot has one winner.
+   * Cloudflare's output gate holds the RPC response until persistence lands.
+   */
+  reserveCommercialSend(input: { family: SendFamily }): ReserveResult {
+    const gate = dispatchPrerequisite(input.family, this.env);
+    if (!gate.permitted) return gate;
+    if (this.objectId !== SEND_CAP_OBJECT_NAME) throw new Error("send_cap_wrong_object");
+    const now = Date.now();
+    const id = crypto.randomUUID();
+    const result = reserveSendSlot(this.readKind("send_cap"), {
+      id, family: input.family, now, cap: PROMOTION_SEND_CAP_H!,
+    });
+    if (!result.reserved) return { permitted: false, reason: "send_cap_exhausted" };
+    this.writeDocument(result.state);
+    return { permitted: true, reservation: { id, reservedAt: now } };
+  }
+
+  settleCommercialSend(input: { id: string; attemptedAt: number | null }): { persisted: true } {
+    if (this.objectId !== SEND_CAP_OBJECT_NAME) throw new Error("send_cap_wrong_object");
+    const state = this.readKind("send_cap");
+    if (!state) throw new Error("send_cap_missing_reservation");
+    this.writeDocument(settleSendSlot(state, { ...input, now: Date.now() }));
+    return { persisted: true };
   }
 
   private readKind<K extends AnyCoordinatorState["kind"]>(
@@ -487,6 +521,7 @@ export class ConsistencyCoordinatorDO extends DurableObject {
    * concurrent RPC may have superseded.
    */
   async alarm(): Promise<void> {
+    if (!dispatchPrerequisite("promotion", this.env).permitted) return;
     const initial = this.readKind("promotion");
     if (!initial) return;
     const now = Date.now();
@@ -520,6 +555,7 @@ export class ConsistencyCoordinatorDO extends DurableObject {
           claimed.claim.payload,
           claimed.claim.providerIdempotencyKey,
           {
+            env: this.env,
             // Dispatch fence (gate-1 fencing build): the authority for
             // this object is THIS document — evaluate it directly,
             // re-read at dispatch time. (No client/RPC: an alarm has no
@@ -531,7 +567,7 @@ export class ConsistencyCoordinatorDO extends DurableObject {
                 coordinatorState: this.readKind("promotion"),
                 legacyState: null,
                 legacyListMember: false,
-              }),
+              }, this.env),
           },
         );
         outcome = outcomeToCoordinator(delivery);
