@@ -64,6 +64,11 @@ export const CHECKOUT_TIMING_STAGES = [
   "pre_create",
   "promo",
   "printful_quote",
+  "session_setup",
+  "session_shipping",
+  "session_line_items",
+  "session_validation",
+  "session_params",
   "stripe_create",
   "post_create",
   "total",
@@ -168,6 +173,12 @@ export type CheckoutTimingCollector = {
   promoMs: number | null;
   /** Merch only: the live Printful shipping quote inside session creation. */
   merchPrintfulQuoteMs: number | null;
+  /** Interior slices before Stripe creation; shipping includes the nested merch quote. */
+  sessionSetupMs: number | null;
+  sessionShippingMs: number | null;
+  sessionLineItemsMs: number | null;
+  sessionValidationMs: number | null;
+  sessionParamsMs: number | null;
   /** Stripe session create, including any fallback creates and URL-recovery retrieve. */
   stripeCreateMs: number | null;
   /** Idempotency cache write + funnel steps after the session exists. */
@@ -185,6 +196,11 @@ export function createCheckoutTimingCollector(
     preCreateMs: null,
     promoMs: null,
     merchPrintfulQuoteMs: null,
+    sessionSetupMs: null,
+    sessionShippingMs: null,
+    sessionLineItemsMs: null,
+    sessionValidationMs: null,
+    sessionParamsMs: null,
     stripeCreateMs: null,
     postCreateMs: null,
     consentFallbackFired: false,
@@ -210,6 +226,16 @@ function checkoutTimingStageDurationMs(
       return collector.promoMs;
     case "printful_quote":
       return collector.merchPrintfulQuoteMs;
+    case "session_setup":
+      return collector.sessionSetupMs;
+    case "session_shipping":
+      return collector.sessionShippingMs;
+    case "session_line_items":
+      return collector.sessionLineItemsMs;
+    case "session_validation":
+      return collector.sessionValidationMs;
+    case "session_params":
+      return collector.sessionParamsMs;
     case "stripe_create":
       return collector.stripeCreateMs;
     case "post_create":
@@ -288,6 +314,11 @@ export function buildCheckoutTimingLog(input: CheckoutTimingLogInput) {
     preCreateMs: roundTimingMs(input.collector.preCreateMs),
     promoMs: roundTimingMs(input.collector.promoMs),
     merchPrintfulQuoteMs: roundTimingMs(input.collector.merchPrintfulQuoteMs),
+    sessionSetupMs: roundTimingMs(input.collector.sessionSetupMs),
+    sessionShippingMs: roundTimingMs(input.collector.sessionShippingMs),
+    sessionLineItemsMs: roundTimingMs(input.collector.sessionLineItemsMs),
+    sessionValidationMs: roundTimingMs(input.collector.sessionValidationMs),
+    sessionParamsMs: roundTimingMs(input.collector.sessionParamsMs),
     stripeCreateMs: roundTimingMs(input.collector.stripeCreateMs),
     postCreateMs: roundTimingMs(input.collector.postCreateMs),
     totalMs: roundTimingMs(endedAtPerf - input.collector.startedAtPerf),
@@ -300,4 +331,21 @@ export function buildCheckoutTimingLog(input: CheckoutTimingLogInput) {
 
 export function logCheckoutTiming(input: CheckoutTimingLogInput): void {
   console.info("checkout_timing", buildCheckoutTimingLog(input));
+}
+
+/** Sequential interior slices; finish also records a partially completed failing stage.
+ * Shipping includes the existing nested Printful quote; do not add both together.
+ * Only mutates the request collector. Persistence uses the existing deferred aggregate path.
+ */
+export function createCheckoutInteriorTimer(collector?: CheckoutTimingCollector) {
+  type Field = "sessionSetupMs" | "sessionShippingMs" | "sessionLineItemsMs" | "sessionValidationMs" | "sessionParamsMs";
+  let field: Field | null = "sessionSetupMs";
+  let started = collector ? performance.now() : 0;
+  return (next: Field | null): void => {
+    if (!collector || field === null) return;
+    const now = performance.now();
+    collector[field] = now - started;
+    started = now;
+    field = next;
+  };
 }

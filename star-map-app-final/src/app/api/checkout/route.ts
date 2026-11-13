@@ -46,6 +46,7 @@ import {
   checkoutTimingAggregateIncrements,
   checkoutTimingCounterForPrintfulQuoteBucket,
   createCheckoutTimingCollector,
+  createCheckoutInteriorTimer,
   logCheckoutTiming as logCheckoutTimingLine,
   printfulQuoteBucket,
   type CheckoutTimingCollector,
@@ -1098,6 +1099,10 @@ async function createCheckoutSession(input: {
   /** Instrumentation only: stage-timing collector filled in as stages run. */
   timing?: CheckoutTimingCollector;
 }): Promise<CheckoutSessionResult> {
+  // CHK-F4 instrumentation begin
+  const markInterior = createCheckoutInteriorTimer(input.timing);
+  try {
+  // CHK-F4 instrumentation end
   const {
     plan,
     mapId,
@@ -1249,6 +1254,9 @@ async function createCheckoutSession(input: {
   // Instrumentation only: time the merch Printful quote (the one live
   // third-party call inside session creation). The call itself, its
   // arguments, and its result handling are unchanged.
+  // CHK-F4 instrumentation begin
+  markInterior("sessionShippingMs");
+  // CHK-F4 instrumentation end
   const merchQuoteStartedAt =
     input.timing && isPrintOrder && isMerchOrder && resolvedMerch ? performance.now() : null;
   // Instrumentation only: record the quote duration (and queue its
@@ -1285,6 +1293,9 @@ async function createCheckoutSession(input: {
     throw quoteError;
   }
   recordMerchQuoteTiming();
+  // CHK-F4 instrumentation begin
+  markInterior("sessionLineItemsMs");
+  // CHK-F4 instrumentation end
   let printShippingOptions = printShippingSelection.shippingOptions;
   let printShippingChargeCents = printShippingSelection.shippingChargeCents;
   // The geo-pricing experiment never prices CA (design §1.2); for a CA
@@ -1629,6 +1640,9 @@ async function createCheckoutSession(input: {
     });
   }
 
+  // CHK-F4 instrumentation begin
+  markInterior("sessionValidationMs");
+  // CHK-F4 instrumentation end
   let estimatedPromotionDiscountCents = 0;
   if (isPrintOrder && promotionCodeId) {
     // The estimator validates against the SESSION's currency and
@@ -1724,6 +1738,9 @@ async function createCheckoutSession(input: {
     }
   }
 
+  // CHK-F4 instrumentation begin
+  markInterior("sessionParamsMs");
+  // CHK-F4 instrumentation end
   const attemptPromotionsConsent = shouldAttemptPromotionsConsent();
   const sessionParams: CheckoutSessionCreateParams = {
     mode: !isPrintOrder && effectivePlan === "subscription" ? "subscription" : "payment",
@@ -1852,6 +1869,9 @@ async function createCheckoutSession(input: {
   // Instrumentation only: the Stripe create stage starts here and ends
   // once a session with a usable URL exists (fallback creates and the
   // URL-recovery retrieve included — that is the real time to a session).
+  // CHK-F4 instrumentation begin
+  markInterior(null);
+  // CHK-F4 instrumentation end
   const stripeCreateStartedAt = input.timing ? performance.now() : null;
   // Instrumentation only: finalize the Stripe stage duration (idempotent)
   // so EVERY error exit below reports a real stripeCreateMs once Stripe
@@ -1985,6 +2005,11 @@ async function createCheckoutSession(input: {
   }
   await flushQueuedTimingCounters();
   return { url: resolved.url, discountRejected };
+  // CHK-F4 instrumentation begin
+  } finally {
+    markInterior(null);
+  }
+  // CHK-F4 instrumentation end
 }
 
 export async function GET(req: NextRequest) {
