@@ -587,8 +587,8 @@ export function createConsistencyCoordinatorClient(
     if (ns) {
       try {
         const stub = ns.get(ns.idFromName(name));
-        const fn = stub[method] as (arg: unknown) => Promise<T>;
-        return await fn.call(stub, input);
+        // Keep the invocation on the RPC stub: `.call` is itself an RPC lookup.
+        return await (stub[method] as (arg: unknown) => Promise<T>)(input);
       } catch (error) {
         if (isLocalCoordinatorFallbackAllowed()) return memoryCall();
         throw new ConsistencyCoordinatorUnavailableError(
