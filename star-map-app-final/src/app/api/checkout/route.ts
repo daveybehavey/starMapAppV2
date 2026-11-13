@@ -2272,30 +2272,39 @@ export async function GET(req: NextRequest) {
       );
     }
     if (!qaContext.enabled) {
-      await bestEffortCheckoutSideEffect({
-        correlationId,
-        stage: "funnel_checkout_session_created_get",
-        run: () =>
-          recordFunnelStep({
-            step: "checkout_session_created",
-            source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
-            plan: orderType === "print" ? printVariant : plan,
-            handoff: getCheckoutHandoff,
-            trustedCheckoutClassification: true,
-          }),
-      });
-      await bestEffortCheckoutSideEffect({
-        correlationId,
-        stage: "funnel_checkout_redirected_get",
-        run: () =>
-          recordFunnelStep({
-            step: "checkout_redirected",
-            source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
-            plan: orderType === "print" ? printVariant : plan,
-            handoff: getCheckoutHandoff,
-            trustedCheckoutClassification: true,
-          }),
-      });
+      // Keep funnel KV work alive after the response, as for timing telemetry.
+      const persistence = (async () => {
+        await bestEffortCheckoutSideEffect({
+          correlationId,
+          stage: "funnel_checkout_session_created_get",
+          run: () =>
+            recordFunnelStep({
+              step: "checkout_session_created",
+              source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
+              plan: orderType === "print" ? printVariant : plan,
+              handoff: getCheckoutHandoff,
+              trustedCheckoutClassification: true,
+            }),
+        });
+        await bestEffortCheckoutSideEffect({
+          correlationId,
+          stage: "funnel_checkout_redirected_get",
+          run: () =>
+            recordFunnelStep({
+              step: "checkout_redirected",
+              source: orderType === "print" ? "checkout_api_print_get" : "checkout_api_digital_get",
+              plan: orderType === "print" ? printVariant : plan,
+              handoff: getCheckoutHandoff,
+              trustedCheckoutClassification: true,
+            }),
+        });
+      })();
+      try {
+        getCloudflareContext().ctx.waitUntil(persistence);
+      } catch {
+        // Off-Workers, preserve the awaited behavior; never abandon funnel writes.
+        await persistence;
+      }
     }
     // Instrumentation only: post-create side effects are done — emit
     // the one timing line for this checkout.
@@ -2748,18 +2757,27 @@ export async function POST(req: NextRequest) {
     }
 
     if (!qaContext.enabled) {
-      await bestEffortCheckoutSideEffect({
-        correlationId,
-        stage: "funnel_checkout_request_received",
-        run: () =>
-          recordFunnelStep({
-            step: "checkout_request_received",
-            source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
-            plan: orderType === "print" ? printVariant : plan,
-            handoff: checkoutHandoff,
-            trustedCheckoutClassification: true,
-          }),
-      });
+      // Keep funnel KV work alive after the response, as for timing telemetry.
+      const persistence = (async () => {
+        await bestEffortCheckoutSideEffect({
+          correlationId,
+          stage: "funnel_checkout_request_received",
+          run: () =>
+            recordFunnelStep({
+              step: "checkout_request_received",
+              source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
+              plan: orderType === "print" ? printVariant : plan,
+              handoff: checkoutHandoff,
+              trustedCheckoutClassification: true,
+            }),
+        });
+      })();
+      try {
+        getCloudflareContext().ctx.waitUntil(persistence);
+      } catch {
+        // Off-Workers, preserve the awaited behavior; never abandon funnel writes.
+        await persistence;
+      }
     }
 
     // Instrumentation only: everything from handler entry to here is
@@ -2835,18 +2853,27 @@ export async function POST(req: NextRequest) {
         });
       }
       if (!qaContext.enabled) {
-        await bestEffortCheckoutSideEffect({
-          correlationId,
-          stage: "funnel_checkout_session_created_discount_rejected",
-          run: () =>
-            recordFunnelStep({
-              step: "checkout_session_created",
-              source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
-              plan: orderType === "print" ? printVariant : plan,
-              handoff: checkoutHandoff,
-              trustedCheckoutClassification: true,
-            }),
-        });
+        // Keep funnel KV work alive after the response, as for timing telemetry.
+        const persistence = (async () => {
+          await bestEffortCheckoutSideEffect({
+            correlationId,
+            stage: "funnel_checkout_session_created_discount_rejected",
+            run: () =>
+              recordFunnelStep({
+                step: "checkout_session_created",
+                source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
+                plan: orderType === "print" ? printVariant : plan,
+                handoff: checkoutHandoff,
+                trustedCheckoutClassification: true,
+              }),
+          });
+        })();
+        try {
+          getCloudflareContext().ctx.waitUntil(persistence);
+        } catch {
+          // Off-Workers, preserve the awaited behavior; never abandon funnel writes.
+          await persistence;
+        }
       }
       // Instrumentation only: post-create side effects are done — emit
       // the one timing line for this (discount-rejected) checkout.
@@ -2909,31 +2936,40 @@ export async function POST(req: NextRequest) {
       });
     }
     if (!qaContext.enabled) {
-      await bestEffortCheckoutSideEffect({
-        correlationId,
-        stage: "funnel_checkout_session_created",
-        run: () =>
-          recordFunnelStep({
-            step: "checkout_session_created",
-            source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
-            plan: orderType === "print" ? printVariant : plan,
-            handoff: checkoutHandoff,
-            trustedCheckoutClassification: true,
-          }),
-      });
+      // Keep funnel KV work alive after the response, as for timing telemetry.
+      const persistence = (async () => {
+        await bestEffortCheckoutSideEffect({
+          correlationId,
+          stage: "funnel_checkout_session_created",
+          run: () =>
+            recordFunnelStep({
+              step: "checkout_session_created",
+              source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
+              plan: orderType === "print" ? printVariant : plan,
+              handoff: checkoutHandoff,
+              trustedCheckoutClassification: true,
+            }),
+        });
 
-      await bestEffortCheckoutSideEffect({
-        correlationId,
-        stage: "funnel_checkout_redirected",
-        run: () =>
-          recordFunnelStep({
-            step: "checkout_redirected",
-            source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
-            plan: orderType === "print" ? printVariant : plan,
-            handoff: checkoutHandoff,
-            trustedCheckoutClassification: true,
-          }),
-      });
+        await bestEffortCheckoutSideEffect({
+          correlationId,
+          stage: "funnel_checkout_redirected",
+          run: () =>
+            recordFunnelStep({
+              step: "checkout_redirected",
+              source: orderType === "print" ? "checkout_api_print_post" : "checkout_api_digital_post",
+              plan: orderType === "print" ? printVariant : plan,
+              handoff: checkoutHandoff,
+              trustedCheckoutClassification: true,
+            }),
+        });
+      })();
+      try {
+        getCloudflareContext().ctx.waitUntil(persistence);
+      } catch {
+        // Off-Workers, preserve the awaited behavior; never abandon funnel writes.
+        await persistence;
+      }
     }
 
     const checkoutResolved = resolveStripeCheckoutHandoffUrl(session.url);
