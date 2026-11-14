@@ -21,9 +21,19 @@ function fixtureReader(calls) {
     if (prefix === 'stripe:') return url.searchParams.has('cursor') ? fixtures.second : fixtures.first;
     if (prefix === 'claim:') return fixtures.claim;
     if (prefix === 'print:order:') return fixtures.print;
+    if (prefix === 'map:') return fixtures.map;
+    if (prefix === 'gift-cert:') return fixtures.gift;
     return fixtures.empty;
   };
 }
+
+test('KEYSPACES is exactly the six backup prefixes; account and checkout_timing stay excluded', () => {
+  assert.deepEqual([...KEYSPACES], [
+    'stripe:', 'claim:', 'entitlement:', 'print:order:', 'map:', 'gift-cert:',
+  ]);
+  assert.ok(!KEYSPACES.includes('account:'));
+  assert.ok(!KEYSPACES.includes('checkout_timing:'));
+});
 
 test('fixture pagination, exact bytes, metadata, expiration, checksums and private manifest', async () => scratch(async dir => {
   const calls = [];
@@ -32,17 +42,23 @@ test('fixture pagination, exact bytes, metadata, expiration, checksums and priva
   assert.equal(folder, 'kv-2026-11-04T00-00-00-000Z');
   const bytes = await readFile(join(dir, folder, 'records.jsonl'));
   const records = bytes.toString().trimEnd().split('\n').map(JSON.parse);
-  assert.equal(records.length, 4);
-  assert.equal(manifest.recordCount, 4);
-  assert.deepEqual(manifest.counts, Object.fromEntries(KEYSPACES.map((p, i) => [p, [2, 1, 0, 1][i]])));
+  assert.equal(records.length, 7);
+  assert.equal(manifest.recordCount, 7);
+  assert.deepEqual(manifest.counts, Object.fromEntries(KEYSPACES.map((p, i) => [p, [2, 1, 0, 1, 1, 2][i]])));
   assert.equal(manifest.snapshot.sha256, sha256(bytes));
   assert.equal(manifest.snapshot.bytes, bytes.length);
   assert.equal(Buffer.from(records[0].valueBase64, 'base64').toString(), sensitive + '\u0000\ufffd');
   assert.deepEqual(records[0].metadata, { fixture: true });
   assert.equal(records[0].expiration, 2000000000);
   assert.equal(Object.hasOwn(records[1], 'expiration'), false);
+  const mapRecord = records.find(r => r.key === 'map:fixture-recipe');
+  assert.equal(mapRecord.expiration, 2000001000);
+  assert.ok(records.some(r => r.key === 'gift-cert:code:fixturehash'));
+  assert.ok(records.some(r => r.key === 'gift-cert:session:fixture-1'));
   assert.ok(calls.some(c => c.suffix.includes('cursor=next%2Fpage')));
   assert.ok(calls.some(c => c.suffix === '/values/claim%3Asynthetic-token'));
+  assert.ok(calls.some(c => c.suffix.includes('prefix=map%3A')));
+  assert.ok(calls.some(c => c.suffix.includes('prefix=gift-cert%3A')));
   const saved = await readFile(join(dir, folder, 'manifest.json'), 'utf8');
   assert.deepEqual(JSON.parse(saved), manifest);
   for (const secret of [sensitive, 'synthetic-token', 'customer@example.invalid', 'download-key']) assert.ok(!saved.includes(secret));
@@ -52,11 +68,17 @@ test('fixture pagination, exact bytes, metadata, expiration, checksums and priva
 }));
 
 test('reject malformed/unscoped list entries and error envelopes without echoing records', () => {
-  for (const body of [null, { success: false, errors: [sensitive] }, { ...fixtures.empty, result_info: {} },
-    { ...fixtures.first, result: [{ name: 'other:secret' }] },
-    { ...fixtures.first, result: [{ name: 'stripe:x', expiration: -1 }] },
-    { ...fixtures.first, result: [{ name: 'stripe:x', metadata: 'bad' }] }]) {
-    assert.throws(() => parseListPage(body, 'stripe:'), { message: 'Invalid KV response' });
+  for (const [body, prefix] of [
+    [null, 'stripe:'],
+    [{ success: false, errors: [sensitive] }, 'stripe:'],
+    [{ ...fixtures.empty, result_info: {} }, 'stripe:'],
+    [{ ...fixtures.first, result: [{ name: 'other:secret' }] }, 'stripe:'],
+    [{ ...fixtures.first, result: [{ name: 'stripe:x', expiration: -1 }] }, 'stripe:'],
+    [{ ...fixtures.first, result: [{ name: 'stripe:x', metadata: 'bad' }] }, 'stripe:'],
+    [{ ...fixtures.map, result: [{ name: 'map:x', expiration: -1 }] }, 'map:'],
+    [{ ...fixtures.gift, result: [{ name: 'other:gift' }] }, 'gift-cert:'],
+  ]) {
+    assert.throws(() => parseListPage(body, prefix), { message: 'Invalid KV response' });
   }
 });
 
@@ -77,6 +99,7 @@ test('empty namespace is a valid checksummed snapshot', async () => scratch(asyn
   const manifest = await exportSnapshot({ read: async () => fixtures.empty, directory: dir, now: fixedTime });
   assert.equal(manifest.recordCount, 0);
   assert.equal(manifest.snapshot.sha256, sha256(Buffer.alloc(0)));
+  assert.deepEqual(manifest.counts, Object.fromEntries(KEYSPACES.map(p => [p, 0])));
 }));
 
 test('API adapter always uses GET, encoded suffixes, fixed host and no redirects', async () => {

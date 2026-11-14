@@ -492,6 +492,11 @@ class FakeSqlStorage {
     const head = sql.trimStart().slice(0, 6).toUpperCase();
     if (head.startsWith("CREATE")) return { toArray: () => [] };
     if (head.startsWith("SELECT")) {
+      // exportState() reads the single stored row with LIMIT 1 and no bind params.
+      if (params.length === 0) {
+        const first = this.rows.values().next().value;
+        return { toArray: () => (first ? [first] : []) };
+      }
       const row = this.rows.get(params[0]);
       return { toArray: () => (row ? [row] : []) };
     }
@@ -524,6 +529,26 @@ function fakeCtx(sql) {
 function newAuthority(sql) {
   return new EntitlementAuthorityDO(fakeCtx(sql), {});
 }
+
+test("DO: exportState returns the stored row verbatim and performs no writes", async () => {
+  const sql = new FakeSqlStorage();
+  const authority = newAuthority(sql);
+  assert.equal(await authority.exportState(), null);
+
+  await authority.apply(SID, { type: "sync_facts", facts: facts(), now: NOW - 1000 });
+  const before = sql.rows.get(SID).state_json;
+  const rowCountBefore = sql.rows.size;
+  const exported = await authority.exportState();
+  assert.equal(exported.sessionId, SID);
+  assert.equal(sql.rows.get(SID).state_json, before);
+  assert.equal(sql.rows.size, rowCountBefore);
+  // Unlike getState, exportState must not synthesize an empty ledger for a
+  // fresh instance with empty storage.
+  const empty = newAuthority(new FakeSqlStorage());
+  assert.equal(await empty.exportState(), null);
+  const synthesized = await empty.getState(SID);
+  assert.equal(synthesized.sessionId, SID);
+});
 
 test("DO: commit survives an object restart; retry returns the committed outcome", async () => {
   const sql = new FakeSqlStorage();
@@ -1018,6 +1043,8 @@ test("wiring: only the fenced routes and the webhook reference the authority (Sl
       // publication protocol's caller — it references the authority
       // client for getState/apply of the four publication ops only.
       path.join("api/download/archive/route.ts"),
+      // Backup slice 1: read-only ops export of EntitlementAuthorityDO state.
+      path.join("api/ops/entitlement-authority/export/route.ts"),
     ].sort(),
   );
 
