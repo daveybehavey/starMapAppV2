@@ -1,5 +1,6 @@
 "use client";
 
+import { FullscreenPreview } from "./FullscreenPreview";
 import MetaPromoDisclosure from "@/components/MetaPromoDisclosure";
 import { isAndroidAppModeClient } from "@/lib/androidAppMode";
 import { clearEditorMetaCheckoutCarry } from "@/app/editor/actions";
@@ -4495,24 +4496,16 @@ export function EditorExperience({
         </div>
       )}
       {isFullscreen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-b from-[#0b1a30] via-[#050b18] to-[#0b1a30]">
-          <button
-            type="button"
-            onClick={() => {
-              setIsFullscreen(false);
-              requestAnimationFrame(() => {
-                previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-              });
-            }}
-            className="focus:ring-gold absolute top-4 left-4 z-10 rounded-full border border-amber-200 bg-[rgba(247,241,227,0.95)] px-4 py-2 text-sm font-semibold text-neutral-800 shadow transition hover:-translate-y-[1px] hover:shadow-lg focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0b1a30] focus:outline-none sm:top-6 sm:left-6"
-            aria-label="Exit fullscreen"
-          >
-            ⤡ Exit fullscreen
-          </button>
-          <div className="relative flex h-[95vh] max-h-[95vh] w-[95vw] max-w-[95vw] items-center justify-center">
-            <PreviewCanvas fullscreen />
-          </div>
-        </div>
+        <FullscreenPreview
+          onClose={() => {
+            setIsFullscreen(false);
+            requestAnimationFrame(() => {
+              previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+            });
+          }}
+        >
+          <PreviewCanvas fullscreen />
+        </FullscreenPreview>
       )}
     </>
   );
