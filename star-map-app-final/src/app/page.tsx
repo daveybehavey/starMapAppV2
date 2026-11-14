@@ -148,7 +148,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
             priceCurrency: schemaCurrency,
             price: schemaPrice,
             availability: "https://schema.org/InStock",
-            url: `${siteUrl}/editor?mode=quick&source=home-schema-digital`,
+            url: `${siteUrl}/`,
           },
           ...(printCheckoutEnabled
             ? [
@@ -158,7 +158,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                   priceCurrency: (printTiers.poster_unframed.currency || "USD").toUpperCase(),
                   price: (printTiers.poster_unframed.amountCents / 100).toFixed(2),
                   availability: "https://schema.org/InStock",
-                  url: `${siteUrl}/editor?mode=quick&source=home-schema-print-unframed`,
+                  url: `${siteUrl}/`,
                 },
                 {
                   "@type": "Offer" as const,
@@ -166,7 +166,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                   priceCurrency: (printTiers.poster_unframed_16x16.currency || "USD").toUpperCase(),
                   price: (printTiers.poster_unframed_16x16.amountCents / 100).toFixed(2),
                   availability: "https://schema.org/InStock",
-                  url: `${siteUrl}/editor?mode=quick&source=home-schema-print-unframed-16x16&checkout=print&print_variant=poster_unframed_16x16`,
+                  url: `${siteUrl}/`,
                 },
                 {
                   "@type": "Offer" as const,
@@ -174,7 +174,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                   priceCurrency: (printTiers.poster_framed.currency || "USD").toUpperCase(),
                   price: (printTiers.poster_framed.amountCents / 100).toFixed(2),
                   availability: "https://schema.org/InStock",
-                  url: `${siteUrl}/editor?mode=quick&source=home-schema-print-framed`,
+                  url: `${siteUrl}/`,
                 },
               ]
             : []),

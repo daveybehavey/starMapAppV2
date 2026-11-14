@@ -376,6 +376,7 @@ export default function FirstDatePage() {
         description="Personalized star map of your first date — the exact sky from the date and place where that evening happened. Order a framed print, unframed poster, or HD digital download."
         imageUrl={`${siteUrl}/examples/example-first-date-seattle-2018.webp`}
         offers={productOffers}
+        offerLandingUrl={`${siteUrl}/first-date`}
       />
       <FaqSchema items={[...firstDateFaqItems]} />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />

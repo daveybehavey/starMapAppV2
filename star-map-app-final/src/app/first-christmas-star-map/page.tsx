@@ -360,7 +360,7 @@ export default async function FirstChristmasStarMapPage() {
       </section>
 
       <FaqSchema items={faqItems.map((item) => ({ question: item.question, answer: item.answer }))} />
-      <StorefrontProductSchema name="First Christmas star map gift" siteUrl={siteUrl} />
+      <StorefrontProductSchema name="First Christmas star map gift" siteUrl={siteUrl} pagePath="/first-christmas-star-map" />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>
   );

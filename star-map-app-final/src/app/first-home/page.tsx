@@ -413,6 +413,7 @@ export default function FirstHomePage() {
         description="Personalized first-home star map showing the exact night sky from closing day, move-in night, or the first night spent there. Order a framed print, unframed poster, or HD digital download."
         imageUrl={`${siteUrl}/custom-star-map-anniversary.webp`}
         offers={productOffers}
+        offerLandingUrl={`${siteUrl}/first-home`}
       />
       <FaqSchema items={[...firstHomeFaqItems]} />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />

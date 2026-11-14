@@ -377,6 +377,7 @@ export default function GraduationPage() {
         description="Personalized graduation star map showing the exact night sky from the ceremony or campus on graduation day. Order a framed print, unframed poster, or HD digital download."
         imageUrl={`${siteUrl}/examples/example-graduation-aurora.webp`}
         offers={productOffers}
+        offerLandingUrl={`${siteUrl}/graduation`}
       />
       <FaqSchema items={[...graduationFaqItems]} />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />

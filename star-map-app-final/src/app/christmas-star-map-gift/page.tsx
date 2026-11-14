@@ -296,7 +296,7 @@ export default async function ChristmasStarMapGiftPage() {
       </section>
 
       <FaqSchema items={faqItems.map((item) => ({ question: item.question, answer: item.answer }))} />
-      <StorefrontProductSchema name="Christmas star map gift" siteUrl={siteUrl} />
+      <StorefrontProductSchema name="Christmas star map gift" siteUrl={siteUrl} pagePath="/christmas-star-map-gift" />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>
   );

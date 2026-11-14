@@ -359,11 +359,11 @@ export default function PersonalizedStarMapPage() {
           {
             question: "Which personalized star map format should I choose?",
             answer:
-              "The premium gift route is framed print so it arrives ready to display, often with HD digital included. Orders at $89+ USD qualify for free shipping. Custom kiss-cut stickers from the same map work well as a small add-on gift.",
+              "The premium gift route is framed print so it arrives ready to display, often paired with HD digital for a keepsake file. Orders at $89+ USD qualify for free shipping. Add custom kiss-cut stickers from the same map for a small add-on gift.",
           },
         ]}
       />
-      <StorefrontProductSchema name="Personalized star map" siteUrl={siteUrl} />
+      <StorefrontProductSchema name="Personalized star map" siteUrl={siteUrl} pagePath="/personalized-star-map" />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>
   );

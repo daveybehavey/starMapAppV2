@@ -10,8 +10,9 @@ import { POLICY_LAST_UPDATED_ISO } from "./policyMeta";
 import { listVariantPagePaths } from "./variantPageManifest";
 
 /** Slugs that redirect to another blog URL (`next.config.mjs`); omit from sitemap to avoid crawl hops. */
-export const BLOG_SITEMAP_EXCLUDED_SLUGS = new Set([
-  "most-meaningful-valentines-day-gift-custom-star-map",
+export const BLOG_SITEMAP_EXCLUDED_SLUGS = new Set<string>([
+  // Intentionally empty: the prior Valentine's exclusion claimed a redirect
+  // that is not present in next.config.mjs, and the post remains live.
 ]);
 
 export type SitemapBlogPostRef = {
@@ -212,6 +213,16 @@ export function buildSitemapEntries(options: BuildSitemapOptions): MetadataRoute
       url: `${baseUrl}/how-to-print-star-map`,
       changeFrequency: "monthly",
       priority: 0.7,
+    },
+    {
+      url: `${baseUrl}/how-accurate-are-star-maps`,
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    {
+      url: `${baseUrl}/black-friday`,
+      changeFrequency: "weekly",
+      priority: 0.8,
     },
     {
       url: `${baseUrl}/how-personalized-star-map-works`,
