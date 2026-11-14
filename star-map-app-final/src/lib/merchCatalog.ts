@@ -177,6 +177,11 @@ export const MERCH_FAMILIES: readonly MerchFamily[] = [
 
 const FAMILY_SET = new Set<string>(MERCH_FAMILIES.map((f) => f.id));
 
+/** The catalogue's DTG garments require an explicit buyer size choice. */
+export function isApparelMerchFamily(id: MerchFamilyId): boolean {
+  return MERCH_FAMILIES.some((family) => family.id === id && family.technique === "dtg");
+}
+
 export function isMerchFamilyId(value: unknown): value is MerchFamilyId {
   return typeof value === "string" && FAMILY_SET.has(value);
 }

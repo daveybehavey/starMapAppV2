@@ -16,8 +16,68 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { MERCH_FAMILIES, isApparelMerchFamily } from "../../src/lib/merchCatalog.ts";
 
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), "utf8");
+
+// Pin the complete guarded expressions: their false branches are the original
+// non-apparel defaults. A first-size fallback in either apparel branch must fail.
+test("IA-1c: the catalogue apparel rule covers exactly the tee and hoodie", () => {
+  assert.deepEqual(MERCH_FAMILIES.filter((f) => isApparelMerchFamily(f.id)).map((f) => f.id), [
+    "tee_unisex_bc3001", "hoodie_unisex_g18500",
+  ]);
+  for (const id of ["sticker_kisscut", "magnet_diecut", "pins_set"]) {
+    assert.equal(isApparelMerchFamily(id), false);
+  }
+});
+
+test("IA-1c: apparel checkout requires a size alongside the existing gates", () => {
+  const panel = read("../../src/components/MerchPurchasePanel.tsx");
+  assert.ok(panel.includes("const isApparel = isApparelMerchFamily(familyId);"));
+  assert.ok(panel.includes("const apparelSizeMissing = isApparel && !size;"));
+  assert.ok(panel.includes("disabled={checkoutInFlight || shippingCountryMissing || apparelSizeMissing}"));
+});
+
+test("IA-1c: requested-family seeding clears apparel size and preserves dimension defaults", () => {
+  const editor = read("../../src/components/EditorExperience.tsx");
+  assert.ok(editor.includes('const [selectedMerchSize, setSelectedMerchSize] = useState<string>("");'));
+  assert.deepEqual(editor.match(/setSelectedMerchSize\([^;]+;/g), [
+    'setSelectedMerchSize(isApparelMerchFamily(id) ? "" : fam.options.size?.[0] ?? "");',
+  ]);
+  assert.match(editor, /onSizeChange=\{setSelectedMerchSize\}/);
+  assert.match(editor, /onMerchSizeChange=\{setSelectedMerchSize\}/);
+});
+
+test("IA-1c: family changes clear apparel size and preserve dimension defaults", () => {
+  const panel = read("../../src/components/MerchPurchasePanel.tsx");
+  assert.deepEqual(panel.match(/onSizeChange\([^\r\n]+/g), [
+    'onSizeChange(isApparelMerchFamily(next) ? "" : nextFamily?.options.size?.[0] ?? "");',
+    'onSizeChange(event.target.value)}',
+  ]);
+});
+
+test("IA-1c: size select shows the apparel placeholder and preserves dimension defaults", () => {
+  const panel = read("../../src/components/MerchPurchasePanel.tsx");
+  const select = panel.match(/<select\s+id="merch-size-select"[\s\S]*?<\/select>/)?.[0];
+  assert.ok(select);
+  assert.ok(select.includes('value={isApparel ? size : size || family.options.size[0] || ""}'));
+  assert.ok(select.includes('onChange={(event) => onSizeChange(event.target.value)}'));
+  assert.ok(select.includes('<option value="">Select…</option>'));
+});
+
+test("IA-1c: checkout payload never substitutes apparel size and preserves dimension defaults", () => {
+  const panel = read("../../src/components/MerchPurchasePanel.tsx");
+  assert.ok(panel.includes('size: isApparel ? size : size || families.find((f) => f.id === familyId)?.options.size?.[0] || undefined,'));
+});
+
+test("IA-1c: colour seeding display and payload remain unchanged", () => {
+  const editor = read("../../src/components/EditorExperience.tsx");
+  const panel = read("../../src/components/MerchPurchasePanel.tsx");
+  assert.ok(editor.includes('setSelectedMerchColor(fam.options.color?.[0] ?? "");'));
+  assert.ok(panel.includes('onColorChange(nextFamily?.options.color?.[0] ?? "");'));
+  assert.ok(panel.includes('value={color || family.options.color[0] || ""}'));
+  assert.ok(panel.includes('color: color || families.find((f) => f.id === familyId)?.options.color?.[0] || undefined,'));
+});
 
 test("parity: the shared merch panel carries the full purchase path", () => {
   const panel = read("../../src/components/MerchPurchasePanel.tsx");
