@@ -560,6 +560,15 @@ html:has(.cookie-banner) body {
   backdrop-filter: blur(10px);
 }
 
+/* The mounted paywall owns this guard, so close/unmount restores the banner.
+   Keep the small-screen in-flow banner and its layout unchanged. */
+@media (width > 640px) {
+  html:has([data-paywall-modal="open"]) .cookie-banner {
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
 .cookie-text {
   flex: 1;
   min-width: 0;
