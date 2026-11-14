@@ -25,11 +25,15 @@ jobs:
         with:
           node-version: '22'
       - name: Test export logic without credentials
-        run: node --test scripts/unit/kvBackup.test.mjs
-      - name: Export KV (GET requests only)
+        run: node --test scripts/unit/kvBackup.test.mjs scripts/unit/durableObjectBackup.test.mjs
+      - name: Export KV (+ optional DO authority dump)
         env:
           CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
           CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
+          # When both are present the runner also censuses/dumps
+          # GiftCertificateGrantDO + PrintOrderAuthorityDO via the ops export route.
+          STARMAP_DO_BACKUP_BASE_URL: ${{ secrets.STARMAP_DO_BACKUP_BASE_URL }}
+          PRINT_ADMIN_TOKEN: ${{ secrets.PRINT_ADMIN_TOKEN }}
         run: node scripts/export-kv-backup.mjs
       # Sensitive customer records. Download to owner-controlled backup storage
       # before retention expires; never expose contents in logs or PR evidence.
