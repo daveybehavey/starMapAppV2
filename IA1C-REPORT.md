@@ -112,3 +112,36 @@ The final branch diff adds/changes only:
 - `star-map-app-final/scripts/unit/merchMobileParity.test.mjs`
 
 No other tracked file changes are retained. Build outputs/dependencies are local ignored artifacts; the generated tracked merchant feed was restored. Validation logs are outside the worktree (`C:/Users/ReuseTechBC/projects/ia1c-*.log`). No price, catalogue option, policy, checkout route/session, config, production/customer data, or colour behaviour changes.
+
+## Final lint and bundle verification
+
+- Targeted lint: `node node_modules/eslint/bin/eslint.js src/components/MerchPurchasePanel.tsx src/components/EditorExperience.tsx src/lib/merchCatalog.ts scripts/unit/merchMobileParity.test.mjs`: exit 0, no errors; one existing unused-import warning for `getPrintPhysicalOrderSummaryLine` in EditorExperience (outside this change).
+- Git initially lacked an author identity. Commits use invocation-local `-c user.name=Codex -c user.email=codex@localhost`; no repository/global identity configuration was changed.
+- Incremental bundle: `C:/Users/ReuseTechBC/projects/qia1c.bundle`. Command from the worktree root:
+
+```powershell
+git bundle create C:/Users/ReuseTechBC/projects/qia1c.bundle 90d84850282ebcee4e050fec3744c1984e89a78f..refs/heads/fix/merch-apparel-explicit-size
+git bundle verify C:/Users/ReuseTechBC/projects/qia1c.bundle
+git bundle list-heads C:/Users/ReuseTechBC/projects/qia1c.bundle
+```
+
+Verification succeeded: bundle prerequisite is exactly the recorded base, and the included branch ref is `refs/heads/fix/merch-apparel-explicit-size`.
+
+Local test clone was deliberately seeded with base history only (not the implementation HEAD):
+
+```powershell
+git init --bare C:/Users/ReuseTechBC/projects/ia1c-bundle-seed.git
+git -C C:/Users/ReuseTechBC/projects/ia1c-bundle-seed.git fetch C:/Users/ReuseTechBC/projects/sm-ia1c 90d84850282ebcee4e050fec3744c1984e89a78f:refs/heads/main
+git -C C:/Users/ReuseTechBC/projects/ia1c-bundle-seed.git symbolic-ref HEAD refs/heads/main
+git clone --no-local C:/Users/ReuseTechBC/projects/ia1c-bundle-seed.git C:/Users/ReuseTechBC/projects/ia1c-bundle-test
+# In ia1c-bundle-test (HEAD initially equals base):
+git bundle verify C:/Users/ReuseTechBC/projects/qia1c.bundle
+git fetch C:/Users/ReuseTechBC/projects/qia1c.bundle refs/heads/fix/merch-apparel-explicit-size:refs/heads/fix/merch-apparel-explicit-size
+git checkout fix/merch-apparel-explicit-size
+git rev-parse HEAD
+git diff --check 90d84850282ebcee4e050fec3744c1984e89a78f HEAD
+git status --short
+git fsck --no-dangling
+```
+
+All succeeded; recovered HEAD matched the source branch, status was clean, and fsck reported no errors. After committing this verification record, the final bundle is recreated and the verification/import is repeated in a second fresh clone (`ia1c-bundle-final-test`) of that same base-only seed, using `git fetch <bundle> refs/heads/fix/merch-apparel-explicit-size` and `git checkout -b fix/merch-apparel-explicit-size FETCH_HEAD`. The final delivery message identifies the resulting HEAD. No push/PR/deployment was performed; Jack gates this bundle.
