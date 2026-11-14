@@ -1,0 +1,107 @@
+[
+  {
+    "width": 390,
+    "height": 844,
+    "before": {
+      "visibility": "visible",
+      "position": "relative",
+      "pointerEvents": "auto",
+      "height": 57.78125
+    },
+    "during": {
+      "visibility": "visible",
+      "position": "relative",
+      "pointerEvents": "auto",
+      "height": 57.78125
+    },
+    "closeButton": true,
+    "escape": true,
+    "backdrop": true,
+    "unmount": true,
+    "declinedStaysAbsent": true
+  },
+  {
+    "width": 640,
+    "height": 844,
+    "before": {
+      "visibility": "visible",
+      "position": "relative",
+      "pointerEvents": "auto",
+      "height": 57.78125
+    },
+    "during": {
+      "visibility": "visible",
+      "position": "relative",
+      "pointerEvents": "auto",
+      "height": 57.78125
+    },
+    "closeButton": true,
+    "escape": true,
+    "backdrop": true,
+    "unmount": true,
+    "declinedStaysAbsent": true
+  },
+  {
+    "width": 641,
+    "height": 844,
+    "before": {
+      "visibility": "visible",
+      "position": "fixed",
+      "pointerEvents": "auto",
+      "height": 52.71875
+    },
+    "during": {
+      "visibility": "hidden",
+      "position": "fixed",
+      "pointerEvents": "none",
+      "height": 52.71875
+    },
+    "closeButton": true,
+    "escape": true,
+    "backdrop": true,
+    "unmount": true,
+    "declinedStaysAbsent": true
+  },
+  {
+    "width": 768,
+    "height": 844,
+    "before": {
+      "visibility": "visible",
+      "position": "fixed",
+      "pointerEvents": "auto",
+      "height": 52.71875
+    },
+    "during": {
+      "visibility": "hidden",
+      "position": "fixed",
+      "pointerEvents": "none",
+      "height": 52.71875
+    },
+    "closeButton": true,
+    "escape": true,
+    "backdrop": true,
+    "unmount": true,
+    "declinedStaysAbsent": true
+  },
+  {
+    "width": 1280,
+    "height": 844,
+    "before": {
+      "visibility": "visible",
+      "position": "fixed",
+      "pointerEvents": "auto",
+      "height": 52.71875
+    },
+    "during": {
+      "visibility": "hidden",
+      "position": "fixed",
+      "pointerEvents": "none",
+      "height": 52.71875
+    },
+    "closeButton": true,
+    "escape": true,
+    "backdrop": true,
+    "unmount": true,
+    "declinedStaysAbsent": true
+  }
+]
