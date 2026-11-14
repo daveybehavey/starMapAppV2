@@ -116,6 +116,7 @@ import {
 } from "@/lib/paywallPrintCheckout";
 import {
   getMerchFamily,
+  isApparelMerchFamily,
   isMerchFamilyId,
   listMerchFamiliesEnabledForPublicUi,
   type MerchFamilyId,
@@ -600,7 +601,7 @@ export function EditorExperience({
     if (!enabledMerchFamilies.some((f) => f.id === id)) return;
     setSelectedMerchFamily(id);
     const fam = getMerchFamily(id);
-    setSelectedMerchSize(fam.options.size?.[0] ?? "");
+    setSelectedMerchSize(isApparelMerchFamily(id) ? "" : fam.options.size?.[0] ?? "");
     setSelectedMerchColor(fam.options.color?.[0] ?? "");
   }, [merchFamilyFromQuery, enabledMerchFamilies]);
 

@@ -3,7 +3,7 @@
 import MerchSizeGuidePanel from "@/components/MerchSizeGuidePanel";
 import { getMerchSizeGuide } from "@/lib/merchSizeGuide";
 import { MERCH_POLICY_LINE } from "@/lib/loveItGuarantee";
-import type { MerchFamily, MerchFamilyId } from "@/lib/merchCatalog";
+import { isApparelMerchFamily, type MerchFamily, type MerchFamilyId } from "@/lib/merchCatalog";
 
 /**
  * Shared merch purchase panel (family / colour / size pickers, size guide,
@@ -39,6 +39,8 @@ export function MerchPurchasePanel({
   checkoutError,
 }: MerchPurchasePanelProps) {
   const family = families.find((f) => f.id === familyId) ?? null;
+  const isApparel = isApparelMerchFamily(familyId);
+  const apparelSizeMissing = isApparel && !size;
   return (
     <div className="mt-4 rounded-xl border border-amber-200/25 bg-white/10 p-3">
       <div className="flex items-center justify-between gap-2">
@@ -62,7 +64,7 @@ export function MerchPurchasePanel({
               const next = event.target.value as MerchFamilyId;
               onFamilyChange(next);
               const nextFamily = families.find((f) => f.id === next);
-              onSizeChange(nextFamily?.options.size?.[0] ?? "");
+              onSizeChange(isApparelMerchFamily(next) ? "" : nextFamily?.options.size?.[0] ?? "");
               onColorChange(nextFamily?.options.color?.[0] ?? "");
             }}
             className="print-country-select text-midnight mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-[11px]"
@@ -113,7 +115,7 @@ export function MerchPurchasePanel({
                 </label>
                 <select
                   id="merch-size-select"
-                  value={size || family.options.size[0] || ""}
+                  value={isApparel ? size : size || family.options.size[0] || ""}
                   onChange={(event) => onSizeChange(event.target.value)}
                   className="print-country-select text-midnight mt-1 w-full rounded-lg border border-amber-200/50 bg-white px-3 py-2 text-[11px]"
                   style={{
@@ -144,15 +146,16 @@ export function MerchPurchasePanel({
         onClick={() =>
           onCheckout({
             family: familyId,
-            size: size || families.find((f) => f.id === familyId)?.options.size?.[0] || undefined,
+            size: isApparel ? size : size || families.find((f) => f.id === familyId)?.options.size?.[0] || undefined,
             color: color || families.find((f) => f.id === familyId)?.options.color?.[0] || undefined,
           })
         }
-        disabled={checkoutInFlight || shippingCountryMissing}
+        disabled={checkoutInFlight || shippingCountryMissing || apparelSizeMissing}
         className="mt-3 w-full rounded-full border border-amber-200/70 bg-amber-400/25 px-4 py-2 text-xs font-semibold text-amber-50 transition hover:-translate-y-[1px] hover:bg-amber-400/35 disabled:cursor-not-allowed disabled:opacity-70"
       >
         {checkoutInFlight ? "Opening secure checkout..." : "Checkout selected merch"}
       </button>
+      {apparelSizeMissing ? <p>Select a size to check out</p> : null}
       {checkoutError ? (
         <p className="mt-2 text-[11px] font-semibold text-rose-200">{checkoutError}</p>
       ) : null}
