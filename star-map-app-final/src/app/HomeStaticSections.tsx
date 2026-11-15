@@ -58,8 +58,8 @@ export function buildHomeFaqItems(input: { single: string; framed: string; unfra
   return [
     {
       id: "accuracy",
-      q: "How accurate are StarMapCo star maps?",
-      a: "StarMapCo uses real date, time, timezone, and location inputs, then calculates the sky with astronomy-engine and bundled star catalog data — including the Moon's phase and the five visible planets, placed exactly as they appeared that night.",
+      q: "Are star maps accurate?",
+      a: "StarMapCo calculates star positions from your date, time, timezone, and location using astronomy-engine and bundled star catalog data. The result is a calculated sky map, not a photograph. Use the correct local time for your moment: an approximate time makes the sky positions approximate too.",
     },
     {
       id: "data-sources",
@@ -191,6 +191,25 @@ export default function HomeStaticSections({ priceLabels, promoStatus, promoCode
 
   return (
     <>
+      <section className="content-visibility-auto mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+        <h2 className="text-2xl font-semibold text-white sm:text-3xl">A night sky print for a date you love</h2>
+        <p className="mt-3 text-base text-neutral-200">
+          Make an anniversary night sky print from your wedding date, mark a birthday, or create a
+          baby star map gift using the birth date and place. Add a name or a dedication to make the
+          moment yours.
+        </p>
+        <p className="mt-3 text-base text-neutral-200">
+          Want to trace the star patterns from that night? Explore a{" "}
+          <Link
+            href="/constellation-map"
+            className="font-semibold text-amber-300 underline decoration-amber-400/60 underline-offset-2 hover:text-amber-200"
+          >
+            constellation map
+          </Link>{" "}
+          with constellation lines and labels.
+        </p>
+      </section>
+
       <HomeOfferStack priceLabels={priceLabels} printLabels={printLabels} />
 
       <section className="content-visibility-auto mx-auto w-full max-w-4xl px-4 pt-6 sm:px-6 lg:px-8">

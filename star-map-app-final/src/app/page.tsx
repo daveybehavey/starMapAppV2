@@ -11,9 +11,9 @@ import {
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://starmapco.com";
 const homepageDescription =
-  "Create a personalized star map for any date and location — preview the exact night sky for free, then order a framed print, unframed poster, or HD digital download. Perfect for anniversaries, weddings, and birthdays.";
+  "Give a star map for an anniversary, birthday or baby's birth. Preview the sky calculated for your date and place free, then choose a print or HD download.";
 const homepageDescriptionDigitalOnly =
-  "Create a personalized star map for any date and location — preview the exact night sky for free, then order an HD digital download. Perfect for anniversaries, weddings, and birthdays.";
+  "Give a star map for an anniversary, birthday or baby's birth. Preview the sky calculated for your date and place free, then choose an HD download.";
 
 function isPrintCheckoutEnabled(): boolean {
   return /^(1|true|yes)$/i.test(
@@ -26,7 +26,7 @@ export function generateMetadata(): Metadata {
     ? homepageDescription
     : homepageDescriptionDigitalOnly;
   return {
-    title: "Custom Star Map — Preview Free, Print or Download | StarMapCo",
+    title: "Custom Star Map Gifts for Anniversaries & Birthdays | StarMapCo",
     description,
     keywords: [
       "custom star map",
@@ -38,7 +38,7 @@ export function generateMetadata(): Metadata {
     ],
     alternates: { canonical: `${siteUrl}/` },
     openGraph: {
-      title: "Custom Star Map — Preview Free, Print or Download | StarMapCo",
+      title: "Custom Star Map Gifts for Anniversaries & Birthdays | StarMapCo",
       description,
       url: `${siteUrl}/`,
       siteName: "StarMapCo",
@@ -54,7 +54,7 @@ export function generateMetadata(): Metadata {
     },
     twitter: {
       card: "summary_large_image",
-      title: "Custom Star Map — Preview Free, Print or Download | StarMapCo",
+      title: "Custom Star Map Gifts for Anniversaries & Birthdays | StarMapCo",
       description,
       images: [`${siteUrl}/custom-star-map-anniversary.webp`],
     },

@@ -35,7 +35,28 @@ test("customer creates and customizes a visible preview from the homepage", asyn
 
   await page.goto("/", { waitUntil: "domcontentloaded", timeout: 60_000 });
   await dismissOverlays(page);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("The night you became everything.");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Your moment. Your custom star map.");
+  await expect(page).toHaveTitle("Custom Star Map Gifts for Anniversaries & Birthdays | StarMapCo");
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+    "content",
+    /Give a star map for an anniversary, birthday or baby's birth\. Preview the sky calculated for your date and place free/,
+  );
+  const hero = page.locator('section[aria-labelledby="home-hero-heading"]');
+  for (const href of ["/anniversary", "/birthday", "/star-map-generator"]) {
+    await expect(hero.locator(`a[href="${href}"]`)).toBeVisible();
+  }
+  await expect(page.getByRole("link", { name: "constellation map", exact: true }).first()).toHaveAttribute(
+    "href", "/constellation-map",
+  );
+  const siteSchema = JSON.parse(await page.locator("#site-schema").innerText());
+  expect(siteSchema["@graph"].map((item: { "@type": string }) => item["@type"])).toEqual([
+    "Organization", "WebSite",
+  ]);
+  const productFaqSchema = JSON.parse(await page.locator("#product-faq-schema").innerText());
+  const accuracyAnswer = productFaqSchema["@graph"]
+    .find((item: { "@type": string }) => item["@type"] === "FAQPage").mainEntity
+    .find((item: { name: string }) => item.name === "Are star maps accurate?").acceptedAnswer.text;
+  await expect(page.getByText(accuracyAnswer, { exact: true })).toHaveCount(1);
 
   const heroForm = page.locator("form[action='/editor']").first();
   const heroDate = heroForm.locator("input[name='date']");
