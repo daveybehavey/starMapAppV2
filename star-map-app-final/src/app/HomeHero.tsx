@@ -106,10 +106,12 @@ export default function HomeHero() {
           <div className="hero-plan__copy">
             <p className="hero-plan__eyebrow">Your story. Written in the stars.</p>
             <h1 id="home-hero-heading" className="hero-plan__headline font-[var(--font-playfair)]">
-              The night you became everything.
+              Your moment. Your custom star map.
             </h1>
             <p className="hero-plan__subhead">
-              Personalized star maps that capture life&apos;s most meaningful moments.
+              Celebrate an <a href="/anniversary" className="underline underline-offset-4">anniversary</a>,
+              a <a href="/birthday" className="underline underline-offset-4">birthday</a>, or a baby&apos;s
+              birth with the stars from your date and place.
             </p>
 
             <div className="hero-plan__cta-row">
@@ -140,8 +142,8 @@ export default function HomeHero() {
             />
             <p className="hero-plan__cta-note">
               Or{" "}
-              <a href="#preview" className="hero-plan__cta-note-link">
-                try the free live preview
+              <a href="/star-map-generator" className="hero-plan__cta-note-link">
+                try the free star map generator
               </a>{" "}
               first — no account required.
             </p>
