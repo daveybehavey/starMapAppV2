@@ -42,14 +42,14 @@ const breadcrumbs = [
 ];
 
 export const metadata: Metadata = {
-  title: "Personalized Star Map Gift | StarMapCo",
+  title: "Personalized Star Map Print or Digital Gift | StarMapCo",
   description:
-    "Looking for a personalized star map gift? Capture any date and place with a free preview, then choose framed print, unframed print, or HD digital delivery.",
+    "Preview your personalized star map free. Buy an HD digital gift to download and print, or order a framed or unframed print of your chosen date and place.",
   alternates: { canonical: `${siteUrl}/personalized-star-map` },
   openGraph: {
-    title: "Personalized Star Map Gift | StarMapCo",
+    title: "Personalized Star Map Print or Digital Gift | StarMapCo",
     description:
-      "A personalized star map gift with names, dates, and locations. Free preview, then framed print, unframed print, or HD digital.",
+      "Preview your personalized star map free. Buy an HD digital gift to download and print, or order a framed or unframed print of your chosen date and place.",
     url: `${siteUrl}/personalized-star-map`,
     images: [{ url: ogImage, width: 1200, height: 630 }],
     type: "website",
@@ -72,10 +72,14 @@ export default function PersonalizedStarMapPage() {
       <header className="space-y-3 text-center">
         <Breadcrumbs items={breadcrumbs} className="flex justify-center" />
         <p className="text-xs tracking-[0.3em] text-amber-300 uppercase">StarMapCo</p>
-        <h1 className="text-3xl font-bold text-white sm:text-4xl">Personalized Star Map Gift</h1>
+        <h1 className="text-3xl font-bold text-white sm:text-4xl">Personalized Star Map Print or Digital Gift</h1>
         <p className="text-sm text-white/90 sm:text-base">
-          A personalized star map gift with names, a date, and a location—the exact night sky from a moment
-          worth framing. Framed print + HD digital qualifies for free shipping at checkout.
+          Turn a meaningful date and place into a personalized star map gift, with a sky calculated from
+          your chosen date, time, and location. Start with a{" "}
+          <Link href="/star-map-generator" className="text-amber-200 underline hover:text-amber-100">
+            free preview
+          </Link>
+          , then buy the HD digital file to download and print yourself, or order a framed or unframed print.
         </p>
         <MoneyPagePriceAtGlance className="mx-auto max-w-lg" />
         <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-amber-100/90">
@@ -139,6 +143,22 @@ export default function PersonalizedStarMapPage() {
         <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
           Add a title, names, and a short dedication line. Choose a style that matches the person or place you
           are celebrating, then approve the same design as a framed print, unframed poster, or HD file.
+        </p>
+        <p className="text-sm leading-relaxed text-neutral-800 sm:text-base">
+          Mark a wedding, anniversary, or birthday with a{" "}
+          <Link href="/star-map-gift" className="text-amber-700 underline hover:text-amber-800">
+            star map gift
+          </Link>
+          . For a gift you can print yourself, choose the HD digital file after your free preview. Prefer
+          a physical print? Explore a{" "}
+          <Link href="/star-map-poster" className="text-amber-700 underline hover:text-amber-800">
+            star map poster
+          </Link>{" "}
+          or compare{" "}
+          <Link href="/star-map-gift-formats" className="text-amber-700 underline hover:text-amber-800">
+            star map gift formats
+          </Link>{" "}
+          to choose how to present it.
         </p>
         <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-800 sm:text-base">
           <li>Accurate night sky based on real astronomical data</li>
@@ -299,10 +319,10 @@ export default function PersonalizedStarMapPage() {
             </p>
           </div>
           <div>
-            <h3 className="text-midnight font-semibold">How quickly do I get the HD file?</h3>
+            <h3 className="text-midnight font-semibold">How do I download and print my star map?</h3>
             <p>
-              Immediately after checkout. You unlock the download in the app and can save your file right
-              away.
+              Preview your design free, then purchase HD digital delivery. After payment is confirmed,
+              download the HD file in the app and use it to print your star map.
             </p>
           </div>
           <div>
@@ -348,9 +368,9 @@ export default function PersonalizedStarMapPage() {
               "You can still create a beautiful map using date + location only. If time is unknown, we default to midnight and you can adjust later.",
           },
           {
-            question: "How quickly do I get the HD file?",
+            question: "How do I download and print my star map?",
             answer:
-              "Immediately after checkout. You unlock the download in the app and can save your file right away.",
+              "Preview your design free, then purchase HD digital delivery. After payment is confirmed, download the HD file in the app and use it to print your star map.",
           },
           {
             question: "Can I order a printed or framed version directly?",
@@ -359,7 +379,7 @@ export default function PersonalizedStarMapPage() {
           {
             question: "Which personalized star map format should I choose?",
             answer:
-              "The premium gift route is framed print so it arrives ready to display, often with HD digital included. Orders at $89+ USD qualify for free shipping. Custom kiss-cut stickers from the same map work well as a small add-on gift.",
+              "The premium gift route is framed print so it arrives ready to display, often paired with HD digital for a keepsake file. Orders at $89+ USD qualify for free shipping. Add custom kiss-cut stickers from the same map for a small add-on gift.",
           },
         ]}
       />
