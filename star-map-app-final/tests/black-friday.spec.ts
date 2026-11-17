@@ -68,7 +68,8 @@ for (const width of [390, 1280]) {
     for (const [label, date] of [
       ["Framed print · Canada", "Dec 3"],
       ["Framed print · US", "Dec 8"],
-      ["Posters", "Dec 10"],
+      ["Posters · Canada", "Dec 3"],
+      ["Posters · US", "Dec 9"],
     ]) {
       await expect(table.getByRole("row", { name: `${label} ${date}` })).toBeVisible();
     }

@@ -146,7 +146,7 @@ const featureRows: Array<{ label: string; starmapco: string; nightSky: string }>
   },
   {
     label: "Christmas order-by (2026)",
-    starmapco: "Framed and canvas: Canada Dec 3, US Dec 8. Posters: US Dec 9, Canada Dec 10. HD digital is delivered the same day, right up to Dec 25",
+    starmapco: "Framed and canvas: Canada Dec 3, US Dec 8. Posters: US Dec 9, Canada Dec 3. HD digital is delivered the same day, right up to Dec 25",
     nightSky: "No dated Christmas cutoff found on their site when we checked (October 2026)",
   },
   {

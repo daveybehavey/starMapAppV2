@@ -39,14 +39,21 @@ export const CHRISTMAS_ORDER_BY_DATES: Record<ChristmasCutoffKey, string> = {
   // Canada order-by date moves with it.
   framed_ca: "2026-12-03",
   poster_us: "2026-12-09",
-  poster_ca: "2026-12-10",
-  // Mug + keepsake card: owner-approved provisional cutoffs (2026-10-18).
+  poster_ca: "2026-12-03",
+  // Canada poster, mug + keepsake card: Dec 3 by owner decision (2026-11-17).
+  // https://starmapco.com/shipping: 2–5 business days production +
+  // 8–13 business days Canada transit. Canada Post
+  // (2026 holiday sending guidelines) lists Dec 10 as the national
+  // Regular Parcel send-by date, not an order-by date. A Dec 3 order
+  // ships Dec 7–10 and arrives Dec 17–31 (midpoint about Dec 23),
+  // excluding weekends and Dec 25/28 holidays: an estimate, not a guarantee.
+  // US mug/card provisional cutoffs remain unchanged (2026-10-18).
   // No rest-of-world date is confirmed for either — the order-by table
   // shows "Order early" there instead of inventing one.
   mug_us: "2026-12-07",
-  mug_ca: "2026-12-08",
+  mug_ca: "2026-12-03",
   card_us: "2026-12-07",
-  card_ca: "2026-12-08",
+  card_ca: "2026-12-03",
 };
 
 /**
@@ -78,7 +85,7 @@ const BLACK_FRIDAY_START = "2026-11-27";
 /** Cyber Monday (Nov 30) plus its usual extension day; BLACKFRIDAY25 continues. */
 const CYBER_MONDAY_START = "2026-11-30";
 const XMAS15_LAST_CALL_START = "2026-12-02";
-/** Starts Dec 11 — after the Dec 10 Canada poster order-by day, print ordering has closed. */
+/** Starts Dec 11 — after the Dec 3 Canada print order-by day, print ordering has closed. */
 const DIGITAL_LAST_MINUTE_START = "2026-12-11";
 const DIGITAL_LAST_MINUTE_END = "2026-12-25";
 /** Boxing Day only (Dec 26): XMAS15 returns for prints; Dec 27+ is off-season. */
@@ -87,7 +94,7 @@ const BOXING_DAY = "2026-12-26";
 /**
  * The sitewide banner's order-by summary. Built from
  * CHRISTMAS_ORDER_BY_DATES (never hard-coded dates) and leads with the
- * earliest cutoff per country — today framed/canvas in Canada (Dec 3)
+ * earliest cutoff per country — today all five print products in Canada (Dec 3)
  * and the mug and keepsake card in the US (Dec 7) — because the loudest
  * surface on the site must carry the tightest deadline (persona sweep
  * U05: the banner previously named only framed/canvas and posters, so
@@ -445,7 +452,7 @@ const ORDER_BY_MONTH_LABELS = [
   "Dec",
 ] as const;
 
-function formatOrderByDisplayDate(key: ChristmasCutoffKey): string {
+export function formatOrderByDisplayDate(key: ChristmasCutoffKey): string {
   const { m, d } = parseYmd(CHRISTMAS_ORDER_BY_DATES[key]);
   return `${ORDER_BY_MONTH_LABELS[m - 1]} ${d}`;
 }
@@ -488,7 +495,7 @@ export type ChristmasEarliestCutoff = {
 /**
  * The earliest Christmas order-by cutoff across every physical
  * product, derived from CHRISTMAS_ORDER_BY_DATES. Today that is the
- * framed print and canvas wrap in Canada (Dec 3) and the mug and
+ * five print products in Canada (Dec 3) and the mug and
  * keepsake card in the US (Dec 7) — the deadlines the banner and the
  * landing bullets lead with (persona sweep U05). The per-country
  * product lists stay separate on purpose: one combined label paired
@@ -577,8 +584,8 @@ export function getChristmasOrderBySummaryLines(): string[] {
  * Rows for the Christmas order-by table, derived from
  * CHRISTMAS_ORDER_BY_DATES so the table can never drift from the banner,
  * the landing summary lines, or the FAQ. Mug and keepsake card use the
- * owner-approved provisional cutoffs (Canada Dec 8 · US Dec 7, approved
- * 2026-10-18). No rest-of-world date is confirmed for ANY product —
+ * owner-approved cutoffs (Canada Dec 3, updated 2026-11-17; US Dec 7
+ * unchanged from 2026-10-18). No rest-of-world date is confirmed for ANY product —
  * Printful publishes holiday deadlines per destination country only —
  * so every rest-of-world cell reads "Order early" rather than an
  * invented date.
