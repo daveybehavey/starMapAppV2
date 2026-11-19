@@ -32,11 +32,12 @@ export const CHRISTMAS_ORDER_BY_DATES: Record<ChristmasCutoffKey, string> = {
   // source). Every rest-of-world cell shows "Order early" instead.
   framed_us: "2026-12-08",
   // framed_ca tightened Dec 9 → Dec 3 (decision 2026-10-22): Printful
-  // fulfilment runs 2–5 business days and Canada delivery 3–10 business
-  // days, so a Dec 9 order can land after Christmas; a Dec 3 order's
-  // worst case lands Dec 24. Canvas has no cutoff key of its own and
-  // shares this value (see ORDER_BY_PRODUCT_CUTOFFS), so the canvas
-  // Canada order-by date moves with it.
+  // fulfilment runs 2–5 business days and Canada transit 8–13 business
+  // days, so a Dec 9 order can land after Christmas; a Dec 3 order
+  // arrives Dec 17–31 (midpoint about Dec 23) — an estimate, not a
+  // guarantee. Canvas has no cutoff key of its own and shares this
+  // value (see ORDER_BY_PRODUCT_CUTOFFS), so the canvas Canada
+  // order-by date moves with it.
   framed_ca: "2026-12-03",
   poster_us: "2026-12-09",
   poster_ca: "2026-12-03",
