@@ -44,7 +44,7 @@ for (const width of [390, 1280]) {
           `/editor?mode=quick&source=${slug}&checkout=print&print_variant=${product.id}`
         );
       }
-      for (const row of ["Framed print · Canada Dec 3", "Framed print · US Dec 8", "Posters Dec 10"]) {
+      for (const row of ["Framed print · Canada Dec 3", "Framed print · US Dec 8", "Posters · Canada Dec 3", "Posters · US Dec 9"]) {
         await expect(main.getByRole("row", { name: row })).toBeVisible();
       }
       await expect(main).toContainText("Buffered estimates for standard shipping, not guarantees.");

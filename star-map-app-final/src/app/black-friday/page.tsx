@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { formatOrderByDisplayDate } from "@/lib/christmasCampaign";
 import { Breadcrumbs, BreadcrumbSchema } from "@/components/Breadcrumbs";
 import ResilientImage from "@/components/ResilientImage";
 import { Card } from "@/components/ui/Card";
@@ -174,8 +175,8 @@ export default function BlackFridayPage() {
           Christmas order-by dates
         </h2>
         <p className="mt-2 text-sm text-neutral-700">Plan ahead for your 2026 Christmas gift.</p>
-        {/* Operator-verified campaign dates. Keep separate from the shared table,
-            which includes digital delivery copy and a different US poster cutoff. */}
+        {/* Compact print-only view; dates derive from CHRISTMAS_ORDER_BY_DATES
+            through the same formatter as the shared order-by table. */}
         <table className="mt-5 w-full text-left text-sm" data-testid="black-friday-order-by">
           <caption className="sr-only">Christmas 2026 order-by dates for framed prints and posters</caption>
           <thead className="border-b border-amber-300">
@@ -193,19 +194,25 @@ export default function BlackFridayPage() {
               <th scope="row" className="py-3 pr-3 font-medium">
                 Framed print · Canada
               </th>
-              <td className="py-3">Dec 3</td>
+              <td className="py-3">{formatOrderByDisplayDate("framed_ca")}</td>
             </tr>
             <tr>
               <th scope="row" className="py-3 pr-3 font-medium">
                 Framed print · US
               </th>
-              <td className="py-3">Dec 8</td>
+              <td className="py-3">{formatOrderByDisplayDate("framed_us")}</td>
             </tr>
             <tr>
               <th scope="row" className="py-3 pr-3 font-medium">
-                Posters
+                Posters · Canada
               </th>
-              <td className="py-3">Dec 10</td>
+              <td className="py-3">{formatOrderByDisplayDate("poster_ca")}</td>
+            </tr>
+            <tr>
+              <th scope="row" className="py-3 pr-3 font-medium">
+                Posters · US
+              </th>
+              <td className="py-3">{formatOrderByDisplayDate("poster_us")}</td>
             </tr>
           </tbody>
         </table>

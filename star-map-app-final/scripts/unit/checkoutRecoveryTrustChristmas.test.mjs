@@ -108,18 +108,18 @@ test("Christmas banner discount windows (Pacific) cover each promo phase", async
   // can push a Dec 9 order past Christmas; Dec 3 worst case is Dec 24.
   assert.equal(CHRISTMAS_ORDER_BY_DATES.framed_ca, "2026-12-03");
   assert.equal(CHRISTMAS_ORDER_BY_DATES.poster_us, "2026-12-09");
-  assert.equal(CHRISTMAS_ORDER_BY_DATES.poster_ca, "2026-12-10");
+  assert.equal(CHRISTMAS_ORDER_BY_DATES.poster_ca, "2026-12-03");
   // No rest-of-world keys: Printful publishes holiday deadlines per
   // destination country only — the framed 2026-11-30 / poster 2026-12-01
   // figures that used to sit here appear in no Printful source and must
   // never come back. ROW surfaces show "Order early" instead.
   assert.equal("framed_row" in CHRISTMAS_ORDER_BY_DATES, false);
   assert.equal("poster_row" in CHRISTMAS_ORDER_BY_DATES, false);
-  // Mug / keepsake card: owner-approved provisional cutoffs (2026-10-18).
+  // Mug / keepsake card: Canada updated 2026-11-17; US unchanged.
   assert.equal(CHRISTMAS_ORDER_BY_DATES.mug_us, "2026-12-07");
-  assert.equal(CHRISTMAS_ORDER_BY_DATES.mug_ca, "2026-12-08");
+  assert.equal(CHRISTMAS_ORDER_BY_DATES.mug_ca, "2026-12-03");
   assert.equal(CHRISTMAS_ORDER_BY_DATES.card_us, "2026-12-07");
-  assert.equal(CHRISTMAS_ORDER_BY_DATES.card_ca, "2026-12-08");
+  assert.equal(CHRISTMAS_ORDER_BY_DATES.card_ca, "2026-12-03");
 
   const at = (ymd) => Date.parse(`${ymd}T20:00:00.000Z`);
 
@@ -130,7 +130,7 @@ test("Christmas banner discount windows (Pacific) cover each promo phase", async
   assert.ok(orderBy);
   assert.match(orderBy.message, /Dec 8|Dec 9/i);
   assert.match(orderBy.message, /order early/i);
-  // (Dec 1(?!0): the genuine poster Canada date "Dec 10" must not trip this.)
+  // No old rest-of-world dates may return.
   assert.equal(/Nov 30|Dec 1(?!0)/.test(orderBy.message), false);
   assert.equal(orderBy.promoCode, undefined);
   assert.equal(/XMAS15|BLACKFRIDAY25/.test(orderBy.message), false);
@@ -398,21 +398,21 @@ test("Christmas order-by table rows derive from CHRISTMAS_ORDER_BY_DATES", async
   assert.equal(canvas.restOfWorld, framed.restOfWorld);
 
   const poster = byProduct.get("Unframed poster");
-  assert.equal(poster.canada, "Dec 10");
+  assert.equal(poster.canada, "Dec 3");
   assert.equal(poster.unitedStates, "Dec 9");
   assert.equal(poster.restOfWorld, "Order early");
 
-  // Mug + keepsake card: owner-approved provisional CA Dec 8 / US Dec 7.
+  // Mug + keepsake card: owner-approved CA Dec 3 / unchanged US Dec 7.
   // No rest-of-world date is confirmed — the cell must say "Order early",
   // never an invented date.
   const mug = byProduct.get("Mug");
-  assert.equal(mug.canada, "Dec 8");
+  assert.equal(mug.canada, "Dec 3");
   assert.equal(mug.unitedStates, "Dec 7");
   assert.equal(mug.restOfWorld, "Order early");
   assert.equal(mug.instantNote, null);
 
   const card = byProduct.get("Keepsake card");
-  assert.equal(card.canada, "Dec 8");
+  assert.equal(card.canada, "Dec 3");
   assert.equal(card.unitedStates, "Dec 7");
   assert.equal(card.restOfWorld, "Order early");
   assert.equal(card.instantNote, null);
@@ -433,13 +433,13 @@ test("Christmas order-by summary lines carry no rest-of-world dates", async () =
   // rest of world is "order early", never an invented date.
   const lines = getChristmasOrderBySummaryLines();
   // U05: the bullets lead with the earliest cutoff per country —
-  // framed prints & canvas wraps in Canada (Dec 3 since the 2026-10-22
-  // tightening), mugs & keepsake cards in the US (Dec 7) — ahead of the
-  // framed/poster lines.
+  // all five print products in Canada (Dec 3, extended from the framed
+  // precedent on 2026-11-17), mugs & keepsake cards in the US (Dec 7),
+  // ahead of the framed/poster lines.
   assert.deepEqual(lines, [
-    "Earliest cutoffs: United States Dec 7 (mugs & keepsake cards) · Canada Dec 3 (framed prints & canvas wraps) · rest of world: order early",
+    "Earliest cutoffs: United States Dec 7 (mugs & keepsake cards) · Canada Dec 3 (framed prints, canvas wraps, posters, mugs & keepsake cards) · rest of world: order early",
     "Framed & canvas: United States Dec 8 · Canada Dec 3 · rest of world: order early",
-    "Posters: United States Dec 9 · Canada Dec 10 · rest of world: order early",
+    "Posters: United States Dec 9 · Canada Dec 3 · rest of world: order early",
   ]);
   assert.equal(/Nov 30|Dec 1(?!0)/.test(lines.join(" ")), false);
 });
@@ -449,15 +449,15 @@ test("earliest Christmas cutoff derives from CHRISTMAS_ORDER_BY_DATES (U05)", as
     "src/lib/christmasCampaign.ts"
   );
 
-  // Framed print + canvas wrap hold the tightest Canada deadline
+  // All five print products share the tightest Canada deadline
   // (Dec 3); mug + keepsake card hold the tightest US one (Dec 7).
   // A product is listed in `products` when it holds either country's
   // earliest date; the per-country lists keep each country's holders
   // with its own date (a combined label read as a second, wrong US
   // framed date — Dec 7 beside the framed line's Dec 8).
   assert.deepEqual(getEarliestChristmasCutoff(), {
-    products: ["Framed print", "Canvas wrap", "Mug", "Keepsake card"],
-    canadaProducts: ["Framed print", "Canvas wrap"],
+    products: ["Framed print", "Canvas wrap", "Unframed poster", "Mug", "Keepsake card"],
+    canadaProducts: ["Framed print", "Canvas wrap", "Unframed poster", "Mug", "Keepsake card"],
     unitedStatesProducts: ["Mug", "Keepsake card"],
     canada: "Dec 3",
     unitedStates: "Dec 7",
@@ -468,9 +468,9 @@ test("earliest Christmas cutoff derives from CHRISTMAS_ORDER_BY_DATES (U05)", as
   // plain order-by phase and in the promo phases that reuse the line.
   const at = (ymd) => Date.parse(`${ymd}T20:00:00.000Z`);
   const orderByPhase = getChristmasBannerContent(at("2026-10-13"), "$9");
-  assert.match(orderByPhase.message, /earliest cutoffs: US Dec 7 \(mugs & keepsake cards\) · Canada Dec 3 \(framed prints & canvas wraps\)/);
+  assert.match(orderByPhase.message, /earliest cutoffs: US Dec 7 \(mugs & keepsake cards\) · Canada Dec 3 \(framed prints, canvas wraps, posters, mugs & keepsake cards\)/);
   const earlyPhase = getChristmasBannerContent(at("2026-11-15"), "$9");
-  assert.match(earlyPhase.message, /earliest cutoffs: US Dec 7 \(mugs & keepsake cards\) · Canada Dec 3 \(framed prints & canvas wraps\)/);
+  assert.match(earlyPhase.message, /earliest cutoffs: US Dec 7 \(mugs & keepsake cards\) · Canada Dec 3 \(framed prints, canvas wraps, posters, mugs & keepsake cards\)/);
 });
 
 test("christmas order-by table wiring: page, component, footer and home links", () => {
@@ -534,4 +534,29 @@ test("customer photo strip is feature-flagged and does not invent reviews", () =
   assert.match(strip, /isCustomerPhotoStripEnabled/);
   assert.match(strip, /No placeholder/);
   assert.equal(/Trustpilot|★★★★★|fake review/i.test(strip), false);
+});
+
+test("compact Christmas tables derive every date from the shared cutoff formatter", async () => {
+  const { CHRISTMAS_ORDER_BY_DATES, formatOrderByDisplayDate } = await loadTs(
+    "src/lib/christmasCampaign.ts"
+  );
+  for (const rel of ["src/app/black-friday/page.tsx", "src/app/gifts/OccasionGiftPage.tsx"]) {
+    const source = fs.readFileSync(path.join(ROOT, rel), "utf8");
+    const table = source.match(/<table[\s\S]*?<\/table>/)?.[0];
+    assert.ok(table, `${rel} has a compact table`);
+    assert.equal(/Dec\s+\d|2026-12-\d/.test(table), false, `${rel} has no literal dates`);
+    for (const key of ["framed_ca", "framed_us", "poster_ca", "poster_us"]) {
+      assert.ok(table.includes(`formatOrderByDisplayDate("${key}")`), `${rel}: ${key}`);
+    }
+    assert.match(table, /Posters · Canada/);
+    assert.match(table, /Posters · US/);
+    assert.ok(source.includes("Buffered estimates for standard shipping, not guarantees."));
+  }
+  const original = CHRISTMAS_ORDER_BY_DATES.poster_ca;
+  try {
+    CHRISTMAS_ORDER_BY_DATES.poster_ca = "2026-11-30";
+    assert.equal(formatOrderByDisplayDate("poster_ca"), "Nov 30");
+  } finally {
+    CHRISTMAS_ORDER_BY_DATES.poster_ca = original;
+  }
 });
