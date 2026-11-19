@@ -153,14 +153,6 @@ export type FunnelDashboardData = {
   checkoutClassification: CheckoutClassificationDiagnostics;
 };
 
-export type PaymentVerifiedWindowSyncResult = {
-  days: number;
-  dates: string[];
-  previousWindowTotal: number;
-  nextWindowTotal: number;
-  adjustedTotal: number;
-};
-
 const DAILY_TTL_SECONDS = 400 * 24 * 60 * 60;
 const DIMENSION_TTL_SECONDS = 180 * 24 * 60 * 60;
 /** Retention for operator-facing checkout classification totals (matches DIMENSION_TTL). */
@@ -499,39 +491,6 @@ export async function hasPaymentVerifiedRecord(sessionId: string): Promise<boole
   if (!normalized) return false;
   const seen = await kv.get<number>(paymentVerifiedSessionKey(normalized));
   return typeof seen === "number" && seen > 0;
-}
-
-export async function syncPaymentVerifiedWindow(input: {
-  days: number;
-  countsByDate: Record<string, number>;
-}): Promise<PaymentVerifiedWindowSyncResult> {
-  const dates = buildDateRange(input.days);
-  const currentTotal: number = (await kv.get<number>(totalKey("payment_verified"))) ?? 0;
-  const currentWindowCounts = await Promise.all(
-    dates.map((date) => kv.get<number>(dailyKey(date, "payment_verified"))),
-  );
-  const previousWindowTotal = currentWindowCounts.reduce<number>(
-    (sum, count) => sum + (typeof count === "number" ? count : 0),
-    0,
-  );
-  const nextWindowTotal = dates.reduce<number>((sum, date) => sum + (input.countsByDate[date] ?? 0), 0);
-
-  await Promise.all(
-    dates.map((date) =>
-      kv.set(dailyKey(date, "payment_verified"), input.countsByDate[date] ?? 0, { ex: DAILY_TTL_SECONDS }),
-    ),
-  );
-
-  const adjustedTotal = Math.max(0, currentTotal - previousWindowTotal + nextWindowTotal);
-  await kv.set(totalKey("payment_verified"), adjustedTotal);
-
-  return {
-    days: clampDays(input.days),
-    dates,
-    previousWindowTotal,
-    nextWindowTotal,
-    adjustedTotal,
-  };
 }
 
 async function readDimensionCount(input: {

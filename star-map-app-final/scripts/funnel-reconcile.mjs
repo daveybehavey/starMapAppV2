@@ -44,7 +44,7 @@ Defaults:
 Flags:
   --site <origin>   Site origin (https://example.com). Overrides env.
   --days <n>        Lookback window 1-${MAX_DAYS} (default ${DEFAULT_DAYS})
-  --limit <n>       Max eligible sessions 1-${MAX_LIMIT} (default ${DEFAULT_LIMIT})
+  --limit <n>       Max scanned sessions 1-${MAX_LIMIT} (default ${DEFAULT_LIMIT})
   --dry-run         Explicit safe default (dryRun: true)
   --apply           Request dryRun: false (also requires ${APPLY_ACK_ENV}=1)
   -h, --help        Show this help
@@ -55,6 +55,7 @@ Required env:
 
 Apply gate:
   ${APPLY_ACK_ENV}=1 must be set when using --apply; otherwise the CLI fails before any request.
+  The endpoint currently refuses apply until atomic reconciliation is available (#658).
 
 Never prints tokens, Authorization headers, session IDs, customer data, or the API results array.
 `;
@@ -198,7 +199,7 @@ function isAbortError(error) {
 export function formatAggregateReport(args, body) {
   const mode = args.dryRun ? "dry-run" : "apply";
   const repairLabel = args.dryRun ? "would_repair" : "repaired";
-  const repairCount = Number(body?.repaired ?? 0);
+  const repairCount = Number(args.dryRun ? (body?.wouldRepair ?? body?.repaired ?? 0) : (body?.repaired ?? 0));
   const lines = [
     "Funnel reconciliation",
     `site: ${args.site}`,
@@ -210,6 +211,11 @@ export function formatAggregateReport(args, body) {
     `already_recorded: ${Number(body?.alreadyRecorded ?? 0)}`,
     `${repairLabel}: ${repairCount}`,
   ];
+
+  if (typeof body?.complete === "boolean") lines.push(`scan_complete: ${body.complete}`);
+  if (body?.applyAvailable === false) lines.push("apply_available: false");
+  if (typeof body?.excludedQa === "number") lines.push(`excluded_qa: ${body.excludedQa}`);
+  if (typeof body?.excludedTest === "number") lines.push(`excluded_test: ${body.excludedTest}`);
 
   const sync = body?.sync;
   if (sync && typeof sync === "object") {
@@ -420,6 +426,10 @@ export async function runFunnelReconcile({
         stderr,
         `Funnel reconcile unavailable (HTTP 503) at ${endpoint}. Stripe or dependent services may be unconfigured on the target site.`,
       );
+      return 1;
+    }
+    if (status === 409) {
+      writeOperatorError(stderr, "Funnel reconciliation refused: apply is unavailable or the scan is incomplete. Use dry-run and inspect the scan limit; no totals were replaced.");
       return 1;
     }
     if (status < 200 || status >= 300) {
