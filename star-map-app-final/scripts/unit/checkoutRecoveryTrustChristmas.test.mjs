@@ -104,8 +104,9 @@ test("Christmas banner discount windows (Pacific) cover each promo phase", async
 
   assert.equal(CHRISTMAS_ORDER_BY_DATES.framed_us, "2026-12-08");
   // framed_ca tightened to Dec 3 (decision 2026-10-22): Printful
-  // fulfilment 2–5 business days + Canada delivery 3–10 business days
-  // can push a Dec 9 order past Christmas; Dec 3 worst case is Dec 24.
+  // fulfilment 2–5 business days + Canada transit 8–13 business days
+  // can push a Dec 9 order past Christmas; a Dec 3 order arrives
+  // Dec 17–31 (midpoint about Dec 23) — an estimate, not a guarantee.
   assert.equal(CHRISTMAS_ORDER_BY_DATES.framed_ca, "2026-12-03");
   assert.equal(CHRISTMAS_ORDER_BY_DATES.poster_us, "2026-12-09");
   assert.equal(CHRISTMAS_ORDER_BY_DATES.poster_ca, "2026-12-03");
