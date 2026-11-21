@@ -383,7 +383,7 @@ export default function PersonalizedStarMapPage() {
           },
         ]}
       />
-      <StorefrontProductSchema name="Personalized star map" siteUrl={siteUrl} />
+      <StorefrontProductSchema name="Personalized star map" siteUrl={siteUrl} pagePath="/personalized-star-map" />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>
   );

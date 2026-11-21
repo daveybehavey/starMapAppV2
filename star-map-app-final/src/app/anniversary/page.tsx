@@ -524,6 +524,7 @@ export default function AnniversaryPage() {
         description="Personalized anniversary star map showing the exact night sky from your milestone date and location. Order a framed print, unframed poster, or HD digital download."
         imageUrl={`${siteUrl}/custom-star-map-anniversary.webp`}
         offers={productOffers}
+        offerLandingUrl={`${siteUrl}/anniversary`}
       />
       <FaqSchema items={[...anniversaryFaqItems]} />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />

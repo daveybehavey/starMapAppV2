@@ -98,6 +98,11 @@ export default function FramedHdBundleLandingPage() {
     },
   ] as const;
 
+  const priceValidUntil = (() => {
+    const now = new Date();
+    const nextYear = new Date(Date.UTC(now.getUTCFullYear() + 1, now.getUTCMonth(), now.getUTCDate()));
+    return nextYear.toISOString().slice(0, 10);
+  })();
   const schema = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -112,6 +117,7 @@ export default function FramedHdBundleLandingPage() {
       name: BUNDLE_PRODUCT_NAME,
       priceCurrency: currency,
       price: (bundleCents / 100).toFixed(2),
+      priceValidUntil,
       availability: "https://schema.org/InStock",
       url: `${siteUrl}${BUNDLE_PATH}`,
     },

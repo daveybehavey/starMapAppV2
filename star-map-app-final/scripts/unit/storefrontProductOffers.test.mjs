@@ -22,6 +22,7 @@ test("storefront offers track catalogue overrides and public availability", () =
     assert.equal(offers[0].priceCurrency, "CAD");
     assert.equal(offers[0].price, (digital.amountCents / 100).toFixed(2));
     assert.equal(offers[0].priceCurrency, digital.currency.toUpperCase());
+    assert.equal(offers[0].url, "https://starmapco.com/personalized-star-map");
     process.env.NEXT_PUBLIC_PRINT_CHECKOUT_ENABLED = "true";
     const enabled = getStorefrontProductOffers("https://starmapco.com");
     assert.equal(enabled.length, 3);
@@ -30,9 +31,12 @@ test("storefront offers track catalogue overrides and public availability", () =
       const tier = getPrintPricingTiers()[variant];
       assert.equal(enabled[index + 1].price, (tier.amountCents / 100).toFixed(2));
       assert.equal(enabled[index + 1].priceCurrency, tier.currency.toUpperCase());
-      assert.equal(new URL(enabled[index + 1].url).searchParams.get("print_variant"), variant);
+      // Offer URLs point at the indexable landing, not /editor (robots-disallowed).
+      assert.equal(enabled[index + 1].url, "https://starmapco.com/personalized-star-map");
     }
     assert.equal(getStorefrontProductOffers("https://starmapco.com", true).length, 1);
+    const custom = getStorefrontProductOffers("https://starmapco.com", false, "/hd-star-map");
+    assert.equal(custom[0].url, "https://starmapco.com/hd-star-map");
   } finally {
     for (const [key, value] of Object.entries(saved)) {
       if (value === undefined) delete process.env[key]; else process.env[key] = value;

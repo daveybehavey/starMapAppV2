@@ -206,7 +206,7 @@ export default function HdStarMapPage() {
       </section>
 
       <FaqSchema items={[...faqItems]} />
-      <StorefrontProductSchema name="HD star map" siteUrl={siteUrl} digitalOnly />
+      <StorefrontProductSchema name="HD star map" siteUrl={siteUrl} digitalOnly pagePath="/hd-star-map" />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>
   );

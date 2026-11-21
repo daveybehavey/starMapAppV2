@@ -100,6 +100,11 @@ export default function KeepsakeCardLandingPage() {
     },
   ] as const;
 
+  const priceValidUntil = (() => {
+    const now = new Date();
+    const nextYear = new Date(Date.UTC(now.getUTCFullYear() + 1, now.getUTCMonth(), now.getUTCDate()));
+    return nextYear.toISOString().slice(0, 10);
+  })();
   const schema = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -114,6 +119,7 @@ export default function KeepsakeCardLandingPage() {
       name: CARD_PRODUCT_NAME,
       priceCurrency: currency,
       price: (cardTier.amountCents / 100).toFixed(2),
+      priceValidUntil,
       availability: "https://schema.org/InStock",
       url: `${siteUrl}${CARD_PATH}`,
     },

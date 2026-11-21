@@ -270,6 +270,7 @@ export default function NightSkyMapGiftPage() {
         description="Personalized night sky map gift showing the exact stars from any meaningful date and location. Perfect for anniversaries, weddings, birthdays, and milestones. Choose framed print, unframed poster, or HD digital."
         imageUrl={`${siteUrl}/custom-star-map-anniversary.webp`}
         offers={productOffers}
+        offerLandingUrl={`${siteUrl}/night-sky-map-gift`}
       />
       <FaqSchema items={NIGHT_SKY_MAP_GIFT_FAQ_ITEMS} />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />

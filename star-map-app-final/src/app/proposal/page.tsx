@@ -397,6 +397,7 @@ export default function ProposalPage() {
         description="Personalized wedding and proposal star map showing the exact night sky from your milestone date and location. Order a framed print, unframed poster, or HD digital download."
         imageUrl={`${siteUrl}/custom-star-map-anniversary.webp`}
         offers={productOffers}
+        offerLandingUrl={`${siteUrl}/proposal`}
       />
       <FaqSchema items={[...proposalFaqItems]} />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />

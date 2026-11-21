@@ -141,7 +141,7 @@ export default function ConstellationMapPage() {
         </div>
       </section>
       <FaqSchema items={CONSTELLATION_MAP_FAQ_ITEMS} />
-      <StorefrontProductSchema name="Custom constellation map" siteUrl={siteUrl} />
+      <StorefrontProductSchema name="Custom constellation map" siteUrl={siteUrl} pagePath="/constellation-map" />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>
   );

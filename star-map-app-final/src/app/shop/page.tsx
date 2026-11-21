@@ -640,6 +640,7 @@ export default function ShopPage() {
         }
         imageUrl={`${siteUrl}/custom-star-map-anniversary.webp`}
         offers={productOffers}
+        offerLandingUrl={`${siteUrl}/shop`}
       />
     </main>
   );

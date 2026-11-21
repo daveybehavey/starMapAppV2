@@ -395,6 +395,7 @@ export default function NewBabyPage() {
         description="Personalized new baby star map showing the exact night sky from the birth date and location. Order a framed print, unframed poster, or HD digital download."
         imageUrl={`${siteUrl}/examples/example-new-baby-heirloom.webp`}
         offers={productOffers}
+        offerLandingUrl={`${siteUrl}/new-baby`}
       />
       <FaqSchema items={[...newBabyFaqItems]} />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
