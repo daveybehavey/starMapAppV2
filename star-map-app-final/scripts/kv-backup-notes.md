@@ -1,5 +1,8 @@
 # Manual KV backup (C18)
 
+Cross-module overview (covered/excluded keyspaces, evidence rule, DO pending
+slices): `docs/backup-export.md`.
+
 From `star-map-app-final/`, run `node scripts/export-kv-backup.mjs` with the existing
 `CLOUDFLARE_API_KEY` and `CLOUDFLARE_EMAIL` environment variables supplied securely.
 Do not put credentials in command arguments. The account and STAR_MAP_KV namespace

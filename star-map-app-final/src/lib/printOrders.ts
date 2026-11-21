@@ -1,3 +1,11 @@
+/**
+ * Print order KV mirror (`print:order:{sessionId}`) and related pure helpers.
+ *
+ * Pipeline overview: `docs/print-fulfillment-pipeline.md`.
+ * Authoritative bind/terminal lifecycle: PrintOrderAuthority DO
+ * (`docs/print-order-authority-do.md`). This module’s KV records are a
+ * non-authoritative projection plus retention/persist helpers.
+ */
 import type Stripe from "stripe";
 import type { PrintVariant } from "@/lib/pricing";
 import type { MerchFamilyId } from "@/lib/merchCatalog";
