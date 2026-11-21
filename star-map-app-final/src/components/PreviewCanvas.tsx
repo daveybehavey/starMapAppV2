@@ -124,6 +124,18 @@ export default function PreviewCanvas({
   useEffect(() => {
     onTextOverflowChangeRef.current = onTextOverflowChange;
   }, [onTextOverflowChange]);
+  // Keep onRendered off the base-sky effect dep list. EditorExperience
+  // (and MobileCreate) pass an inline `() => { setCanvasReady(true); … }`
+  // which gets a new identity on every parent re-render — including
+  // caption keystrokes. Listing that callback as a paint dependency
+  // forced a full base-sky redraw (~5k draw calls on a dense map) and
+  // defeated the dual-canvas split that keeps text edits on the overlay
+  // only. Mirror the onTextOverflowChangeRef pattern: always call the
+  // latest callback, never re-paint because its identity changed.
+  const onRenderedRef = useRef(onRendered);
+  useEffect(() => {
+    onRenderedRef.current = onRendered;
+  }, [onRendered]);
   // Shape/frame state the drag clamp bounds against, kept in a ref so
   // the pointer handlers (registered once) always read the current
   // values. Synced by the effect below once effectiveShape/baseRecipe
@@ -392,7 +404,7 @@ export default function PreviewCanvas({
         includeText: false,
       });
       setIsLoading(false);
-      onRendered?.();
+      onRenderedRef.current?.();
     });
 
     return () => {
@@ -403,7 +415,6 @@ export default function PreviewCanvas({
     baseRecipe,
     paid,
     previewFidelity,
-    onRendered,
     skyPending,
     shouldSkipMainThreadSkyCompute,
     skySupported,
