@@ -1,0 +1,55 @@
+{
+  "namespaces": {
+    "success": true,
+    "result": [
+      {
+        "id": "ns-gift-certificate-grant",
+        "class": "GiftCertificateGrantDO",
+        "name": "GIFT_CERTIFICATE_GRANT",
+        "script": "star-map-final",
+        "use_sqlite": true
+      },
+      {
+        "id": "ns-print-order-authority",
+        "class": "PrintOrderAuthorityDO",
+        "name": "PRINT_ORDER_AUTHORITY",
+        "script": "star-map-final",
+        "use_sqlite": true
+      },
+      {
+        "id": "ns-entitlement-authority",
+        "class": "EntitlementAuthorityDO",
+        "name": "ENTITLEMENT_AUTHORITY",
+        "script": "star-map-final",
+        "use_sqlite": true
+      }
+    ],
+    "result_info": {
+      "count": 3,
+      "page": 1,
+      "per_page": 20,
+      "total_count": 3,
+      "total_pages": 1
+    }
+  },
+  "emptyObjects": {
+    "success": true,
+    "result": [],
+    "result_info": { "count": 0, "cursor": "" }
+  },
+  "printObjects": {
+    "success": true,
+    "result": [
+      { "id": "do-print-a", "hasStoredData": true },
+      { "id": "do-print-b", "hasStoredData": true }
+    ],
+    "result_info": { "count": 2, "cursor": "" }
+  },
+  "onePrintObject": {
+    "success": true,
+    "result": [
+      { "id": "do-print-only", "hasStoredData": true }
+    ],
+    "result_info": { "count": 1, "cursor": "" }
+  }
+}
