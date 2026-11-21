@@ -25,18 +25,28 @@ jobs:
         with:
           node-version: '22'
       - name: Test export logic without credentials
-        run: node --test scripts/unit/kvBackup.test.mjs
+        run: node --test scripts/unit/kvBackup.test.mjs scripts/unit/doBackup.test.mjs
       - name: Export KV (GET requests only)
         env:
           CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
           CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
         run: node scripts/export-kv-backup.mjs
+      - name: Export Durable Object census + EntitlementAuthority (read-only)
+        env:
+          CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
+          CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
+          PRINT_ADMIN_TOKEN: ${{ secrets.PRINT_ADMIN_TOKEN }}
+          BACKUP_OPS_BASE_URL: ${{ vars.BACKUP_OPS_BASE_URL }}
+          NEXT_PUBLIC_SITE_URL: https://starmapco.com
+        run: node scripts/export-do-backup.mjs
       # Sensitive customer records. Download to owner-controlled backup storage
       # before retention expires; never expose contents in logs or PR evidence.
       - name: Retain completed snapshot
         uses: actions/upload-artifact@v4
         with:
           name: kv-backup-${{ github.run_id }}-${{ github.run_attempt }}
-          path: star-map-app-final/kv-backups/kv-*/*
+          path: |
+            star-map-app-final/kv-backups/kv-*/*
+            star-map-app-final/kv-backups/do-*/*
           if-no-files-found: error
           retention-days: 7

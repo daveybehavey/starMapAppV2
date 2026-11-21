@@ -3,5 +3,7 @@
   "second": {"success":true,"result":[{"name":"stripe:session:fixture-2"}],"result_info":{"cursor":""}},
   "empty": {"success":true,"result":[],"result_info":{"cursor":""}},
   "claim": {"success":true,"result":[{"name":"claim:synthetic-token"}],"result_info":{"cursor":""}},
-  "print": {"success":true,"result":[{"name":"print:order:fixture"}],"result_info":{"cursor":""}}
+  "print": {"success":true,"result":[{"name":"print:order:fixture"}],"result_info":{"cursor":""}},
+  "map": {"success":true,"result":[{"name":"map:fixture-recipe","expiration":2000001000}],"result_info":{"cursor":""}},
+  "gift": {"success":true,"result":[{"name":"gift-cert:code:fixturehash"},{"name":"gift-cert:session:fixture-1"}],"result_info":{"cursor":""}}
 }
