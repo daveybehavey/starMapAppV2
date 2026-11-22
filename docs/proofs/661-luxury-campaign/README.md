@@ -24,7 +24,14 @@ Inspect the exact exported video, including audio, first two seconds, frame/comp
 
 Local campaign submission with date 2024-06-01 and selected Santorini result transferred mode=quick, source=meaningful-night, date, coordinates and Europe/Athens timezone. The editor rendered a preview; Customize more showed June 1, 2024 at 9 PM in Europe/Athens. Empty submission opens the editor with place required before generation. Narrow viewport checks at 390 and 320 outer width showed no horizontal document overflow (375/305 CSS content widths).
 
-An earlier direct-editor date/time edit did not retain the filled value after location selection. It is not yet established whether that was input automation or application behavior; independent interaction testing remains required. Do not call every date/time path passed.
+### Re-verification — 2026-11-21 (Cursor)
+
+- Landing honesty copy live on local `127.0.0.1:3017/a/meaningful-night`: classic-start wording, customized-heart figcaption, blank-time → 9 PM note.
+- Date then location handoff: `date=2024-06-01`, picked Santorini coords, `tz=Europe/Athens`, `source=meaningful-night`.
+- Customize more: DateTimeControls shows **21:00** with label “optional; cleared time defaults to 9 PM” (no longer blanks the default).
+- User-set time then location change: Athens **15:30** → Paris **14:30** with date still 2024-06-01. This is **intended instant preservation** (EEST→CEST), not an input-loss bug.
+- Fresh screenshots: `desktop-fullpage-2026-11-21.png`, `desktop-viewport-2026-11-21.png`, `mobile-fullpage-2026-11-21.png`, `mobile-viewport-2026-11-21.png`, `editor-handoff-review-2026-11-21.png`.
+- Name-only/noon vs cleared-time 9 PM contracts left unchanged in code; landing copy now states the editor’s blank-time 9 PM behavior.
 
 ## Validation
 

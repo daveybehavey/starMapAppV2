@@ -93,7 +93,7 @@ export default function MeaningfulNightPage() {
               priority
             />
           </div>
-          <figcaption>Illustrative frame · actual watermarked StarMapCo preview</figcaption>
+          <figcaption>Customized heart example · illustrative frame · watermarked preview</figcaption>
           <span className={`${styles.sceneCaption} ${editorial.className}`} aria-hidden="true">
             A date. A place.
             <br />
@@ -126,7 +126,8 @@ export default function MeaningfulNightPage() {
             <div>
               <h3>Make it yours</h3>
               <p>
-                Choose the shape and colors. Add names, a dedication or the few words that say everything.
+                Your first preview opens in the classic design. Select Customize more to choose a shape and
+                colors, then add your own names and dedication. The heart shown here is a customized example.
               </p>
             </div>
           </li>
@@ -151,8 +152,8 @@ export default function MeaningfulNightPage() {
             <em>is yours?</em>
           </h2>
           <p>
-            Start here. In the editor, confirm your local time and timezone before approving the sky. If the
-            time is unknown, your map will be an approximation of that night.
+            Start here. In the editor, confirm your local time and timezone before approving the sky. If you
+            leave the time blank, the editor uses 9 PM in that place’s timezone as an approximation of the night.
           </p>
           <Link href="/how-accurate-are-star-maps" prefetch={false}>
             How your sky is calculated ↗
@@ -161,7 +162,7 @@ export default function MeaningfulNightPage() {
         <div className={styles.form}>
           <PreviewStartForm
             title="Create your free preview"
-            description="Enter your date and place. You can personalize the design and choose a delivery format in the editor."
+            description="Enter your date and place to start with a classic preview. Choose Customize more in the editor to change the shape, colors and dedication."
             buttonLabel="See my night sky →"
             source="meaningful-night"
             showMobileDateHelper
