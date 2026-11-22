@@ -6,6 +6,7 @@ import { getBusinessProfile } from "@/lib/businessProfile";
 import { isShopTabEnabled } from "@/lib/shopTab";
 
 export function shouldHideSiteTopNav(pathname: string) {
+  if (pathname === "/a/meaningful-night") return true;
   if (pathname.startsWith("/editor")) return true;
   if (pathname.startsWith("/m/")) return true;
   if (pathname.startsWith("/funnel")) return true;

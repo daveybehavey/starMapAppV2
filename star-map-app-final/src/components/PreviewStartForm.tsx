@@ -7,10 +7,7 @@ import LocationTypeahead from "@/components/LocationTypeahead";
 import { MOBILE_DATE_HELPER_TEXT, STANDARD_DATE_PLACEHOLDER } from "@/lib/dateInput";
 import { getPrintFreeShippingShortTag } from "@/lib/printCheckoutConfig";
 import type { EditorLocationPrefill } from "@/lib/editorLocationPrefill";
-import {
-  resolvePreviewLocationFields,
-  type PickedPreviewLocation,
-} from "@/lib/previewStartLocation";
+import { resolvePreviewLocationFields, type PickedPreviewLocation } from "@/lib/previewStartLocation";
 import type { PrintVariant } from "@/lib/pricing";
 
 type PreviewStartIntent = {
@@ -43,6 +40,8 @@ type PreviewStartFormProps = {
   intentOptions?: PreviewStartIntent[];
   /** When false, hides the iOS date-keyboard helper under the date field. */
   showMobileDateHelper?: boolean;
+  /** Hide the print promotion on format-neutral campaign pages. */
+  showPrintOffer?: boolean;
   /** Optional links or notes rendered inside the card below the form. */
   footerContent?: ReactNode;
 };
@@ -50,7 +49,9 @@ type PreviewStartFormProps = {
 const DIGITAL_PLANS = new Set(["single", "pack3", "subscription"]);
 
 /** Digital intents: explicit digital checkout, a digital add-on, or a digital plan with no print checkout. */
-export function isDigitalPreviewIntent(intent: Pick<PreviewStartIntent, "checkout" | "includeDigitalAddOn" | "plan">) {
+export function isDigitalPreviewIntent(
+  intent: Pick<PreviewStartIntent, "checkout" | "includeDigitalAddOn" | "plan">
+) {
   if (intent.checkout === "digital" || intent.includeDigitalAddOn) return true;
   return intent.checkout !== "print" && DIGITAL_PLANS.has(intent.plan);
 }
@@ -151,6 +152,7 @@ export default function PreviewStartForm({
   defaultLocationCoords,
   intentOptions,
   showMobileDateHelper = true,
+  showPrintOffer = true,
   footerContent,
 }: PreviewStartFormProps) {
   const resolvedSource = source?.trim() || "preview-start-form";
@@ -189,7 +191,7 @@ export default function PreviewStartForm({
   const locationFields = resolvePreviewLocationFields({
     locationText,
     picked: pickedLocation,
-    defaultCoords: coordsActive ? defaultLocationCoords ?? null : null,
+    defaultCoords: coordsActive ? (defaultLocationCoords ?? null) : null,
     initialLocation,
   });
 
@@ -367,10 +369,12 @@ export default function PreviewStartForm({
           </button>
         )}
         <p className="mt-2 text-xs text-neutral-600">Free preview · No account required</p>
-        <p className="mt-1 text-xs font-semibold text-amber-700">
-          Framed print<span data-digital-offer> + HD digital</span> —{" "}
-          {getPrintFreeShippingShortTag() ?? "Free shipping"}. Shipping shown before payment.
-        </p>
+        {showPrintOffer && (
+          <p className="mt-1 text-xs font-semibold text-amber-700">
+            Framed print<span data-digital-offer> + HD digital</span> —{" "}
+            {getPrintFreeShippingShortTag() ?? "Free shipping"}. Shipping shown before payment.
+          </p>
+        )}
         {footerContent ? <div className="mt-5 border-t border-amber-200/60 pt-4">{footerContent}</div> : null}
       </form>
     </section>
