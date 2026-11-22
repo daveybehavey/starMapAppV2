@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <title>Etsy prepaid customization mock (sample data)</title>
+    <style>
+      :root {
+        --ink: #111c24;
+        --cream: #f2eadc;
+        --gold: #cbb184;
+        --line: #29272033;
+        --ok: #2f6b4f;
+        --warn: #8a5a1d;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: Georgia, "Times New Roman", serif;
+        background: linear-gradient(180deg, #0f1820, #182430 40%, #111c24);
+        color: var(--cream);
+        line-height: 1.5;
+      }
+      main { max-width: 920px; margin: 0 auto; padding: 28px 18px 80px; }
+      .banner {
+        background: #1d3a2c;
+        border: 1px solid #3f7a5c;
+        color: #d9f0e3;
+        padding: 12px 14px;
+        margin-bottom: 22px;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+      }
+      h1 { font-weight: 400; font-size: clamp(28px, 5vw, 42px); margin: 0 0 8px; }
+      .sub { color: #c7cac9; margin: 0 0 28px; font-family: Arial, sans-serif; font-size: 14px; }
+      .grid { display: grid; gap: 18px; grid-template-columns: 1.1fr 0.9fr; }
+      @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+      section {
+        background: #f2eadc;
+        color: var(--ink);
+        padding: 20px;
+        border: 1px solid #d8cdb8;
+      }
+      section h2 { margin: 0 0 14px; font-weight: 400; font-size: 26px; }
+      label { display: block; font-family: Arial, sans-serif; font-size: 12px; margin: 12px 0 6px; }
+      input[type="text"], input[type="date"], input[type="time"], select, textarea {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #b9ae98;
+        background: #fffdf8;
+        font: 15px Arial, sans-serif;
+      }
+      input:disabled, select:disabled { opacity: 0.7; background: #ece4d5; }
+      .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+      .pill {
+        display: inline-block;
+        font-family: Arial, sans-serif;
+        font-size: 11px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        border: 1px solid var(--line);
+        padding: 4px 8px;
+      }
+      button {
+        font-family: Arial, sans-serif;
+        border: 1px solid var(--ink);
+        background: var(--ink);
+        color: var(--cream);
+        padding: 12px 16px;
+        cursor: pointer;
+      }
+      button.secondary { background: transparent; color: var(--ink); }
+      button:disabled { opacity: 0.45; cursor: not-allowed; }
+      .hidden-checkout {
+        margin-top: 14px;
+        padding: 10px;
+        border: 1px dashed #9a3b3b;
+        color: #7a2f2f;
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+        background: #f7e4e0;
+      }
+      .proof {
+        border-top: 1px solid var(--line);
+        margin-top: 14px;
+        padding-top: 12px;
+        font-family: Arial, sans-serif;
+        font-size: 13px;
+      }
+      .proof li { margin: 8px 0; }
+      .status-ok { color: var(--ok); font-weight: 700; }
+      .status-warn { color: var(--warn); font-weight: 700; }
+      .preview-frame {
+        aspect-ratio: 1;
+        border: 12px solid #242422;
+        background:
+          radial-gradient(circle at 50% 45%, #1a2744, #090e24 70%);
+        display: grid;
+        place-items: center;
+        color: var(--gold);
+        text-align: center;
+        padding: 18px;
+      }
+      .preview-frame small { display: block; margin-top: 10px; color: #d7c7a5; font-family: Arial, sans-serif; }
+      .note { font-family: Arial, sans-serif; font-size: 12px; color: #555953; margin-top: 10px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="banner">
+        Already paid — Etsy order <strong>SAMPLE-ETS-0000</strong>. No checkout on this page.
+        Invitation <code>mock-etsy-invite-001</code> (synthetic).
+      </div>
+      <h1>Customize your paid print</h1>
+      <p class="sub">
+        Local mock only. Sample data. Not connected to Etsy, Printful, payments, or messaging.
+      </p>
+
+      <div class="grid">
+        <section>
+          <h2>Your design</h2>
+          <div class="row">
+            <span class="pill">Size locked · 14×14 square</span>
+            <span class="pill">Frame · black (sample)</span>
+          </div>
+
+          <label for="title">Title</label>
+          <input id="title" type="text" value="Our Night Sky" />
+
+          <label for="dedication">Dedication</label>
+          <textarea id="dedication" rows="2">For a night worth keeping</textarea>
+
+          <label for="date">Date</label>
+          <input id="date" type="date" value="2026-02-25" />
+
+          <label for="place">Place</label>
+          <input id="place" type="text" value="Redwood City, CA (sample)" />
+
+          <label for="time">Exact time</label>
+          <input id="time" type="time" value="" />
+          <label class="row" style="margin-top:8px">
+            <input id="unknownTime" type="checkbox" />
+            <span>I do not know the time</span>
+          </label>
+          <p class="note" id="timeNote">
+            If unknown is selected, the mock records <code>timeUnknown: true</code> and shows the
+            listing-agreed fallback (sample: 10:00 PM). Cleared time alone is not treated as unknown.
+          </p>
+
+          <label for="size">Print size</label>
+          <select id="size" disabled>
+            <option selected>14×14 framed (purchased · locked)</option>
+            <option>18×18 unframed (not purchased)</option>
+          </select>
+
+          <div class="row" style="margin-top:18px">
+            <button type="button" id="submitProof">Submit design for approval</button>
+            <button type="button" class="secondary" id="saveDraft">Save draft (local)</button>
+          </div>
+
+          <div class="hidden-checkout" aria-hidden="true">
+            Checkout / Unlock HD / Add to cart controls are intentionally absent in this prepaid flow.
+          </div>
+
+          <div class="proof">
+            <strong>Proof versions</strong>
+            <ul id="proofList">
+              <li>No proofs yet.</li>
+            </ul>
+            <div class="row" style="margin-top:10px">
+              <button type="button" class="secondary" id="approve" disabled>Approve latest proof</button>
+              <button type="button" class="secondary" id="requestChanges" disabled>Request changes</button>
+            </div>
+            <p class="note" id="fulfillment">Fulfillment: locked until buyer approval + staff review.</p>
+          </div>
+        </section>
+
+        <section>
+          <h2>Preview</h2>
+          <div class="preview-frame" id="preview">
+            <div>
+              <div id="previewTitle">Our Night Sky</div>
+              <div id="previewMeta">2026-02-25 · Redwood City, CA</div>
+              <small>Watermarked sample · not a print file</small>
+            </div>
+          </div>
+          <p class="note">
+            One fulfillment per original Etsy order. Staff cost review remains outside this mock.
+          </p>
+          <p class="note" id="stateLabel">State: <span class="status-warn">awaiting_design</span></p>
+        </section>
+      </div>
+    </main>
+    <script>
+      const sample = {
+        invite: "mock-etsy-invite-001",
+        orderRef: "SAMPLE-ETS-0000",
+        sizeLocked: "14x14_framed",
+        listingUnknownTimeFallback: "22:00",
+        proofs: [],
+        state: "awaiting_design",
+      };
+
+      const time = document.getElementById("time");
+      const unknownTime = document.getElementById("unknownTime");
+      const timeNote = document.getElementById("timeNote");
+      const proofList = document.getElementById("proofList");
+      const approve = document.getElementById("approve");
+      const requestChanges = document.getElementById("requestChanges");
+      const fulfillment = document.getElementById("fulfillment");
+      const stateLabel = document.getElementById("stateLabel");
+
+      function syncTimeUi() {
+        if (unknownTime.checked) {
+          time.value = "";
+          time.disabled = true;
+          timeNote.textContent =
+            "Unknown time selected. Mock will store timeUnknown=true and use listing fallback 10:00 PM (sample).";
+        } else {
+          time.disabled = false;
+          timeNote.textContent =
+            "If unknown is selected, the mock records timeUnknown: true and shows the listing-agreed fallback (sample: 10:00 PM). Cleared time alone is not treated as unknown.";
+        }
+        renderPreview();
+      }
+
+      function renderPreview() {
+        document.getElementById("previewTitle").textContent =
+          document.getElementById("title").value || "Untitled";
+        const date = document.getElementById("date").value;
+        const place = document.getElementById("place").value;
+        const timeLabel = unknownTime.checked
+          ? "time unknown → 10:00 PM fallback"
+          : time.value
+            ? time.value
+            : "time not set";
+        document.getElementById("previewMeta").textContent = `${date} · ${place} · ${timeLabel}`;
+      }
+
+      function setState(next) {
+        sample.state = next;
+        const cls = next === "approved" ? "status-ok" : "status-warn";
+        stateLabel.innerHTML = `State: <span class="${cls}">${next}</span>`;
+      }
+
+      function renderProofs() {
+        if (!sample.proofs.length) {
+          proofList.innerHTML = "<li>No proofs yet.</li>";
+          approve.disabled = true;
+          requestChanges.disabled = true;
+          return;
+        }
+        proofList.innerHTML = sample.proofs
+          .map(
+            (p) =>
+              `<li><strong>v${p.version}</strong> · ${p.at} · ${p.summary} · <em>${p.status}</em></li>`
+          )
+          .join("");
+        const latest = sample.proofs[sample.proofs.length - 1];
+        approve.disabled = latest.status !== "pending_approval";
+        requestChanges.disabled = latest.status !== "pending_approval";
+      }
+
+      document.getElementById("submitProof").addEventListener("click", () => {
+        const version = sample.proofs.length + 1;
+        const summary = unknownTime.checked
+          ? "unknown time + 10PM fallback"
+          : time.value
+            ? `time ${time.value}`
+            : "time omitted (not marked unknown)";
+        sample.proofs.push({
+          version,
+          at: new Date().toISOString(),
+          summary,
+          status: "pending_approval",
+        });
+        setState("proof_pending");
+        fulfillment.textContent = "Fulfillment: locked until buyer approval + staff review.";
+        renderProofs();
+      });
+
+      approve.addEventListener("click", () => {
+        const latest = sample.proofs[sample.proofs.length - 1];
+        if (!latest) return;
+        latest.status = "approved";
+        setState("approved");
+        fulfillment.textContent =
+          "Buyer approved. Staff cost review + one fulfillment still required (not executed in mock).";
+        renderProofs();
+      });
+
+      requestChanges.addEventListener("click", () => {
+        const latest = sample.proofs[sample.proofs.length - 1];
+        if (!latest) return;
+        latest.status = "changes_requested";
+        setState("awaiting_design");
+        fulfillment.textContent = "Fulfillment: locked until buyer approval + staff review.";
+        renderProofs();
+      });
+
+      document.getElementById("saveDraft").addEventListener("click", () => {
+        localStorage.setItem(
+          "etsy-prepaid-mock-draft",
+          JSON.stringify({
+            title: document.getElementById("title").value,
+            dedication: document.getElementById("dedication").value,
+            date: document.getElementById("date").value,
+            place: document.getElementById("place").value,
+            time: time.value,
+            unknownTime: unknownTime.checked,
+          })
+        );
+        alert("Draft saved locally in this browser only.");
+      });
+
+      ["title", "dedication", "date", "place", "time"].forEach((id) => {
+        document.getElementById(id).addEventListener("input", renderPreview);
+      });
+      unknownTime.addEventListener("change", syncTimeUi);
+      syncTimeUi();
+      renderProofs();
+    </script>
+  </body>
+</html>
