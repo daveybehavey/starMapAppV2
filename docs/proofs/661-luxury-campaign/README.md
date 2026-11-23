@@ -33,6 +33,24 @@ Local campaign submission with date 2024-06-01 and selected Santorini result tra
 - Fresh screenshots: `desktop-fullpage-2026-11-21.png`, `desktop-viewport-2026-11-21.png`, `mobile-fullpage-2026-11-21.png`, `mobile-viewport-2026-11-21.png`, `editor-handoff-review-2026-11-21.png`.
 - Name-only/noon vs cleared-time 9 PM contracts left unchanged in code; landing copy now states the editor’s blank-time 9 PM behavior.
 
+### Grok CHANGES NEEDED follow-up — 2026-11-23 (Cursor)
+
+Addressed Grok Bot review of `f83505bb` (issuecomment-7083038319) with synthetic local browser checks only. No merge/deploy/spend.
+
+1. **Title/place handoff:** URL + landing handoffs now sync place into subtitle and date into dedication from classic defaults. Classic title keeps **Our Night Sky** with inline label “Default title — change it in Customize more.”
+2. **Hero watermark / date legibility:** Heart watermark home biased lower (`preferredCenterYRatio` 0.58). Campaign `heart-preview.png` regenerated with Cormorant date line. Classic dedication default switched to Cormorant 32 for readable synced dates.
+3. **Proof gap closed:** date-first, place-first, and Customize-more time (`21:00` + cleared-time 9 PM wording) captured.
+
+Fresh proofs (2026-11-23):
+- `desktop-fullpage-2026-11-23.png`, `desktop-viewport-2026-11-23.png`
+- `mobile-fullpage-2026-11-23.png`, `mobile-viewport-2026-11-23.png`
+- `editor-date-first-2026-11-23.png`, `editor-date-first-time-2026-11-23.png`
+- `editor-place-first-2026-11-23.png`, `editor-place-first-time-2026-11-23.png`
+- `editor-url-handoff-2026-11-23.png`, `editor-url-handoff-time-2026-11-23.png`
+- Machine-readable: `handoff-verification-2026-11-23.json`
+
+Ad creative (seq-18.1 / seq-17.1) unchanged — still Grok’s lane; no paid re-export.
+
 ## Validation
 
 - Node 22.23.5. Initial and final `tsc --noEmit` passed.

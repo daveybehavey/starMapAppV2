@@ -9,6 +9,11 @@ export const SAMPLE_DESIGN_TITLE = "The Night We Became One";
 export const SAMPLE_DESIGN_PLACE = "Santorini, Greece";
 export const SAMPLE_DESIGN_DATE = "June 1, 2024";
 
+/** Classic editor defaults (store initial textBoxes) — also treated as syncable placeholders. */
+export const CLASSIC_DEFAULT_TITLE = "Our Night Sky";
+export const CLASSIC_DEFAULT_SUBTITLE = "Under the vintage stars";
+export const CLASSIC_DEFAULT_DEDICATION = "Celebrating our constellation of moments.";
+
 export type SampleDesignTextBox = {
   id: string;
   text: string;
@@ -70,11 +75,11 @@ export function formatSampleDedicationDate(dateInput: string | Date): string {
 function isEligibleForAutoSync(
   currentText: string,
   touched: boolean | undefined,
-  sampleConstant: string,
+  placeholderConstants: readonly string[],
   lastAuto: string | null | undefined
 ): boolean {
   if (touched) return false;
-  if (currentText === sampleConstant) return true;
+  if (placeholderConstants.includes(currentText)) return true;
   return typeof lastAuto === "string" && lastAuto.length > 0 && currentText === lastAuto;
 }
 
@@ -106,7 +111,12 @@ export function syncSampleDesignTextBoxes<T extends SampleDesignTextBox>(input: 
       box.id === "subtitle" &&
       placeName &&
       placeName !== box.text &&
-      isEligibleForAutoSync(box.text, input.touched.subtitle, SAMPLE_DESIGN_PLACE, prevLast.subtitle)
+      isEligibleForAutoSync(
+        box.text,
+        input.touched.subtitle,
+        [SAMPLE_DESIGN_PLACE, CLASSIC_DEFAULT_SUBTITLE],
+        prevLast.subtitle
+      )
     ) {
       changed = true;
       nextLast = { ...nextLast, subtitle: placeName };
@@ -116,7 +126,12 @@ export function syncSampleDesignTextBoxes<T extends SampleDesignTextBox>(input: 
       box.id === "dedication" &&
       formattedDate &&
       formattedDate !== box.text &&
-      isEligibleForAutoSync(box.text, input.touched.dedication, SAMPLE_DESIGN_DATE, prevLast.dedication)
+      isEligibleForAutoSync(
+        box.text,
+        input.touched.dedication,
+        [SAMPLE_DESIGN_DATE, CLASSIC_DEFAULT_DEDICATION],
+        prevLast.dedication
+      )
     ) {
       changed = true;
       nextLast = { ...nextLast, dedication: formattedDate };

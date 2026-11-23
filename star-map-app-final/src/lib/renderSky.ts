@@ -645,6 +645,9 @@ export function renderStarMap({
     // the layout version rides the key — a legacy and a v2 design of
     // the same shape at the same size must never share a cached mask.
     maskKey: `${shapeName}|layout-${shapeLayoutVersion}`,
+    // Heart title/subtitle rows sit near mid-mask; bias the mark slightly
+    // lower so it clears place text while staying crop-safe (SQ-55).
+    preferredCenterYRatio: shapeName === "heart" ? 0.58 : 0.5,
     pixelRatio,
   });
   const allowGrain =
@@ -739,6 +742,7 @@ export function renderStarMapTextLayer({
       clipPath: buildShapeClip(shapeName, width, height, resolvedShapeLayoutVersion),
       // Same cache-key rule as the base render: version in the key.
       maskKey: `${shapeName}|layout-${resolvedShapeLayoutVersion}`,
+      preferredCenterYRatio: shapeName === "heart" ? 0.58 : 0.5,
       pixelRatio,
     });
   }
@@ -2161,6 +2165,7 @@ export function paintWatermark(
     clipPath: Path2D | null;
     maskKey: string;
     pixelRatio?: number;
+    preferredCenterYRatio?: number;
   },
 ): WatermarkPlacement | null {
   const { width, height, clipPath, maskKey } = args;
@@ -2190,7 +2195,13 @@ export function paintWatermark(
     };
   };
 
-  const placement = resolveWatermarkPlacement({ width, height, mask: sampler, measure });
+  const placement = resolveWatermarkPlacement({
+    width,
+    height,
+    mask: sampler,
+    measure,
+    preferredCenterYRatio: args.preferredCenterYRatio,
+  });
   if (!placement) return null;
 
   layerCtx.save();
@@ -2221,6 +2232,7 @@ function drawWatermark(
     clipPath: Path2D | null;
     maskKey: string;
     pixelRatio: number;
+    preferredCenterYRatio?: number;
   },
 ) {
   // Paid-state fence (SQ-55): this guard stays FIRST — before any text
