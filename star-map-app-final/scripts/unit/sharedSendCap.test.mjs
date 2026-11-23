@@ -621,7 +621,14 @@ async function seedPendingCoupon(object) {
   });
 }
 
-test("alarm: counter unavailable re-arms a bounded retry and dispatches nothing", async () => {
+test("alarm: counter unavailable re-arms a bounded retry and dispatches nothing", async (t) => {
+  // Pin the clock: wall-clock Date.now() can make subscribe's initial
+  // alarm land on the same ms as Date.now()+RETRY_DELAY, so the
+  // post-unavailable re-arm is observably identical and the strict
+  // inequality flakes. Controlled time keeps the send-cap refusal and
+  // retry-delay contract exact without loosening either.
+  let clock = 1_700_000_000_000;
+  t.mock.method(Date, "now", () => clock);
   const env = {
     PROMOTION_DISPATCH_ENABLED: "true",
     SEND_CAP_SERVICE: { async fetch() { throw new Error("counter down"); } },
@@ -630,14 +637,14 @@ test("alarm: counter unavailable re-arms a bounded retry and dispatches nothing"
   await seedPendingCoupon(h.object);
   const armedAtSubscribe = h.alarmAt();
   assert.ok(armedAtSubscribe !== null, "subscribe armed an alarm");
+  clock += 1; // advance so the unavailable re-arm cannot collide with subscribe
   const before = Date.now();
   await h.object.alarm();
   const state = await h.object.getPromotionState();
   assert.equal(state?.jobs.coupon?.status, "pending", "no dispatch while the counter is unavailable");
   const rearmed = h.alarmAt();
-  assert.ok(rearmed !== null && rearmed !== armedAtSubscribe, "alarm re-armed after the consumed firing");
-  assert.ok(rearmed >= before + PROMOTION_JOB_RETRY_DELAY_MS - 1000, "retry is at the bounded retry delay");
-  assert.ok(rearmed <= Date.now() + PROMOTION_JOB_RETRY_DELAY_MS + 1000, "retry is not armed beyond the bounded delay");
+  assert.equal(rearmed, before + PROMOTION_JOB_RETRY_DELAY_MS, "retry is armed at the bounded retry delay");
+  assert.notEqual(rearmed, armedAtSubscribe, "alarm re-armed after the consumed firing");
 });
 
 test("alarm: durable cap refusal (unset) keeps the plain early return", async () => {

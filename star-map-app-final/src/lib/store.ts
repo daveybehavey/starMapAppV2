@@ -283,11 +283,10 @@ const storeImpl = (set: (partial: Partial<EditorState> | ((state: EditorState) =
       id: "dedication",
       label: "Dedication",
       text: "Celebrating our constellation of moments.",
-      // Cormorant serif (not tiny script) so synced date lines stay readable on phone.
-      fontFamily: "cormorant",
+      fontFamily: "script",
       color: "#b98a3d", // deeper gold tone for dedication line
       textStyleBinding: { ...AUTOMATIC_TEXT_STYLE_BINDING },
-      size: 32,
+      size: 26,
       align: "center",
       textShadow: false,
       textGlow: false,
