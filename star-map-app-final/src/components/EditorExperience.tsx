@@ -1245,7 +1245,9 @@ export function EditorExperience({
   // the in-flight /api/maps fetch while alreadyHandled stayed true,
   // so map_id hydration silently never applied (Next 16.4.x timing).
   const applyHydratedMapRecipeRef = useRef(applyHydratedMapRecipe);
-  applyHydratedMapRecipeRef.current = applyHydratedMapRecipe;
+  useEffect(() => {
+    applyHydratedMapRecipeRef.current = applyHydratedMapRecipe;
+  }, [applyHydratedMapRecipe]);
 
   useEffect(() => {
     // Start only once the draft is restored AND the automatic
