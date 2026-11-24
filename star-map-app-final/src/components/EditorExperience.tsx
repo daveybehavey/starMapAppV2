@@ -1239,6 +1239,14 @@ export function EditorExperience({
     mapIdFromQueryRef.current = mapIdFromQuery;
   }, [mapIdFromQuery]);
 
+  // Keep the apply callback stable for the hydration effect without
+  // listing recipe fields as effect deps. Those fields change during
+  // post-init visual-option derivation; depending on them cancelled
+  // the in-flight /api/maps fetch while alreadyHandled stayed true,
+  // so map_id hydration silently never applied (Next 16.4.x timing).
+  const applyHydratedMapRecipeRef = useRef(applyHydratedMapRecipe);
+  applyHydratedMapRecipeRef.current = applyHydratedMapRecipe;
+
   useEffect(() => {
     // Start only once the draft is restored AND the automatic
     // visual-options initialization has landed. The start gate
@@ -1250,6 +1258,12 @@ export function EditorExperience({
     // edits while it is in flight — the editor's own automatic
     // initialization can do neither, because those writes run
     // inside the system-write scope (Codex P1, fix round 1).
+    //
+    // Effect deps are intentionally narrow (map id / restore / init /
+    // retry only). Recipe fields like renderOptions must NOT re-run
+    // this effect: a re-run cancels the in-flight fetch via cleanup
+    // while mapFromUrlHandledRef stays true, so hydration never
+    // retries and the editor keeps the empty local draft.
     const requestedMapId = mapIdFromQuery;
     if (
       !requestedMapId ||
@@ -1304,17 +1318,20 @@ export function EditorExperience({
       const data = result.data as HydratableMapRecipe & { datetimeISO: string };
       try {
         draftWritesBlockedRef.current = false;
-        applyHydratedMapRecipe(data);
+        applyHydratedMapRecipeRef.current(data);
         loadedMapIdRef.current = requestedMapId;
+        // Fingerprint fallbacks read live store state at apply time so
+        // this effect does not need recipe-field dependencies.
+        const live = useStore.getState();
         loadedMapFingerprintRef.current = stableMapRecipeFingerprint(
           buildRecipeFromState({
             dateTime: data.datetimeISO,
             location: normalizeHydratedLocation(data.location),
             textBoxes: data.textBoxes ?? [],
-            selectedStyle: data.selectedStyle ?? selectedStyle,
-            aspectRatio: resolveRecipeAspectRatio(data) ?? aspectRatio,
-            shape: resolveRecipeShape(data) ?? shape,
-            renderOptions: data.renderOptions ?? renderOptions,
+            selectedStyle: data.selectedStyle ?? live.selectedStyle,
+            aspectRatio: resolveRecipeAspectRatio(data) ?? live.aspectRatio,
+            shape: resolveRecipeShape(data) ?? live.shape,
+            renderOptions: data.renderOptions ?? live.renderOptions,
           })
         );
 
@@ -1339,7 +1356,7 @@ export function EditorExperience({
     return () => {
       cancelled = true;
     };
-  }, [applyHydratedMapRecipe, aspectRatio, mapIdFromQuery, mapHydrationRetryNonce, renderOptions, restored, selectedStyle, shape, visualOptionsInitialized]);
+  }, [mapIdFromQuery, mapHydrationRetryNonce, restored, visualOptionsInitialized]);
 
   // S4 A2: retrying a failed map-link load is an explicit user
   // decision, so the start gate's baselines re-anchor at the
