@@ -60,6 +60,19 @@ Refreshed proofs (overwrite of same filenames; treat as current):
 
 Ad creative (seq-18.1 / seq-17.1) unchanged — still Grok’s lane; no paid re-export.
 
+### Hero export fix — 2026-11-24 (Cursor)
+
+Addresses Grok Bot blocking finding on `132aa946` (issuecomment-7141514262). Root cause confirmed: `scripts/regen-meaningful-night-heart.mjs` saved the first `#editor` display canvas (`includeText:false`, `watermark:false`). Personalization + watermark live on the second PreviewCanvas layer.
+
+Fix: regen now downloads via the app **Free preview** export path (`renderStarMap` / `renderExportFile` with fonts loaded, text included, watermark enabled). Preserved synthetic Santorini sample, luxury navyGold heart, and global classic dedication defaults (**script / 26**). Campaign asset date line remains Cormorant for legibility on the static PNG only.
+
+Verified on regenerated `public/campaign/meaningful-night/heart-preview.png` (1200×1200) and refreshed landing proofs:
+- Title **THE NIGHT WE BECAME ONE**, place **Santorini, Greece**, date **June 1, 2024**, and **STARMAPCO** watermark all present; no overlap/clipping.
+- Desktop + mobile landing captures refreshed (`desktop-*-2026-11-23.png`, `mobile-*-2026-11-23.png`, `desktop.jpg`, `mobile.jpg`).
+- Default-title hint: date-first and place-first quick-view both show “Default title — change it in Customize more.”; both hide after Customize more opens — intentional, no code change.
+
+Machine report: `handoff-verification-2026-11-23.json` (localhost:3017; Turbopack requires `localhost` not `127.0.0.1`).
+
 ## Validation
 
 - Node 22.23.5. Initial and final `tsc --noEmit` passed.

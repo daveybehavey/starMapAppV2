@@ -9,7 +9,11 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const port = Number(process.env.PORT || 3017);
-const base = `http://127.0.0.1:${port}`;
+// Prefer localhost over 127.0.0.1 so Next 16 Turbopack does not treat the
+// origin as cross-host and block /_next hydration (editor stays on
+// "Loading editor…").
+const host = process.env.HOST || "localhost";
+const base = `http://${host}:${port}`;
 const here = dirname(fileURLToPath(import.meta.url));
 const outDir = join(here, "../../docs/proofs/661-luxury-campaign");
 const stamp = "2026-11-23";

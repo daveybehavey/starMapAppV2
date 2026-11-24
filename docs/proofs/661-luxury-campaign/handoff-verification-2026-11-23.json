@@ -1,6 +1,6 @@
 {
   "urlHandoff": {
-    "href": "http://127.0.0.1:3017/editor?mode=quick&source=meaningful-night&date=2024-06-01&location=Santorini%2C%20Greece&lat=36.3932&lon=25.4615&tz=Europe%2FAthens",
+    "href": "http://localhost:3017/editor?mode=quick&source=meaningful-night&date=2024-06-01&location=Santorini%2C%20Greece&lat=36.3932&lon=25.4615&tz=Europe%2FAthens",
     "dateParam": "2024-06-01",
     "locationParam": "Santorini, Greece",
     "lat": "36.3932",
@@ -16,7 +16,7 @@
     "proof": "C:\\Users\\ReuseTechBC\\Documents\\Codex\\2026-11-18\\files-pasted-by-the-user-you\\work\\starmap-658\\docs\\proofs\\661-luxury-campaign\\editor-url-handoff-2026-11-23.png"
   },
   "urlHandoffTime": {
-    "href": "http://127.0.0.1:3017/editor?mode=quick&source=meaningful-night&date=2024-06-01&location=Santorini%2C%20Greece&lat=36.3932&lon=25.4615&tz=Europe%2FAthens",
+    "href": "http://localhost:3017/editor?mode=quick&source=meaningful-night&date=2024-06-01&location=Santorini%2C%20Greece&lat=36.3932&lon=25.4615&tz=Europe%2FAthens",
     "dateParam": "2024-06-01",
     "locationParam": "Santorini, Greece",
     "lat": "36.3932",
@@ -32,7 +32,7 @@
     "proof": "C:\\Users\\ReuseTechBC\\Documents\\Codex\\2026-11-18\\files-pasted-by-the-user-you\\work\\starmap-658\\docs\\proofs\\661-luxury-campaign\\editor-url-handoff-time-2026-11-23.png"
   },
   "placeFirst": {
-    "href": "http://127.0.0.1:3017/editor?mode=quick&source=meaningful-night&date=2024-06-01&location=Santorini%2C+Thira+Municipal+Unit%2C+Greece&lat=36.4071112&lon=25.4566637&tz=Europe%2FAthens",
+    "href": "http://localhost:3017/editor?mode=quick&source=meaningful-night&date=2024-06-01&location=Santorini%2C+Thira+Municipal+Unit%2C+Greece&lat=36.4071112&lon=25.4566637&tz=Europe%2FAthens",
     "dateParam": "2024-06-01",
     "locationParam": "Santorini, Thira Municipal Unit, Greece",
     "lat": "36.4071112",
@@ -48,7 +48,7 @@
     "proof": "C:\\Users\\ReuseTechBC\\Documents\\Codex\\2026-11-18\\files-pasted-by-the-user-you\\work\\starmap-658\\docs\\proofs\\661-luxury-campaign\\editor-place-first-2026-11-23.png"
   },
   "placeFirstAfterCustomize": {
-    "href": "http://127.0.0.1:3017/editor?mode=quick&source=meaningful-night&date=2024-06-01&location=Santorini%2C+Thira+Municipal+Unit%2C+Greece&lat=36.4071112&lon=25.4566637&tz=Europe%2FAthens",
+    "href": "http://localhost:3017/editor?mode=quick&source=meaningful-night&date=2024-06-01&location=Santorini%2C+Thira+Municipal+Unit%2C+Greece&lat=36.4071112&lon=25.4566637&tz=Europe%2FAthens",
     "dateParam": "2024-06-01",
     "locationParam": "Santorini, Thira Municipal Unit, Greece",
     "lat": "36.4071112",
@@ -64,7 +64,7 @@
     "proof": "C:\\Users\\ReuseTechBC\\Documents\\Codex\\2026-11-18\\files-pasted-by-the-user-you\\work\\starmap-658\\docs\\proofs\\661-luxury-campaign\\editor-place-first-time-2026-11-23.png"
   },
   "dateFirst": {
-    "href": "http://127.0.0.1:3017/editor?mode=quick&source=meaningful-night&date=2024-06-01&location=Santorini%2C+Thira+Municipal+Unit%2C+Greece&lat=36.4071112&lon=25.4566637&tz=Europe%2FAthens",
+    "href": "http://localhost:3017/editor?mode=quick&source=meaningful-night&date=2024-06-01&location=Santorini%2C+Thira+Municipal+Unit%2C+Greece&lat=36.4071112&lon=25.4566637&tz=Europe%2FAthens",
     "dateParam": "2024-06-01",
     "locationParam": "Santorini, Thira Municipal Unit, Greece",
     "lat": "36.4071112",
@@ -80,7 +80,7 @@
     "proof": "C:\\Users\\ReuseTechBC\\Documents\\Codex\\2026-11-18\\files-pasted-by-the-user-you\\work\\starmap-658\\docs\\proofs\\661-luxury-campaign\\editor-date-first-2026-11-23.png"
   },
   "dateFirstAfterCustomize": {
-    "href": "http://127.0.0.1:3017/editor?mode=quick&source=meaningful-night&date=2024-06-01&location=Santorini%2C+Thira+Municipal+Unit%2C+Greece&lat=36.4071112&lon=25.4566637&tz=Europe%2FAthens",
+    "href": "http://localhost:3017/editor?mode=quick&source=meaningful-night&date=2024-06-01&location=Santorini%2C+Thira+Municipal+Unit%2C+Greece&lat=36.4071112&lon=25.4566637&tz=Europe%2FAthens",
     "dateParam": "2024-06-01",
     "locationParam": "Santorini, Thira Municipal Unit, Greece",
     "lat": "36.4071112",
