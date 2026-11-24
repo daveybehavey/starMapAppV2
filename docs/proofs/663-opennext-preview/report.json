@@ -1,0 +1,52 @@
+{
+  "base": "http://127.0.0.1:8787",
+  "startedAt": "2026-11-24T02:54:25.203Z",
+  "pages": {
+    "/": {
+      "url": "http://127.0.0.1:8787/",
+      "status": 200,
+      "ok": true,
+      "title": "Custom Star Map Gifts for Anniversaries & Birthdays | StarMapCo",
+      "canvasCount": 0,
+      "bodySnippet": "Skip to main content Optional analytics help improve StarMapCo. Accept or decline.Privacy. Decline Allow 15% off prints with code XMAS15. Order by these dates for Christmas delivery — earliest cutoffs: US Dec 7 (mugs & keepsake cards) · Can"
+    },
+    "/about": {
+      "url": "http://127.0.0.1:8787/about",
+      "status": 200,
+      "ok": true,
+      "title": "About StarMapCo",
+      "canvasCount": 0,
+      "bodySnippet": "Skip to main content Optional analytics help improve StarMapCo. Accept or decline.Privacy. Decline Allow 15% off prints with code XMAS15. Order by these dates for Christmas delivery — earliest cutoffs: US Dec 7 (mugs & keepsake cards) · Can"
+    },
+    "/editor": {
+      "url": "http://127.0.0.1:8787/editor",
+      "status": 200,
+      "ok": true,
+      "title": "Star Map Editor | StarMapCo",
+      "canvasCount": 0,
+      "bodySnippet": "Skip to main content Optional analytics help improve StarMapCo. Accept or decline.Privacy. Decline Allow CREATE YOUR STAR MAP Start with the moment, then preview Add the date, location, and words that matter, then generate a free preview be"
+    },
+    "/editor?force=desktop": {
+      "url": "http://127.0.0.1:8787/editor?force=desktop",
+      "status": 200,
+      "ok": true,
+      "title": "Star Map Editor | StarMapCo",
+      "canvasCount": 0,
+      "bodySnippet": "Skip to main content Optional analytics help improve StarMapCo. Accept or decline.Privacy. Decline Allow CREATE YOUR STAR MAP Start with the moment, then preview Add the date, location, and words that matter, then generate a free preview be"
+    }
+  },
+  "mapHydration": {
+    "createStatus": 200,
+    "mapId": "52aa6d19-fc9b-4864-956f-98023c48faf1",
+    "canvasVisible": true,
+    "canvasWaitError": null,
+    "storedMapId": "52aa6d19-fc9b-4864-956f-98023c48faf1",
+    "draftHasParis": true,
+    "draftHasTitle": true,
+    "bodyHasParis": false,
+    "editorUrl": "http://127.0.0.1:8787/editor?map_id=52aa6d19-fc9b-4864-956f-98023c48faf1&source=map-hub&mode=quick"
+  },
+  "consoleErrors": [],
+  "pageErrors": [],
+  "finishedAt": "2026-11-24T02:54:36.000Z"
+}
