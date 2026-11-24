@@ -38,10 +38,19 @@ Local campaign submission with date 2024-06-01 and selected Santorini result tra
 Addressed Grok Bot review of `f83505bb` (issuecomment-7083038319) with synthetic local browser checks only. No merge/deploy/spend.
 
 1. **Title/place handoff:** URL + landing handoffs now sync place into subtitle and date into dedication from classic defaults. Classic title keeps **Our Night Sky** with inline label “Default title — change it in Customize more.”
-2. **Hero watermark / date legibility:** Heart watermark home biased lower (`preferredCenterYRatio` 0.58). Campaign `heart-preview.png` regenerated with Cormorant date line. Classic dedication default switched to Cormorant 32 for readable synced dates.
+2. **Hero watermark / date legibility:** Heart watermark home biased lower (`preferredCenterYRatio` 0.58). Campaign `heart-preview.png` regenerated with Cormorant date line. An earlier attempt to raise global dedication to Cormorant 32 was reverted; classic dedication remains **script / 26**.
 3. **Proof gap closed:** date-first, place-first, and Customize-more time (`21:00` + cleared-time 9 PM wording) captured.
 
-Fresh proofs (2026-11-23):
+### Proof refresh after script/26 restore — 2026-11-23 evening (Cursor)
+
+Exact review head for these artifacts: `583b98badf8355f7119bf1f40b31724c992f2c3b`. Earlier same-day screenshots taken while dedication was temporarily Cormorant 32 are **not** proof of the current editor. Re-ran `scripts/verify-meaningful-night-handoffs.mjs` against local `127.0.0.1:3017` and overwrote the 2026-11-23 editor/landing captures.
+
+Verified in refreshed machine report:
+- Date-first and place-first landing handoffs both reach the editor with Santorini coords + `tz=Europe/Athens` + default-title hint.
+- Customize more shows **21:00** with cleared-time → 9 PM wording.
+- Dedication line renders in classic **script** (not Cormorant).
+
+Refreshed proofs (overwrite of same filenames; treat as current):
 - `desktop-fullpage-2026-11-23.png`, `desktop-viewport-2026-11-23.png`
 - `mobile-fullpage-2026-11-23.png`, `mobile-viewport-2026-11-23.png`
 - `editor-date-first-2026-11-23.png`, `editor-date-first-time-2026-11-23.png`
