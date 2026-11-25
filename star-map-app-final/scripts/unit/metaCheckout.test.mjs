@@ -339,7 +339,12 @@ test("Tier C fence: checkout route and promotion policy match base 905ac521 blob
     ["src/app/api/checkout/route.ts", "03e5c24db0d0a0f300c064175752a57591e2b71d"],
     ["src/lib/checkoutPromotions.ts", "927699d1920cc4905f7bbe20c75daaf728a2e467"],
   ]) {
-    const content = Buffer.from(read(file));
+    // #667: allow only the owner-requested image URL delta; keep the original
+    // checkout/payment and promotion-policy hashes as the negative control.
+    const source = read(file);
+    const content = Buffer.from(file === "src/app/api/checkout/route.ts"
+      ? source.replaceAll("/brand/checkout-heart-v1.png", "/custom-star-map-anniversary.webp")
+      : source);
     const hash = createHash("sha1").update(`blob ${content.length}\0`).update(content).digest("hex");
     assert.equal(hash, expected, `${file} must remain unchanged; stop and re-brief`);
   }

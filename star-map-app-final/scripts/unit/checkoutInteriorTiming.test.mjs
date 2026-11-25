@@ -60,7 +60,11 @@ test('interior timing: absent collector does not read the clock', (t) => {
 
 test('negative control: removing only F4 instrumentation restores exact base route bytes including session params, idempotency and F3 consent', () => {
   const route = fs.readFileSync(new URL('../../src/app/api/checkout/route.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
-  const stripped = route.replace('  createCheckoutInteriorTimer,\n', '').replace(/  \/\/ CHK-F4 instrumentation begin\n[\s\S]*?  \/\/ CHK-F4 instrumentation end\n/g, '');
+  // #667: owner-requested presentation-only replacement. Normalize exactly
+  // these ten image URLs so the original payment/consent byte fence stays intact.
+  assert.equal(route.split('/brand/checkout-heart-v1.png').length - 1, 10);
+  const presentationNormalized = route.replaceAll('/brand/checkout-heart-v1.png', '/custom-star-map-anniversary.webp');
+  const stripped = presentationNormalized.replace('  createCheckoutInteriorTimer,\n', '').replace(/  \/\/ CHK-F4 instrumentation begin\n[\s\S]*?  \/\/ CHK-F4 instrumentation end\n/g, '');
   assert.equal(createHash('sha256').update(stripped).digest('hex'), '63e1ee22f00f03d7a6f4e18b97c95eef55959c3ec0551cc792e26db98645e883');
   assert.equal((route.match(/\/\/ CHK-F4 instrumentation begin/g) ?? []).length, 7);
   const additions = [...route.matchAll(/  \/\/ CHK-F4 instrumentation begin\n([\s\S]*?)  \/\/ CHK-F4 instrumentation end\n/g)].map(m => m[1]).join('\n');
