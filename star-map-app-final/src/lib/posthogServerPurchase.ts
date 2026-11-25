@@ -42,6 +42,11 @@ export function buildPosthogPurchaseProperties(input: Ga4PurchaseInput): Record<
     include_digital_add_on: input.includeDigitalAddOn ?? undefined,
     include_second_copy: input.includeSecondCopy ?? undefined,
     source: "stripe_webhook",
+    // Keep transport source separate from the buyer's acquisition source.
+    ...(input.source ? { marketing_source: input.source } : {}),
+    ...(input.medium ? { marketing_medium: input.medium } : {}),
+    ...(input.campaign ? { marketing_campaign: input.campaign } : {}),
+    ...(input.content ? { marketing_content: input.content } : {}),
     server_side: true,
     $lib: "starmapco-server",
   };
