@@ -47,6 +47,48 @@ test("X01: typing 20190714 char-by-char lands on 2019-07-14, never 2019-07-01", 
   assert.ok(!seen.includes("2019-07-01"));
 });
 
+test("R1: typing 2019-7-4 char-by-char lands on 2019-07-4, never 2019-74", () => {
+  // Fleet PR #28 P3: the digits fallback dropped a typed separator
+  // ("2019-" -> "2019", "2019-7-" -> "2019-7"), so the dashed
+  // single-digit path collapsed to "2019-74". Separators now survive
+  // the intermediate passes, and blur settles the padded date.
+  const { value, seen } = typeSequence("2019-7-4");
+  assert.equal(value, "2019-07-4");
+  assert.equal(seen[4], "2019-");
+  assert.equal(seen[6], "2019-7-");
+  assert.ok(!seen.includes("2019-74"));
+  assert.equal(normalizeFlexibleDateInput(value), "2019-07-04");
+});
+
+test("R1: typing the 6-digit 201974 lands on 2019-07-4, never 2019-74", () => {
+  // A two-digit "month" above 12 can never be a month: the digits
+  // regroup as a single-digit month plus the first day digit.
+  const { value, seen } = typeSequence("201974");
+  assert.equal(value, "2019-07-4");
+  assert.ok(!seen.includes("2019-74"));
+  assert.equal(normalizeFlexibleDateInput(value), "2019-07-04");
+});
+
+test("R1: a 7-digit single-digit-month entry regroups (2019714 -> 2019-07-14)", () => {
+  const { value, seen } = typeSequence("2019714");
+  assert.equal(value, "2019-07-14");
+  assert.ok(!seen.includes("2019-71-4"));
+});
+
+test("R1: separator preservation is typing-only and leaves blur semantics unchanged", () => {
+  // The dashed documented path keeps its separators at every keystroke
+  // now (no flicker at the first dash).
+  const dashed = typeSequence("2019-07-14");
+  assert.equal(dashed.value, "2019-07-14");
+  assert.equal(dashed.seen[4], "2019-");
+  // Blur (default) semantics are unchanged: a 6-digit partial is not
+  // regrouped and a trailing dash is not kept.
+  assert.equal(normalizeFlexibleDateInput("201974"), "2019-74");
+  assert.equal(normalizeFlexibleDateInput("2019-"), "2019");
+  // A valid two-digit month is never regrouped.
+  assert.equal(normalizeFlexibleDateInput("201912", TYPING), "2019-12");
+});
+
 test("X01: typing 2019-07-14 with dashes lands on 2019-07-14, never 2019-07-01", () => {
   const { value, seen } = typeSequence("2019-07-14");
   assert.equal(value, "2019-07-14");
