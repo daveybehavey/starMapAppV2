@@ -195,13 +195,23 @@ test("wiring: initialization is marked by the visual-options callback and gates 
     /const requestedMapId = mapIdFromQuery;\s*if \(\s*!requestedMapId \|\|\s*!shouldStartMapHydration\(\{\s*restored,\s*visualOptionsInitialized,\s*alreadyHandled: mapFromUrlHandledRef\.current,\s*mapId: requestedMapId,\s*editGenerationAtRestore: editGenerationAtRestoreRef\.current,\s*editGenerationNow: useStore\.getState\(\)\.editGeneration,\s*\}\)/,
   );
   // …before marking the map handled, and the effect re-runs when
-  // initialization lands.
+  // initialization lands. Recipe fields (renderOptions, style, …)
+  // must NOT be deps: they change during post-init visual-option
+  // derivation and would cancel an in-flight /api/maps fetch.
   const gateAt = src.indexOf("shouldStartMapHydration({");
   const handledAt = src.indexOf("mapFromUrlHandledRef.current = true;");
   assert.ok(gateAt !== -1 && handledAt !== -1 && gateAt < handledAt);
   assert.match(
     src,
-    /\[applyHydratedMapRecipe, aspectRatio, mapIdFromQuery, mapHydrationRetryNonce, renderOptions, restored, selectedStyle, shape, visualOptionsInitialized\]\);/,
+    /\}, \[mapIdFromQuery, mapHydrationRetryNonce, restored, visualOptionsInitialized\]\);/,
+  );
+  assert.match(
+    src,
+    /const applyHydratedMapRecipeRef = useRef\(applyHydratedMapRecipe\);/,
+  );
+  assert.match(
+    src,
+    /useEffect\(\(\) => \{\s*applyHydratedMapRecipeRef\.current = applyHydratedMapRecipe;\s*\}, \[applyHydratedMapRecipe\]\);/,
   );
 });
 
@@ -222,9 +232,10 @@ test("wiring: the effect captures the generation, cleans up, and checks before a
     /editGenerationNow: useStore\.getState\(\)\.editGeneration,/,
   );
   assert.match(src, /return \(\) => \{\s*cancelled = true;\s*\};/);
-  // The guard is consulted before applyHydratedMapRecipe runs.
+  // The guard is consulted before apply runs via the stable ref
+  // (so the hydration effect itself does not depend on the callback).
   const guardAt = src.indexOf("shouldApplyHydratedMapRecipe({");
-  const applyAt = src.indexOf("applyHydratedMapRecipe(data);");
+  const applyAt = src.indexOf("applyHydratedMapRecipeRef.current(data);");
   assert.ok(guardAt !== -1 && applyAt !== -1 && guardAt < applyAt);
 });
 
