@@ -23,3 +23,30 @@ test("buildPosthogPurchaseProperties maps Stripe session fields", () => {
   assert.equal(props.server_side, true);
   assert.equal(props.source, "stripe_webhook");
 });
+
+test("purchase preserves campaign attribution separately from capture source", () => {
+  const props = buildPosthogPurchaseProperties({
+    transactionId: "fixture-purchase",
+    value: 13,
+    currency: "cad",
+    source: "pinterest",
+    medium: "organic_social",
+    campaign: "holiday_gifts_202611",
+    content: "luxury_clean_r74",
+  });
+  assert.equal(props.source, "stripe_webhook");
+  assert.equal(props.marketing_source, "pinterest");
+  assert.equal(props.marketing_medium, "organic_social");
+  assert.equal(props.marketing_campaign, "holiday_gifts_202611");
+  assert.equal(props.marketing_content, "luxury_clean_r74");
+});
+
+test("unattributed purchases do not invent campaign properties", () => {
+  for (const attribution of [{}, { source: "", medium: "", campaign: "", content: "" }]) {
+    const props = buildPosthogPurchaseProperties({ transactionId: "fixture-direct", ...attribution });
+    for (const key of ["marketing_source", "marketing_medium", "marketing_campaign", "marketing_content"]) {
+      assert.equal(Object.hasOwn(props, key), false);
+    }
+    assert.equal(props.source, "stripe_webhook");
+  }
+});
