@@ -79,6 +79,31 @@ export function normalizeFlexibleDateInput(
       return `${digits.slice(4, 8)}-${digits.slice(0, 2)}-${digits.slice(2, 4)}`;
     }
   }
+  if (options?.whileTyping) {
+    // R1 (fleet PR #28, P3): the typing pass re-shapes raw keystrokes
+    // through this digits fallback, which used to drop a separator the
+    // user had typed ("2019-" -> "2019", "2019-7-" -> "2019-7"), so
+    // typing 2019-7-4 char-by-char collapsed to "2019-74". A typed
+    // trailing separator survives while the value is still partial, and
+    // a two-digit "month" above 12 can never be a month, so it regroups
+    // as a single-digit month plus the first day digit (201974 ->
+    // 2019-7-4). Blur (default) semantics are unchanged.
+    if (!digits) return "";
+    const trailingSep = /[-/.]$/.test(trimmed) ? trimmed.slice(-1) : "";
+    if (digits.length <= 4) return `${digits}${trailingSep}`;
+    if (digits.length <= 6) {
+      const month = digits.slice(4);
+      if (month.length === 2 && Number(month) > 12) {
+        return `${digits.slice(0, 4)}-${month[0]}-${month[1]}`;
+      }
+      return `${digits.slice(0, 4)}-${month}${trailingSep}`;
+    }
+    const month = digits.slice(4, 6);
+    if (Number(month) > 12) {
+      return `${digits.slice(0, 4)}-${month[0]}-${digits.slice(5)}`;
+    }
+    return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6)}${trailingSep}`;
+  }
   if (digits.length <= 4) return digits;
   if (digits.length <= 6) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
   return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6)}`;
