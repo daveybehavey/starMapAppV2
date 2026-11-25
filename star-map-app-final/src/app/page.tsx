@@ -44,10 +44,10 @@ export function generateMetadata(): Metadata {
       siteName: "StarMapCo",
       images: [
         {
-          url: `${siteUrl}/custom-star-map-anniversary.webp`,
+          url: `${siteUrl}/brand/social-heart-v1.png`,
           width: 1200,
           height: 630,
-          alt: "Custom star map preview from StarMapCo",
+          alt: "Gold heart-shaped star map beside Some nights change everything — StarMapCo",
         },
       ],
       type: "website",
@@ -56,7 +56,7 @@ export function generateMetadata(): Metadata {
       card: "summary_large_image",
       title: "Custom Star Map Gifts for Anniversaries & Birthdays | StarMapCo",
       description,
-      images: [`${siteUrl}/custom-star-map-anniversary.webp`],
+      images: [`${siteUrl}/brand/social-heart-v1.png`],
     },
   };
 }

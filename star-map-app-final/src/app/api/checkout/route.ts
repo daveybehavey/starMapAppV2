@@ -1401,7 +1401,7 @@ async function createCheckoutSession(input: {
       description: printTier.includesFrame
         ? `${printTier.label} • Shipping address required`
         : `${printTier.label} • Shipping address required`,
-      images: [`${siteUrl}/custom-star-map-anniversary.webp`],
+      images: [`${siteUrl}/brand/checkout-heart-v1.png`],
     };
     lineItems.push({
       ...(printCadPriceCents !== null
@@ -1437,7 +1437,7 @@ async function createCheckoutSession(input: {
       const addOnProductData = {
         name: "HD Digital Download Add-on",
         description: "6000px-wide digital file (up to 6000×9000 by format) delivered right after payment",
-        images: [`${siteUrl}/custom-star-map-anniversary.webp`],
+        images: [`${siteUrl}/brand/checkout-heart-v1.png`],
       };
       lineItems.push({
         ...(addOnCadPriceCents !== null
@@ -1475,7 +1475,7 @@ async function createCheckoutSession(input: {
       const cardProductData = {
         name: `Custom Star Map — ${cardTier.label}`,
         description: `${cardTier.label} • Bundled with framed print`,
-        images: [`${siteUrl}/custom-star-map-anniversary.webp`],
+        images: [`${siteUrl}/brand/checkout-heart-v1.png`],
       };
       lineItems.push({
         ...(cardCadPriceCents !== null
@@ -1527,7 +1527,7 @@ async function createCheckoutSession(input: {
           product_data: {
             name: `Custom Star Map — ${printTier.label} (second copy, 10% off)`,
             description: `${printTier.label} • Second copy of the same design`,
-            images: [`${siteUrl}/custom-star-map-anniversary.webp`],
+            images: [`${siteUrl}/brand/checkout-heart-v1.png`],
           },
         },
         quantity: 1,
@@ -1551,7 +1551,7 @@ async function createCheckoutSession(input: {
           name: `StarMapCo Gift Certificate — ${certificateTier?.label ?? tier.label}`,
           description:
             "Gift certificate: the recipient redeems the code, creates their own star map, and downloads it in HD. Code redeemable for 12 calendar months from issuance.",
-          images: [`${siteUrl}/custom-star-map-anniversary.webp`],
+          images: [`${siteUrl}/brand/checkout-heart-v1.png`],
         },
       },
       quantity: 1,
@@ -1575,7 +1575,7 @@ async function createCheckoutSession(input: {
                   product_data: {
                     name: "Unlimited HD Star Maps (Monthly)",
                     description: "Unlimited HD exports • No watermark • Download right after checkout",
-                    images: [`${siteUrl}/custom-star-map-anniversary.webp`],
+                    images: [`${siteUrl}/brand/checkout-heart-v1.png`],
                   },
                 }
               : {
@@ -1588,7 +1588,7 @@ async function createCheckoutSession(input: {
                       effectivePlan === "pack3"
                         ? "3 HD export credits for your map versions • No watermark • Unlocks right after checkout"
                         : "Print-ready 6000px-wide star map (up to 6000×9000 by format) • No watermark • Download right after checkout • Perfect for framing",
-                    images: [`${siteUrl}/custom-star-map-anniversary.webp`],
+                    images: [`${siteUrl}/brand/checkout-heart-v1.png`],
                   },
                 },
         }
@@ -1603,7 +1603,7 @@ async function createCheckoutSession(input: {
                 name: "HD Star Map Download",
                 description:
                   "Print-ready 6000px-wide star map (up to 6000×9000 by format) • No watermark • Download right after checkout • Perfect for framing",
-                images: [`${siteUrl}/custom-star-map-anniversary.webp`],
+                images: [`${siteUrl}/brand/checkout-heart-v1.png`],
               },
             },
           }
@@ -1617,7 +1617,7 @@ async function createCheckoutSession(input: {
                     product_data: {
                       name: "Unlimited HD Star Maps (Monthly)",
                       description: "Unlimited HD exports • No watermark • Download right after checkout",
-                      images: [`${siteUrl}/custom-star-map-anniversary.webp`],
+                      images: [`${siteUrl}/brand/checkout-heart-v1.png`],
                     },
                   }
                 : {
@@ -1630,7 +1630,7 @@ async function createCheckoutSession(input: {
                         effectivePlan === "pack3"
                           ? "3 HD export credits for your map versions • No watermark • Unlocks right after checkout"
                           : "Print-ready 6000px-wide star map (up to 6000×9000 by format) • No watermark • Download right after checkout • Perfect for framing",
-                      images: [`${siteUrl}/custom-star-map-anniversary.webp`],
+                      images: [`${siteUrl}/brand/checkout-heart-v1.png`],
                     },
                   },
           };
