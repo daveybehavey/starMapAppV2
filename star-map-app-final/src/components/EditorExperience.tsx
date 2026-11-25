@@ -54,7 +54,10 @@ import {
   normalizeCheckoutPromoCode,
   resolveEditorCheckoutPromoCode,
 } from "@/lib/checkoutPromotions";
-import { syncSampleDesignTextBoxes } from "@/lib/sampleDesignTextSync";
+import {
+  CLASSIC_DEFAULT_TITLE,
+  syncSampleDesignTextBoxes,
+} from "@/lib/sampleDesignTextSync";
 import { CheckoutLegalNotice } from "@/components/CheckoutLegalNotice";
 import {
   formatPrice,
@@ -1113,6 +1116,26 @@ export function EditorExperience({
         setRevealed(true);
       }
 
+      // Campaign/quick URL handoffs set date+place but historically left classic
+      // placeholder title/subtitle/dedication untouched. Sync place + date into
+      // eligible subtitle/dedication boxes so the preview matches the moment.
+      if (hasValidDate || hasLocation) {
+        const state = useStore.getState();
+        const tz = state.location.timezone || resolvedCityTimeZone || "UTC";
+        const parts = hasValidDate ? formatDateTimeForLocation(state.dateTime, tz) : null;
+        const synced = syncSampleDesignTextBoxes({
+          textBoxes: state.textBoxes,
+          touched: {},
+          lastAutoSynced: state.sampleDesignLastAutoSynced,
+          locationDisplayName: hasLocation ? state.location.name : null,
+          dateValue: parts?.date || (hasValidDate ? dateParam : null),
+        });
+        if (synced.changed) {
+          setTextBoxes(synced.textBoxes);
+          useStore.getState().setSampleDesignLastAutoSynced(synced.lastAutoSynced);
+        }
+      }
+
       const giftTraffic = resolveEditorGiftTrafficIntent({
         source: sourceParam,
         checkoutParam,
@@ -1169,6 +1192,7 @@ export function EditorExperience({
     setLocation,
     setPrintShippingCountryValue,
     setRevealed,
+    setTextBoxes,
   ]);
 
   const applyHydratedMapRecipe = useCallback(
@@ -2583,6 +2607,9 @@ export function EditorExperience({
 
   const showGuidedForm = !revealed;
   const showEditor = revealed && showAdvanced;
+  const titleBoxText = textBoxes.find((box) => box.id === "title")?.text?.trim() ?? "";
+  const showDefaultTitleHint =
+    revealed && !showEditor && titleBoxText === CLASSIC_DEFAULT_TITLE;
   const showSetupPanels = !revealed || showEditor;
   const visibleTextBoxes = showGuidedForm ? textBoxes.slice(0, 1) : textBoxes;
   const cardIds = ["dateLocation", "textStyling", "style", "shape", "frame", "advanced"] as const;
@@ -4015,6 +4042,14 @@ export function EditorExperience({
                             </button>
                           )}
                         </div>
+                        {showDefaultTitleHint && (
+                          <p
+                            className="mt-2 text-[11px] text-amber-100/90"
+                            data-testid="default-title-hint"
+                          >
+                            Default title — change it in Customize more.
+                          </p>
+                        )}
                         {printCheckoutEnabled && posterAspectMismatch && (
                           <PrintAspectMismatchNotice aspectRatio={aspectRatio} className="mt-2" />
                         )}

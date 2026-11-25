@@ -377,7 +377,7 @@ test("fence: PreviewCanvas keeps watermark: !paid — on the text-layer pass, ab
   // The entitlement re-sync repaint: `paid` is a dependency of the
   // text-layer effect, so resolving paid repaints without the mark.
   const deps = layerCall.slice(layerCall.indexOf("}, ["));
-  assert.match(deps, /\bpaid,\n  \]\);/);
+  assert.match(deps, /\bpaid,\r?\n  \]\);/);
 });
 
 test("fence: paid/HD/print callers still pass watermark: false; the share image keeps watermark: true", () => {
@@ -411,7 +411,10 @@ test("composition: the renderer consumes the SAME clip path for the sky and the 
   const source = read("src/lib/renderSky.ts");
   const main = source.slice(source.indexOf("export function renderStarMap({"), source.indexOf("export function renderStarMapTextLayer"));
   assert.match(main, /const clipPath = buildShapeClip\(shapeName, width, targetHeight, shapeLayoutVersion\);/);
-  assert.match(main, /drawWatermark\(ctx, \{\n\s+width,\n\s+height: targetHeight,\n\s+show: watermark,\n\s+clipPath,/);
+  assert.match(
+    main,
+    /drawWatermark\(ctx, \{\r?\n\s+width,\r?\n\s+height: targetHeight,\r?\n\s+show: watermark,\r?\n\s+clipPath,/,
+  );
   // The harness-facing surface the acceptance run drives.
   assert.match(source, /export function paintWatermark\(/);
   assert.match(source, /export function buildShapeClip\(/);

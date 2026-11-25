@@ -69,8 +69,18 @@ export function resolveWatermarkPlacement(args: {
   height: number;
   mask: WatermarkMaskSampler;
   measure: (fontSize: number) => WatermarkTextMetrics;
+  /**
+   * Vertical home as a fraction of the mask bbox height (0 = top, 1 = bottom).
+   * Default 0.5 (geometric centre). Heart artwork uses a slightly lower home
+   * so the mark clears title/subtitle rows that sit near mid-mask.
+   */
+  preferredCenterYRatio?: number;
 }): WatermarkPlacement | null {
   const { width, height, mask, measure } = args;
+  const preferredCenterYRatio =
+    typeof args.preferredCenterYRatio === "number" && Number.isFinite(args.preferredCenterYRatio)
+      ? Math.min(1, Math.max(0, args.preferredCenterYRatio))
+      : 0.5;
   const B = mask.bbox;
   const D = Math.min(B.width, B.height);
   if (!Number.isFinite(D) || D <= 0 || width <= 0 || height <= 0) return null;
@@ -137,7 +147,7 @@ export function resolveWatermarkPlacement(args: {
   };
 
   const homeX = B.x + B.width / 2;
-  const homeY = B.y + B.height / 2;
+  const homeY = B.y + B.height * preferredCenterYRatio;
   if (isValid(homeX, homeY)) {
     return { fontSize, lineWidth, centerX: homeX, centerY: homeY, bounds: boundsFor(homeX, homeY) };
   }

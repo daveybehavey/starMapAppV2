@@ -38,6 +38,8 @@ export async function GET(request: NextRequest) {
     const res = await fetch(url, {
       headers: {
         "User-Agent": "StarMapCo/1.0 (https://starmapco.com; mailto:support@starmapco.com)",
+        // Prefer English place labels for map subtitle handoff (e.g. Santorini, Greece).
+        "Accept-Language": "en",
       },
       next: { revalidate: 3600 },
     });

@@ -9,6 +9,9 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { occasionPresets } from "../../src/lib/occasionPresets.ts";
 import {
+  CLASSIC_DEFAULT_DEDICATION,
+  CLASSIC_DEFAULT_SUBTITLE,
+  CLASSIC_DEFAULT_TITLE,
   SAMPLE_DESIGN_DATE,
   SAMPLE_DESIGN_PLACE,
   SAMPLE_DESIGN_TITLE,
@@ -54,6 +57,24 @@ test("untouched sample text syncs on location and date picker change", () => {
   assert.equal(synced.textBoxes.find((b) => b.id === "title")?.text, SAMPLE_DESIGN_TITLE);
   assert.equal(synced.lastAutoSynced.subtitle, "Paris, France");
   assert.equal(synced.lastAutoSynced.dedication, "February 14, 2025");
+});
+
+test("classic editor defaults sync place and date like sample placeholders", () => {
+  const boxes = [
+    { id: "title", text: CLASSIC_DEFAULT_TITLE },
+    { id: "subtitle", text: CLASSIC_DEFAULT_SUBTITLE },
+    { id: "dedication", text: CLASSIC_DEFAULT_DEDICATION },
+  ];
+  const synced = syncSampleDesignTextBoxes({
+    textBoxes: boxes,
+    touched: {},
+    locationDisplayName: "Santorini, Greece",
+    dateValue: "2024-06-01",
+  });
+  assert.equal(synced.changed, true);
+  assert.equal(synced.textBoxes.find((b) => b.id === "title")?.text, CLASSIC_DEFAULT_TITLE);
+  assert.equal(synced.textBoxes.find((b) => b.id === "subtitle")?.text, "Santorini, Greece");
+  assert.equal(synced.textBoxes.find((b) => b.id === "dedication")?.text, "June 1, 2024");
 });
 
 test("user-edited subtitle and dedication are preserved", () => {

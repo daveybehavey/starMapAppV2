@@ -64,13 +64,13 @@ function DateTimeControls({ dateTime, onChange, timezone }: Props) {
 
       <div>
         <label htmlFor="star-time" className="mb-1 block text-xs font-semibold text-white">
-          Time <span className="font-normal text-neutral-200">(optional, defaults to 9 PM)</span>
+          Time <span className="font-normal text-neutral-200">(optional; cleared time defaults to 9 PM)</span>
         </label>
         <input
           id="star-time"
           type="time"
           step={60}
-          value={timeValue === DEFAULT_TIME ? "" : timeValue.slice(0, 5)}
+          value={timeValue.slice(0, 5)}
           onChange={(e) => handleTimeChange(e.target.value)}
           className="w-full appearance-none rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm text-white shadow-inner shadow-black/20 outline-none transition focus:border-amber-400 focus:ring-2 focus:ring-amber-400/30"
         />
