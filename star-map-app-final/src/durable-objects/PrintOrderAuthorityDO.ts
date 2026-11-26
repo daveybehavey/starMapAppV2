@@ -121,6 +121,22 @@ export class PrintOrderAuthorityDO extends DurableObject {
     return this.readState(sessionId);
   }
 
+  /**
+   * Read-only backup export: return the single stored authority row for
+   * this instance verbatim, or null when no row has been persisted yet.
+   * Does not synthesize an unbound placeholder, write storage, schedule
+   * alarms, or alter bind/terminal/recover/claim behaviour.
+   */
+  async exportState(): Promise<{ state: PrintOrderAuthorityState | null }> {
+    const rows = this.ctx.storage.sql
+      .exec<AuthorityRow>("SELECT * FROM print_order_authority LIMIT 1")
+      .toArray();
+    if (rows.length === 0) {
+      return { state: null };
+    }
+    return { state: rowToState(rows[0]) };
+  }
+
   async apply(sessionId: string, op: PrintOrderAuthorityOp) {
     const current = this.readState(sessionId);
     const result = applyPrintOrderAuthorityOp(current, op);
