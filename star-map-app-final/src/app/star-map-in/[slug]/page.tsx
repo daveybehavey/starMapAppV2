@@ -329,7 +329,7 @@ export default async function StarMapLocationPage({ params }: PageProps) {
       </section>
 
       <FaqSchema items={faqItems} />
-      <StorefrontProductSchema name={survivor.heading} siteUrl={siteUrl} />
+      <StorefrontProductSchema name={survivor.heading} siteUrl={siteUrl} pagePath={`/star-map-in/${survivor.slug}`} />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />
     </main>
   );

@@ -377,6 +377,7 @@ export default function ValentinesDayPage() {
         description="Personalized star map for Valentine's Day — the exact sky from the night you met, a first date, or February 14. Order a framed print, unframed poster, or HD digital download."
         imageUrl={`${siteUrl}/examples/example-valentines-toronto-2026.webp`}
         offers={productOffers}
+        offerLandingUrl={`${siteUrl}/valentines-day`}
       />
       <FaqSchema items={[...valentinesFaqItems]} />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />

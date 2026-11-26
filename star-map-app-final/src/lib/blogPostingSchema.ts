@@ -34,7 +34,7 @@ export function buildBlogPostingJsonLd(input: BlogPostingJsonLdInput) {
     publisher: {
       "@type": "Organization",
       name: "StarMapCo",
-      logo: { "@type": "ImageObject", url: "https://starmapco.com/favicon.ico" },
+      logo: { "@type": "ImageObject", url: "https://starmapco.com/icon-512.png" },
     },
   };
   if (input.datePublished) entity.datePublished = input.datePublished;

@@ -378,6 +378,7 @@ export default function BirthdayPage() {
         description="Personalized birthday star map showing the exact night sky from a birth date and location. Order a framed print, unframed poster, or HD digital download."
         imageUrl={ogImage}
         offers={productOffers}
+        offerLandingUrl={`${siteUrl}/birthday`}
       />
       <FaqSchema items={birthdayFaqItems} />
       <BreadcrumbSchema items={breadcrumbs} baseUrl={siteUrl} />

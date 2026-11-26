@@ -441,6 +441,7 @@ export default function WeddingPage() {
         description="Personalized wedding star map showing the exact night sky from your ceremony date and location. Order a framed print, unframed poster, or HD digital download."
         imageUrl={`${siteUrl}/custom-star-map-anniversary.webp`}
         offers={productOffers}
+        offerLandingUrl={`${siteUrl}/wedding`}
       />
       <FaqSchema
         items={weddingFaqItems.map((item, index) =>

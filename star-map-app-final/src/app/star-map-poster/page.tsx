@@ -96,6 +96,11 @@ export default function StarMapPosterPage() {
         "StarMapCo posters are made to order from your approved design. Framed 14×14 is the premium gift presentation; unframed posters come in 16×16 (the lowest-cost print entry) and 18×18. Preview first, then pick the format at checkout.",
     },
   ] as const;
+  const priceValidUntil = (() => {
+    const now = new Date();
+    const nextYear = new Date(Date.UTC(now.getUTCFullYear() + 1, now.getUTCMonth(), now.getUTCDate()));
+    return nextYear.toISOString().slice(0, 10);
+  })();
   const schema = {
     "@context": "https://schema.org",
     "@graph": [
@@ -113,16 +118,18 @@ export default function StarMapPosterPage() {
             name: "Custom Star Map Poster (Unframed)",
             priceCurrency: (printTiers.poster_unframed.currency || "USD").toUpperCase(),
             price: (printTiers.poster_unframed.amountCents / 100).toFixed(2),
+            priceValidUntil,
             availability: "https://schema.org/InStock",
-            url: `${siteUrl}/editor?mode=quick&source=poster-schema-print-unframed&checkout=print&print_variant=poster_unframed`,
+            url: `${siteUrl}/star-map-poster`,
           },
           {
             "@type": "Offer",
             name: "Custom Star Map Framed Print",
             priceCurrency: (printTiers.poster_framed.currency || "USD").toUpperCase(),
             price: (printTiers.poster_framed.amountCents / 100).toFixed(2),
+            priceValidUntil,
             availability: "https://schema.org/InStock",
-            url: `${siteUrl}/editor?mode=quick&source=poster-schema-print-framed&checkout=print&print_variant=poster_framed`,
+            url: `${siteUrl}/star-map-poster`,
           },
         ],
       },
