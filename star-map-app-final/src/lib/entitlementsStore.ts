@@ -1,5 +1,12 @@
 /**
  * Canonical KV keys, entitlement types, and shared access evaluation.
+ *
+ * Under DL-1, HD download **accounting** (owned files, journal, remaining
+ * credits) is authoritative in EntitlementAuthorityDO /
+ * `entitlementAuthorityState.ts` — see `docs/entitlement-authority.md`.
+ * This module still owns session/claim KV shapes and shared access helpers
+ * used by download and account surfaces; treat Stripe session records as
+ * grant evidence and legacy bridge data, not as the sole accounting ledger.
  */
 import { createHash } from "node:crypto";
 import type { CheckoutOrderType, CheckoutPlan, PrintVariant } from "@/lib/pricing";
@@ -11,7 +18,11 @@ import {
 import { isValidMapId as isValidMapIdFromLib } from "./mapId";
 import { kv } from "@/lib/kv";
 
-/** Stripe checkout session entitlement (source of truth for digital access). */
+/**
+ * Stripe checkout session entitlement record in KV (`stripe:session:*`).
+ * Grant-side facts (paid/revoked/plan/…) for digital access; DL-1 accounting
+ * authority is the entitlement DO (see `docs/entitlement-authority.md`).
+ */
 export type StripeSessionEntitlement = {
   paid?: boolean;
   /** Option B interim settlement receipt, embedded only on B-era initialization. */

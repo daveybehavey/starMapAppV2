@@ -28,6 +28,8 @@
  *   paid-download semantics, which have NO expiry (David's decided
  *   policy, 2026-10-22). Redeeming in time buys permanent access;
  *   the 12-month window governs only the unredeemed code.
+ * - Payment revocation is enforced at redemption (`payment_revoked`),
+ *   not as a post-grant download TTL — see `docs/entitlement-authority.md`.
  *
  * Code storage (OurImprint pattern): the raw code is never persisted.
  * The record stores a random salt and a keyed HMAC hash of the code;

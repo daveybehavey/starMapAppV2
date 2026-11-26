@@ -1,3 +1,11 @@
+/**
+ * Live Printful (v1-style) order submit/reconcile boundary.
+ *
+ * Payload construction for create/reconcile lives in this module’s submit
+ * path (not a separate pure builder on `main`). Commercial payload and
+ * idempotency semantics must not change without an explicit approved issue.
+ * Pipeline context: `docs/print-fulfillment-pipeline.md`.
+ */
 import crypto from "node:crypto";
 import type { PrintVariant } from "@/lib/pricing";
 import { getPrintCatalogRow, PRINT_CATALOG } from "@/lib/printCatalog";

@@ -1,3 +1,11 @@
+/**
+ * Post-Printful-accept orchestration: bind provider identity on the
+ * PrintOrderAuthority DO, mirror/index into KV, then optional file review
+ * and ops alerts. See `docs/print-fulfillment-pipeline.md`.
+ *
+ * File review annotations must not invent terminal `failed` authority —
+ * Printful webhooks own terminal transitions via the DO.
+ */
 import type { PersistPrintOrderResult, PrintOrderRecord } from "@/lib/printOrders";
 import {
   persistPrintOrderRecord,
