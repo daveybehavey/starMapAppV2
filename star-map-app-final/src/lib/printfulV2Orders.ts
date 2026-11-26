@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { evaluateMerchContribution, type MerchContributionInput } from "@/lib/merchContribution";
 
 export type PrintfulV2Recipient = {
   name: string;
@@ -13,6 +14,8 @@ export type PrintfulV2Recipient = {
 };
 
 export type SubmitPrintfulV2CatalogOrderInput = {
+  existingDraftOrderId?: string | number;
+  contribution?: MerchContributionInput;
   externalId: string;
   catalogVariantId: number;
   fileUrl: string;
@@ -37,6 +40,7 @@ export type SubmitPrintfulV2OrderResult = {
   error?: string;
   /** True when an existing order was reused instead of creating another. */
   reconciled?: boolean;
+  providerState?: string;
 };
 
 function normalizeExternalId(raw: string) {
@@ -106,7 +110,7 @@ function isExistingExternalIdConflict(status: number, parsed: unknown, raw: stri
   return false;
 }
 
-export async function submitPrintfulV2CatalogOrder(
+async function createPrintfulV2CatalogOrder(
   input: SubmitPrintfulV2CatalogOrderInput,
 ): Promise<SubmitPrintfulV2OrderResult> {
   const token = getToken();
@@ -259,4 +263,52 @@ export async function submitPrintfulV2CatalogOrder(
           : "printful_v2_request_failed",
     };
   }
+}
+
+/** A draft is a durable provider identity, never evidence that production was confirmed. */
+export async function submitPrintfulV2CatalogOrder(input: SubmitPrintfulV2CatalogOrderInput): Promise<SubmitPrintfulV2OrderResult> {
+  if (!input.contribution || !evaluateMerchContribution(input.contribution).allowed) {
+    return { ok: false, status: 409, error: "merch_margin_estimate_unavailable" };
+  }
+  const created: SubmitPrintfulV2OrderResult = input.existingDraftOrderId != null
+    ? { ok: true, status: 200, orderId: input.existingDraftOrderId, reconciled: true }
+    : await createPrintfulV2CatalogOrder(input);
+  if (!created.ok || created.orderId == null) return { ...created, ok: false, error: created.error || "printful_v2_identity_missing" };
+  const headers = { Authorization: `Bearer ${getToken()}`, "X-PF-Store-Id": getStoreId() };
+  const url = `${getPrintfulApiBase()}/v2/orders/${encodeURIComponent(String(created.orderId))}`;
+  type Order = { id?: string | number; external_id?: string; recipient?: PrintfulV2Recipient; status?: string; costs?: { calculation_status?: string; currency?: string; total?: string } };
+  const read = async (): Promise<Order | null> => {
+    const response = await fetch(url, { headers, signal: AbortSignal.timeout(15_000) });
+    if (!response.ok) return null;
+    const result = await response.json() as { data?: Order };
+    return result.data && String(result.data.id) === String(created.orderId) && result.data.external_id === normalizeExternalId(input.externalId) ? result.data : null;
+  };
+  const confirmed = (order: Order | null) => Boolean(order && ["pending", "inprocess", "partial", "fulfilled"].includes(order.status || ""));
+  const held = (error: string, state?: string): SubmitPrintfulV2OrderResult => ({ ...created, ok: false, status: 409, error, providerState: state || "unknown" });
+  try {
+    let order = await read();
+    if (!order || order.external_id !== normalizeExternalId(input.externalId)) return held("printful_v2_intent_mismatch", order?.status);
+    if (confirmed(order)) return { ...created, providerState: order!.status };
+    if (!order || order.status !== "draft") return held("printful_v2_operator_review_required", order?.status);
+    if (/^(0|false|no)$/i.test((process.env.PRINTFUL_AUTO_CONFIRM ?? "true").trim())) return held("printful_v2_manual_review_required", "draft");
+    // Reconciled drafts may have been edited outside this application. Do not charge
+    // them without an operator comparing the actual variant/artwork and destination.
+    if (created.reconciled) return held("printful_v2_existing_draft_review_required", order.status);
+    const expectedRecipient = input.recipient;
+    if (!order.recipient || ["name", "country_code", "state_code", "address1", "address2", "city", "zip"].some(key =>
+      (order!.recipient![key as keyof PrintfulV2Recipient] || "") !== (expectedRecipient[key as keyof PrintfulV2Recipient] || ""))) {
+      return held("printful_v2_recipient_mismatch", order.status);
+    }
+    if (order.costs?.calculation_status !== "done") return held("printful_v2_costs_pending", "draft");
+    const rawTotal = order.costs.total;
+    if (order.costs.currency !== "USD" || typeof rawTotal !== "string" || !/^\d+(?:\.\d{1,2})?$/.test(rawTotal)) return held("printful_v2_costs_invalid", "draft");
+    const margin = evaluateMerchContribution({ ...input.contribution, providerTotalUsdCents: Math.round(Number(rawTotal) * 100) });
+    if (!margin.allowed) return held(margin.code, "draft");
+    // One attempt only; a timeout may mean acceptance. Re-read, never create a replacement.
+    try {
+      await fetch(`${url}/confirmation`, { method: "POST", headers, signal: AbortSignal.timeout(15_000) });
+    } catch { /* reconcile below */ }
+    order = await read();
+    return confirmed(order) ? { ...created, providerState: order!.status } : held("printful_v2_confirmation_unresolved", order?.status);
+  } catch { return held("printful_v2_status_unavailable"); }
 }

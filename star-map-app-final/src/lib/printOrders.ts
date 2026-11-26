@@ -84,6 +84,12 @@ export type PrintOrderRecord = {
   merchCatalogVariantId?: number;
   merchSize?: string;
   merchColor?: string;
+  merchQuotedState?: string;
+  merchQuotedCountry?: string;
+  merchShippingCostUsdCents?: number | null;
+  amountTax?: number | null;
+  merchProviderState?: string;
+  merchDraftOrderId?: string | number;
   includesDigitalAddOn: boolean;
   /** Bundled greeting card with framed print (C1). */
   includesCardAddOn?: boolean;

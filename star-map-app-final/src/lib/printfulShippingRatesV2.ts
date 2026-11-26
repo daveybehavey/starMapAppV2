@@ -35,14 +35,14 @@ function getStoreId() {
 function parseRate(raw: unknown): number | null {
   if (typeof raw === "number" && Number.isFinite(raw)) return raw;
   if (typeof raw === "string") {
-    const parsed = Number.parseFloat(raw);
+    const parsed = /^\d+(?:\.\d{1,2})?$/.test(raw) ? Number(raw) : Number.NaN;
     return Number.isFinite(parsed) ? parsed : null;
   }
   return null;
 }
 
 function pickStandardOption(options: ShippingRateOption[]) {
-  return options.find((opt) => opt.shipping === "STANDARD") ?? options[0] ?? null;
+  return options.find((opt) => opt.shipping === "STANDARD") ?? null;
 }
 
 export async function fetchPrintfulV2ShippingRate(input: {
@@ -60,6 +60,7 @@ export async function fetchPrintfulV2ShippingRate(input: {
 
   const country = input.countryCode.trim().toUpperCase();
   if (!/^[A-Z]{2}$/.test(country)) return null;
+  if (["US", "CA", "AU"].includes(country) && !input.stateCode?.trim()) return null;
 
   const base = getPrintfulApiBase();
   const recipient: Record<string, string> = { country_code: country };
@@ -88,6 +89,7 @@ export async function fetchPrintfulV2ShippingRate(input: {
       "X-PF-Store-Id": storeId,
     },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(10_000),
   });
 
   const text = await res.text();
@@ -105,7 +107,7 @@ export async function fetchPrintfulV2ShippingRate(input: {
   if (!standard) return null;
 
   const rate = parseRate(standard.rate);
-  if (rate === null) return null;
+  if (rate === null || rate < 0 || standard.currency !== "USD") return null;
 
   const minDays = typeof standard.min_delivery_days === "number" ? standard.min_delivery_days : undefined;
   const maxDays = typeof standard.max_delivery_days === "number" ? standard.max_delivery_days : undefined;

@@ -41,6 +41,8 @@ process.env.REFERRAL_MAX_REWARDS_PER_REFERRER_30D = "0";
 // F9: alternate fulfilment destination + operator retry enabled.
 process.env.PRINT_FULFILLMENT_WEBHOOK_URL = "https://fulfillment.example.test/hook";
 process.env.PRINT_ORDER_SUBMISSION_ENABLED = "1";
+// Synthetic reviewed exact-variant profile, preserving active contribution gates.
+process.env.MERCH_VARIANT_COSTS_JSON = JSON.stringify({ 10163: { productCents: 300, providerTaxCents: 0, processingBps: 300, processingFixedCents: 30, fxBps: 200, replacementReserveCents: 50 } });
 process.env.PRINT_ADMIN_TOKEN = "unit-test-admin-token";
 delete process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
 delete process.env.GA4_API_SECRET;
@@ -1624,6 +1626,7 @@ test("Gate round 3 (F9): a present dispatch marker whose state is missing or unr
 
 function merchCheckoutSessionFixture(sessionId, overrides = {}) {
   return printCheckoutSessionFixture(sessionId, {
+    total_details: { amount_tax: 0, amount_discount: 0, breakdown: { discounts: [] } },
     metadata: {
       order_type: "print",
       print_variant: "poster_framed",
@@ -1632,6 +1635,9 @@ function merchCheckoutSessionFixture(sessionId, overrides = {}) {
       // resolves it from the curated map with no Printful token.
       print_merch_family: "sticker_kisscut",
       print_merch_catalog_variant_id: "10163",
+      print_shipping_country: "US",
+      merch_shipping_state: "BC",
+      merch_shipping_cost_usd_cents: "500",
       print_merch_size: "3×3",
       qa_run: "true",
     },

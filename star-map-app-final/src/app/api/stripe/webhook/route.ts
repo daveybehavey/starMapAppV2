@@ -1,3 +1,4 @@
+import { evaluateMerchContribution } from "@/lib/merchContribution";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { isDurableKvPersistenceError, kv } from "@/lib/kv";
@@ -1983,6 +1984,12 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     merchCatalogVariantId: getMerchCatalogVariantId(session),
     merchSize: getMerchSize(session),
     merchColor: getMerchColor(session),
+    merchDraftOrderId: existing?.merchDraftOrderId,
+    merchProviderState: existing?.merchProviderState,
+    merchQuotedState: session.metadata?.merch_shipping_state,
+    merchQuotedCountry: session.metadata?.print_shipping_country,
+    merchShippingCostUsdCents: /^\d+$/.test(session.metadata?.merch_shipping_cost_usd_cents || "") ? Number(session.metadata!.merch_shipping_cost_usd_cents) : null,
+    amountTax: session.total_details?.amount_tax ?? null,
     includesDigitalAddOn: includesDigitalAddOn(session),
     includesCardAddOn: includesCardAddOn(session),
     includesSecondCopy: includesSecondCopy(session),
@@ -2156,8 +2163,12 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
     return;
   }
 
+  if (payload.merchCatalogVariantId && (payload.merchQuotedCountry !== recipient.country_code || (["US", "CA", "AU"].includes(recipient.country_code) && payload.merchQuotedState !== recipient.state_code))) {
+    await persistProblemPrintOrder({ ...payload, printAssetUrl, status: "failed", error: "merch_shipping_destination_changed" });
+    return;
+  }
   const marginCheck = payload.merchCatalogVariantId
-    ? { allowed: true, code: "merch_margin_skipped" as const, minMarginCents: 0 }
+    ? evaluateMerchContribution({ catalogVariantId: payload.merchCatalogVariantId, amountTotalCents: payload.amountTotal, taxCents: payload.amountTax, currency: payload.currency, shippingCostUsdCents: payload.merchShippingCostUsdCents })
     : evaluatePrintMarginForPaidOrder({
         variant: payload.printVariant,
         shippingCountry: recipient.country_code,
@@ -2322,9 +2333,15 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
   if (await standDownIfFulfillmentMoved()) return;
 
   if (payload.merchCatalogVariantId) {
+    if (payload.merchDraftOrderId != null && !isPrintfulV2Configured()) {
+      await persistProblemPrintOrder({ ...payload, printAssetUrl, status: "failed", error: "merch_draft_reconciliation_unavailable" });
+      return;
+    }
     if (isPrintfulV2Configured()) {
       const family = payload.merchFamily ? getMerchFamily(payload.merchFamily) : null;
       const printfulResult = await submitPrintfulV2CatalogOrder({
+        contribution: { catalogVariantId: payload.merchCatalogVariantId, amountTotalCents: payload.amountTotal, taxCents: payload.amountTax, currency: payload.currency, shippingCostUsdCents: payload.merchShippingCostUsdCents },
+        existingDraftOrderId: existing?.merchDraftOrderId,
         externalId: session.id,
         catalogVariantId: payload.merchCatalogVariantId,
         fileUrl: printAssetUrl,
@@ -2340,6 +2357,8 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
           status: "failed",
           webhookStatus: printfulResult.status,
           error: printfulResult.error ?? "printful_v2_order_failed",
+          merchDraftOrderId: printfulResult.orderId,
+          merchProviderState: printfulResult.providerState,
         });
         return;
       }
@@ -2349,6 +2368,7 @@ async function queuePrintOrder(session: Stripe.Checkout.Session) {
         status: "sent",
         webhookStatus: printfulResult.status,
         printfulOrderId: printfulResult.orderId,
+        merchProviderState: printfulResult.providerState,
         sentAt: Date.now(),
         error: undefined,
         terminalEventType: null,

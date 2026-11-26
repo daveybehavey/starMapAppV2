@@ -96,6 +96,13 @@ export async function persistPrintOrderFailureLatestMerged(input: {
       ? latest.terminalEventType
       : failureRecord.terminalEventType,
   };
+  // A draft identity is not a fulfilled identity. Preserve it for operator reconciliation,
+  // without letting it seed the authority's bound/sent lifecycle.
+  if (failureRecord.merchDraftOrderId != null &&
+      (latest.merchDraftOrderId == null || String(latest.merchDraftOrderId) === String(failureRecord.merchDraftOrderId))) {
+    merged.merchDraftOrderId = failureRecord.merchDraftOrderId;
+    merged.merchProviderState = failureRecord.merchProviderState;
+  }
   if (failureRecord.webhookStatus !== undefined) {
     merged.webhookStatus = failureRecord.webhookStatus;
   }

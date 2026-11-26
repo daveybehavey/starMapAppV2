@@ -17,6 +17,8 @@ process.env.STARMAP_KV_DIR = fs.mkdtempSync(path.join(os.tmpdir(), `a3-retry-kv-
 process.env.STARMAP_PRINT_ORDER_AUTHORITY_LOCAL = "1";
 process.env.PRINT_ADMIN_TOKEN = "a3-test-admin-token";
 process.env.PRINT_ORDER_SUBMISSION_ENABLED = "1";
+// Synthetic reviewed variant costs; commerce guards remain active in race tests.
+process.env.MERCH_VARIANT_COSTS_JSON = "{\"10163\":{\"productCents\":300,\"providerTaxCents\":0,\"processingBps\":300,\"processingFixedCents\":30,\"fxBps\":200,\"replacementReserveCents\":50}}";
 process.env.STRIPE_SECRET_KEY = "sk_test_a3_placeholder";
 process.env.PRINT_FULFILLMENT_WEBHOOK_URL = "https://alternate.invalid/fulfill";
 
@@ -45,7 +47,7 @@ function paidSession(overrides = {}) {
     currency: "usd",
     payment_method_types: ["card"],
     metadata: { order_type: "print", print_variant: "poster_framed" },
-    total_details: { amount_discount: 0, breakdown: { discounts: [] } },
+    total_details: { amount_tax: 0, amount_discount: 0, breakdown: { discounts: [] } },
     customer_details: { email: "buyer@example.com", name: "Buyer", phone: "+12065550137" },
     customer_email: "buyer@example.com",
     shipping_details: {
@@ -125,7 +127,8 @@ async function seedCase(overrides = {}) {
 
 for (const merch of [false, true]) {
   const label = merch ? "V2" : "V1";
-  const recordOptions = merch ? { merchCatalogVariantId: 10163, merchFamily: "sticker_kisscut" } : {};
+  const recordOptions = merch ? { merchCatalogVariantId: 10163, merchFamily: "sticker_kisscut",
+    merchQuotedCountry: "US", merchQuotedState: "BC", merchShippingCostUsdCents: 500, amountTax: 0 } : {};
 
   test(label + ": alternate wins after native standing read; native submits zero", async (t) => {
     const { sessionId, dispatchId } = await seedCase(recordOptions);

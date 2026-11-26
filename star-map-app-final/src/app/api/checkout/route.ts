@@ -1,3 +1,4 @@
+import { evaluateMerchContribution } from "@/lib/merchContribution";
 import { androidAppCheckoutDecision, isAndroidAppModeRequest } from "@/lib/androidAppMode";
 import { NextRequest, NextResponse } from "next/server";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
@@ -80,6 +81,7 @@ import {
   applyMerchCheckoutMetadata,
   buildMerchCheckoutLineItem,
   getMerchShippingOptionsForCountry,
+  getMerchQuoteExpiresAt,
   resolveMerchForCheckout,
 } from "@/lib/merchCheckout";
 import {
@@ -1002,6 +1004,7 @@ function checkoutIdempotencyKey(input: {
   merchFamily?: MerchFamilyId;
   merchSize?: string;
   merchColor?: string;
+  merchStateCode?: string;
   shippingCountry?: string | null;
   promoCode?: string | null;
   referralCode?: string | null;
@@ -1026,6 +1029,7 @@ function checkoutIdempotencyKey(input: {
   const merchSize = normalizeIdempotencyToken(input.merchSize, 16);
   const merchColor = normalizeIdempotencyToken(input.merchColor, 16);
   const shipping = normalizeIdempotencyToken(input.shippingCountry, 8);
+  const merchQuoteSegment = input.merchFamily ? `:merch-quote-v2:${normalizeIdempotencyToken(input.merchStateCode, 3)}` : "";
   const promo = normalizeIdempotencyToken(input.promoCode, 48);
   const referral = normalizeIdempotencyToken(input.referralCode, 48);
   const emailSegment = input.customerEmail ? `:em${checkoutEmailIdempotencyTag(input.customerEmail)}` : "";
@@ -1052,6 +1056,7 @@ function checkoutIdempotencyKey(input: {
   // the QA segment), so every non-certificate key stays byte-identical
   // to before — the construction the existing pins assert is untouched.
   const certSegment = input.giftCertificate ? ":cert" : "";
+  if (merchFamily) return appendCheckoutIdempotencyQaSegment(`${baseWithoutMapId}${certSegment}${merchQuoteSegment}`, input.qaContext, mapId);
   return appendCheckoutIdempotencyQaSegment(`${baseWithoutMapId}${certSegment}`, input.qaContext, mapId);
 }
 
@@ -1092,7 +1097,7 @@ async function createCheckoutSession(input: {
   checkoutHandoff?: "browser" | "missing";
   idempotencyKey?: string;
   merchFamily?: MerchFamilyId;
-  merchOptions?: { size?: string; color?: string };
+  merchOptions?: { size?: string; color?: string; stateCode?: string };
   qaContext?: QaRequestContext;
   /** Instrumentation only: correlation id for best-effort timing counters. */
   correlationId?: string;
@@ -1282,7 +1287,8 @@ async function createCheckoutSession(input: {
         ? await getMerchShippingOptionsForCountry(
             resolvedMerch.catalogVariantId,
             resolvedShippingCountry,
-            checkoutCurrency
+            checkoutCurrency,
+            merchOptions?.stateCode
           )
         : isPrintOrder
           ? getPrintShippingOptionsForCountry(normalizedPrintVariant, resolvedShippingCountry, checkoutCurrency)
@@ -1344,6 +1350,8 @@ async function createCheckoutSession(input: {
     }
     if (resolvedMerch) {
       applyMerchCheckoutMetadata(metadata, resolvedMerch);
+      metadata.merch_shipping_state = merchOptions?.stateCode?.trim().toUpperCase() || "";
+      metadata.merch_shipping_cost_usd_cents = String(printShippingChargeCents);
     }
   } else {
     metadata.plan = effectivePlan;
@@ -1391,6 +1399,13 @@ async function createCheckoutSession(input: {
   const promotionEstimateLineItemsUsd: Array<{ amountCents: number; priceId?: string | null }> = [];
   if (isPrintOrder && isMerchOrder && resolvedMerch) {
     const merchLine = buildMerchCheckoutLineItem(resolvedMerch, checkoutCurrency);
+    if (typeof merchLine.lineItem.price === "string") {
+      const price = await stripe.prices.retrieve(merchLine.lineItem.price);
+      if (!price.active || price.currency !== checkoutCurrency || !Number.isSafeInteger(price.unit_amount) || (price.unit_amount ?? 0) <= 0) {
+        throw new CheckoutError("This product is temporarily unavailable.", "merch_price_unavailable", 503);
+      }
+      merchLine.promotionEstimate.amountCents = price.unit_amount!;
+    }
     lineItems.push(merchLine.lineItem);
     promotionEstimateLineItems.push(merchLine.promotionEstimate);
   } else if (isPrintOrder) {
@@ -1665,6 +1680,17 @@ async function createCheckoutSession(input: {
     metadata.promotion_discount_estimate_cents = String(estimatedPromotionDiscountCents);
   }
 
+  if (resolvedMerch) {
+    const subtotal = promotionEstimateLineItems.reduce((sum, item) => sum + item.amountCents, 0);
+    const presentedShipping = printShippingOptions?.[0]?.shipping_rate_data?.fixed_amount?.amount;
+    const margin = evaluateMerchContribution({
+      catalogVariantId: resolvedMerch.catalogVariantId,
+      amountTotalCents: typeof presentedShipping === "number" ? subtotal - estimatedPromotionDiscountCents + presentedShipping : null,
+      taxCents: 0, currency: checkoutCurrency, shippingCostUsdCents: printShippingChargeCents,
+    });
+    if (!margin.allowed) throw new CheckoutError("This product is temporarily unavailable for this destination. Please choose another format.", margin.code, 503);
+  }
+
   if (isPrintOrder && !isMerchOrder) {
     // USD mirror lines: the free-shipping threshold is a USD figure
     // (design §3.5), so eligibility reads the USD subtotal even for a
@@ -1747,11 +1773,11 @@ async function createCheckoutSession(input: {
     success_url: successUrl,
     cancel_url: cancelUrl,
     // 2h TTL so abandoned sessions expire promptly and recovery emails can fire.
-    expires_at: getCheckoutSessionExpiresAt(),
+    expires_at: isMerchOrder ? getMerchQuoteExpiresAt() : getCheckoutSessionExpiresAt(),
     after_expiration: {
       recovery: {
-        enabled: true,
-        ...(allowPromotionCodes ? { allow_promotion_codes: true } : {}),
+        enabled: !isMerchOrder,
+        ...(allowPromotionCodes && !isMerchOrder ? { allow_promotion_codes: true } : {}),
       },
     },
     client_reference_id: mapId,
@@ -1763,7 +1789,7 @@ async function createCheckoutSession(input: {
     ...(isCadCheckout ? { adaptive_pricing: { enabled: false } } : {}),
     metadata,
     subscription_data: !isPrintOrder && effectivePlan === "subscription" ? { metadata } : undefined,
-    ...(allowPromotionCodes && !promotionCodeId ? { allow_promotion_codes: true } : {}),
+    ...(allowPromotionCodes && !isMerchOrder && !promotionCodeId ? { allow_promotion_codes: true } : {}),
     discounts: promotionCodeId ? [{ promotion_code: promotionCodeId }] : undefined,
     // Print and digital both use Stripe `auto` billing collection. Printful
     // fulfills from the shipping recipient address, not the billing address
@@ -2451,6 +2477,7 @@ export async function POST(req: NextRequest) {
     let merchFamily: MerchFamilyId | undefined;
     let merchSize: string | undefined;
     let merchColor: string | undefined;
+    let merchStateCode: string | undefined;
     let printAssetId: string | undefined;
     let cardPrintAssetId: string | undefined;
     let recipeFingerprint: string | undefined;
@@ -2472,7 +2499,7 @@ export async function POST(req: NextRequest) {
         isGift?: boolean;
         giftCertificate?: boolean;
         merchFamily?: string;
-        merchOptions?: { size?: string; color?: string };
+        merchOptions?: { size?: string; color?: string; stateCode?: string };
         printAssetId?: string;
         cardPrintAssetId?: string;
         recipeFingerprint?: string;
@@ -2499,6 +2526,7 @@ export async function POST(req: NextRequest) {
         merchFamily = body.merchFamily.trim() as MerchFamilyId;
       }
       if (body?.merchOptions && typeof body.merchOptions === "object") {
+        if (typeof body.merchOptions.stateCode === "string") merchStateCode = body.merchOptions.stateCode.trim().toUpperCase().slice(0, 3);
         if (typeof body.merchOptions.size === "string" && body.merchOptions.size.trim()) {
           merchSize = body.merchOptions.size.trim();
         }
@@ -2753,6 +2781,7 @@ export async function POST(req: NextRequest) {
       merchFamily,
       merchSize,
       merchColor,
+      merchStateCode,
       shippingCountry: shippingCountry ?? null,
       promoCode: promoCode ?? null,
       referralCode: referral.code ?? null,
@@ -2838,7 +2867,7 @@ export async function POST(req: NextRequest) {
       isGift,
       giftCertificate,
       merchFamily,
-      merchOptions: merchFamily ? { size: merchSize, color: merchColor } : undefined,
+      merchOptions: merchFamily ? { size: merchSize, color: merchColor, stateCode: merchStateCode } : undefined,
       qaContext,
       correlationId,
       timing,
