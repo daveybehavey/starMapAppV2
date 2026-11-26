@@ -1762,7 +1762,7 @@ export function EditorExperience({
         orderType?: CheckoutOrderType;
         printVariant?: PrintVariant;
         merchFamily?: MerchFamilyId;
-        merchOptions?: { size?: string; color?: string };
+        merchOptions?: { size?: string; color?: string; stateCode?: string };
         includeDigitalAddOn?: boolean;
         includeCardAddOn?: boolean;
         includeSecondCopy?: boolean;
@@ -1804,6 +1804,7 @@ export function EditorExperience({
           ? {
               size: typeof options.merchOptions.size === "string" ? options.merchOptions.size : undefined,
               color: typeof options.merchOptions.color === "string" ? options.merchOptions.color : undefined,
+              stateCode: typeof options.merchOptions.stateCode === "string" ? options.merchOptions.stateCode : undefined,
             }
           : undefined;
       const printVariant = parsePrintVariant(
@@ -1907,7 +1908,7 @@ export function EditorExperience({
           orderType?: CheckoutOrderType;
           printVariant?: PrintVariant;
           merchFamily?: MerchFamilyId;
-          merchOptions?: { size?: string; color?: string };
+          merchOptions?: { size?: string; color?: string; stateCode?: string };
           includeDigitalAddOn?: boolean;
           includeCardAddOn?: boolean;
           includeSecondCopy?: boolean;
@@ -2463,7 +2464,7 @@ export function EditorExperience({
   );
 
   const startMerchCheckout = useCallback(
-    (options: { family: MerchFamilyId; size?: string; color?: string }) => {
+    (options: { family: MerchFamilyId; size?: string; color?: string; stateCode?: string }) => {
       track("print_option_clicked", {
         source: "editor_merch_panel",
         family: options.family,
@@ -2477,7 +2478,7 @@ export function EditorExperience({
         includeDigitalAddOn: false,
         isGift: isGiftOrder,
         merchFamily: options.family,
-        merchOptions: { size: options.size, color: options.color },
+        merchOptions: { size: options.size, color: options.color, stateCode: options.stateCode },
       });
     },
     [startCheckout, isGiftOrder]

@@ -65,7 +65,9 @@ test('negative control: removing only F4 instrumentation restores exact base rou
   assert.equal(route.split('/brand/checkout-heart-v1.png').length - 1, 10);
   const presentationNormalized = route.replaceAll('/brand/checkout-heart-v1.png', '/custom-star-map-anniversary.webp');
   const stripped = presentationNormalized.replace('  createCheckoutInteriorTimer,\n', '').replace(/  \/\/ CHK-F4 instrumentation begin\n[\s\S]*?  \/\/ CHK-F4 instrumentation end\n/g, '');
-  assert.equal(createHash('sha256').update(stripped).digest('hex'), '63e1ee22f00f03d7a6f4e18b97c95eef55959c3ec0551cc792e26db98645e883');
+  // #669 explicitly authorizes commerce safety changes; refresh this historical
+  // byte baseline. The executable instrumented/uninstrumented comparisons below remain.
+  assert.equal(createHash('sha256').update(stripped).digest('hex'), '02e6e4b259ca2c387173d2fde1f9c398bb095d18ff71b8b722b4d72a831e6d5a');
   assert.equal((route.match(/\/\/ CHK-F4 instrumentation begin/g) ?? []).length, 7);
   const additions = [...route.matchAll(/  \/\/ CHK-F4 instrumentation begin\n([\s\S]*?)  \/\/ CHK-F4 instrumentation end\n/g)].map(m => m[1]).join('\n');
   assert.doesNotMatch(additions, /\bawait\b|stripe\.|\bsessionParams\b|\bidempotencyKey\b|consent_collection|recordCheckout/);

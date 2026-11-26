@@ -123,8 +123,9 @@ function getVariantLabel(order: PrintOrderRecord) {
 }
 
 function getPrintfulReviewUrl(order: PrintOrderRecord) {
-  if (order.printfulOrderId) {
-    return `https://www.printful.com/dashboard/default/orders/${encodeURIComponent(String(order.printfulOrderId))}`;
+  const reviewOrderId = order.printfulOrderId ?? order.merchDraftOrderId;
+  if (reviewOrderId) {
+    return `https://www.printful.com/dashboard/default/orders/${encodeURIComponent(String(reviewOrderId))}`;
   }
   return "https://www.printful.com/dashboard/default/orders";
 }

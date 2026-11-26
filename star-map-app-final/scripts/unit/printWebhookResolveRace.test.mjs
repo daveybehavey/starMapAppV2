@@ -58,6 +58,8 @@ process.env.STARMAP_KV_DIR = fs.mkdtempSync(path.join(os.tmpdir(), `n1-webhook-k
 process.env.STARMAP_PRINT_ORDER_AUTHORITY_LOCAL = "1";
 process.env.PRINT_ADMIN_TOKEN = "n1-test-admin-token";
 process.env.PRINT_ORDER_SUBMISSION_ENABLED = "1";
+// Synthetic reviewed variant costs; commerce guards remain active in race tests.
+process.env.MERCH_VARIANT_COSTS_JSON = "{\"12345\":{\"productCents\":300,\"providerTaxCents\":0,\"processingBps\":300,\"processingFixedCents\":30,\"fxBps\":200,\"replacementReserveCents\":50}}";
 process.env.STRIPE_SECRET_KEY = "sk_test_n1_placeholder";
 process.env.STRIPE_WEBHOOK_SECRET = "whsec_n1_placeholder";
 delete process.env.PRINT_FULFILLMENT_WEBHOOK_URL;
@@ -111,7 +113,7 @@ function printSession(sessionId, overrides = {}) {
       print_asset_id: PRINT_ASSET_ID,
       qa_run: "true",
     },
-    total_details: { amount_discount: 0, breakdown: { discounts: [] } },
+    total_details: { amount_tax: 0, amount_discount: 0, breakdown: { discounts: [] } },
     ...overrides,
   };
 }
@@ -123,6 +125,9 @@ function merchSession(sessionId) {
       print_asset_id: PRINT_ASSET_ID,
       print_merch_family: "sticker_kisscut",
       print_merch_catalog_variant_id: "12345",
+      print_shipping_country: "US",
+      merch_shipping_state: "BC",
+      merch_shipping_cost_usd_cents: "500",
       qa_run: "true",
     },
   });

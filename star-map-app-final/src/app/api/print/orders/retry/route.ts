@@ -1,3 +1,4 @@
+import { evaluateMerchContribution } from "@/lib/merchContribution";
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { isDurableKvPersistenceError, kv } from "@/lib/kv";
@@ -570,8 +571,11 @@ async function postRetryPrintOrder(req: NextRequest) {
     return NextResponse.json({ ok: false, error: failed.error, order: sanitizePrintOrderForOperatorResponse(failed) }, { status: 400 });
   }
 
+  if (hydrated.merchCatalogVariantId && (hydrated.merchQuotedCountry !== recipient.country_code || (["US", "CA", "AU"].includes(recipient.country_code) && hydrated.merchQuotedState !== recipient.state_code))) {
+    return NextResponse.json({ ok: false, error: "merch_shipping_destination_changed" }, { status: 409 });
+  }
   const marginCheck = hydrated.merchCatalogVariantId
-    ? { allowed: true, code: "merch_margin_skipped" as const, minMarginCents: 0 }
+    ? evaluateMerchContribution({ catalogVariantId: hydrated.merchCatalogVariantId, amountTotalCents: hydrated.amountTotal, taxCents: hydrated.amountTax, currency: hydrated.currency, shippingCostUsdCents: hydrated.merchShippingCostUsdCents })
     : evaluatePrintMarginForPaidOrder({
         variant: hydrated.printVariant,
         shippingCountry: recipient.country_code,
@@ -592,6 +596,9 @@ async function postRetryPrintOrder(req: NextRequest) {
     return NextResponse.json({ ok: false, error: failed.error, order: sanitizePrintOrderForOperatorResponse(failed) }, { status: 400 });
   }
 
+  if (hydrated.merchDraftOrderId != null && !isPrintfulV2Configured()) {
+    return NextResponse.json({ ok: false, error: "merch_draft_reconciliation_unavailable" }, { status: 503 });
+  }
   const isMerchRetry = Boolean(hydrated.merchCatalogVariantId);
   const hasNativeDestination = isMerchRetry ? isPrintfulV2Configured() : isPrintfulConfigured();
   if (!hasNativeDestination && !printFulfillmentWebhookUrl) {
@@ -696,7 +703,9 @@ async function postRetryPrintOrder(req: NextRequest) {
   const now = Date.now();
 
   let nativeDispatchAttempted: PrintOrderRecord | undefined;
-  if (hasNativeDestination) {
+  // A retained draft uses only GET reconciliation below. Never clear a standing
+  // dispatch claim/marker or issue a second create/confirmation from this path.
+  if (hasNativeDestination && !(isMerchRetry && hydrated.merchDraftOrderId != null)) {
     const blockedByAlternateStanding = await refuseNativeIfAlternateDispatchStanding();
     if (blockedByAlternateStanding) return blockedByAlternateStanding;
 
@@ -772,6 +781,8 @@ async function postRetryPrintOrder(req: NextRequest) {
     // bind/review outcome handling exactly.
     const family = hydrated.merchFamily ? getMerchFamily(hydrated.merchFamily) : null;
     const printfulV2 = await submitPrintfulV2CatalogOrder({
+      contribution: { catalogVariantId: hydrated.merchCatalogVariantId, amountTotalCents: hydrated.amountTotal, taxCents: hydrated.amountTax, currency: hydrated.currency, shippingCostUsdCents: hydrated.merchShippingCostUsdCents },
+      existingDraftOrderId: hydrated.merchDraftOrderId,
       externalId: sessionId,
       catalogVariantId: hydrated.merchCatalogVariantId as number,
       fileUrl: printAssetUrl,
@@ -787,6 +798,8 @@ async function postRetryPrintOrder(req: NextRequest) {
         printAssetUrl,
         webhookStatus: printfulV2.status,
         error: printfulV2.error ?? "printful_v2_order_failed",
+        merchDraftOrderId: printfulV2.orderId,
+        merchProviderState: printfulV2.providerState,
       });
       return NextResponse.json({ ok: false, error: failed.error, order: sanitizePrintOrderForOperatorResponse(failed) }, { status: 502 });
     }
@@ -797,6 +810,7 @@ async function postRetryPrintOrder(req: NextRequest) {
       printAssetUrl,
       webhookStatus: printfulV2.status,
       printfulOrderId: printfulV2.orderId,
+      merchProviderState: printfulV2.providerState,
       alternateDispatch: {
         dispatchId: alternateFulfillmentDispatchId(sessionId),
         state: "accepted",

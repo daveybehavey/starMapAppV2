@@ -167,7 +167,7 @@ test("manual-code discount rejection never degrades to a silent full-price sessi
   );
   assert.match(
     route,
-    /allowPromotionCodes && !promotionCodeId \? \{ allow_promotion_codes: true \} : \{\}/,
+    /allowPromotionCodes && !isMerchOrder && !promotionCodeId \? \{ allow_promotion_codes: true \} : \{\}/,
     "hosted promo entry must stay suppressed when a code is selected"
   );
 });

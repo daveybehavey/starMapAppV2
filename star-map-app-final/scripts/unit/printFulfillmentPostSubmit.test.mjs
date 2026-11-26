@@ -1223,8 +1223,9 @@ test("S96-1 F3/F8: source wiring — stamps, merge persist, and the sweep runtim
 });
 
 test("S96-1 F4: retry route dispatch parity with the webhook (source pins)", () => {
-  // Merch margin skip — the poster margin model must not gate merch.
-  assert.match(retrySource, /merch_margin_skipped/);
+  // Merchandise uses its own contribution model, not the poster margin model.
+  assert.match(retrySource, /evaluateMerchContribution\(/);
+  assert.doesNotMatch(retrySource, /merch_margin_skipped/);
   // Merch with V2 configured goes through the catalog path with the
   // webhook's argument shape (family placement/technique/label).
   assert.match(retrySource, /submitPrintfulV2CatalogOrder\(\{/);

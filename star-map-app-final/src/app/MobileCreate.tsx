@@ -90,7 +90,7 @@ interface MobileCreateProps {
   onMerchFamilyChange?: (family: MerchFamilyId) => void;
   onMerchSizeChange?: (size: string) => void;
   onMerchColorChange?: (color: string) => void;
-  onStartMerchCheckout?: (options: { family: MerchFamilyId; size?: string; color?: string }) => void;
+  onStartMerchCheckout?: (options: { family: MerchFamilyId; size?: string; color?: string; stateCode?: string }) => void;
   merchCheckoutInFlight?: boolean;
   merchCheckoutError?: string | null;
   requestedMerchFamilyLabel?: string | null;

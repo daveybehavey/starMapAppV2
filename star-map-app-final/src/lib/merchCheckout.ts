@@ -15,6 +15,11 @@ import {
 import { MerchResolutionError, resolveMerchSelection, type ResolvedMerchVariant } from "@/lib/merchResolver";
 import { fetchPrintfulV2ShippingRate } from "@/lib/printfulShippingRatesV2";
 
+/** Stable within a minute; keeps provider retries idempotent and quotes short-lived. */
+export function getMerchQuoteExpiresAt(nowMs = Date.now()): number {
+  return Math.floor(nowMs / 60_000) * 60 + 32 * 60;
+}
+
 export class MerchCheckoutError extends Error {
   code: string;
   status: number;
@@ -49,20 +54,25 @@ export async function getMerchShippingOptionsForCountry(
   catalogVariantId: number,
   shippingCountry: string | null,
   currency: CheckoutCurrency = "usd",
+  stateCode?: string,
 ): Promise<{
   shippingOptions: Stripe.Checkout.SessionCreateParams.ShippingOption[] | undefined;
   shippingChargeCents: number | null;
 }> {
   if (!shippingCountry) {
-    return { shippingOptions: undefined, shippingChargeCents: null };
+    throw new MerchCheckoutError("Select a shipping country to continue.", "merch_shipping_country_required");
   }
 
+  if (["US", "CA", "AU"].includes(shippingCountry) && !stateCode?.trim()) {
+    throw new MerchCheckoutError("Enter your province or state code to calculate shipping.", "merch_shipping_state_required");
+  }
   const rate = await fetchPrintfulV2ShippingRate({
     catalogVariantId,
     countryCode: shippingCountry,
-  });
-  if (!rate || !Number.isFinite(rate.rate)) {
-    return { shippingOptions: undefined, shippingChargeCents: null };
+    stateCode,
+  }).catch(() => null);
+  if (!rate || !Number.isFinite(rate.rate) || rate.rate < 0 || rate.currency !== "USD") {
+    throw new MerchCheckoutError("Shipping is temporarily unavailable for this destination. Please try again.", "merch_shipping_quote_unavailable", 503);
   }
 
   // The Printful v2 quote is requested in USD (printfulShippingRatesV2

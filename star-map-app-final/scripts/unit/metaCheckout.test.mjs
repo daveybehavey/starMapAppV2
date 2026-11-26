@@ -334,9 +334,11 @@ test("A7 actual env gates reject disabled merch families", async () => {
 // Re-pin record (2026-11-13, bridge run-chkf4): operator-authorized interior timing only.
 // checkoutInteriorTiming.test.mjs proves the route minus F4 additions matches the base bytes
 // and executes baseline/instrumented sessions for payload, idempotency and F3 consent parity.
-test("Tier C fence: checkout route and promotion policy match base 905ac521 blobs", () => {
+// #669: explicit owner approval supersedes the old checkout-change fence for these
+// four safety fixes. Re-pin the reviewed draft; promotion policy remains unchanged.
+test("Tier C fence: checkout safety draft and unchanged promotion policy match approved scope", () => {
   for (const [file, expected] of [
-    ["src/app/api/checkout/route.ts", "03e5c24db0d0a0f300c064175752a57591e2b71d"],
+    ["src/app/api/checkout/route.ts", "d86f3d8040c739c6a032a160f12772b3a66454de"],
     ["src/lib/checkoutPromotions.ts", "927699d1920cc4905f7bbe20c75daaf728a2e467"],
   ]) {
     // #667: allow only the owner-requested image URL delta; keep the original

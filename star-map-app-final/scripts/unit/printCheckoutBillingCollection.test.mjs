@@ -91,13 +91,13 @@ test("print Checkout still collects shipping address and phone; ToS is disclosur
   );
   assert.match(
     route,
-    /expires_at:\s*getCheckoutSessionExpiresAt\(\)/,
-    "checkout sessions must set a 2h expires_at"
+    /expires_at:\s*isMerchOrder \? getMerchQuoteExpiresAt\(\) : getCheckoutSessionExpiresAt\(\)/,
+    "merchandise sessions must have a bounded quote lifetime; other sessions keep their existing expiry"
   );
   assert.match(
     route,
-    /after_expiration:\s*\{\s*recovery:\s*\{\s*enabled:\s*true/,
-    "after_expiration.recovery must remain enabled"
+    /after_expiration:\s*\{\s*recovery:\s*\{\s*enabled:\s*!isMerchOrder/,
+    "recovery must stay disabled for merchandise so a stale quote cannot be revived"
   );
   assert.match(
     route,

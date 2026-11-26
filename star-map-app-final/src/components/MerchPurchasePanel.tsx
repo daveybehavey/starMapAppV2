@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import MerchSizeGuidePanel from "@/components/MerchSizeGuidePanel";
 import { getMerchSizeGuide } from "@/lib/merchSizeGuide";
 import { MERCH_POLICY_LINE } from "@/lib/loveItGuarantee";
@@ -19,7 +20,7 @@ export type MerchPurchasePanelProps = {
   onFamilyChange: (family: MerchFamilyId) => void;
   onSizeChange: (size: string) => void;
   onColorChange: (color: string) => void;
-  onCheckout: (options: { family: MerchFamilyId; size?: string; color?: string }) => void;
+  onCheckout: (options: { family: MerchFamilyId; size?: string; color?: string; stateCode?: string }) => void;
   checkoutInFlight: boolean;
   shippingCountryMissing: boolean;
   checkoutError?: string | null;
@@ -38,6 +39,7 @@ export function MerchPurchasePanel({
   shippingCountryMissing,
   checkoutError,
 }: MerchPurchasePanelProps) {
+  const [stateCode, setStateCode] = useState("");
   const family = families.find((f) => f.id === familyId) ?? null;
   const isApparel = isApparelMerchFamily(familyId);
   const apparelSizeMissing = isApparel && !size;
@@ -141,11 +143,18 @@ export function MerchPurchasePanel({
           </>
         ) : null}
       </div>
+      <label className="mt-3 block text-sm text-amber-100">
+        Shipping province / state code (required for Canada, US and Australia)
+        <input value={stateCode} onChange={(event) => setStateCode(event.target.value.toUpperCase())}
+          autoComplete="address-level1" maxLength={3} placeholder="e.g. BC, CA, NSW"
+          className="mt-1 w-full rounded-lg bg-white px-3 py-2 text-black" />
+      </label>
       <button
         type="button"
         onClick={() =>
           onCheckout({
             family: familyId,
+            stateCode: stateCode.trim(),
             size: isApparel ? size : size || families.find((f) => f.id === familyId)?.options.size?.[0] || undefined,
             color: color || families.find((f) => f.id === familyId)?.options.color?.[0] || undefined,
           })
