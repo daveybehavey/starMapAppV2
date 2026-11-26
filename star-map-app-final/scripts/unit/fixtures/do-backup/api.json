@@ -1,0 +1,49 @@
+{
+  "namespacesPage1": {
+    "success": true,
+    "result": [
+      {
+        "id": "ns-entitlement-authority",
+        "class": "EntitlementAuthorityDO",
+        "name": "ENTITLEMENT_AUTHORITY",
+        "script": "star-map-final",
+        "use_sqlite": true
+      },
+      {
+        "id": "ns-print-order",
+        "class": "PrintOrderAuthorityDO",
+        "name": "PRINT_ORDER_AUTHORITY",
+        "script": "star-map-final",
+        "use_sqlite": true
+      },
+      {
+        "id": "ns-other-script",
+        "class": "OtherDO",
+        "name": "OTHER",
+        "script": "other-worker",
+        "use_sqlite": true
+      }
+    ],
+    "result_info": { "page": 1, "per_page": 100, "total_pages": 1, "total_count": 3 }
+  },
+  "eaObjects": {
+    "success": true,
+    "result": [
+      { "id": "ea-id-derived-1", "name": "cs_fixture_derived", "hasStoredData": true },
+      { "id": "ea-id-census-only", "name": "cs_fixture_census_only", "hasStoredData": true }
+    ],
+    "result_info": { "cursor": "" }
+  },
+  "printObjects": {
+    "success": true,
+    "result": [
+      { "id": "print-id-1", "hasStoredData": true }
+    ],
+    "result_info": { "cursor": "" }
+  },
+  "emptyObjects": {
+    "success": true,
+    "result": [],
+    "result_info": { "cursor": "" }
+  }
+}
